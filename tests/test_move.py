@@ -256,8 +256,9 @@ class MoveTest(MoveCase):
                                 "--progress", "ok\n- **Held:** blocked: x")
         self.assertEqual(code, 0, err)
         head = self.text(path).split("## Goal")[0]
-        self.assertEqual(head.count("- **Stage:**"), 1)
-        self.assertNotIn("- **Held:**", self.text(path).split("## Goal")[0])
+        starts = [line.split(":**")[0] for line in head.splitlines() if line.startswith("- **")]
+        self.assertEqual(starts.count("- **Stage"), 1)
+        self.assertNotIn("- **Held", starts)
         self.assertEqual(self.column_of()[0], "designing")
 
 
