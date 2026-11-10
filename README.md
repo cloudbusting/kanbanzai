@@ -183,6 +183,7 @@ skill = "kanbanzai:build"
 kanbanzai board [--json]                 the board
 kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--takeover R]|renew ID|release ID|heartbeat
+kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai number [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
@@ -191,6 +192,16 @@ kanbanzai config [--json]                the resolved settings
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init                           set a project up
 ```
+
+**Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
+`TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done
+column of the step it is in). One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
+**Where**, **Held**, a dated **Progress** line, **Done**), in one atomic rewrite of the brief, moving its folder for
+Paused and Done. It refuses (exit 2) an unknown column or card, a skipped step, a move into a Doing column without
+your claim, a Held card (add `--clear-held`), a column that needs a worktree the card has not got, leaving Paused
+(only the owner un-parks a card) and Done without `--done`; and (exit 3) a card another live session holds.
+`--force --reason "<why>"` overrides every refusal but an unknown column or card, another session's live claim and a
+missing `--done`. Each move is a line in `<state>/moves.jsonl`.
 
 A claim's owner is the session, so it survives a restart: `opencode:<session id>` in OpenCode, `claude:<session id>`
 in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `session_id` on its stdin). Only a shell

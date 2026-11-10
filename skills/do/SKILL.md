@@ -64,8 +64,10 @@ ship, is never QA-approved, and is closed from Checked straight to Done (step 5)
 has no deploy skill: `kanbanzai step deploy-qa` has none, so a Checked card closes.
 
 **A step moves the card twice: into its Doing column when it starts, into its Done column when it ends.** The session
-moves the card to the step's Doing word first (right after the claim, and after the worktree exists for Building and
-later), then to the Done word with the new Next action (the update below). It keeps its claim while it carries
+moves the card with `kanbanzai move <ID> start` first (right after the claim, and after the worktree exists for
+Building and later), then `kanbanzai move <ID> finish` with the new Next action (the update below). **A session never
+edits a brief's Stage line by hand**: the command sets Stage, Updated and the rest in one write, and refuses a skipped
+step. It keeps its claim while it carries
 straight on to the next step, and releases it only at a stop, so another session can never take a card between two of
 its steps. `kanbanzai step --for <ID>` prints both words ("start: Stage `building`; finish: Stage `built`"). A project
 whose columns have no Doing column has only the second move: its claim is the doing.
@@ -130,17 +132,18 @@ stay in the chat.
 
 The brief is the card's only record and what a new session resumes from. An open card's brief stays in its folder
 from the first column to the last open one; only a card that is paused or done moves, to that
-column's folder (`git mv`; `kanbanzai config` lists the folders). Update it twice per step.
+column's folder (`kanbanzai move` does it; `kanbanzai config` lists the folders). Update it twice per step.
 
 **First, when the step starts** (right after the claim; for Building and later, after the worktree exists and
-**Where** is set): set **Stage** to the step's Doing word (`kanbanzai step --for <ID>` prints it: "start: Stage
-`building`") and **Updated**. A settled Todo card goes straight to `building`. A card already in the Doing column
-(resumed) needs no move.
+**Where** is set): `kanbanzai move <ID> start` (add `--where "worktree <ID>"` for Building and later). It puts the
+card in the Doing column `kanbanzai step --for <ID>` prints ("start: Stage `building`") and sets **Updated**. A
+settled Todo card goes straight to `building`. A card already in the Doing column (resumed) needs no move.
 
 **Last, after every step**, update all three:
 
-- the brief's head: **Stage** (the Done word of the step just finished), **Updated**, **Where** and the new **Next
-  action**; tick the tasks and add a dated line to Progress;
+- the brief: `kanbanzai move <ID> finish --next "<the new Next action>" --progress "<what the step did>"` (it sets
+  **Stage** to the Done word of the step just finished, **Updated**, **Next action** and the dated Progress line, in
+  one write; add `--where` when it changed); tick the tasks by hand;
 - the claim: `kanbanzai claim renew <ID>`, so the lease stays ahead of the work;
 - the **Comments**: append one only when the next session must know something; otherwise leave them alone.
 
@@ -323,8 +326,9 @@ A card is closed once all its work is done, committed and, when it ships, shippe
 - **The branch is merged** into the main branch from the main checkout (`git merge --no-ff <branch>`; a card that ships
   was merged by `/check`). Pushing waits for the owner, except where the project's deploy step pushes the commit it
   ships.
-- **The brief** goes to the done column's folder (`git mv`) with **Stage** `done`, its **Done** line (the date
-  first, then the commit and what went live, or "no deploy"), Next action `—` and Where `main`. Nothing is deleted: a
+- **The brief** goes to the done column's folder with `kanbanzai move <ID> done --done "<the date, the commit and
+  what went live, or no deploy>"`, which sets **Stage** `done`, the **Done** line, Next action `—` and Where `main`
+  in one step. Nothing is deleted: a
   finished card keeps its brief. Do not change its decision record: its card line already names the card.
 - **Release the claim** (`kanbanzai claim release <ID>`), and remove the worktree and branch.
 - **Report to the owner** in a few lines: what changed, why, any risk, and how to try it. Plain language, no code
