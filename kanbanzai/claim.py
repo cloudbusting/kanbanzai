@@ -310,8 +310,8 @@ def hook_session() -> None:
     """A Claude Code hook gets the session id on stdin (``session_id``); the environment is not promised to carry
     it. Offer it as CLAUDE_CODE_SESSION_ID so the hook labels itself as the session's shells do. Anything odd on
     stdin is ignored, and a variable already set wins."""
-    if (os.environ.get("CLAUDE_CODE_SESSION_ID") or "").strip():
-        return
+    if (os.environ.get("CLAUDE_CODE_SESSION_ID") or "").strip() or sys.stdin is None or sys.stdin.isatty():
+        return  # already labelled, or run by hand: never wait on a terminal
     try:
         data = json.loads(sys.stdin.read())
         session = data.get("session_id") if isinstance(data, dict) else None
