@@ -164,7 +164,7 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
     folder. Open columns are in card-number order; Done is newest first by its Done date.
     """
     owners = live_claims(project) if claims is None else claims
-    by_card = sessions.for_claims(owners)
+    by_card = sessions.for_claims(owners, project)
     problems: list[str] = []
     by_column: dict[str, list[dict]] = {c.key: [] for c in project.columns}
     by_column_def = project.by_key
