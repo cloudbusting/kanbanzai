@@ -224,3 +224,23 @@ test("one message per ask: still asking is silent, answered and asked again rais
   for (let i = 0; i < 8; i += 1) await settle();
   assert.equal(vscode.warnings.length, 2);
 }, [NONE, ASK, ASK, answer({ "W-12": rec("busy") }), ASK]));
+
+test("closing an asking toast with its ✕ keeps it closed through the next redraw (its key has a colon)", () => run([
+  board({ building: [card("W-12", { session: rec("busy") })] }),
+  board({ building: [card("W-12", { session: rec("waiting") })] }),
+  board({ building: [card("W-12", { session: rec("waiting") }), card("W-13")] }),
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  panel.viewState({}); await settle();
+  assert.ok(toastsIn(panel).some((t) => t[1] === "ask:W-12"), "the ask is shown");
+  panel.message({ type: "toast-close", key: "ask:W-12" });
+  panel.message({ type: "toast-close", key: "ask:../x" }); // still refused
+  panel.viewState({}); await settle();
+  assert.ok(!toastsIn(panel).some((t) => t[1] === "ask:W-12"), "closed stays closed");
+}));
+
+test("a failed poll keeps the last good answer as the baseline: the ask after it is still announced, once", () => run([board({})], async ({ vscode }) => {
+  for (let i = 0; i < 8; i += 1) await settle();
+  assert.equal(vscode.warnings.length, 1);
+}, [NONE, null, ASK]));
