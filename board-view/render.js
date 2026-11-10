@@ -22,6 +22,7 @@ const MARKS = {
   paused: { glyph: '⏸', text: 'Paused' },
 };
 const CLAIMED_GLYPH = '●';
+const INTERRUPTED_TEXT = 'Interrupted: the step was under way and no session holds it';
 
 function esc(value) {
   return String(value === undefined || value === null ? '' : value)
@@ -70,9 +71,14 @@ function cardHtml(card, colKey, ownerName) {
   if (mark) classes.push(`mark-${mark}`);
   if (owner) classes.push('claimed');
   if (colKey === 'done') classes.push('done');
+  if (c.interrupted === true) {
+    hover.push(INTERRUPTED_TEXT);
+    classes.push('interrupted');
+  }
 
   let glyphs = '';
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
+  if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
   if (owner) glyphs += `<span class="glyph glyph-claimed" title="${esc(`Claimed by ${owner}`)}">${CLAIMED_GLYPH}</span>`;
 
   let body = `<div class="head"><span class="id">${esc(id)}</span>${glyphs}</div>`;
@@ -94,6 +100,10 @@ function columnHtml(key, name, cardsHtml, count, collapsed) {
     + `<div class="cards">${cardsHtml.join('')}</div></section>`;
 }
 
+function laneHtml(lane) {
+  return `<div class="lane"><div class="lane-name">${esc(lane.name)}</div><div class="lane-cols">${lane.cols.join('\n')}</div></div>`;
+}
+
 function boardColumns(board, collapsedKeys, owner) {
   const b = obj(board);
   const shut = new Set(arr(collapsedKeys).map(String));
@@ -104,11 +114,22 @@ function boardColumns(board, collapsedKeys, owner) {
   }
   const out = [];
   const order = byKey.size ? [...byKey.keys()].map((key) => [key, String(byKey.get(key).name || key)]) : COLUMNS;
+  // Consecutive columns sharing a non-empty lane (a step's Doing and Done) are drawn as one block under the lane name.
+  let lane = null;
   for (const [key, name] of order) {
     const col = byKey.get(key);
     const cards = arr(col && col.cards);
-    out.push(columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner)), cards.length, shut.has(key)));
+    const html = columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner)), cards.length, shut.has(key));
+    const laneName = col && col.lane ? String(col.lane) : '';
+    if (lane && lane.name !== laneName) {
+      out.push(laneHtml(lane));
+      lane = null;
+    }
+    if (!laneName) out.push(html);
+    else if (lane) lane.cols.push(html);
+    else lane = { name: laneName, cols: [html] };
   }
+  if (lane) out.push(laneHtml(lane));
   return out;
 }
 
@@ -132,6 +153,13 @@ const STYLE = `
   .problems div { margin: 2px 0; }
   .error { padding: 8px; color: var(--vscode-errorForeground); white-space: pre-wrap; }
   .board { flex: 1; min-height: 0; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
+  .lane { flex: none; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+  .lane-name {
+    flex: none; padding: 0 6px; font-weight: 600; text-transform: uppercase; font-size: 0.85em;
+    color: var(--vscode-descriptionForeground);
+    border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+  }
+  .lane-cols { flex: 1; min-height: 0; display: flex; gap: 6px; align-items: stretch; }
   .col {
     flex: none; width: 170px; min-height: 0;
     display: flex; flex-direction: column;
@@ -176,6 +204,7 @@ const STYLE = `
   .card.claimed { border-left-color: var(--vscode-focusBorder); }
   .card.mark-blocked { border-left-color: var(--vscode-errorForeground); }
   .card.mark-waiting-owner, .card.mark-waiting { border-left-color: var(--vscode-editorWarning-foreground); }
+  .card.interrupted { border-left-color: var(--vscode-editorWarning-foreground); border-style: dashed; border-left-style: solid; }
   .card.mark-paused { border-left-color: var(--vscode-descriptionForeground); }
   .card.done { opacity: 0.6; }
   .head { display: flex; align-items: baseline; gap: 6px; }
@@ -183,6 +212,7 @@ const STYLE = `
   .glyph { font-size: 0.95em; }
   .glyph-blocked { color: var(--vscode-errorForeground); }
   .glyph-waiting-owner, .glyph-waiting { color: var(--vscode-editorWarning-foreground); }
+  .glyph-interrupted { color: var(--vscode-editorWarning-foreground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
   .title {

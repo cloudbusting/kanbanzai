@@ -228,3 +228,68 @@ test("the page script posts a collapse message and the toggle keys are escaped",
   const script = out.match(/<script nonce="[^"]*">([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Function(script));
 });
+
+// W-94: each step's Doing and Done columns sit under one lane header; an interrupted card is marked.
+const card = (id, extra = {}) => ({ id, title: `t ${id}`, path: `w/${id}.md`, ...extra });
+const laneBoard = {
+  columns: [
+    { key: "todo", name: "Todo", lane: "", doing: "", cards: [card("W-1")] },
+    { key: "designing", name: "Designing", lane: "Design", doing: "designing", cards: [] },
+    { key: "designed", name: "Designed", lane: "Design", doing: "", cards: [card("W-2")] },
+    { key: "building", name: "Building", lane: "Build", doing: "building", cards: [card("W-3", { interrupted: true }), card("W-4", { owner: "s1" })] },
+    { key: "built", name: "Built", lane: "Build", doing: "", cards: [card("W-5")] },
+    { key: "paused", name: "Paused", lane: "", doing: "", cards: [] },
+    { key: "done", name: "Done", lane: "", doing: "", cards: [card("W-6")] },
+  ],
+};
+const laneOut = renderHtml(laneBoard, { nonce: NONCE });
+// each lane block runs from its opening tag to the next lane block, or to the first column outside any lane
+const lanes = () => laneOut.split('<div class="lane">').slice(1).map((s) => s.split(/<section class="col col-(?:todo|paused|done)\b/)[0]);
+
+test("consecutive columns sharing a lane are one lane block under the lane name", () => {
+  const found = lanes();
+  assert.equal(found.length, 2);
+  assert.match(found[0], /<div class="lane-name">Design<\/div>/);
+  assert.match(found[1], /<div class="lane-name">Build<\/div>/);
+  const keys = (s) => [...s.matchAll(/<section class="col col-([a-z-]+)/g)].map((m) => m[1]);
+  assert.deepEqual(keys(found[0]), ["designing", "designed"]);
+  assert.deepEqual(keys(found[1]), ["building", "built"]);
+  assert.equal((laneOut.match(/class="lane-name"/g) || []).length, 2);
+});
+
+test("columns with no lane (Todo, Paused, Done) are single columns outside any lane", () => {
+  const all = [...laneOut.matchAll(/<section class="col col-([a-z-]+)/g)].map((m) => m[1]);
+  assert.deepEqual(all, ["todo", "designing", "designed", "building", "built", "paused", "done"]);
+  const inLane = lanes().join("");
+  for (const k of ["todo", "paused", "done"]) assert.ok(!inLane.includes(`col-${k}`), k);
+});
+
+test("an interrupted card has the warning glyph, the interrupted class and hover text; others are unchanged", () => {
+  const w3 = laneOut.match(/<div class="card[^"]*"[^>]*data-path="w\/W-3\.md"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.match(w3, /^<div class="card interrupted"/);
+  assert.match(w3, /<span class="glyph glyph-interrupted"[^>]*>⚠<\/span>/);
+  const hover = w3.match(/ title="([^"]*)"/)[1];
+  assert.match(hover, /under way/);
+  assert.match(hover, /no session holds it/);
+  const w4 = laneOut.match(/<div class="card[^"]*"[^>]*data-path="w\/W-4\.md"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.doesNotMatch(w4, /interrupted|⚠/);
+  const w5 = laneOut.match(/<div class="card[^"]*"[^>]*data-path="w\/W-5\.md"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.doesNotMatch(w5, /interrupted|⚠/);
+});
+
+test("a sub-column inside a lane collapses like any column", () => {
+  const out = renderHtml(laneBoard, { nonce: NONCE, collapsed: ["building"] });
+  assert.match(out, /<section class="col col-building collapsed"/);
+  assert.doesNotMatch(out, /<section class="col col-built collapsed"/);
+  const building = out.match(/<section class="col col-building collapsed"[\s\S]*?<\/section>/)[0];
+  assert.match(building, /data-toggle="building"/);
+  assert.match(building, /<span class="name">Building<\/span><span class="count">2<\/span>/);
+  assert.match(out, /<div class="lane-name">Build<\/div>/);
+});
+
+test("a board with no lane fields renders no lane block and no interrupted mark", () => {
+  const bodyOf = (s) => s.replace(/<style[\s\S]*?<\/style>/, "").replace(/<script[\s\S]*?<\/script>/, "");
+  assert.doesNotMatch(bodyOf(html), /class="lane"|lane-name|interrupted|⚠/);
+  const one = renderHtml({ columns: [{ key: "built", name: "Built", lane: null, cards: [card("W-7", { interrupted: false })] }] }, { nonce: NONCE });
+  assert.doesNotMatch(bodyOf(one), /class="lane"|lane-name|interrupted|⚠/);
+});

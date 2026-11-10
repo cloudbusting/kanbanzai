@@ -49,6 +49,8 @@ class Column:
     settled_title: str | None
     worktree: bool
     waits_for_owner: bool
+    lane: str | None = None   # the step's name on the board, over its Doing and Done columns (W-94)
+    doing: str | None = None  # a Doing column: the step in progress while a card is here
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class Step:
     context: tuple[str, ...]
     checks: tuple[str, ...]
     active: bool  # its column is on this project's board
+    during: str | None = None  # the Doing column a card sits in while the step runs (W-94)
 
 
 def merge(base: dict, over: dict) -> dict:
@@ -202,7 +205,9 @@ class Project:
                 folder=str(item["folder"]), kind=kind, started=started,
                 next=item.get("next") or None, settled_next=item.get("settled_next") or None,
                 title=item.get("title") or None, settled_title=item.get("settled_title") or None,
-                worktree=bool(item.get("worktree", False)), waits_for_owner=bool(item.get("waits_for_owner", False))))
+                worktree=bool(item.get("worktree", False)), waits_for_owner=bool(item.get("waits_for_owner", False)),
+                lane=str(item["lane"]) if item.get("lane") else None,
+                doing=str(item["doing"]) if item.get("doing") else None))
         keys = [c.key for c in columns]
         if len(set(keys)) != len(keys):
             raise ConfigError("two columns share a key")
@@ -224,12 +229,15 @@ class Project:
             if not isinstance(item, dict):
                 raise ConfigError(f"[steps.{name}] must be a table")
             into = str(item.get("into") or "")
+            # A `during` naming a column this board does not have is dropped, as a step into a missing column is
+            # inactive: a project that sets its own [[columns]] keeps Kanbanzai's step keys, and the old reading.
+            during = str(item.get("during") or "") or None
             steps[name] = Step(
                 name=name, into=into, skill=str(item.get("skill") or ""),
                 extend=tuple(str(x) for x in item.get("extend") or []),
                 context=tuple(str(x) for x in item.get("context") or []),
                 checks=tuple(str(x) for x in item.get("checks") or []),
-                active=into in self.by_key)
+                active=into in self.by_key, during=during if during in self.by_key else None)
         self.steps = steps
         for column in self.columns:
             for name in (column.next, column.settled_next):
@@ -241,6 +249,24 @@ class Project:
                 if not step.active:
                     raise ConfigError(f"column {column.key!r}: step {name!r} moves a card into {step.into!r}, "
                                       "which is not a column")
+        # A Doing column and its step name each other (W-94): the column says which step is in progress, and the
+        # step says which column a card sits in while it runs.
+        for column in self.columns:
+            if column.doing is None:
+                continue
+            step = steps.get(column.doing)
+            if step is None:
+                raise ConfigError(f"column {column.key!r}: its `doing` names {column.doing!r}, a step that is not "
+                                  "defined in [steps]")
+            if step.during != column.key:
+                raise ConfigError(f"column {column.key!r}: it is the Doing column of step {column.doing!r}, but "
+                                  f"that step's `during` is {step.during!r}, not {column.key!r}")
+        for name, step in steps.items():
+            if step.during is None:
+                continue
+            column = self.by_key[step.during]
+            if column.doing != name:
+                raise ConfigError(f"step {name!r}: its `during` column {step.during!r} must say `doing = \"{name}\"`")
 
     # -- paths and names --------------------------------------------------------------------------------
 
@@ -331,9 +357,10 @@ class Project:
                 "key": c.key, "label": c.label, "words": list(c.words), "folder": c.folder, "kind": c.kind,
                 "started": c.started, "next": c.next, "settled_next": c.settled_next, "title": c.title,
                 "settled_title": c.settled_title, "worktree": c.worktree, "waits_for_owner": c.waits_for_owner,
+                "lane": c.lane, "doing": c.doing,
             } for c in self.columns],
             "steps": {s.name: {
                 "into": s.into, "skill": s.skill, "extend": list(s.extend), "context": list(s.context),
-                "checks": list(s.checks), "active": s.active,
+                "checks": list(s.checks), "active": s.active, "during": s.during,
             } for s in self.steps.values()},
         }

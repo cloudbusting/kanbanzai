@@ -54,7 +54,9 @@ the rule working, so stop and report it. A detached worktree has no branch to de
 An **expired** claim with no work behind it is dead bookkeeping: release it (`kanbanzai claim release <ID>`; any
 session may release an expired claim). A **live** claim belongs to its session, even if the card looks quiet; leave
 it and say who holds it. When the work is wanted and the claim has expired, take it over with `kanbanzai claim claim
-<ID> --takeover "<reason>"` rather than release-and-claim, so the hand-over is in the log.
+<ID> --takeover "<reason>"` rather than release-and-claim, so the hand-over is in the log. A released claim on a card in a Doing column leaves it
+interrupted (`⚠`) and first in the pull, which is right for work nobody has abandoned on purpose; release it only
+when no work is behind it.
 
 Anything else the project keeps that needs tidying (a deploy queue, leases) follows its context files
 (`project.context`); release only what this session holds, and never edit another part's state files by hand.
