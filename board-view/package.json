@@ -2,7 +2,7 @@
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
   "description": "The project's Kanbanzai board as a compact kanban in an editor tab. Read-only.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "kanbanzai",
   "license": "UNLICENSED",
   "private": true,
