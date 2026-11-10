@@ -239,6 +239,7 @@ function watchSessions(context, item, opts) {
     try {
       const root = workspaceRoot();
       const text = root ? await runText(root, ['sessions', '--json']) : null;
+      if (stopped) return; // disposed while the command ran: leave the status bar as it was
       const answer = text === null ? null : sessions.parseSessions(text);
       item.text = sessions.statusLabel(answer);
       item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;

@@ -17,11 +17,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat as statmod
 import sys
 from pathlib import Path
 
 STATES = ("busy", "idle", "waiting")
 PREFIX = "claude:"
+MAX_BYTES = 1024 * 1024  # a status file is a few hundred bytes; anything near this is not one
 
 
 def sessions_dir() -> Path:
@@ -54,6 +56,9 @@ def _alive(pid: int, proc_start: object) -> bool:
 
 def _read_file(path: Path) -> dict | None:
     try:
+        info = path.stat()  # before opening: a FIFO would block the open, and a device or a huge file would never end
+        if not statmod.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES:
+            return None
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None

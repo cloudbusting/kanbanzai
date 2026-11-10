@@ -172,3 +172,11 @@ test("the poll stops when the extension is disposed", () => run([board({})], asy
   await slow();
   assert.equal(item.text, "marker");
 }));
+
+test("a poll still running when the extension is disposed writes nothing to the status bar", () => run([board({})], async ({ context, item }) => {
+  for (const d of context.subscriptions) if (d && d.dispose) d.dispose(); // before the first answer arrives
+  await slow();
+  assert.equal(item.text, "▦ Board", "the label it had at start is untouched");
+  assert.equal(item.backgroundColor, undefined);
+  assert.equal(item.tooltip, "Kanbanzai board");
+}, [asking(3)]));
