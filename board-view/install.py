@@ -18,7 +18,8 @@ from pathlib import Path
 from xml.sax.saxutils import escape, quoteattr
 
 HERE = Path(__file__).resolve().parent
-FILES = ["package.json", "extension.js", "render.js", "README.md"]
+# Every module the extension requires: a fixed list went stale when toasts.js and sessions.js were added (W-100).
+FILES = ["package.json", "README.md", *sorted(p.name for p in HERE.glob("*.js"))]
 
 CONTENT_TYPES = (
     '<?xml version="1.0" encoding="utf-8"?>\n'
