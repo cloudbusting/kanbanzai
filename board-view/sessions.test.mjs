@@ -64,6 +64,10 @@ test("a claimed card with no session, and an unclaimed one, draw exactly as befo
   assert.match(now, /glyph-claimed/);
   assert.doesNotMatch(now, /busy|idle|asking|data-since/);
   assert.ok(was.length > 0);
+  // The same claimed card on a board with no session key at all is byte-identical to one whose session is null.
+  const bare = JSON.parse(JSON.stringify(withSessions()));
+  for (const col of bare.columns) for (const c of col.cards) delete c.session;
+  assert.equal(cardOf(render(bare), "W-10"), now);
 });
 
 test("a session name is escaped", () => {

@@ -4,6 +4,7 @@ owner (W-99). The reader trusts a file only when its process is alive here, and 
 import json
 import os
 import pathlib
+import threading
 import unittest
 from unittest import mock
 
@@ -115,7 +116,49 @@ class SessionOfACardTest(SessionCase):
         self.assertEqual(card["session"]["name"], "")
 
 
+class HostileFilesTest(SessionCase):
+    def read_within(self, seconds=3):
+        """read_all in a thread: a reader that blocks fails the test instead of hanging the suite."""
+        out = []
+        worker = threading.Thread(target=lambda: out.append(sessions.read_all()), daemon=True)
+        worker.start()
+        worker.join(seconds)
+        self.assertFalse(worker.is_alive(), "read_all blocked")
+        return out[0]
+
+    def test_a_fifo_named_json_is_skipped_not_waited_on(self):
+        self.session()
+        os.mkfifo(self.config_dir / "sessions" / "x.json")
+        self.assertEqual(self.read_within()[SID]["state"], "waiting")
+
+    def test_a_huge_file_is_skipped_unread(self):
+        self.session()
+        big = self.config_dir / "sessions" / "big.json"
+        with open(big, "wb") as handle:
+            handle.truncate(sessions.MAX_BYTES + 1)
+        self.assertEqual(list(self.read_within()), [SID])
+
+    def test_a_directory_and_a_dangling_link_named_json_are_skipped(self):
+        self.session()
+        (self.config_dir / "sessions" / "d.json").mkdir()
+        os.symlink(self.tmp / "nowhere", self.config_dir / "sessions" / "l.json")
+        self.assertEqual(list(self.read_within()), [SID])
+
+
 class SessionOnTheBoardTest(SessionCase):
+    def test_a_card_whose_claim_expired_has_no_session(self):
+        self.session()
+        self.card("W-99", "Ninety-nine", "building")
+        code, out, err = self.cli("claim", "claim", "W-99", "--owner", f"claude:{SID}")
+        self.assertEqual(code, 0, out + err)
+        record_path = self.project.claims / "cards" / "W-99.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["expires_at"] = "2020-01-01T00:00:00+00:00"
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+        card = self.card_of(board.load(self.project), "W-99")
+        self.assertIsNone(card["owner"])
+        self.assertIsNone(card["session"])
+
     def test_a_reader_that_fails_never_fails_the_board(self):
         self.session()
         self.card("W-99", "Ninety-nine", "building")

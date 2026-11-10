@@ -57,6 +57,7 @@ shows it. The times count up on the page by themselves, so the board is not rebu
 
 - **The status bar** reads `▦ Board ❓2` on the theme's warning background while two cards have a session asking, so a
   waiting session shows with the tab closed. With none it is `▦ Board`.
+- **One session, several cards:** a session that holds more than one card (a batch) marks each of them.
 - **How fast:** every 3 seconds while any card is claimed (every 15 s while none is); a change refreshes the open tab.
 - **When nothing shows:** the file is Claude Code's own and not documented, so a card shows no session mark, and no
   error, when the file is missing, its shape has changed, its process is not alive on this machine (the process
