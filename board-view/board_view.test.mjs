@@ -293,3 +293,86 @@ test("a board with no lane fields renders no lane block and no interrupted mark"
   const one = renderHtml({ columns: [{ key: "built", name: "Built", lane: null, cards: [card("W-7", { interrupted: false })] }] }, { nonce: NONCE });
   assert.doesNotMatch(bodyOf(one), /class="lane"|lane-name|interrupted|⚠/);
 });
+
+// ---- toasts in the page (W-98) ----
+
+const toastViews = [
+  { key: "W-1", level: "progress", glyph: "▸", word: "Progress", headline: "W-1 Todo → Designing", detail: "A <script>alert(1)</script> title", path: ".kanbanzai/work/1-open/W-1-x.md", remainingMs: 4000, closable: false, shown: false },
+  { key: "W-2", level: "blocked", glyph: "⛔", word: "Blocked", headline: "W-2 blocked", detail: "two", path: ".kanbanzai/work/1-open/W-2-x.md", remainingMs: null, closable: true, shown: true },
+  { key: "burst", level: "progress", glyph: "▸", word: "Progress", headline: "+3 more cards moved", detail: "", path: "", remainingMs: 5000, closable: false, shown: false },
+];
+
+test("no toast layer when there are no toasts", () => {
+  assert.doesNotMatch(html, /class="toasts"/);
+  assert.doesNotMatch(renderHtml(board, { nonce: NONCE, toasts: [] }), /class="toasts"/);
+});
+
+test("the toast layer is a live region with one toast per view, level, glyph, word and headline", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  assert.match(out, /<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">/);
+  const toasts = [...out.matchAll(/<div class="toast level-([a-z]+)[^"]*"[^>]*>/g)];
+  assert.deepEqual(toasts.map((m) => m[1]), ["progress", "blocked", "progress"]);
+  const first = out.match(/<div class="toast level-progress"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.match(first, /data-key="W-1"/);
+  assert.match(first, /data-remaining="4000"/);
+  assert.match(first, /data-path="\.kanbanzai\/work\/1-open\/W-1-x\.md"/);
+  assert.match(first, /<span class="toast-glyph">▸<\/span>/);
+  assert.match(first, /<span class="toast-word">Progress<\/span>/);
+  assert.match(first, /W-1 Todo → Designing/);
+  assert.doesNotMatch(first, /toast-close/);
+});
+
+test("a blocked toast has role alert, no remaining time and a close button with an accessible name; the shown ones do not fade", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  const blocked = out.match(/<div class="toast level-blocked[^"]*"[^>]*>.*?<\/button><\/div>/s)[0];
+  assert.match(blocked, /role="alert"/);
+  assert.doesNotMatch(blocked, /data-remaining/);
+  assert.match(blocked, /<button class="toast-close" type="button" data-close="W-2" aria-label="Close W-2 toast" title="Close">✕<\/button>/);
+  assert.match(blocked, /class="toast level-blocked shown"/);
+  assert.doesNotMatch(out.match(/<div class="toast level-progress"[^>]*>/)[0], /shown/);
+});
+
+test("the burst summary has no path, so it opens nothing", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  const burst = out.match(/<div class="toast level-progress[^"]*"[^>]*data-key="burst"[^>]*>/)[0];
+  assert.doesNotMatch(burst, /data-path/);
+});
+
+test("toast text is escaped and the only script is still the nonce'd one", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  assert.match(out, /A &lt;script&gt;alert\(1\)&lt;\/script&gt; title/);
+  assert.deepEqual([...out.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]), [`<script nonce="${NONCE}">`]);
+  assert.ok(!/\sstyle="/.test(out), "no inline style attributes");
+});
+
+test("the toast layer sits fixed in the lower left, passes clicks through, and fades only without reduced motion", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  assert.match(css, /\.toasts\s*\{[^}]*position:\s*fixed[^}]*left:\s*8px[^}]*bottom:\s*24px/s);
+  assert.match(css, /\.toasts\s*\{[^}]*pointer-events:\s*none/s);
+  assert.match(css, /\.toast\s*\{[^}]*pointer-events:\s*auto/s);
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^}]*\.toast:not\(\.shown\)/s);
+  assert.match(css, /--vscode-notifications-background/);
+});
+
+test("the page script times, closes and opens toasts", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: toastViews });
+  const script = out.match(/<script[^>]*>(.*?)<\/script>/s)[1];
+  assert.match(script, /data-remaining|dataset\.remaining/);
+  assert.match(script, /type: 'toast-close'/);
+  assert.match(script, /toast-close|\.toast/);
+});
+
+test("a waiting-on-owner or interrupted toast has the warning edge like the cards; a blocked one the error edge", () => {
+  const views = [
+    { key: "W-1", level: "blocked", kind: "blocked", glyph: "⛔", word: "Blocked", headline: "a", detail: "", path: "", remainingMs: null, closable: true },
+    { key: "W-2", level: "blocked", kind: "waiting-owner", glyph: "⏳", word: "Blocked", headline: "b", detail: "", path: "", remainingMs: null, closable: true },
+    { key: "W-3", level: "blocked", kind: "interrupted", glyph: "⚠", word: "Blocked", headline: "c", detail: "", path: "", remainingMs: null, closable: true },
+  ];
+  const out = renderHtml(board, { nonce: NONCE, toasts: views });
+  assert.match(out, /class="toast level-blocked kind-blocked"/);
+  assert.match(out, /class="toast level-blocked kind-waiting-owner"/);
+  assert.match(out, /class="toast level-blocked kind-interrupted"/);
+  const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  assert.match(css, /\.toast\.kind-waiting-owner,\s*\.toast\.kind-interrupted\s*\{[^}]*editorWarning-foreground/s);
+});

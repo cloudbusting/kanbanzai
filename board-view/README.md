@@ -45,6 +45,24 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 
 Done cards are muted. Problems the core finds in a brief show in a strip above the columns.
 
+## Toasts
+
+When a card moves, a short note appears in a stack in the lower left of the board. The board compares each read with
+the one before it, card by card, so it sees a move however it happened (a Claude Code or OpenCode session, a hand edit,
+a merge).
+
+| Level | Raised when | Stays |
+|---|---|---|
+| Progress `▸` | a card changes column, a card is added, a card waits on someone other than the owner, a hold or interruption clears (`unblocked`) | 5 seconds |
+| Done `✓` | a card reaches Done | 15 seconds |
+| Blocked `⛔` `⏳` `⚠` | a card becomes blocked, waits on the project's owner, or is interrupted | until closed with its `✕` |
+
+A blocked toast closes itself, and shows a short `unblocked` toast, when the cause clears. A click on a toast opens the
+card's brief. Nothing raises a toast on the first draw, on a reload, when a claim is taken or released, or when a card
+leaves the board. There is one toast per card, at most 5 shown (the oldest short one goes first; a blocked toast is
+never dropped), and a burst of more than 4 short moves shows the first 3 and `+N more cards moved`. Toasts raised while
+the tab is hidden wait and show, with their time starting, when it is visible again. The timings are `PROGRESS_MS` and
+`DONE_MS` in `toasts.js`. 
 ## Tests
 
-`node --test board-view/board_view.test.mjs`
+`node --test board-view/board_view.test.mjs board-view/toasts.test.mjs`
