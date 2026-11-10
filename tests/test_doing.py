@@ -178,9 +178,30 @@ class StepDoingTest(ProjectCase):
         found = json.loads(self.step_for("building", "--json")[1])
         self.assertEqual((found["next"], found["resume"], found["finish"]), ("build", True, "built"))
 
+    def test_a_step_with_no_skill_has_no_start_or_finish_words(self):
+        """The shipped deploy steps have no skill: a Checked card closes, so no In QA move is promised."""
+        out = self.step_for("checked")[1]
+        self.assertNotIn("start:", out)
+        self.assertNotIn("finish:", out)
+        found = json.loads(self.step_for("checked", "--json")[1])
+        self.assertEqual((found["start"], found["finish"]), (None, None))
+
+    def test_the_config_listing_shows_lanes_and_doing_columns(self):
+        out = self.cli("config")[1]
+        self.assertIn("building", out)
+        self.assertIn("doing: build  lane: Build", out)
+
+
+
+class ShipStepTest(StepDoingTest):
+    CONFIG = 'DEFAULT\n[steps.ship]\nskill = "release"\n'.replace("DEFAULT", '[project]\nowner = "Sam"')
+
     def test_shipping_finishes_in_done(self):
         out = self.step_for("shipping")[1]
+        self.assertIn("resume", out)
         self.assertIn("finish: Stage `done`", out)
+        out = self.step_for("qa-approved")[1]
+        self.assertIn("start: Stage `shipping`; finish: Stage `done`", out)
 
 
 class CheckDoingTest(ProjectCase):

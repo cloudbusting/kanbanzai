@@ -115,8 +115,8 @@ git worktree add <the card's worktree path> -b <the card's branch> main    # a n
 git worktree add <the card's worktree path> <the card's branch>            # its branch already exists
 ```
 
-Set **Where** to `worktree <ID>` (the path and branch the patterns give; the batch branch in a batch). A Todo,
-Designing or Designed card, whose next action is only its brief, may stay `—` until the building starts; a column the config
+Set **Where** to `worktree <ID>` (the path and branch the patterns give; the batch branch in a batch). A Todo
+or Designing card, whose next action is only its brief, may stay `—` until the building starts; a column the config
 marks `worktree = true` means a claimed card there must have one, and a claimed card without it is a hard audit
 finding. **The brief and the claim are edited in the main checkout so the board stays visible**; every other file —
 code, tests, docs, skills — is edited and committed in the worktree. Keep the main checkout clean, and leave another
@@ -191,6 +191,7 @@ design. The board is the only source of the stage.
 | a Doing column (Designing, Building, Checking, In QA, Shipping), another session's live claim | it is being worked: stop, and say who holds it and until when |
 | a Doing column, no live claim, no `Held:` line | interrupted (`⚠`): read the brief's Next action and last Comment, take it over with `kanbanzai claim claim <ID> --takeover "<why>"`, check the worktree (`git status`, last commit) and resume inside the step; no move needed, it is in the Doing column already |
 | a Doing column with a live claim of this session | resume inside the step from the Next action |
+| Shipping, no live claim | interrupted, but it was only ever pulled with the owner's approval: ask them again before resuming the production deploy |
 | a column marked `waits_for_owner` | it waits for the owner's approval; with it, claim the card, move it into the step's Doing column (Shipping) and run its step |
 | a held card (a `Held:` line, in any column, Doing included) | test whether the blocker is gone; if so and the next step is Claude's, delete the `Held:` line and carry on at the column's next step, otherwise report the one thing that must happen and stop |
 | Paused | ask the owner whether to resume; never unpause on your own |

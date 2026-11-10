@@ -147,8 +147,9 @@ asking `kanbanzai step <step>`, and the project's settings answer. Per step:
 
 Two optional column keys draw the lanes: `lane` (the step's name on the board, shown over its Doing and Done
 columns; empty for Todo, Paused and Done) and `doing` (on a Doing column: the step in progress; absent on a Done
-column). A `doing` that names no step, a step whose `during` is not a column, or two Doing columns for one step are
-errors.
+column). A `doing` that names no step, or a Doing column and its step that disagree (the step's `during` is another column, or
+two Doing columns for one step), are errors; a `during` that names a column the board does not have is dropped, so a
+project that sets its own columns keeps the shipped step keys.
 
 A project that wants a different board:
 
