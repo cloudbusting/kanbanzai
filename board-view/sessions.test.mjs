@@ -11,6 +11,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const { renderHtml } = require("./render.js");
 const { elapsed, statusLabel, parseSessions } = require("./sessions.js");
+const S = require("./sessions.js");
 const base = JSON.parse(readFileSync(path.join(here, "fixtures", "board.json"), "utf8"));
 
 const NOW = 1_800_000_000_000;
@@ -132,4 +133,40 @@ test("parseSessions reads the command's JSON, and anything else is null", () => 
   assert.equal(parseSessions("not json"), null);
   assert.equal(parseSessions("[1]"), null);
   assert.equal(parseSessions('{"waiting": "x"}'), null);
+});
+
+// ---- W-102: a card newly asking while the Board tab is not in front ----
+const ans = (cards) => ({ waiting: Object.values(cards).filter((c) => c && c.state === "waiting").length, claims: Object.keys(cards).length, cards });
+const rec = (state, name = "proj-7b") => ({ state, since: 1, started: 0, name });
+
+test("newlyAsking: a card waiting now that was not before, with its session's name", () => {
+  assert.deepEqual(S.newlyAsking(ans({ "W-12": rec("busy") }), ans({ "W-12": rec("waiting") })), [{ card: "W-12", name: "proj-7b" }]);
+  assert.deepEqual(S.newlyAsking(ans({}), ans({ "W-12": rec("waiting") })), [{ card: "W-12", name: "proj-7b" }]);
+});
+
+test("newlyAsking: nothing at the first poll, for a card already waiting, for other states, or when an answer is missing", () => {
+  const waiting = ans({ "W-12": rec("waiting") });
+  assert.deepEqual(S.newlyAsking(undefined, waiting), []);
+  assert.deepEqual(S.newlyAsking(null, waiting), []);
+  assert.deepEqual(S.newlyAsking(waiting, waiting), []);
+  assert.deepEqual(S.newlyAsking(ans({}), ans({ "W-12": rec("busy"), "W-13": rec("idle") })), []);
+  assert.deepEqual(S.newlyAsking(waiting, null), []);
+  assert.deepEqual(S.newlyAsking(ans({}), { waiting: 1, claims: 1, cards: "x" }), []);
+  assert.deepEqual(S.newlyAsking(ans({}), ans({ "W-12": { state: "asleep", since: 1 }, "W-13": null, "W-14": 5 })), []);
+});
+
+test("newlyAsking: a card that stopped asking and asks again is new again", () => {
+  const w = ans({ "W-12": rec("waiting") });
+  const b = ans({ "W-12": rec("busy") });
+  assert.equal(S.newlyAsking(b, w).length, 1);
+  assert.equal(S.newlyAsking(w, b).length, 0);
+});
+
+test("askMessages: one line per card up to three, then one summary", () => {
+  const c = (id, name = "n") => ({ card: id, name });
+  assert.deepEqual(S.askMessages([]), []);
+  assert.deepEqual(S.askMessages([c("W-12", "proj-7b")]), ["W-12 asking — proj-7b"]);
+  assert.deepEqual(S.askMessages([c("W-1", ""), c("W-2")]), ["W-1 asking", "W-2 asking — n"]);
+  assert.equal(S.askMessages([c("W-1"), c("W-2"), c("W-3")]).length, 3);
+  assert.deepEqual(S.askMessages([c("W-1"), c("W-2"), c("W-3"), c("W-4")]), ["4 sessions asking"]);
 });

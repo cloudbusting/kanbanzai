@@ -14,12 +14,13 @@ const sessions = require('./sessions');
 
 const REFRESH_MS = 60 * 1000;
 const DEBOUNCE_MS = 500;
+const OPEN_BOARD = 'Open Board';
 const SESSIONS_MS = 3 * 1000; // the claimed cards' sessions, while any card is claimed
 const SESSIONS_IDLE_MS = 15 * 1000; // and while none is
 const RUN_TIMEOUT_MS = 15 * 1000;
 const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
 const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
-const SAFE_TOAST_KEY = /^[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, or 'burst'
+const SAFE_TOAST_KEY = /^(?:ask:)?[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, 'burst', or 'ask:' and a card id
 
 function workspaceRoot() {
   const folders = vscode.workspace.workspaceFolders || [];
@@ -232,7 +233,16 @@ function watchSessions(context, item, opts) {
   const slow = (opts && opts.idleMs) || SESSIONS_IDLE_MS;
   let timer = null;
   let last; // the last answer as text; undefined before the first
+  let lastAnswer; // the last good answer, parsed; undefined before the first
   let stopped = false;
+
+  function announce(lines) {
+    for (const line of lines) {
+      vscode.window.showWarningMessage(line, OPEN_BOARD).then((choice) => {
+        if (choice === OPEN_BOARD) void vscode.commands.executeCommand('kanbanzai.showBoard');
+      }, () => {});
+    }
+  }
 
   async function poll() {
     let wait = slow;
@@ -247,7 +257,14 @@ function watchSessions(context, item, opts) {
         ? `Kanbanzai board: ${answer.waiting} card${answer.waiting === 1 ? '' : 's'} with a session asking you`
         : 'Kanbanzai board';
       const key = JSON.stringify(answer);
-      if (last !== undefined && key !== last && current && current.panel.visible) void current.refresh();
+      const inFront = !!(current && current.panel.visible);
+      if (last !== undefined && key !== last && inFront) void current.refresh();
+      // W-102: with the Board tab not in front its toast cannot be seen, so say it in the editor. A failed read (null)
+      // keeps the last good answer as the baseline, so the next good one does not announce every card as new.
+      if (answer) {
+        if (!inFront) announce(sessions.askMessages(sessions.newlyAsking(lastAnswer, answer)));
+        lastAnswer = answer;
+      }
       last = key;
       if (answer && answer.claims > 0) wait = fast;
     } catch (e) { /* the next poll tries again */ }

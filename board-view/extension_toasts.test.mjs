@@ -36,8 +36,9 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
     ViewColumn: { Active: 1 },
     StatusBarAlignment: { Left: 1 },
     ThemeColor: class { constructor(id) { this.id = id; } },
-    window: { createWebviewPanel: () => panel, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve() },
-    commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; } },
+    window: { createWebviewPanel: () => panel, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
+    commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
+    warnings: [], executed: [], choose: undefined,
     Uri: { file: (p) => p },
   };
   const cp = {
@@ -180,3 +181,66 @@ test("a poll still running when the extension is disposed writes nothing to the 
   assert.equal(item.backgroundColor, undefined);
   assert.equal(item.tooltip, "Kanbanzai board");
 }, [asking(3)]));
+
+// ---- W-102: a session newly asking while the Board tab is not in front raises a message in the editor ----
+const answer = (cards) => ({ waiting: Object.values(cards).filter((c) => c.state === "waiting").length, claims: Object.keys(cards).length, cards });
+const rec = (state, name = "proj-7b") => ({ state, since: 1, started: 0, name });
+const NONE = answer({});
+const ASK = answer({ "W-12": rec("waiting") });
+
+test("the tab closed: a card newly asking raises one message with Open Board, and the button opens the board", () => run([board({})], async ({ vscode }) => {
+  vscode.choose = "Open Board";
+  await settle(); await settle();
+  assert.deepEqual(vscode.warnings, [["W-12 asking — proj-7b", "Open Board"]]);
+  assert.deepEqual(vscode.executed, ["kanbanzai.showBoard"]);
+}, [NONE, ASK]));
+
+test("dismissing the message does not open the board", () => run([board({})], async ({ vscode }) => {
+  vscode.choose = undefined;
+  await settle(); await settle();
+  assert.equal(vscode.warnings.length, 1);
+  assert.deepEqual(vscode.executed, []);
+}, [NONE, ASK]));
+
+test("the tab open but hidden counts as not in front", () => run([board({})], async ({ vscode, panel }) => {
+  vscode.run();
+  panel.visible = false;
+  await settle(); await settle();
+  assert.equal(vscode.warnings.length, 1);
+}, [NONE, NONE, ASK]));
+
+test("the tab in front: the toast does it, so no message", () => run([board({})], async ({ vscode }) => {
+  vscode.run();
+  await settle(); await settle(); await settle();
+  assert.equal(vscode.warnings.length, 0);
+}, [NONE, ASK]));
+
+test("no message at the first poll, for a card already asking", () => run([board({})], async ({ vscode }) => {
+  await settle(); await settle(); await settle();
+  assert.equal(vscode.warnings.length, 0, "already asking at the first poll");
+}, [ASK]));
+
+test("one message per ask: still asking is silent, answered and asked again raises a second", () => run([board({})], async ({ vscode }) => {
+  for (let i = 0; i < 8; i += 1) await settle();
+  assert.equal(vscode.warnings.length, 2);
+}, [NONE, ASK, ASK, answer({ "W-12": rec("busy") }), ASK]));
+
+test("closing an asking toast with its ✕ keeps it closed through the next redraw (its key has a colon)", () => run([
+  board({ building: [card("W-12", { session: rec("busy") })] }),
+  board({ building: [card("W-12", { session: rec("waiting") })] }),
+  board({ building: [card("W-12", { session: rec("waiting") }), card("W-13")] }),
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  panel.viewState({}); await settle();
+  assert.ok(toastsIn(panel).some((t) => t[1] === "ask:W-12"), "the ask is shown");
+  panel.message({ type: "toast-close", key: "ask:W-12" });
+  panel.message({ type: "toast-close", key: "ask:../x" }); // still refused
+  panel.viewState({}); await settle();
+  assert.ok(!toastsIn(panel).some((t) => t[1] === "ask:W-12"), "closed stays closed");
+}));
+
+test("a failed poll keeps the last good answer as the baseline: the ask after it is still announced, once", () => run([board({})], async ({ vscode }) => {
+  for (let i = 0; i < 8; i += 1) await settle();
+  assert.equal(vscode.warnings.length, 1);
+}, [NONE, null, ASK]));

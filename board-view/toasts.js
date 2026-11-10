@@ -38,11 +38,20 @@ function flatten(board) {
         held: k.held ? String(k.held) : '',
         title: String(k.title || ''),
         path: String(k.path || ''),
+        asking: obj(k.session).state === 'waiting',
+        name: typeof obj(k.session).name === 'string' ? k.session.name : '',
       });
     }
   }
   return cards;
 }
+
+// A sticky toast stays until it is closed or its cause clears: a hold on a card, or a session asking the owner.
+function sticky(level) {
+  return level === 'blocked' || level === 'asking';
+}
+
+const askKey = (id) => `ask:${id}`;
 
 // What needs a look: blocked, waiting on the owner, or interrupted (null when none).
 function causeOf(card) {
@@ -88,11 +97,23 @@ function diffBoards(prev, next, ownerName) {
       events.push({ ...base, level: 'progress', kind: 'waiting', headline: `${id} waiting`, held: n.held || undefined, clears: was && !cause ? true : undefined });
     }
   }
+  // W-102: a session that starts asking raises its own toast (a card new on the board and already asking too); one that
+  // stops asking, or whose card has left the board, closes it.
+  for (const [id, n] of after) {
+    const p = before.get(id);
+    if (n.asking && !(p && p.asking)) {
+      events.push({ card: id, key: askKey(id), level: 'asking', kind: 'asking', headline: `${id} asking`, title: n.title, name: n.name, path: n.path });
+    }
+  }
+  for (const [id, p] of before) {
+    const n = after.get(id);
+    if (p.asking && !(n && n.asking)) events.push({ card: id, closes: askKey(id) });
+  }
   return events;
 }
 
 function expiryOf(level, now) {
-  if (level === 'blocked') return null;
+  if (sticky(level)) return null;
   return now + (level === 'done' ? DONE_MS : PROGRESS_MS);
 }
 
@@ -108,13 +129,14 @@ function applyEvents(state, events, now) {
   stack = stack.filter((t) => !(t.level === 'blocked' && cleared.has(t.card)));
 
   // More short events than BURST_OVER in one read: the first BURST_KEEP and a summary. Blocked ones are never summed up.
-  const burst = list.filter((e) => e.level !== 'blocked').length > BURST_OVER;
+  const isShort = (e) => !e.closes && !sticky(e.level);
+  const burst = list.filter(isShort).length > BURST_OVER;
   const raise = [];
   let short = 0;
   let overflow = 0;
   for (const e of list) {
-    if (e.level === 'blocked' || !burst || short < BURST_KEEP) {
-      if (e.level !== 'blocked') short += 1;
+    if (!isShort(e) || !burst || short < BURST_KEEP) {
+      if (isShort(e)) short += 1;
       raise.push(e);
     } else overflow += 1;
   }
@@ -123,6 +145,10 @@ function applyEvents(state, events, now) {
   }
 
   for (const e of raise) {
+    if (e.closes) {
+      stack = stack.filter((t) => t.key !== e.closes); // in order, so asked-then-answered leaves nothing
+      continue;
+    }
     const key = e.key || e.card;
     const old = stack.find((t) => t.key === key);
     if (old && old.level === 'blocked' && e.level !== 'blocked' && !e.clears) continue; // a blocked toast stays until closed
@@ -130,12 +156,12 @@ function applyEvents(state, events, now) {
     seq += 1;
     stack.push({
       key, card: e.card, seq, level: e.level, kind: e.kind, headline: e.headline, title: e.title || '',
-      held: e.held, moved: e.moved, path: e.path || '', expiresAt: expiryOf(e.level, now),
+      held: e.held, moved: e.moved, name: e.name || '', path: e.path || '', expiresAt: expiryOf(e.level, now),
     });
   }
 
   while (stack.length > MAX_SHOWN) {
-    const at = stack.findIndex((t) => t.level !== 'blocked');
+    const at = stack.findIndex((t) => !sticky(t.level));
     if (at < 0) break;
     stack.splice(at, 1);
   }
@@ -150,8 +176,8 @@ function close(state, key) {
   return { ...state, stack: arr(state && state.stack).filter((t) => t.key !== key) };
 }
 
-const WORDS = { progress: 'Progress', done: 'Done', blocked: 'Blocked' };
-const GLYPHS = { blocked: '⛔', 'waiting-owner': '⏳', interrupted: '⚠' };
+const WORDS = { progress: 'Progress', done: 'Done', blocked: 'Blocked', asking: 'Asking' };
+const GLYPHS = { asking: '❓', blocked: '⛔', 'waiting-owner': '⏳', interrupted: '⚠' };
 
 // What the page renders. `seen` is the set of seqs already on the page, so a redraw does not fade them in again.
 function toViews(state, now, seen) {
@@ -163,10 +189,10 @@ function toViews(state, now, seen) {
     glyph: GLYPHS[t.kind] || (t.level === 'done' ? '✓' : '▸'),
     word: WORDS[t.level] || 'Progress',
     headline: t.headline,
-    detail: [t.title, t.held, t.moved ? `moved ${t.moved}` : ''].filter(Boolean).join(' — '),
+    detail: [t.title, t.name, t.held, t.moved ? `moved ${t.moved}` : ''].filter(Boolean).join(' — '),
     path: t.path,
     remainingMs: t.expiresAt === null ? null : Math.max(0, t.expiresAt - now),
-    closable: t.level === 'blocked',
+    closable: sticky(t.level),
     shown: shown.has(t.seq),
   }));
 }
