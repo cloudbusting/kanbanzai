@@ -7,7 +7,8 @@ from kanbanzai import board
 
 from .support import ProjectCase, brief
 
-KEYS = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"]
+KEYS = ["todo", "designing", "designed", "building", "built", "checking", "checked", "in-qa", "qa-approved",
+        "shipping", "paused", "done"]
 
 
 class BoardTest(ProjectCase):
@@ -21,7 +22,8 @@ class BoardTest(ProjectCase):
         result = self.board()
         self.assertEqual([c["key"] for c in result["columns"]], KEYS)
         self.assertEqual([c["name"] for c in result["columns"]],
-                         ["Todo", "Designed", "Built", "Checked", "QA-approved", "Paused", "Done"])
+                         ["Todo", "Designing", "Designed", "Building", "Built", "Checking", "Checked", "In QA",
+                          "QA-approved", "Shipping", "Paused", "Done"])
 
     def test_stage_words_give_the_column(self):
         for i, stage in enumerate(("todo", "designed", "built", "checked (the checks passed)",
@@ -57,7 +59,7 @@ class BoardTest(ProjectCase):
         self.assertEqual(card, {
             "id": "W-75", "title": "The briefs are the board", "stage": "built",
             "next": "Write board.py, then the extension", "updated": "2026-11-10", "where": "worktree W-75",
-            "done": None, "owner": "claude:42", "mark": None, "held": None,
+            "done": None, "owner": "claude:42", "mark": None, "held": None, "interrupted": False,
             "path": ".kanbanzai/work/1-open/W-75-x.md"})
 
     def test_wrapped_held_line(self):
@@ -112,11 +114,11 @@ class BoardTest(ProjectCase):
         self.assertIn("Held 4: waiting on Sam W-31, W-33; waiting W-32; blocked W-30", out)
 
     def test_the_old_stage_words_are_unknown(self):
-        words = ("docs", "test", "security", "qa", "design", "dev", "checks", "ready-qa", "in-qa", "ready-prod")
+        words = ("docs", "test", "security", "qa", "design", "dev", "checks", "ready-qa", "ready-prod")  # `in-qa` is a Doing column again (W-94)
         for i, word in enumerate(words):
             self.card(f"W-4{i}", "Old", word)
         problems = self.board()["problems"]
-        self.assertEqual(len(problems), 10)
+        self.assertEqual(len(problems), 9)
         self.assertTrue(all("unknown stage" in p for p in problems))
 
     def test_problems_are_listed_not_dropped(self):
@@ -147,7 +149,7 @@ class BoardTest(ProjectCase):
         self.assertEqual(code, 0)
         parsed = json.loads(out)
         self.assertEqual(set(parsed), {"columns", "problems"})
-        self.assertEqual(parsed["columns"][1]["cards"][0]["title"], "Ten <b>")
+        self.assertEqual(parsed["columns"][2]["cards"][0]["title"], "Ten <b>")
         code, out, _ = self.cli("board")
         self.assertIn("Designed", out)
         self.assertIn("W-10", out)
@@ -165,7 +167,7 @@ class BoardTest(ProjectCase):
         git(self.root, "worktree", "add", "-q", "-b", "W-10", str(other))
         code, out, _ = self.cli("board", "--json", cwd=other)
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["columns"][1]["cards"][0]["id"], "W-10")
+        self.assertEqual(json.loads(out)["columns"][2]["cards"][0]["id"], "W-10")
 
 
 if __name__ == "__main__":

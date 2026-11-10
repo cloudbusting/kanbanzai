@@ -6,7 +6,8 @@ argument-hint: "<the card id>"
 
 # Check
 
-Runs in the main session, on a card that is **Built**, with this session's claim on it. The checks are the project's;
+Runs in the main session, on a card that is **Built** (moved to **Checking** as the check starts) or already
+**Checking**, with this session's claim on it. The checks are the project's;
 this skill runs them in order and then reviews the diff. Subagents may run an individual check when the project's
 check skill hands it to one, but the review and the move to Checked are the main session's.
 
@@ -26,10 +27,11 @@ If `kanbanzai step check` says the project has no check step, a card skips it: g
 ## Board first
 
 The card's brief gives the acceptance checks, the files the change touched and the **Docs** line; its **Comments**
-are the hand-over. No card or no brief: stop and say so. The card stays **Built** through every check below, with
-this session's claim on it, and its **Next action** names the check it is on; it becomes **Checked** only when every
-check is green and the review is done. A red check keeps it Built, named in **Next action** and after the session
-title (`[CHECKING W-12] red: parity`); nothing moves on red.
+are the hand-over. No card or no brief: stop and say so. The card is **Checking** through every check below (the first
+move, right after the claim: **Stage** `checking`, **Updated**), with this session's claim on it, and its **Next action** names the check it is on; it becomes **Checked** only when every
+check is green and the review is done. A red check keeps it Checking, named in **Next action** and after the session
+title (`[CHECKING W-12] red: parity`); nothing moves on red. A red check whose fix changes the code moves the card back
+to **Building** (the build step's Doing column) to redo the build; a re-run of the check leaves it Checking.
 
 ## 1. The checks, in order
 

@@ -27,7 +27,9 @@ tab. Only `.md` files inside the cards folder can be opened.
 
 ## What it shows
 
-The project's columns, in its order (the shipped ones: Todo, Designed, Built, Checked, QA-approved, Paused, Done).
+The project's columns, in its order. A step's Doing and Done columns that share a `lane` in the board JSON (the
+shipped ones: Design = Designing | Designed, Build = Building | Built, and so on) are drawn side by side under one
+lane header; columns with no lane (Todo, Paused, Done) stand alone, and a board with no lanes renders as it always did.
 A held card (blocked or waiting) stays in its column with a mark, and its hover text says what it is held on. An empty column
 shrinks to a narrow strip showing its name and 0. Every column with cards has a `▾` toggle that collapses it to the
 same strip; click the strip to expand it. Which columns are collapsed is remembered for the workspace.
@@ -38,6 +40,7 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 | `⏳ <owner>` amber edge | waiting on the project's owner (`[project] owner`) |
 | `⏳` amber edge | waiting on someone else |
 | `⏸` grey edge | paused |
+| `⚠` amber edge | interrupted: in a Doing column with no live claim and no Held line (hover says the step was under way and no session holds it) |
 | `●` | claimed by a session (hover shows which); a claimed card can also carry another mark |
 
 Done cards are muted. Problems the core finds in a brief show in a strip above the columns.

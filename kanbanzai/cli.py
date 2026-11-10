@@ -29,8 +29,9 @@ def show_config(project: Project, args: argparse.Namespace) -> int:
         print(f"  flow.{key}: {', '.join(value) if isinstance(value, list) else value}")
     print("columns:")
     for column in data["columns"]:
-        print(f"  {column['key']:<12} {column['label']:<20} {column['kind']:<7} {column['folder']:<10} "
-              f"next: {column['next'] or '—'}")
+        step = f"doing: {column['doing']}" if column["doing"] else f"next: {column['next'] or '—'}"
+        lane = f"  lane: {column['lane']}" if column["lane"] else ""
+        print(f"  {column['key']:<12} {column['label']:<20} {column['kind']:<7} {column['folder']:<10} {step}{lane}")
     print("steps:")
     for name, item in data["steps"].items():
         note = "" if item["active"] else "  (inactive: its column is not on the board)"

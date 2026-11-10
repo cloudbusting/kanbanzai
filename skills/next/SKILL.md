@@ -27,13 +27,15 @@ Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile
 `/audit` skill): a worktree with no card is not allowed to sit there while a batch runs, and a hard finding means
 `/next` does not spawn. A card can join a batch only when all of these hold:
 
-- its column is the one before the build step (Designed in the shipped workflow) with nobody on it, or the first
-  column (Todo) with the brief flagged "settled" by `/triage`: the build is the next step, and its design is settled
+- its column is the Done column before the build step (Designed in the shipped workflow) with nobody on it, or the
+  first column (Todo) with the brief flagged "settled" by `/triage`; a card in a Doing column (Designing, Building,
+  Checking…) is never a candidate: the build is the next step, and its design is settled
   (a brief, and any decision record it links is accepted with no open question);
 - no other session holds a live claim on it: `kanbanzai wip --next` lists the cards a session can pull, furthest
   along first, and offers no Todo card while the cap `flow.wip_limit` of started cards is reached; an interrupted
-  card (an expired claim) is a candidate only if the batch takes it over with the logged reason "lease expired,
-  session gone";
+  card (in a Doing column with no live claim and no `Held:` line, shown `⚠`, or with an expired claim) is not batch
+  work: it is half-done in a worktree, so `/do` takes it over and resumes it, one at a time, with the logged reason
+  (`kanbanzai claim claim <ID> --takeover "<why>"`);
 - its brief has no open decision for the owner;
 - it is not held (a `Held:` line) or `paused`, and not already past the build — those are pulled by `/do` after the
   batch, one at a time, in the pull order (`flow.pull_order`);
@@ -41,8 +43,8 @@ Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile
   documents).
 
 Cards that need a design cannot be delegated: design needs the question tool. If the only candidates are flagged
-"design it" in Todo, say so and stop. A card the batch takes keeps its column while its agent builds it (its claim
-says a build is under way); the main session moves it to **Built** when the agent's work is verified. If
+"design it" in Todo, say so and stop. A card the batch takes is moved to **Building** once its claim and worktree exist
+(before the agent spawns); the main session moves it to **Built** when the agent's work is verified. If
 `$ARGUMENTS` names an area, keep the candidates in it; if it names a count, use that, up to 4.
 
 ## 2. Independence
@@ -99,8 +101,8 @@ and branch patterns, with `batch_branch` for a card in a batch:
 git worktree add <the card's worktree path> -b <the card's batch branch> main
 ```
 
-Put the path and branch in the map, and set the card's **Where** to `worktree <ID>`. The brief stays in the main
-checkout. A worktree with no card is a bug, and `kanbanzai wip` will say so. Remove the worktree when the card's
+Put the path and branch in the map, set the card's **Where** to `worktree <ID>` and its **Stage** to `building` (with
+**Updated**: the do skill's first move). The brief stays in the main checkout. A worktree with no card is a bug, and `kanbanzai wip` will say so. Remove the worktree when the card's
 commit is merged; a clean worktree that is behind main is only clutter.
 
 **Claims.** The main session claims every card in the batch before it spawns; the claim is the card's only owner
@@ -153,8 +155,8 @@ On each agent's return:
 - commit that card's work to its branch before the next step, so no agent's worktree is left dirty and the batch's
   close (the do skill's close block) names each tree with its commit.
 
-Then finish the batch, card by card: run `/check` on each card in the main session (each stays Built, with the main
-session's claim on it, while its checks run, and becomes **Checked** when they pass). Checks that can overlap across
+Then finish the batch, card by card: move each card to **Checking** and run `/check` on it in the main session (it
+stays Checking, with the main session's claim on it, while its checks run, and becomes **Checked** when they pass). Checks that can overlap across
 cards may overlap; a check the project runs one at a time (a shared browser, one lease) runs one card at a time.
 Where a project has deploy steps, merge the batch's cards onto the main branch in the map's order and run
 `kanbanzai step deploy-qa` once for the resulting commit; the batch's ship is recorded once, with the commit and the
@@ -176,8 +178,9 @@ When every card is done or dropped:
 - close each finished card as `/do` does (step 5);
 - set the batch **State:** closed.
 
-If a card stalls, close its map row with the reason, put it back in its column and release its claim with the reason
-in the batch file; the batch does not wait for it.
+If a card stalls, close its map row with the reason, put it back in the column of the last step it finished (or give
+it a `Held:` line, so it does not sit in Building as interrupted) and release its claim with the reason in the batch
+file; the batch does not wait for it.
 
 ## Hard rules
 

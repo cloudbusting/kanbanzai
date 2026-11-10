@@ -132,8 +132,8 @@ class ContextTest(ProjectCase):
         self.assertIn(f"Claims: {self.root}/.kanbanzai/state/claims", out)
         self.assertIn("todo (Todo, folder 1-open): next step: design (kanbanzai:design); when its Next action says "
                       "settled: build (kanbanzai:build)", out)
-        self.assertIn("checked (Checked, folder 1-open): next step: deploy-qa (release)", out)
-        self.assertIn("qa-approved (QA-approved, folder 1-open): next step: ship (no skill: the card skips it); "
+        self.assertIn("checked (Checked, lane Check, folder 1-open): next step: deploy-qa (release)", out)
+        self.assertIn("qa-approved (QA-approved, lane QA, folder 1-open): next step: ship (no skill: the card skips it); "
                       "waits for Sam's approval", out)
         self.assertNotIn("x-blocked", out)
         self.assertNotIn("Blocked or waiting", out)
