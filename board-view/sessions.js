@@ -44,4 +44,26 @@ function parseSessions(text) {
   return { waiting: value.waiting, claims: Number.isInteger(value.claims) ? value.claims : 0, cards: value.cards && typeof value.cards === 'object' ? value.cards : {} };
 }
 
-module.exports = { elapsed, sessionOf, statusLabel, parseSessions, PLAIN };
+// W-102: the cards asking in `next` that were not asking in `prev` (two parsed answers), each with its session's name.
+// Nothing without a previous answer (the first poll, or one that failed), so a session already asking when the window
+// opens is not announced.
+function newlyAsking(prev, next) {
+  const cards = (a) => (a && typeof a === 'object' && a.cards && typeof a.cards === 'object' && !Array.isArray(a.cards) ? a.cards : null);
+  const before = cards(prev);
+  const after = cards(next);
+  if (!before || !after) return [];
+  const asking = (c) => !!c && typeof c === 'object' && c.state === 'waiting';
+  return Object.keys(after).filter((id) => asking(after[id]) && !asking(before[id]))
+    .map((id) => ({ card: id, name: typeof after[id].name === 'string' ? after[id].name : '' }));
+}
+
+const MAX_MESSAGES = 3;
+
+// The editor messages for those cards: one line each up to three, then one summary.
+function askMessages(list) {
+  const l = Array.isArray(list) ? list : [];
+  if (l.length > MAX_MESSAGES) return [`${l.length} sessions asking`];
+  return l.map((c) => (c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`));
+}
+
+module.exports = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, PLAIN };
