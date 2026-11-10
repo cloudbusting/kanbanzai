@@ -81,10 +81,11 @@ function diffBoards(prev, next, ownerName) {
       const e = { ...base, level, kind: 'move', headline: n.col === 'done' ? `${id} Done` : `${id} ${moved}` };
       if (was && !cause) e.clears = true;
       events.push(e);
-    } else if (was && !cause) {
+    } else if ((was || p.mark === 'waiting') && !cause && n.mark !== 'waiting') {
       events.push({ ...base, level: 'progress', kind: 'cleared', headline: `${id} unblocked`, clears: true });
-    } else if (n.mark === 'waiting' && p.mark !== 'waiting') {
-      events.push({ ...base, level: 'progress', kind: 'waiting', headline: `${id} waiting`, held: n.held || undefined });
+    } else if (n.mark === 'waiting' && (p.mark !== 'waiting' || (was && !cause))) {
+      // newly waiting on someone else; a blocked card that now only waits also closes its blocked toast
+      events.push({ ...base, level: 'progress', kind: 'waiting', headline: `${id} waiting`, held: n.held || undefined, clears: was && !cause ? true : undefined });
     }
   }
   return events;
@@ -158,6 +159,7 @@ function toViews(state, now, seen) {
   return arr(state && state.stack).map((t) => ({
     key: t.key,
     level: t.level,
+    kind: t.kind,
     glyph: GLYPHS[t.kind] || (t.level === 'done' ? '✓' : '▸'),
     word: WORDS[t.level] || 'Progress',
     headline: t.headline,

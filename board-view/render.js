@@ -94,7 +94,8 @@ function toastHtml(view) {
   const level = ['progress', 'done', 'blocked'].includes(v.level) ? v.level : 'progress';
   const key = String(v.key || '');
   const path = v.path ? String(v.path) : '';
-  const classes = `toast level-${level}${v.shown ? ' shown' : ''}`;
+  const kind = level === 'blocked' && ['blocked', 'waiting-owner', 'interrupted'].includes(v.kind) ? ` kind-${v.kind}` : '';
+  const classes = `toast level-${level}${kind}${v.shown ? ' shown' : ''}`;
   let attrs = level === 'blocked' ? ' role="alert"' : '';
   attrs += ` data-key="${esc(key)}"`;
   if (typeof v.remainingMs === 'number') attrs += ` data-remaining="${Math.round(v.remainingMs)}"`;
@@ -259,6 +260,7 @@ const STYLE = `
   .toast:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
   .toast.level-done { border-left-color: var(--vscode-testing-iconPassed, var(--vscode-charts-green, var(--vscode-focusBorder))); }
   .toast.level-blocked { border-left-color: var(--vscode-errorForeground); }
+  .toast.kind-waiting-owner, .toast.kind-interrupted { border-left-color: var(--vscode-editorWarning-foreground); }
   .toast-head { display: flex; align-items: baseline; gap: 6px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
   .toast-word { font-weight: 600; text-transform: uppercase; }
   .toast-close {
