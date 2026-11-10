@@ -277,6 +277,20 @@ test("an interrupted card has the warning glyph, the interrupted class and hover
   assert.doesNotMatch(w5, /interrupted|⚠/);
 });
 
+// W-108: a card whose claim never started its step (still in Todo or a Done column) is marked.
+test("a claimed-not-started card has the flag glyph, the unstarted class and hover text; others are unchanged", () => {
+  const html = renderHtml({ columns: [{ key: "todo", name: "Todo", lane: null, cards: [
+    card("W-8", { owner: "s1", claimed_not_started: true }), card("W-9", { owner: "s1", claimed_not_started: false }), card("W-10")] }] }, { nonce: NONCE });
+  const w8 = html.match(/<div class="card[^"]*"[^>]*data-path="w\/W-8\.md"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.match(w8, /^<div class="card claimed unstarted"/);
+  assert.match(w8, /<span class="glyph glyph-unstarted"[^>]*>⚑<\/span>/);
+  assert.match(w8.match(/ title="([^"]*)"/)[1], /Claimed but its step has not started/);
+  for (const id of ["W-9", "W-10"]) {
+    const other = html.match(new RegExp(`<div class="card[^"]*"[^>]*data-path="w/${id}\\.md"[^>]*>.*?</div></div>`, "s"))[0];
+    assert.doesNotMatch(other, /unstarted|⚑/);
+  }
+});
+
 test("a sub-column inside a lane collapses like any column", () => {
   const out = renderHtml(laneBoard, { nonce: NONCE, collapsed: ["building"] });
   assert.match(out, /<section class="col col-building collapsed"/);

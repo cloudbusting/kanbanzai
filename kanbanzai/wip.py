@@ -26,7 +26,7 @@ from pathlib import Path
 from . import board as briefs
 from . import claim
 from .config import Project
-from .util import git, parse_time
+from .util import git, parse_time, utcnow
 
 
 def live_owners(held: dict) -> dict[str, str]:
@@ -340,6 +340,15 @@ def reconcile(project: Project, cards: dict, wts: list[dict], held: dict | None 
             if item not in live_cards and item not in on_hold:
                 soft.append(f"{item} ({column.label}): {column.doing} was under way and no session holds it: "
                             f"interrupted; resume it (take it over with a reason)")
+    # A live claim on a card still in Todo or a Done column, past the grace, never started its step (W-108).
+    now = utcnow()
+    for column in project.columns:
+        for item, *_ in cards.get(column.key, []):
+            record = held.get(item)
+            minutes = claim.unstarted_minutes(project, column, item in on_hold, record, now)
+            if minutes is not None:
+                hard.append(f"{item} ({column.label}): claimed by {claim_state(record)[2]} for {minutes} min but "
+                            f"still in {column.label}: run kanbanzai move {item} start, or release the claim")
     return hard, soft, cleanup
 
 
@@ -380,8 +389,12 @@ def report(project: Project, args: argparse.Namespace) -> int:
     print()
     print("Board")
     loaded = briefs.load(project, claims=live_all)
+    holding = on_hold(project)
+    unstarted = {item for column in project.columns for item, *_ in cards[column.key]
+                 if claim.unstarted_minutes(project, column, item in holding, held.get(item)) is not None}
     marks = {card["id"]: briefs.GLYPHS.get(card.get("mark") or "", "") * bool(card.get("held"))
                          + briefs.INTERRUPTED * bool(card.get("interrupted"))
+                         + briefs.UNSTARTED * (card["id"] in unstarted)
              for _, card in briefs.cards(loaded)}
     for column in project.columns:
         items = cards[column.key]

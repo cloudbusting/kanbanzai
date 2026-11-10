@@ -169,6 +169,7 @@ class Project:
         self.owner_env = str(claims.get("owner_env") or "KANBANZAI_OWNER")
         self.wip_limit = int(flow.get("wip_limit") or 5)
         self.stale_days = int(flow.get("stale_days") or 7)
+        self.move_grace_minutes = float(flow.get("move_grace_minutes") or 10)
         self._columns()
         self._steps()
         self.pull_order = [str(key) for key in flow.get("pull_order") or []]
@@ -352,7 +353,8 @@ class Project:
                 "batch_branch": self.batch_branch_pattern, "context": [str(p) for p in self.context_files()],
             },
             "claims": {"lease_minutes": self.lease_minutes, "owner_env": self.owner_env},
-            "flow": {"wip_limit": self.wip_limit, "stale_days": self.stale_days, "pull_order": self.pull_order},
+            "flow": {"wip_limit": self.wip_limit, "stale_days": self.stale_days,
+                     "move_grace_minutes": self.move_grace_minutes, "pull_order": self.pull_order},
             "columns": [{
                 "key": c.key, "label": c.label, "words": list(c.words), "folder": c.folder, "kind": c.kind,
                 "started": c.started, "next": c.next, "settled_next": c.settled_next, "title": c.title,
