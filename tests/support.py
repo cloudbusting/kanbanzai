@@ -47,11 +47,14 @@ def make_repo(path: pathlib.Path, config: str | None = DEFAULT_CONFIG, commit: b
     return path
 
 
-def brief(card, title, stage, updated="2026-11-09", next_action="Do it", where="—", done=None, extra=""):
+def brief(card, title, stage, updated="2026-11-09", next_action="Do it", where="—", done=None, extra="", held=None):
     lines = [f"# {card}: {title}", "", f"- **Stage:** {stage}", f"- **Updated:** {updated}"]
     if done:
         lines.append(f"- **Done:** {done}")
-    lines += [f"- **Next action:** {next_action}", f"- **Where:** {where}", extra, "## Goal", "", "Body.", "",
+    lines += [f"- **Next action:** {next_action}", f"- **Where:** {where}"]
+    if held:
+        lines.append(f"- **Held:** {held}")
+    lines += [extra, "## Goal", "", "Body.", "",
               "- **Stage:** design (a body line, never read)", "", "## Comments", ""]
     return "\n".join(lines)
 
@@ -60,7 +63,7 @@ class ProjectCase(unittest.TestCase):
     """A throwaway project on the default paths, with a clean environment."""
 
     CONFIG: str | None = DEFAULT_CONFIG
-    FOLDERS = ("1-open", "x-blocked", "x-paused", "10-done")
+    FOLDERS = ("1-open", "x-paused", "10-done")
 
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="kanbanzai-test-")).resolve()

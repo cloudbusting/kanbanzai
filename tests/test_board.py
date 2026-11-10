@@ -7,7 +7,7 @@ from kanbanzai import board
 
 from .support import ProjectCase, brief
 
-KEYS = ["todo", "designed", "built", "checked", "qa-approved", "blocked", "paused", "done"]
+KEYS = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"]
 
 
 class BoardTest(ProjectCase):
@@ -21,26 +21,32 @@ class BoardTest(ProjectCase):
         result = self.board()
         self.assertEqual([c["key"] for c in result["columns"]], KEYS)
         self.assertEqual([c["name"] for c in result["columns"]],
-                         ["Todo", "Designed", "Built", "Checked", "QA-approved", "Blocked or waiting", "Paused", "Done"])
+                         ["Todo", "Designed", "Built", "Checked", "QA-approved", "Paused", "Done"])
 
     def test_stage_words_give_the_column(self):
         for i, stage in enumerate(("todo", "designed", "built", "checked (the checks passed)",
                                    "qa-approved (waiting for Sam)")):
             self.card(f"W-1{i}", "Open", stage)
-        self.card("W-30", "Blocked", "blocked: W-08", "x-blocked")
-        self.card("W-31", "Waiting", "waiting: Sam — the key", "x-blocked")
-        self.card("W-32", "Outside", "waiting: 30 days of production", "x-blocked")
+        self.card("W-30", "Blocked", "designed", held="blocked: W-08")
+        self.card("W-31", "Waiting", "built", held="waiting: Sam — the key")
+        self.card("W-32", "Outside", "checked", held="waiting: 30 days of production")
         self.card("W-33", "Paused", "paused", "x-paused")
         self.card("W-34", "Done", "done", "10-done", done="2026-11-09 — live", where="main")
         result = self.board()
-        for i, key in enumerate(KEYS[:5]):
-            self.assertEqual([c["id"] for c in self.column(result, key)], [f"W-1{i}"], key)
-        self.assertEqual([c["id"] for c in self.column(result, "blocked")], ["W-30", "W-31", "W-32"])
+        self.assertEqual([c["id"] for c in self.column(result, "todo")], ["W-10"])
+        # A held card stays in the column it finished, and says what it is held on (W-92).
+        self.assertEqual([c["id"] for c in self.column(result, "designed")], ["W-11", "W-30"])
+        self.assertEqual([c["id"] for c in self.column(result, "built")], ["W-12", "W-31"])
+        self.assertEqual([c["id"] for c in self.column(result, "checked")], ["W-13", "W-32"])
+        self.assertEqual([c["id"] for c in self.column(result, "qa-approved")], ["W-14"])
         # A waiting card that names the owner is the owner's to nudge.
-        self.assertEqual([c["mark"] for c in self.column(result, "blocked")], ["blocked", "waiting-owner", "waiting"])
+        self.assertEqual(self.column(result, "designed")[1]["mark"], "blocked")
+        self.assertEqual(self.column(result, "built")[1]["mark"], "waiting-owner")
+        self.assertEqual(self.column(result, "checked")[1]["mark"], "waiting")
+        self.assertEqual(self.column(result, "designed")[1]["held"], "blocked: W-08")
         self.assertEqual(self.column(result, "paused")[0]["mark"], "paused")
         self.assertIsNone(self.column(result, "designed")[0]["mark"])
-        self.assertEqual(self.column(result, "blocked")[0]["from"], None)
+        self.assertIsNone(self.column(result, "designed")[0]["held"])
         self.assertEqual(self.column(result, "done")[0]["done"], "2026-11-09 — live")
         self.assertEqual(result["problems"], [])
 
@@ -51,13 +57,14 @@ class BoardTest(ProjectCase):
         self.assertEqual(card, {
             "id": "W-75", "title": "The briefs are the board", "stage": "built",
             "next": "Write board.py, then the extension", "updated": "2026-11-10", "where": "worktree W-75",
-            "done": None, "owner": "claude:42", "mark": None, "from": None,
+            "done": None, "owner": "claude:42", "mark": None, "held": None,
             "path": ".kanbanzai/work/1-open/W-75-x.md"})
 
-    def test_wrapped_stage_line(self):
-        self.card("W-26", "Apps", "blocked: W-38 (the accounts:\n  Apple and Google)", "x-blocked")
-        card = self.column(self.board(), "blocked")[0]
-        self.assertEqual(card["stage"], "blocked: W-38 (the accounts: Apple and Google)")
+    def test_wrapped_held_line(self):
+        self.card("W-26", "Apps", "todo", held="blocked: W-38 (the accounts:\n  Apple and Google)")
+        card = self.column(self.board(), "todo")[0]
+        self.assertEqual(card["held"], "blocked: W-38 (the accounts: Apple and Google)")
+        self.assertEqual(card["stage"], "todo")
 
     def test_order(self):
         for n in (12, 3, 40):
@@ -75,13 +82,34 @@ class BoardTest(ProjectCase):
         cards = self.column(self.board({"W-10": "opencode:ses_1"}), "built")
         self.assertEqual([c["owner"] for c in cards], ["opencode:ses_1", None])
 
-    def test_a_blocked_card_remembers_its_stage(self):
-        self.card("W-30", "A", "waiting: Sam — a decision, from designed", "x-blocked")
-        self.card("W-31", "B", "blocked: W-08, from checked", "x-blocked")
-        self.card("W-32", "C", "waiting: 30 days of production, from todo", "x-blocked")
-        self.card("W-33", "D", "blocked: W-08", "x-blocked")
-        self.assertEqual([c["from"] for c in self.column(self.board(), "blocked")],
-                         ["designed", "checked", "todo", None])
+    def test_no_held_line_or_a_dash_is_not_held(self):
+        self.card("W-30", "A", "built")
+        self.card("W-31", "B", "built", held="—")
+        cards = self.column(self.board(), "built")
+        self.assertEqual([(c["held"], c["mark"]) for c in cards], [(None, None), (None, None)])
+
+    def test_the_old_blocked_stage_is_a_problem_that_names_the_held_line(self):
+        self.card("W-30", "A", "blocked: W-08, from built", "1-open")
+        self.card("W-31", "B", "waiting: Sam", "1-open")
+        problems = self.board()["problems"]
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(all("Held" in p and "stays in the column it finished" in p for p in problems), problems)
+
+    def test_the_old_blocked_folder_is_not_a_board_folder(self):
+        self.card("W-30", "A", "built", "x-blocked")
+        self.assertTrue(any("not in a board folder" in p for p in self.board()["problems"]))
+
+    def test_the_text_marks_held_cards_and_sums_them_up(self):
+        self.card("W-30", "A", "designed", held="blocked: W-08")
+        self.card("W-31", "B", "built", held="waiting: Sam — the key")
+        self.card("W-32", "C", "built", held="waiting: 30 days")
+        self.card("W-33", "D", "built", held="waiting: Sam")
+        self.card("W-34", "E", "todo")
+        out = board.as_text(self.board(), "Sam")
+        self.assertIn("W-30 ⛔", out)
+        self.assertIn("W-31 ⏳", out)
+        self.assertNotIn("W-34 ⛔", out)
+        self.assertIn("Held 4: waiting on Sam W-31, W-33; waiting W-32; blocked W-30", out)
 
     def test_the_old_stage_words_are_unknown(self):
         words = ("docs", "test", "security", "qa", "design", "dev", "checks", "ready-qa", "in-qa", "ready-prod")
@@ -125,9 +153,9 @@ class BoardTest(ProjectCase):
         self.assertIn("W-10", out)
 
     def test_find(self):
-        self.card("W-30", "Blocked", "blocked: W-08", "x-blocked")
+        self.card("W-30", "Blocked", "checked", held="blocked: W-08")
         result = self.board()
-        self.assertEqual(board.find(result, "W-30")[0], "blocked")
+        self.assertEqual(board.find(result, "W-30")[0], "checked")
         self.assertEqual(board.find(result, "W-99"), (None, None))
 
     def test_a_card_in_a_worktree_is_read_from_the_main_checkout(self):
