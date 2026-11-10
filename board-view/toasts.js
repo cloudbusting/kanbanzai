@@ -124,7 +124,7 @@ function applyEvents(state, events, now) {
   for (const e of raise) {
     const key = e.key || e.card;
     const old = stack.find((t) => t.key === key);
-    if (old && old.level === 'blocked' && e.level !== 'blocked') continue; // a blocked toast stays until closed
+    if (old && old.level === 'blocked' && e.level !== 'blocked' && !e.clears) continue; // a blocked toast stays until closed
     stack = stack.filter((t) => t.key !== key);
     seq += 1;
     stack.push({
