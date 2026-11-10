@@ -9,12 +9,14 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { renderHtml, renderError, safeBriefPath } = require('./render');
+const toasts = require('./toasts');
 
 const REFRESH_MS = 60 * 1000;
 const DEBOUNCE_MS = 500;
 const RUN_TIMEOUT_MS = 15 * 1000;
 const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
 const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
+const SAFE_TOAST_KEY = /^[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, or 'burst'
 
 function workspaceRoot() {
   const folders = vscode.workspace.workspaceFolders || [];
@@ -99,6 +101,13 @@ function showBoard(context) {
   let again = false;
   let work = path.join('.kanbanzai', 'work');
   let watched = null;
+  // Toasts. The page's HTML is replaced whenever the board changes, so the stack lives here and is drawn with each
+  // render. `prev` is the last good read (the baseline for the diff), `pending` the events found while the tab was
+  // hidden, `seen` the toasts already on the page (they are redrawn without the fade).
+  let prev = null;
+  let toastState = { stack: [], seq: 0 };
+  let pending = [];
+  const seen = new Set();
 
   // Refresh when a brief changes; the watcher follows the settings' cards folder.
   function watch(folder) {
@@ -120,12 +129,27 @@ function showBoard(context) {
         work = result.work;
         watch(work);
       }
+      const now = Date.now();
+      if (!result.error) {
+        const events = toasts.diffBoards(prev, result.board, result.owner);
+        prev = result.board;
+        pending.push(...events);
+      }
+      toastState = toasts.prune(toastState, now);
+      if (panel.visible && pending.length) {
+        toastState = toasts.applyEvents(toastState, pending, now);
+        pending = [];
+      }
       const collapsed = context.workspaceState.get(COLLAPSED_KEY, []);
-      const key = JSON.stringify([result, collapsed]);
+      // The toasts enter the key by their raise counter, so one expiring or being closed does not redraw the board.
+      const key = JSON.stringify([result, collapsed, toastState.seq]);
       if (key === lastKey) return; // nothing changed: keep the page, its scroll and focus
       lastKey = key;
+      const views = toasts.toViews(toastState, now, seen);
+      for (const t of toastState.stack) seen.add(t.seq);
       const opts = {
         nonce: crypto.randomBytes(16).toString('hex'), cspSource: panel.webview.cspSource, collapsed, owner: result.owner,
+        toasts: views,
       };
       panel.webview.html = result.error ? renderError(result.error, opts) : renderHtml(result.board, opts);
     } finally {
@@ -163,7 +187,12 @@ function showBoard(context) {
       if (msg.collapsed) shut.add(msg.key); else shut.delete(msg.key);
       const list = [...shut].sort();
       void context.workspaceState.update(COLLAPSED_KEY, list);
-      lastKey = JSON.stringify([JSON.parse(lastKey || '[null]')[0], list]);
+      const was = JSON.parse(lastKey || '[null,[],0]');
+      lastKey = JSON.stringify([was[0], list, was[2]]);
+      return;
+    }
+    if (msg && msg.type === 'toast-close' && typeof msg.key === 'string' && SAFE_TOAST_KEY.test(msg.key)) {
+      toastState = toasts.close(toastState, msg.key); // the page has already removed it
       return;
     }
     if (!msg || msg.type !== 'open') return;
