@@ -376,3 +376,23 @@ test("a waiting-on-owner or interrupted toast has the warning edge like the card
   const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
   assert.match(css, /\.toast\.kind-waiting-owner,\s*\.toast\.kind-interrupted\s*\{[^}]*editorWarning-foreground/s);
 });
+
+// ---- the asking toast (W-102) ----
+const askingView = { key: "ask:W-12", level: "asking", kind: "asking", glyph: "❓", word: "Asking", headline: "W-12 asking", detail: "Title — <img src=x onerror=alert(1)>", path: ".kanbanzai/work/1-open/W-12-x.md", remainingMs: null, closable: true, shown: false };
+
+test("an asking toast is level-asking with role alert, a close button, its glyph and word, and an escaped session name", () => {
+  const out = renderHtml(board, { nonce: NONCE, toasts: [askingView] });
+  const toast = out.match(/<div class="toast level-asking[^"]*"[^>]*>.*?<\/div><\/div>/s)[0];
+  assert.match(toast, /role="alert"/);
+  assert.match(toast, /data-key="ask:W-12"/);
+  assert.doesNotMatch(toast, /data-remaining/);
+  assert.match(toast, /<span class="toast-glyph">❓<\/span><span class="toast-word">Asking<\/span>/);
+  assert.match(toast, /<button class="toast-close" type="button" data-close="ask:W-12"/);
+  assert.match(toast, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.doesNotMatch(out, /<img src=x/);
+});
+
+test("the asking toast's edge is the asking card's own colour, a --vscode variable", () => {
+  const css = renderHtml(board, { nonce: NONCE, toasts: [askingView] }).match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  assert.match(css, /\.toast\.level-asking\s*\{[^}]*border-left-color:\s*var\(--vscode-button-background\)/s);
+});
