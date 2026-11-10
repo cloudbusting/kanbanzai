@@ -22,7 +22,7 @@ and it does not make the owner's decisions (the owner is `project.owner` in `kan
 | Ends | a card sits in Todo sized (or is folded, or closed) | the brief is ready to build |
 
 **Every work item starts in Todo**, and triage never moves a card out of it: the session that starts the work claims
-the card and moves it. Triage writes into the brief what comes next: a request that needs a choice is flagged "design
+the card and moves it (to Designing, or straight to Building for a settled card). Triage writes into the brief what comes next: a request that needs a choice is flagged "design
 it", and `/design` runs when a session pulls it; a request that is small, contained and has no open decision is
 flagged "settled", and `/build` runs when a session pulls it. Triage never starts building, and design never starts
 intake.

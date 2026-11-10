@@ -5,8 +5,10 @@
 # table replaces that step's keys it names. Paths are relative to the main checkout unless absolute;
 # `{git_common}` is `git rev-parse --git-common-dir` (the `.git` every worktree shares).
 #
-# A column is the last step finished, in the past tense, and a live claim on a card means a session is on the
-# next step. Each step names the column it moves a card into and the skill that does it.
+# Each step has a Doing column (the step in progress) and a Done column (the last step finished, in the past tense):
+# a session pulls a card from a Done column, moves it into the next step's Doing column, and moves it into that
+# step's Done column when it finishes. Todo, Paused and Done are single columns. Each step names the column it moves
+# a card into (`into`), the column it sits in while it runs (`during`) and the skill that does it.
 
 [project]
 prefix = "W"                      # card ids are <prefix>-<number>: W-01, W-02 …
@@ -44,6 +46,10 @@ pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; 
 #   next     the step a session does to a card in this column (absent: nothing; the card waits)
 #   title    the session-title state while a session does that step
 #   worktree true: a claimed card here must have a worktree (its next step changes files)
+#   lane     the step's name on the board, over its Doing and Done columns (empty: a column of its own)
+#   doing    a Doing column: the step in progress while a card is here (the step's `during` names the column back).
+#            A card here with a live claim is being worked; with none (and no Held line) it is interrupted. A
+#            project whose columns name no Doing column keeps the old reading: a claim on a Done column is the doing
 
 [[columns]]
 key = "todo"
@@ -57,8 +63,19 @@ title = "DESIGNING"
 settled_title = "BUILDING"
 
 [[columns]]
+key = "designing"
+label = "Designing"
+lane = "Design"
+doing = "design"
+folder = "1-open"
+kind = "open"
+started = true
+title = "DESIGNING"
+
+[[columns]]
 key = "designed"
 label = "Designed"
+lane = "Design"
 folder = "1-open"
 kind = "open"
 started = true
@@ -67,8 +84,20 @@ title = "BUILDING"
 worktree = true
 
 [[columns]]
+key = "building"
+label = "Building"
+lane = "Build"
+doing = "build"
+folder = "1-open"
+kind = "open"
+started = true
+title = "BUILDING"
+worktree = true
+
+[[columns]]
 key = "built"
 label = "Built"
+lane = "Build"
 folder = "1-open"
 kind = "open"
 started = true
@@ -77,8 +106,20 @@ title = "CHECKING"
 worktree = true
 
 [[columns]]
+key = "checking"
+label = "Checking"
+lane = "Check"
+doing = "check"
+folder = "1-open"
+kind = "open"
+started = true
+title = "CHECKING"
+worktree = true
+
+[[columns]]
 key = "checked"
 label = "Checked"
+lane = "Check"
 folder = "1-open"
 kind = "open"
 started = true
@@ -87,14 +128,36 @@ title = "IN QA"
 worktree = true
 
 [[columns]]
+key = "in-qa"
+label = "In QA"
+lane = "QA"
+doing = "deploy-qa"
+folder = "1-open"
+kind = "open"
+started = true
+title = "IN QA"
+worktree = true
+
+[[columns]]
 key = "qa-approved"
 label = "QA-approved"
+lane = "QA"
 folder = "1-open"
 kind = "open"
 next = "ship"
 title = "SHIPPING"
 worktree = true
 waits_for_owner = true            # never pulled: it waits for the owner's approval
+
+[[columns]]
+key = "shipping"
+label = "Shipping"
+lane = "Ship"
+doing = "ship"
+folder = "1-open"
+kind = "open"
+title = "SHIPPING"
+worktree = true
 
 [[columns]]
 key = "paused"
@@ -120,18 +183,21 @@ title = "DONE"
 
 [steps.design]
 into = "designed"
+during = "designing"
 skill = "kanbanzai:design"
 extend = []
 context = []
 
 [steps.build]
 into = "built"
+during = "building"
 skill = "kanbanzai:build"
 extend = []
 context = []
 
 [steps.check]
 into = "checked"
+during = "checking"
 skill = "kanbanzai:check"
 checks = []
 extend = []
@@ -139,12 +205,14 @@ context = []
 
 [steps.deploy-qa]
 into = "qa-approved"
+during = "in-qa"
 skill = ""                        # no deploy by default: a checked card closes (kanbanzai:do, the close)
 extend = []
 context = []
 
 [steps.ship]
 into = "done"
+during = "shipping"
 skill = ""
 extend = []
 context = []

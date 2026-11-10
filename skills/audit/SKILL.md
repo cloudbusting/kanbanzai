@@ -24,9 +24,10 @@ a card that has no brief, an open card whose **Where** is `main`, a claimed card
 with none, the main checkout off its main branch, or uncommitted files in the main checkout. `--card <ID>` scopes
 it to one card, so another session's work does not hold that card — including the main checkout, which the card
 scope leaves to the whole-board run. A card in the first column, or in a column that waits for the owner, with no
-claim is at rest, not drift; a card in another started column with no claim is finished with its step and waiting to
-be pulled, and is drift only when it goes quiet (see the stale warning). Warnings (`·`) are work not pushed, a card
-gone quiet, an uncarded worktree with changes, and an expired claim. `kanbanzai check` lists a brief it cannot read
+claim is at rest, not drift; a card in a Done column with no claim is finished with its step and waiting to be
+pulled, and is drift only when it goes quiet (see the stale warning). A card in a Doing column with no live claim and
+no `Held:` line is interrupted (`⚠`): a session left it mid-step. Warnings (`·`) are work not pushed, a card gone
+quiet, an interrupted card, an uncarded worktree with changes, and an expired claim. `kanbanzai check` lists a brief it cannot read
 (no title, no Stage line, an unknown stage, the wrong folder) as a problem.
 
 Anything else the project keeps that can drift (a deploy queue, leases): its context files (`project.context`) say
@@ -49,6 +50,9 @@ Bookkeeping only, in the main session:
 ## 3. What it reports and leaves alone
 
 - **Unpushed commits** on a card's branch — say how many; pushing is the owner's call.
+- **An interrupted card** (a Doing column, no claim, no `Held:` line): say which step it was in and what its Next
+  action and last Comment say; `/do <ID>` resumes it (taking it over with a reason). If it is really waiting, the
+  owning session adds the `Held:` line; the audit does not move it between columns.
 - **Claims:** a live claim by another session is its own, even if its work looks stalled — report it, do not release
   it or take it over. An expired claim may be released, or taken over with a reason when the work is wanted.
 - **Anything another part of the project owns** (a deploy lease, a queue): release only what this session holds.

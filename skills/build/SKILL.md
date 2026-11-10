@@ -63,5 +63,6 @@ project's own configuration or rule files, unless the brief names them.
 - Tests run, and the result (counts).
 - Anything not done, anything outside the brief, any doubt about the result.
 
-The main session reads the diff before it moves the card: a subagent's "done" is a claim, not a fact. When the code
-and its tests are written and the main session has checked the diff, the card is **Built** (the do skill moves it).
+The main session reads the diff before it moves the card: a subagent's "done" is a claim, not a fact. The card is
+**Building** while the build runs (the do skill moves it there once its worktree exists); when the code and its tests
+are written and the main session has checked the diff, it is **Built** (the do skill moves it).
