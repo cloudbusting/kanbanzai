@@ -30,7 +30,7 @@ from pathlib import Path
 
 from . import board, claim, step
 from .config import Project
-from .util import to_iso, utcnow
+from .util import parse_time, to_iso, utcnow
 
 OK, REFUSED, HELD = 0, 2, 3
 
@@ -198,6 +198,23 @@ def legal_targets(project: Project, key: str, card: dict, nothing_to_ship: bool 
         if other.kind == "parked":
             found[other.key] = "pause"
     return found
+
+
+def last_move(project: Project, card: str) -> dt.datetime | None:
+    """When the card was last moved by ``kanbanzai move`` (the newest line for it in the move log), or None."""
+    log = project.state / "moves.jsonl"
+    try:
+        lines = log.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and entry.get("card") == card:
+            return parse_time(entry.get("at"))
+    return None
 
 
 def worktree_ok(project: Project, where: str) -> bool:

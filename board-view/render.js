@@ -25,6 +25,7 @@ const MARKS = {
 const CLAIMED_GLYPH = '●';
 const SESSION_WORD = { waiting: 'asking', busy: 'busy', idle: 'idle' };
 const INTERRUPTED_TEXT = 'Interrupted: the step was under way and no session holds it';
+const UNSTARTED_TEXT = 'Claimed but its step has not started: the card was not moved into its Doing column';
 
 function esc(value) {
   return String(value === undefined || value === null ? '' : value)
@@ -81,10 +82,15 @@ function cardHtml(card, colKey, ownerName, now) {
     hover.push(INTERRUPTED_TEXT);
     classes.push('interrupted');
   }
+  if (c.claimed_not_started === true) {
+    hover.push(UNSTARTED_TEXT);
+    classes.push('unstarted');
+  }
 
   let glyphs = '';
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
+  if (c.claimed_not_started === true) glyphs += `<span class="glyph glyph-unstarted" title="${esc(UNSTARTED_TEXT)}">⚑</span>`;
   if (session) {
     const label = session.state === 'waiting' ? `❓ ${SESSION_WORD.waiting}` : `${CLAIMED_GLYPH} ${SESSION_WORD[session.state]}`;
     const kind = session.state === 'waiting' ? 'glyph-asking' : `glyph-claimed glyph-${session.state}`;
@@ -250,7 +256,7 @@ const STYLE = `
   .glyph { font-size: 0.95em; }
   .glyph-blocked { color: var(--vscode-errorForeground); }
   .glyph-waiting-owner, .glyph-waiting { color: var(--vscode-editorWarning-foreground); }
-  .glyph-interrupted { color: var(--vscode-editorWarning-foreground); }
+  .glyph-interrupted, .glyph-unstarted { color: var(--vscode-editorWarning-foreground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
   .glyph-busy, .glyph-idle { font-size: 0.85em; color: var(--vscode-descriptionForeground); white-space: nowrap; }

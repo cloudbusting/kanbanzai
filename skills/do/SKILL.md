@@ -97,7 +97,13 @@ kanbanzai claim claim <ID> --note "<one line on what this session will do>"
 ```
 
 - **exit 0:** the card is this session's. The claim is a lease that a hook (`kanbanzai claim heartbeat`) renews
-  whenever the session works; it is the card's only owner record (the board shows it as `●`).
+  whenever the session works; it is the card's only owner record (the board shows it as `●`). **The claim moves the
+  card:** a Todo or Done-column card goes into the Doing column of its next step (the output says `moved W-12: Todo ->
+  Designing`), so a card being worked never sits in Todo. For a step whose column needs a worktree (Building and
+  later) it does not move the card: it prints `now: make the worktree ..., then run: kanbanzai move <ID> start --where
+  ...`; do that. A claim that is not a step (editing a brief, a docs-only change) is made with `--no-move`. A claim
+  that is live for `flow.move_grace_minutes` on a card still in Todo or a Done column is flagged `⚑` ("claimed, not
+  started") and fails `kanbanzai wip --audit`.
 - **exit 3:** another live session holds it. Stop and tell the owner which session holds it and until when; do not
   work the card and do not release the other session's claim.
 - **exit 4:** its claim expired: the card is interrupted, and a pull offers it first. Take it over only with
