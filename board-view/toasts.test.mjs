@@ -242,3 +242,119 @@ test("a view carries its kind, so the page can colour a waiting or interrupted t
   const s = T.applyEvents(empty(), [{ card: "W-4", level: "blocked", kind: "waiting-owner", headline: "h", title: "t", path: "p" }], NOW);
   assert.equal(T.toViews(s, NOW)[0].kind, "waiting-owner");
 });
+
+// W-102: a card whose session starts asking the owner raises a sticky toast of its own.
+const sess = (state, name = "moto-tours-7b") => ({ state, since: 1000, started: 500, name });
+const asking = (id = "W-12", name = "moto-tours-7b") => ({ card: id, key: `ask:${id}`, level: "asking", kind: "asking", headline: `${id} asking`, title: `Title of ${id}`, name, path: `.kanbanzai/work/1-open/${id}-x.md` });
+
+test("a session that goes to waiting is one asking event, with the title and the session's name", () => {
+  const prev = board({ building: [card("W-12", { session: sess("busy") })] });
+  const next = board({ building: [card("W-12", { session: sess("waiting") })] });
+  const ev = T.diffBoards(prev, next, "Sam");
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].level, "asking");
+  assert.equal(ev[0].kind, "asking");
+  assert.equal(ev[0].key, "ask:W-12");
+  assert.equal(ev[0].headline, "W-12 asking");
+  assert.equal(ev[0].title, "Title of W-12");
+  assert.equal(ev[0].name, "moto-tours-7b");
+  assert.equal(ev[0].path, ".kanbanzai/work/1-open/W-12-x.md");
+});
+
+test("no asking event for the first draw, a card already waiting, no session, other states, or a board with no sessions", () => {
+  const waiting = board({ building: [card("W-12", { session: sess("waiting") })] });
+  assert.deepEqual(T.diffBoards(null, waiting, "Sam"), []);
+  assert.deepEqual(T.diffBoards(waiting, waiting, "Sam"), []);
+  const plain = board({ building: [card("W-12")] });
+  assert.deepEqual(T.diffBoards(plain, plain, "Sam"), []);
+  assert.deepEqual(T.diffBoards(plain, board({ building: [card("W-12", { session: null })] }), "Sam"), []);
+  for (const state of ["busy", "idle"]) {
+    assert.deepEqual(T.diffBoards(plain, board({ building: [card("W-12", { session: sess(state) })] }), "Sam"), []);
+  }
+  assert.deepEqual(T.diffBoards(plain, board({ building: [card("W-12", { session: { state: "asleep", since: 1 } })] }), "Sam"), []);
+});
+
+test("a card that appears already waiting raises the asking event", () => {
+  const ev = T.diffBoards(board({ todo: [card("W-1")] }), board({ todo: [card("W-1")], building: [card("W-12", { session: sess("waiting") })] }), "Sam");
+  assert.deepEqual(ev.map((e) => e.kind).sort(), ["added", "asking"]);
+  assert.equal(ev.find((e) => e.kind === "asking").key, "ask:W-12");
+});
+
+test("a session that leaves waiting (answered, ended, or the card gone) closes the card's asking toast", () => {
+  const waiting = board({ building: [card("W-12", { session: sess("waiting") })] });
+  for (const next of [
+    board({ building: [card("W-12", { session: sess("busy") })] }),
+    board({ building: [card("W-12", { session: sess("idle") })] }),
+    board({ building: [card("W-12", { session: null })] }),
+    board({ building: [card("W-12")] }),
+    board({}),
+  ]) {
+    const ev = T.diffBoards(waiting, next, "Sam");
+    assert.equal(ev.length, 1, JSON.stringify(next));
+    assert.equal(ev[0].closes, "ask:W-12");
+    assert.equal(ev[0].level, undefined);
+  }
+});
+
+test("a move and an ask in one read are two events", () => {
+  const prev = board({ building: [card("W-12", { session: sess("busy") })] });
+  const next = board({ built: [card("W-12", { session: sess("waiting") })] });
+  const ev = T.diffBoards(prev, next, "Sam");
+  assert.deepEqual(ev.map((e) => e.kind).sort(), ["asking", "move"]);
+});
+
+test("an asking toast never expires, is not dropped by the cap, and is not part of a burst", () => {
+  let s = T.applyEvents(empty(), [asking()], NOW);
+  assert.equal(s.stack.length, 1);
+  assert.equal(s.stack[0].key, "ask:W-12");
+  assert.equal(s.stack[0].expiresAt, null);
+  assert.equal(T.prune(s, NOW + 10_000_000).stack.length, 1);
+  const short = (id) => ({ card: id, level: "progress", kind: "move", headline: id, title: "t", path: "p" });
+  s = T.applyEvents(s, [short("W-1"), short("W-2"), short("W-3"), short("W-4")], NOW + 1);
+  s = T.applyEvents(s, [short("W-5")], NOW + 2);
+  assert.equal(s.stack.length, 5);
+  assert.ok(s.stack.some((t) => t.key === "ask:W-12"), "the oldest short toast goes, not the ask");
+  const burst = T.applyEvents(empty(), [short("W-1"), short("W-2"), short("W-3"), short("W-4"), short("W-5"), asking()], NOW);
+  assert.ok(burst.stack.some((t) => t.key === "ask:W-12"));
+  assert.ok(burst.stack.some((t) => t.headline === "+2 more cards moved"), "the ask is not counted as a short event");
+});
+
+test("a card's own toasts and its asking toast do not replace each other; a closing event removes only the ask", () => {
+  let s = T.applyEvents(empty(), [asking(), { card: "W-12", level: "blocked", kind: "blocked", headline: "W-12 blocked", title: "t", path: "p" }], NOW);
+  assert.deepEqual(s.stack.map((t) => t.key).sort(), ["W-12", "ask:W-12"]);
+  s = T.applyEvents(s, [{ card: "W-12", level: "progress", kind: "move", headline: "W-12 a → b", title: "t", path: "p" }], NOW + 1);
+  assert.ok(s.stack.some((t) => t.key === "ask:W-12"), "a move leaves the ask");
+  s = T.applyEvents(s, [{ card: "W-12", closes: "ask:W-12" }], NOW + 2);
+  assert.deepEqual(s.stack.map((t) => t.key), ["W-12"]);
+  assert.equal(T.applyEvents(empty(), [{ card: "W-12", closes: "ask:W-12" }], NOW).stack.length, 0);
+});
+
+test("asked and answered inside one batch (held while the tab was hidden) leaves nothing", () => {
+  const s = T.applyEvents(empty(), [asking(), { card: "W-12", closes: "ask:W-12" }], NOW);
+  assert.equal(s.stack.length, 0);
+});
+
+test("a second ask for the same card replaces the first rather than stacking", () => {
+  const s = T.applyEvents(T.applyEvents(empty(), [asking()], NOW), [asking()], NOW + 1);
+  assert.equal(s.stack.length, 1);
+});
+
+test("an asking view: the word Asking, the ❓ glyph, closable, no time, and 'title — session name' as its detail", () => {
+  const s = T.applyEvents(empty(), [asking()], NOW);
+  const v = T.toViews(s, NOW + 1000)[0];
+  assert.equal(v.word, "Asking");
+  assert.equal(v.glyph, "❓");
+  assert.equal(v.level, "asking");
+  assert.equal(v.kind, "asking");
+  assert.equal(v.closable, true);
+  assert.equal(v.remainingMs, null);
+  assert.equal(v.headline, "W-12 asking");
+  assert.equal(v.detail, "Title of W-12 — moto-tours-7b");
+  const bare = T.toViews(T.applyEvents(empty(), [{ ...asking(), name: "" }], NOW), NOW)[0];
+  assert.equal(bare.detail, "Title of W-12");
+});
+
+test("closing an asking toast by its ✕ removes it by key", () => {
+  const s = T.close(T.applyEvents(empty(), [asking()], NOW), "ask:W-12");
+  assert.equal(s.stack.length, 0);
+});

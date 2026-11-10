@@ -98,15 +98,15 @@ function cardHtml(card, colKey, ownerName, now) {
 }
 
 // One toast per view from toasts.toViews: its level, glyph, word, headline and detail. A short one carries the time it
-// has left (the page removes it then); a blocked one has a close button and stays.
+// has left (the page removes it then); a blocked or asking one has a close button and stays.
 function toastHtml(view) {
   const v = obj(view);
-  const level = ['progress', 'done', 'blocked'].includes(v.level) ? v.level : 'progress';
+  const level = ['progress', 'done', 'blocked', 'asking'].includes(v.level) ? v.level : 'progress';
   const key = String(v.key || '');
   const path = v.path ? String(v.path) : '';
   const kind = level === 'blocked' && ['blocked', 'waiting-owner', 'interrupted'].includes(v.kind) ? ` kind-${v.kind}` : '';
   const classes = `toast level-${level}${kind}${v.shown ? ' shown' : ''}`;
-  let attrs = level === 'blocked' ? ' role="alert"' : '';
+  let attrs = level === 'blocked' || level === 'asking' ? ' role="alert"' : '';
   attrs += ` data-key="${esc(key)}"`;
   if (typeof v.remainingMs === 'number') attrs += ` data-remaining="${Math.round(v.remainingMs)}"`;
   if (path) attrs += ` data-path="${esc(path)}" tabindex="0"`;
@@ -283,6 +283,7 @@ const STYLE = `
   .toast:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
   .toast.level-done { border-left-color: var(--vscode-testing-iconPassed, var(--vscode-charts-green, var(--vscode-focusBorder))); }
   .toast.level-blocked { border-left-color: var(--vscode-errorForeground); }
+  .toast.level-asking { border-left-color: var(--vscode-button-background); }
   .toast.kind-waiting-owner, .toast.kind-interrupted { border-left-color: var(--vscode-editorWarning-foreground); }
   .toast-head { display: flex; align-items: baseline; gap: 6px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
   .toast-word { font-weight: 600; text-transform: uppercase; }
