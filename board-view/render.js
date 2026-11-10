@@ -87,6 +87,33 @@ function cardHtml(card, colKey, ownerName) {
   return `<div class="${classes.join(' ')}" tabindex="0" role="button" data-path="${esc(c.path || '')}" title="${esc(hover.join('\n'))}">${body}</div>`;
 }
 
+// One toast per view from toasts.toViews: its level, glyph, word, headline and detail. A short one carries the time it
+// has left (the page removes it then); a blocked one has a close button and stays.
+function toastHtml(view) {
+  const v = obj(view);
+  const level = ['progress', 'done', 'blocked'].includes(v.level) ? v.level : 'progress';
+  const key = String(v.key || '');
+  const path = v.path ? String(v.path) : '';
+  const classes = `toast level-${level}${v.shown ? ' shown' : ''}`;
+  let attrs = level === 'blocked' ? ' role="alert"' : '';
+  attrs += ` data-key="${esc(key)}"`;
+  if (typeof v.remainingMs === 'number') attrs += ` data-remaining="${Math.round(v.remainingMs)}"`;
+  if (path) attrs += ` data-path="${esc(path)}" tabindex="0"`;
+  const close = v.closable
+    ? `<button class="toast-close" type="button" data-close="${esc(key)}" aria-label="${esc(`Close ${key} toast`)}" title="Close">✕</button>`
+    : '';
+  let body = `<div class="toast-head"><span class="toast-glyph">${esc(v.glyph)}</span><span class="toast-word">${esc(v.word)}</span>${close}</div>`;
+  body += `<div class="toast-headline">${esc(v.headline)}</div>`;
+  if (v.detail) body += `<div class="toast-detail">${esc(v.detail)}</div>`;
+  return `<div class="${classes}"${attrs}>${body}</div>`;
+}
+
+function toastsHtml(views) {
+  const list = arr(views);
+  if (!list.length) return '';
+  return `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${list.map(toastHtml).join('')}</div>`;
+}
+
 function columnHtml(key, name, cardsHtml, count, collapsed) {
   if (count === 0) {
     return `<section class="col col-${esc(key)} empty" data-col="${esc(key)}" title="${esc(name)}: 0"><div class="strip"><span class="name">${esc(name)}</span><span class="count">0</span></div></section>`;
@@ -215,6 +242,35 @@ const STYLE = `
   .glyph-interrupted { color: var(--vscode-editorWarning-foreground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
+  .toasts {
+    position: fixed; left: 8px; bottom: 24px; z-index: 10; width: 280px; max-width: calc(100% - 16px);
+    max-height: calc(100% - 16px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto; flex: none; padding: 4px 8px;
+    background: var(--vscode-notifications-background, var(--vscode-editorWidget-background));
+    color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+    border: 1px solid var(--vscode-notifications-border, var(--vscode-widget-border, transparent));
+    border-left: 4px solid var(--vscode-focusBorder);
+    border-radius: 3px; box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.3));
+  }
+  .toast[data-path] { cursor: pointer; }
+  .toast:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+  .toast.level-done { border-left-color: var(--vscode-testing-iconPassed, var(--vscode-charts-green, var(--vscode-focusBorder))); }
+  .toast.level-blocked { border-left-color: var(--vscode-errorForeground); }
+  .toast-head { display: flex; align-items: baseline; gap: 6px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
+  .toast-word { font-weight: 600; text-transform: uppercase; }
+  .toast-close {
+    margin-left: auto; font: inherit; line-height: 1; padding: 0 3px; cursor: pointer; border: none; border-radius: 3px;
+    background: transparent; color: var(--vscode-descriptionForeground);
+  }
+  .toast-close:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); }
+  .toast-close:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+  .toast-headline { font-weight: 700; overflow-wrap: anywhere; }
+  .toast-detail { overflow-wrap: anywhere; line-height: 1.3; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: no-preference) { .toast:not(.shown) { animation: toast-in 0.18s ease-out; } }
   .title {
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     overflow-wrap: anywhere; line-height: 1.3;
@@ -236,11 +292,21 @@ const SCRIPT = `
   }
   if (board) board.addEventListener('scroll', saveState);
   document.querySelectorAll('.col .cards').forEach((el) => el.addEventListener('scroll', saveState));
+  document.querySelectorAll('.toast[data-remaining]').forEach((el) => {
+    setTimeout(() => el.remove(), Number(el.dataset.remaining) || 0);
+  });
   function open(el) {
     const p = el.getAttribute('data-path');
     if (p) vscode.postMessage({ type: 'open', path: p });
   }
   document.addEventListener('click', (e) => {
+    const shut = e.target.closest ? e.target.closest('[data-close]') : null;
+    if (shut) {
+      const toast = shut.closest('.toast');
+      if (toast) toast.remove();
+      vscode.postMessage({ type: 'toast-close', key: shut.getAttribute('data-close') });
+      return;
+    }
     const toggle = e.target.closest ? e.target.closest('[data-toggle]') : null;
     if (toggle) {
       const col = toggle.closest('.col');
@@ -249,13 +315,13 @@ const SCRIPT = `
       vscode.postMessage({ type: 'collapse', key: toggle.getAttribute('data-toggle'), collapsed });
       return;
     }
-    const el = e.target.closest ? e.target.closest('.card') : null;
+    const el = e.target.closest ? e.target.closest('.card, .toast[data-path]') : null;
     if (el) open(el);
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
-    const el = e.target.closest ? e.target.closest('.card') : null;
-    if (el) { e.preventDefault(); open(el); }
+    const el = e.target.closest ? e.target.closest('.card, .toast[data-path]') : null;
+    if (el && e.target === el) { e.preventDefault(); open(el); }
   });
 `;
 
@@ -280,6 +346,7 @@ ${inner}
 }
 
 // opts.collapsed: the keys of the columns the user collapsed (kept by the extension per workspace).
+// opts.toasts: the toasts to draw (toasts.toViews), in the lower left over the board.
 function renderHtml(board, opts) {
   const problems = arr(obj(board).problems);
   let inner = '';
@@ -287,6 +354,7 @@ function renderHtml(board, opts) {
     inner += `<div class="problems" role="alert">${problems.map((p) => `<div>${esc(p)}</div>`).join('')}</div>\n`;
   }
   inner += `<div class="board">${boardColumns(board, obj(opts).collapsed, obj(opts).owner).join('\n')}</div>`;
+  inner += toastsHtml(obj(opts).toasts);
   return shell(inner, opts);
 }
 
