@@ -117,6 +117,8 @@ def moves(project: Project, key: str, name: str) -> dict:
     word when it finishes; ``resume`` when the card is already in the step's Doing column. A project whose step
     has no Doing column has no start word: the claim is the doing."""
     step = project.steps[name]
+    if not step.skill:  # the project has no such step: a card skips it, so there is nothing to start or finish
+        return {"start": None, "finish": None, "resume": False}
     return {"start": None if project.by_key[key].doing else step.during, "finish": step.into,
             "resume": bool(project.by_key[key].doing)}
 
@@ -157,7 +159,9 @@ def run(project: Project, args: argparse.Namespace) -> int:
             print(json.dumps({**out, **words, **found}, ensure_ascii=False))
         else:
             print(f"{args.card} is in `{key}` ({out['column_label']}); the next step is `{name}`.")
-            if words["resume"]:
+            if words["finish"] is None:
+                pass
+            elif words["resume"]:
                 print(f"resume: the card is already in `{key}`; if no live claim holds it, take it over "
                       f"(`claim claim {args.card} --takeover \"<why>\"`); finish: Stage `{words['finish']}`.")
             elif words["start"]:
