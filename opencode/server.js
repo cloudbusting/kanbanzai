@@ -7,7 +7,9 @@
 //   - puts `kanbanzai` (../bin) on the PATH of every shell OpenCode starts, and labels the shell with its
 //     session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
 //   - renews this session's claims after every tool call (the heartbeat);
-//   - adds the board's standing context (`kanbanzai context`) to every model request.
+//   - adds the board's standing context (`kanbanzai context`) to every model request;
+//   - writes each session's state (busy, idle, or asking you) under the project's state folder, so the board view
+//     shows an OpenCode card as it shows a Claude Code one (W-101).
 //
 // A plain object is exported (no import of @opencode/plugin), so the folder loads with nothing to install.
 // Nothing here may throw into OpenCode: every step is guarded and fails quietly.
@@ -130,5 +132,160 @@ export default {
         if (text && event && Array.isArray(event.system)) event.system.push({ type: "text", text })
       })
     } catch {}
+
+    // W-101: the board shows what this session is doing. OpenCode keeps a session's state in its server, not in a
+    // file, and the board's core also runs where no OpenCode does, so this plugin writes one small record per session
+    // into the project's state folder (`.kanbanzai/state/sessions/opencode/<session id>.json`) and the core reads it for
+    // an `opencode:` claim -- never Claude Code's files, and Claude Code's reader never reads these.
+    //
+    // The record is W-99's {state, since, started, name} plus the server's pid and start time, so a dead server leaves
+    // no stale mark; `state` is the board's vocabulary. A question is a form (`form.created`), a permission prompt is
+    // `permission.asked`; both make the card ask. Nothing here may throw into OpenCode.
+    const stop = new AbortController()
+    try {
+      const here = path.resolve(directory)
+      const canonical = path.resolve(
+        (ctx.location && ctx.location.project && typeof ctx.location.project.canonical === "string")
+          ? ctx.location.project.canonical
+          : directory,
+      )
+      const folder = await stateFolder(directory, canonical)
+      const written = new Map() // session id -> the record last written
+      const known = new Map() // session id -> {name, started}, looked up once
+
+      const startTime = () => {
+        try {
+          const stat = fs.readFileSync("/proc/self/stat", "utf8")
+          return stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/)[19]
+        } catch {
+          return null // no /proc (not Linux): the core asks only whether the pid exists
+        }
+      }
+      const fileName = (sessionID) => `${String(sessionID).replace(/[^A-Za-z0-9_-]/g, "_")}.json`
+      const target = (sessionID) => path.join(folder, fileName(sessionID))
+
+      const remember = async (sessionID, title) => {
+        const found = known.get(sessionID)
+        if (found) {
+          if (title) found.name = title
+          return found
+        }
+        const detail = { name: title || "", started: null }
+        known.set(sessionID, detail)
+        try {
+          const session = await ctx.session.get({ sessionID })
+          if (session) {
+            if (typeof session.title === "string" && session.title) detail.name = session.title
+            if (session.time && typeof session.time.created === "number") detail.started = session.time.created
+          }
+        } catch {}
+        return detail
+      }
+
+      const write = (sessionID, state, at) => {
+        const detail = known.get(sessionID) || { name: "", started: null }
+        const previous = written.get(sessionID)
+        const name = detail.name || (previous ? previous.name : "")
+        if (previous && previous.state === state && previous.name === name) return
+        const record = {
+          sessionId: sessionID,
+          state,
+          since: previous && previous.state === state ? previous.since : at,
+          started: detail.started !== null && detail.started !== undefined
+            ? detail.started
+            : (previous ? previous.started : null),
+          name,
+          pid: process.pid,
+          procStart: startTime(),
+          updated: Date.now(),
+          directory: canonical,
+        }
+        try {
+          fs.mkdirSync(folder, { recursive: true })
+          const tmp = `${target(sessionID)}.${process.pid}.tmp`
+          fs.writeFileSync(tmp, JSON.stringify(record) + "\n")
+          fs.renameSync(tmp, target(sessionID))
+          written.set(sessionID, record)
+        } catch {}
+      }
+
+      const forget = (sessionID) => {
+        written.delete(sessionID)
+        known.delete(sessionID)
+        try {
+          fs.unlinkSync(target(sessionID))
+        } catch {}
+      }
+
+      const STATES = new Map([
+        ["session.execution.started", "busy"],
+        ["session.idle", "idle"],
+        ["session.execution.succeeded", "idle"],
+        ["session.execution.failed", "idle"],
+        ["session.execution.interrupted", "idle"],
+        ["form.created", "waiting"],
+        ["permission.asked", "waiting"],
+        ["form.replied", "busy"],
+        ["permission.replied", "busy"],
+        ["form.cancelled", "busy"],
+      ])
+      const sessionOf = (event) => {
+        const data = event.data || {}
+        if (event.type === "form.created") return data.form && data.form.sessionID
+        return data.sessionID
+      }
+      const stateOf = (event) => {
+        if (event.type === "session.status") {
+          const kind = (event.data && event.data.status && event.data.status.type) || ""
+          return kind === "busy" || kind === "retry" ? "busy" : kind === "idle" ? "idle" : null
+        }
+        return STATES.get(event.type) || null
+      }
+
+      const handle = async (event) => {
+        if (!event || typeof event.type !== "string") return
+        const where = event.location && event.location.directory
+        if (typeof where === "string" && path.resolve(where) !== here) return // another project on the same server
+        const sessionID = sessionOf(event)
+        if (typeof sessionID !== "string" || !sessionID) return
+        if (event.type === "session.deleted" || event.type === "session.archived") return forget(sessionID)
+        const at = typeof event.created === "number" ? event.created : Date.now()
+        if (event.type === "session.created" || event.type === "session.renamed") {
+          const title = event.data && event.data.title
+          await remember(sessionID, typeof title === "string" ? title : "")
+          const previous = written.get(sessionID)
+          if (previous) write(sessionID, previous.state, at)
+          return
+        }
+        const state = stateOf(event)
+        if (!state) return
+        await remember(sessionID, "")
+        write(sessionID, state, at)
+      }
+
+      void (async () => {
+        try {
+          for await (const event of ctx.event.subscribe({ signal: stop.signal })) {
+            try {
+              await handle(event)
+            } catch {}
+          }
+        } catch {}
+      })()
+    } catch {}
+    return () => stop.abort()
   },
+}
+
+/** The OpenCode session state folder: the board's own `state/sessions/opencode`, asked of the core, else the default. */
+async function stateFolder(directory, canonical) {
+  const fallback = path.join(canonical, ".kanbanzai", "state", "sessions", "opencode")
+  try {
+    const answer = await run(["config", "--json"], directory, {})
+    const data = JSON.parse(answer)
+    const state = data && data.project && data.project.state
+    return typeof state === "string" && state ? path.join(state, "sessions", "opencode") : fallback
+  } catch {
+    return fallback
+  }
 }
