@@ -349,10 +349,16 @@ def report(project: Project, args: argparse.Namespace) -> int:
     print(f"WIP — {dt.date.today().isoformat()}")
     print()
     print("Board")
+    loaded = briefs.load(project, claims={})
+    marks = {card["id"]: briefs.GLYPHS.get(card.get("mark") or "", "") * bool(card.get("held"))
+             for _, card in briefs.cards(loaded)}
     for column in project.columns:
         items = cards[column.key]
-        ids = ", ".join(item for item, _, _, _, _ in items) or "—"
+        ids = ", ".join(item + marks.get(item, "") for item, _, _, _, _ in items) or "—"
         print(f"  {column.label:<18} {len(items):>2}  {ids}")
+    summary = briefs.held_summary(loaded, project.owner)
+    if summary:
+        print(f"  {summary}")
     print()
     print("Claims")
     if not held:

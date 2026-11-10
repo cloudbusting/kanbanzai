@@ -160,6 +160,15 @@ class WipTest(ProjectCase):
         _, soft, _ = self.reconcile({"checked": [("W-30", "work", "worktree W-30", "—", "2026-01-01")]}, [])
         self.assertTrue(any("not updated for" in line for line in soft))
 
+    def test_the_wip_board_marks_held_cards_and_sums_them_up(self):
+        self.card("W-12", "Stuck", "checked", held="waiting: Sam — the key")
+        self.card("W-13", "Blocked", "todo", held="blocked: W-12")
+        out = self.cli("wip")[1]
+        self.assertIn("W-12 ⏳", out)
+        self.assertIn("W-13 ⛔", out)
+        self.assertNotIn("W-07 ⛔", out)
+        self.assertIn("Held 2: waiting on Sam W-12; blocked W-13", out)
+
     def test_a_held_card_is_not_stale(self):
         cards = {"built": [("W-30", "work", "worktree W-30", "—", "2026-01-01")]}
         _, soft, _ = self.reconcile(cards, [], on_hold={"W-30"})
