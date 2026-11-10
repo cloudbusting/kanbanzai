@@ -362,3 +362,17 @@ test("the page script times, closes and opens toasts", () => {
   assert.match(script, /type: 'toast-close'/);
   assert.match(script, /toast-close|\.toast/);
 });
+
+test("a waiting-on-owner or interrupted toast has the warning edge like the cards; a blocked one the error edge", () => {
+  const views = [
+    { key: "W-1", level: "blocked", kind: "blocked", glyph: "⛔", word: "Blocked", headline: "a", detail: "", path: "", remainingMs: null, closable: true },
+    { key: "W-2", level: "blocked", kind: "waiting-owner", glyph: "⏳", word: "Blocked", headline: "b", detail: "", path: "", remainingMs: null, closable: true },
+    { key: "W-3", level: "blocked", kind: "interrupted", glyph: "⚠", word: "Blocked", headline: "c", detail: "", path: "", remainingMs: null, closable: true },
+  ];
+  const out = renderHtml(board, { nonce: NONCE, toasts: views });
+  assert.match(out, /class="toast level-blocked kind-blocked"/);
+  assert.match(out, /class="toast level-blocked kind-waiting-owner"/);
+  assert.match(out, /class="toast level-blocked kind-interrupted"/);
+  const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  assert.match(css, /\.toast\.kind-waiting-owner,\s*\.toast\.kind-interrupted\s*\{[^}]*editorWarning-foreground/s);
+});

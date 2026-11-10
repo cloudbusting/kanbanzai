@@ -223,3 +223,22 @@ test("blocked then unblocked inside one batch (events held while the tab was hid
   const s = T.applyEvents(empty(), [blocked, clear], NOW);
   assert.deepEqual(s.stack.map((t) => [t.key, t.level, t.headline]), [["W-1", "progress", "W-1 unblocked"]]);
 });
+
+test("a waiting mark (someone else) that clears is an unblocked event too; blocked changing to waiting says waiting and closes the blocked toast", () => {
+  const waiting = board({ todo: [card("W-32", { mark: "waiting", held: "waiting: a vendor" })] });
+  const plain = board({ todo: [card("W-32")] });
+  const ev = T.diffBoards(waiting, plain, "Sam");
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].headline, "W-32 unblocked");
+  const was = board({ todo: [card("W-33", { mark: "blocked" })] });
+  const now = board({ todo: [card("W-33", { mark: "waiting", held: "waiting: a vendor" })] });
+  const sw = T.diffBoards(was, now, "Sam");
+  assert.equal(sw.length, 1);
+  assert.equal(sw[0].headline, "W-33 waiting");
+  assert.equal(sw[0].clears, true);
+});
+
+test("a view carries its kind, so the page can colour a waiting or interrupted toast like the cards", () => {
+  const s = T.applyEvents(empty(), [{ card: "W-4", level: "blocked", kind: "waiting-owner", headline: "h", title: "t", path: "p" }], NOW);
+  assert.equal(T.toViews(s, NOW)[0].kind, "waiting-owner");
+});

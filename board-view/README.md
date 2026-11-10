@@ -43,7 +43,7 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 | `⚠` amber edge | interrupted: in a Doing column with no live claim and no Held line (hover says the step was under way and no session holds it) |
 | `●` | claimed by a session (hover shows which); a claimed card can also carry another mark |
 
-Done cards are muted.
+Done cards are muted. Problems the core finds in a brief show in a strip above the columns.
 
 ## Toasts
 
@@ -62,8 +62,7 @@ card's brief. Nothing raises a toast on the first draw, on a reload, when a clai
 leaves the board. There is one toast per card, at most 5 shown (the oldest short one goes first; a blocked toast is
 never dropped), and a burst of more than 4 short moves shows the first 3 and `+N more cards moved`. Toasts raised while
 the tab is hidden wait and show, with their time starting, when it is visible again. The timings are `PROGRESS_MS` and
-`DONE_MS` in `toasts.js`. Problems the core finds in a brief show in a strip above the columns.
-
+`DONE_MS` in `toasts.js`. 
 ## Tests
 
 `node --test board-view/board_view.test.mjs board-view/toasts.test.mjs`
