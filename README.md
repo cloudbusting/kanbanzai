@@ -182,7 +182,7 @@ skill = "kanbanzai:build"
 ```
 kanbanzai board [--json]                 the board
 kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
-kanbanzai claim owner|status [ID]|claim ID [--note T] [--takeover R]|renew ID|release ID|heartbeat
+kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai number [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
@@ -202,6 +202,14 @@ your claim, a Held card (add `--clear-held`), a column that needs a worktree the
 (only the owner un-parks a card) and Done without `--done`; and (exit 3) a card another live session holds.
 `--force --reason "<why>"` overrides every refusal but an unknown column or card, another session's live claim and a
 missing `--done`. Each move is a line in `<state>/moves.jsonl`.
+
+**A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
+of its next step, the way `move ID start` does, unless the card is held, the step's column needs a worktree (the output
+then says to make it and run `move ID start --where "worktree ID"`), or the claim is made with `--no-move` (a claim
+that is not a step: it is recorded as `step: false`). A live step claim that has sat for `flow.move_grace_minutes`
+(default 10, counted from the claim or the card's last move) on a card still in Todo or a Done column is **claimed, not
+started**: `⚑` on the board (text, and a glyph and hover text in the board tab; `claimed_not_started` in
+`board --json`), a line in `wip`, and a hard finding in `wip --audit`.
 
 A claim's owner is the session, so it survives a restart: `opencode:<session id>` in OpenCode, `claude:<session id>`
 in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `session_id` on its stdin). Only a shell

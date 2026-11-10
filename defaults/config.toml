@@ -34,6 +34,7 @@ owner_env = "KANBANZAI_OWNER"     # set it to override the detected session labe
 [flow]
 wip_limit = 5                     # cards started and not yet past the last started column, a claimed Todo included
 stale_days = 7                    # an unclaimed card in a started column with no news for this long is stale
+move_grace_minutes = 10           # a live claim on a card still in Todo or a Done column this long is "claimed, not started"
 pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; interrupted cards before all
 
 # The columns, in the board's order. Keys:

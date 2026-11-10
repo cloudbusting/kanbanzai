@@ -80,8 +80,9 @@ class DefaultPathsTest(ProjectCase):
         self.assertEqual(code, 3)
         self.assertIn("held by tester:two", out)
         code, out, _ = self.cli("board", "--json", cwd=first, env=env)
-        todo = json.loads(out)["columns"][0]["cards"]
-        self.assertEqual([(c["id"], c["owner"]) for c in todo], [("W-01", "tester:two")])
+        # The claim moved the card out of Todo into Designing (W-108); it is the one card, held by the second session.
+        cards = [c for column in json.loads(out)["columns"] for c in column["cards"]]
+        self.assertEqual([(c["id"], c["owner"]) for c in cards], [("W-01", "tester:two")])
         self.assertEqual(self.cli("claim", "claim", "W-01", cwd=first, env=env)[0], 3)
         # ...and its own number is the next one.
         self.assertEqual(self.cli("number", cwd=first, env=env)[1].strip(), "W-02")
