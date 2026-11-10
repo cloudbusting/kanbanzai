@@ -145,6 +145,10 @@ kanbanzai context                        the standing context the hooks inject
 kanbanzai init                           set a project up
 ```
 
+A claim's owner is the session, so it survives a restart: `opencode:<session id>` in OpenCode, `claude:<session id>`
+in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `session_id` on its stdin). Only a shell
+with no session id falls back to `claude:<process id>`, which a restart changes.
+
 Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
 
 ## Licence
