@@ -17,7 +17,7 @@ SID = "0f5cdd50-0cf7-4d6d-8513-8a2e02940987"
 
 def my_start() -> str:
     """This process's start time, as Claude Code records it in ``procStart``."""
-    return os.path.exists("/proc/self/stat") and open("/proc/self/stat", encoding="utf-8").read().rsplit(")", 1)[1].split()[19]
+    return pathlib.Path("/proc/self/stat").exists() and pathlib.Path("/proc/self/stat").read_text(encoding="utf-8").rsplit(")", 1)[1].split()[19]
 
 
 class SessionCase(ProjectCase):
@@ -211,6 +211,123 @@ class SessionsCommandTest(SessionCase):
     def test_the_command_is_quiet_and_exits_0_outside_a_project(self):
         code, out, _ = self.cli("sessions", "--json", cwd=self.tmp)
         self.assertEqual(code, 0)
+
+
+class OpenCodeSessionTest(SessionCase):
+    """W-101: an OpenCode session's state, written by the plugin under the project's state folder, read only for an
+    `opencode:` claim and never mixed with Claude Code's files."""
+
+    OC = "ses_oc1"
+
+    def folder(self) -> pathlib.Path:
+        return self.project.state / "sessions" / "opencode"
+
+    def state(self, name="proj-oc", sid=OC, state="waiting", directory=None, **over):
+        record = {"sessionId": sid, "state": state, "since": 1794343821000, "started": 1794343666976,
+                  "name": name, "pid": os.getpid(), "procStart": my_start(), "updated": 1794343821000,
+                  "directory": str(self.root) if directory is None else directory}
+        record.update(over)
+        record = {k: v for k, v in record.items() if v is not None}
+        self.folder().mkdir(parents=True, exist_ok=True)
+        (self.folder() / f"{sid}.json").write_text(json.dumps(record), encoding="utf-8")
+        return record
+
+    def test_an_opencode_session_shows_on_its_card(self):
+        self.state()
+        self.card("W-99", "Ninety-nine", "building")
+        card = self.card_of(self.board({f"W-99": f"opencode:{self.OC}"}), "W-99")
+        self.assertEqual(card["session"], {"state": "waiting", "since": 1794343821000, "started": 1794343666976,
+                                           "name": "proj-oc"})
+
+    def test_busy_and_idle_are_states_too(self):
+        self.card("W-99", "Ninety-nine", "building")
+        for state in ("busy", "idle"):
+            self.state(state=state)
+            card = self.card_of(self.board({"W-99": f"opencode:{self.OC}"}), "W-99")
+            self.assertEqual(card["session"]["state"], state)
+
+    def test_each_harness_reads_only_its_own_files(self):
+        # The same session id in both harnesses' files must not cross: a Claude Code claim reads Claude's record, an
+        # OpenCode claim reads OpenCode's.
+        self.session(sid=SID, name="from-claude", status="idle", waitingFor=None)
+        self.state(sid=SID, name="from-opencode", state="busy")
+        self.card("W-99", "Ninety-nine", "building")
+        self.card("W-10", "Ten", "building")
+        board_ = self.board({"W-99": f"claude:{SID}", "W-10": f"opencode:{SID}"})
+        self.assertEqual(self.card_of(board_, "W-99")["session"]["name"], "from-claude")
+        self.assertEqual(self.card_of(board_, "W-10")["session"]["name"], "from-opencode")
+
+    def test_a_claim_with_no_file_of_its_own_harness_has_no_session(self):
+        self.session(sid=f"{SID}x")  # a Claude Code file for another id
+        self.state(sid=f"{self.OC}x")
+        self.card("W-99", "Ninety-nine", "building")
+        self.card("W-10", "Ten", "building")
+        board_ = self.board({"W-99": f"opencode:{self.OC}", "W-10": f"claude:{SID}"})
+        self.assertIsNone(self.card_of(board_, "W-99")["session"])
+        self.assertIsNone(self.card_of(board_, "W-10")["session"])
+
+    def test_a_dead_foreign_or_junk_file_gives_none(self):
+        self.card("W-99", "Ninety-nine", "building")
+        for over in ({"pid": 4194999}, {"procStart": "1"}, {"procStart": None},
+                     {"directory": str(self.tmp / "elsewhere")}, {"state": "asleep"}, {"state": 7},
+                     {"sessionId": None}, {"since": "soon"}, {"since": True}, {"pid": "x"}):
+            self.state(**over)
+            self.assertIsNone(self.card_of(self.board({"W-99": f"opencode:{self.OC}"}), "W-99")["session"], over)
+
+    def test_junk_files_are_skipped_and_never_raise(self):
+        self.state()
+        (self.folder() / "a.json").write_text("{not json", encoding="utf-8")
+        (self.folder() / "b.json").write_text("[1, 2]", encoding="utf-8")
+        (self.folder() / "c.json").mkdir()
+        os.mkfifo(self.folder() / "d.json")
+        with open(self.folder() / "e.json", "wb") as handle:
+            handle.truncate(sessions.MAX_BYTES + 1)
+        self.card("W-99", "Ninety-nine", "building")
+        card = self.card_of(self.board({"W-99": f"opencode:{self.OC}"}), "W-99")
+        self.assertEqual(card["session"]["state"], "waiting")
+
+    def test_the_later_updated_file_wins(self):
+        self.state(sid=self.OC, name="old", state="busy")
+        self.state(sid=self.OC, name="new", state="waiting")
+        (self.folder() / "later.json").write_text(json.dumps(
+            {"sessionId": self.OC, "state": "waiting", "since": 1794343821000, "started": 1794343666976,
+             "name": "new", "pid": os.getpid(), "procStart": my_start(), "updated": 1794343900000,
+             "directory": str(self.root)}), encoding="utf-8")
+        self.card("W-99", "Ninety-nine", "building")
+        card = self.card_of(self.board({"W-99": f"opencode:{self.OC}"}), "W-99")
+        self.assertEqual((card["session"]["state"], card["session"]["name"]), ("waiting", "new"))
+
+    def test_a_project_with_no_opencode_claim_never_reads_the_folder(self):
+        self.session()
+        self.card("W-99", "Ninety-nine", "building")
+        with mock.patch.object(sessions, "read_opencode", side_effect=AssertionError("read for a claim it has none of")):
+            card = self.card_of(self.board({"W-99": f"claude:{SID}"}), "W-99")
+        self.assertEqual(card["session"]["state"], "waiting")
+
+    def test_a_reader_that_fails_never_fails_the_board(self):
+        self.state()
+        self.card("W-99", "Ninety-nine", "building")
+        with mock.patch.object(sessions, "read_opencode", side_effect=RuntimeError("boom")):
+            card = self.card_of(self.board({"W-99": f"opencode:{self.OC}"}), "W-99")
+        self.assertIsNone(card["session"])
+        self.assertEqual(card["owner"], f"opencode:{self.OC}")
+
+    def test_the_command_counts_an_opencode_asking_card(self):
+        self.state()
+        self.card("W-99", "Ninety-nine", "building")
+        code, out, err = self.cli("claim", "claim", "W-99", "--owner", f"opencode:{self.OC}")
+        self.assertEqual(code, 0, out + err)
+        code, out, _ = self.cli("sessions", "--json")
+        self.assertEqual(code, 0)
+        parsed = json.loads(out)
+        self.assertEqual(parsed["waiting"], 1)
+        self.assertEqual(parsed["cards"]["W-99"]["state"], "waiting")
+
+    def test_the_text_board_marks_an_opencode_asking_card(self):
+        self.state()
+        self.card("W-99", "Ninety-nine", "building")
+        result = self.board({"W-99": f"opencode:{self.OC}"})
+        self.assertIn("W-99 ● ❓", board.as_text(result))
 
 
 if __name__ == "__main__":
