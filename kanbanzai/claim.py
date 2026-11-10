@@ -63,6 +63,56 @@ def live(record: dict, now: dt.datetime | None = None) -> bool:
     return expires is not None and expires > (now or utcnow())
 
 
+def unstarted_minutes(project: Project, column, held: bool, record: dict | None,
+                      now: dt.datetime | None = None) -> int | None:
+    """How many minutes a live claim has sat on a card that never started its step (W-108), or None.
+
+    A card is "claimed, not started" when its claim is live and is for a step, the card is not held, its column is
+    an open one that is not a Doing column (Todo, or the Done column of the last step), and the claim, or the last
+    ``kanbanzai move`` of the card, is older than ``flow.move_grace_minutes``.
+    """
+    now = now or utcnow()
+    if not record or not live(record, now) or record.get("step") is False or held:
+        return None
+    if column is None or column.kind != "open" or column.doing:
+        return None
+    since = parse_time(record.get("claimed_at"))
+    from .move import last_move  # noqa: PLC0415 - move.py reads claims too
+    moved = last_move(project, str(record.get("card") or ""))
+    since = max(since, moved) if since and moved else since or moved
+    if since is None:
+        return None
+    minutes = int((now - since).total_seconds() // 60)
+    return minutes if minutes >= project.move_grace_minutes else None
+
+
+def start_step(project: Project, card: str, owner: str) -> str | None:
+    """After a claim: move the card into the Doing column of its next step (what ``move start`` does) and say so.
+
+    Nothing happens for a card that is not on the board, is held, is parked, done or already in a Doing column. A
+    step whose column needs a worktree is not moved: the card would sit there without one, so the answer is the
+    reminder to make it and run ``move start``. The claim never fails because of this: a refused move is a note.
+    """
+    from . import board, move, step  # noqa: PLC0415 - these read claims too
+    key, found = board.find(board.load(project, claims={}), card)
+    if found is None or found["held"]:
+        return None
+    column = project.by_key[key]
+    if column.kind != "open" or column.doing:
+        return None
+    name = step.next_step(project, found, key)
+    start = step.moves(project, key, name)["start"] if name else None
+    if not start:
+        return None
+    if project.by_key[start].worktree:
+        return (f"now: make the worktree ({project.worktree_hint(card)}), then run: "
+                f"kanbanzai move {card} start --where \"worktree {card}\"")
+    try:
+        return move.apply(project, card, "start", owner, move.Changes())
+    except move.Refused as exc:
+        return f"not moved: {exc}"
+
+
 def lease_left(record: dict, now: dt.datetime) -> float:
     """Seconds left on a lease; negative when it has expired, 0 when it cannot be read."""
     expires = parse_time(record.get("expires_at"))
@@ -250,6 +300,7 @@ def cmd_claim(project: Project, args: argparse.Namespace) -> int:
     card = check_card(project, args.card)
     minutes = minutes_of(project, args)
     reason = (args.takeover or "").strip()
+    no_move = bool(getattr(args, "no_move", False))
     now = utcnow()
     store = Store(project)
     with store.locked():
@@ -260,9 +311,15 @@ def cmd_claim(project: Project, args: argparse.Namespace) -> int:
                 record.update(lease(now, minutes))
                 if args.note:
                     record["note"] = args.note
+                if no_move:
+                    record["step"] = False
+                else:
+                    record.pop("step", None)
                 store.save(record)
                 store.history({"at": to_iso(now), "card": card, "event": "renew", "owner": me})
                 print(f"renewed {card} for you until {when(record['expires_at'])} ({remaining(record, now)})")
+                if not no_move:
+                    report(start_step(project, card, me))
                 return OK
             if not reason:
                 print(f"claim: {describe(record, me)}", file=sys.stderr)
@@ -279,11 +336,20 @@ def cmd_claim(project: Project, args: argparse.Namespace) -> int:
         }
         if args.note:
             record["note"] = args.note
+        if no_move:
+            record["step"] = False
         store.save(record)
         store.history({"at": to_iso(now), "card": card, "event": "claim", "owner": me})
         print(f"claimed {card} by {me} until {when(record['expires_at'])} ({remaining(record, now)})")
         print(f"owner: {me}")
+        if not no_move:
+            report(start_step(project, card, me))
         return OK
+
+
+def report(message: str | None) -> None:
+    if message:
+        print(message)
 
 
 def cmd_renew(project: Project, args: argparse.Namespace) -> int:
@@ -413,6 +479,8 @@ def register(sub) -> None:
     claim.add_argument("card")
     claim.add_argument("--note", help="what this session is doing with the card")
     claim.add_argument("--branch", help="the branch to record (default: the current one)")
+    claim.add_argument("--no-move", action="store_true",
+                       help="a claim that is not a step (editing a brief, a docs-only change): do not move the card")
     claim.add_argument("--takeover", metavar="REASON",
                        help="take a card from another owner (required when its claim is live or expired)")
     renew = with_owner(with_lease(actions.add_parser("renew", help="extend your claim at a step boundary")))
@@ -428,4 +496,5 @@ def register(sub) -> None:
     takeover.add_argument("--reason", required=True, help="why the takeover is safe")
     takeover.add_argument("--note", help="what this session is doing with the card")
     takeover.add_argument("--branch", help="the branch to record (default: the current one)")
+    takeover.add_argument("--no-move", action="store_true", help="do not move the card into its step's Doing column")
     parser.set_defaults(run=run)

@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import sessions
 from .config import Project
+from .util import utcnow
 
 FIELD = re.compile(r"^- \*\*([A-Za-z ]+):\*\*\s*(.*)$")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -133,6 +134,7 @@ def read_card(project: Project, path: Path) -> tuple[dict | None, list[str]]:
         "mark": mark_of(project, stage, fields.get("Held")),
         "interrupted": False,
         "session": None,
+        "claimed_not_started": False,
         "path": rel,
     }
     return card, problems
@@ -145,6 +147,19 @@ def live_claims(project: Project) -> dict[str, str]:
         return {card: str(record.get("owner", "unknown"))
                 for card, record in claim.read_records(project).items() if claim.live(record)}
     except Exception:  # noqa: BLE001 - no claims: the board still shows
+        return {}
+
+
+def claim_module():
+    from . import claim  # noqa: PLC0415 - claim.py reads the board's cards too
+    return claim
+
+
+def _records(project: Project) -> dict[str, dict]:
+    """{card: claim record}; empty when there are no claims or they cannot be read (the board still shows)."""
+    try:
+        return claim_module().read_records(project)
+    except Exception:  # noqa: BLE001
         return {}
 
 
@@ -164,6 +179,8 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
     folder. Open columns are in card-number order; Done is newest first by its Done date.
     """
     owners = live_claims(project) if claims is None else claims
+    records = _records(project) if claims is None else {}
+    now = utcnow()
     by_card = sessions.for_claims(owners, project)
     problems: list[str] = []
     by_column: dict[str, list[dict]] = {c.key: [] for c in project.columns}
@@ -183,6 +200,9 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
         column = by_column_def[card.pop("column")]
         # A Doing column's card with no live claim and no Held line was left mid-step (W-94): it is interrupted.
         card["interrupted"] = bool(column.doing and not card["owner"] and not card["held"])
+        # A live claim for a step on a card still in Todo or a Done column (W-108): the move was skipped.
+        card["claimed_not_started"] = bool(records) and claim_module().unstarted_minutes(
+            project, column, bool(card["held"]), records.get(card["id"]), now) is not None
         by_column[column.key].append(card)
     work = project.work
     for folder in sorted(p for p in work.iterdir() if p.is_dir()) if work.is_dir() else ():
@@ -220,6 +240,7 @@ def find(board: dict, card_id: str) -> tuple[str, dict] | tuple[None, None]:
 
 GLYPHS = {"blocked": " ⛔", "waiting": " ⏳", "waiting-owner": " ⏳"}
 INTERRUPTED = " ⚠"
+UNSTARTED = " ⚑"
 
 
 def held_summary(board: dict, owner: str = "") -> str | None:
@@ -246,7 +267,8 @@ def as_text(board: dict, owner: str = "") -> str:
         label = name if name and name != lane else ""
         lane = name
         ids = ", ".join(c["id"] + GLYPHS.get(c.get("mark") or "", "") * bool(c.get("held"))
-                        + INTERRUPTED * bool(c.get("interrupted")) + (" ●" if c["owner"] else "")
+                        + INTERRUPTED * bool(c.get("interrupted")) + UNSTARTED * bool(c.get("claimed_not_started"))
+                        + (" ●" if c["owner"] else "")
                         + (" ❓" if (c.get("session") or {}).get("state") == "waiting" else "")
                         for c in column["cards"]) or "—"
         lines.append(f"  {label:<7}{column['name']:<13}{len(column['cards']):>2}  {ids}")
