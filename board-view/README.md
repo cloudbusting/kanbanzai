@@ -104,6 +104,36 @@ session already asking when the window opens is not announced, and a failed poll
 at the next one. VS Code cannot withdraw a message from code, so it stays until dismissed; the toast and the card clear
 themselves.
 
+## Log
+
+The board keeps an Output channel named **Kanbanzai** (VSCodium's Output panel, its drop-down; W-104): its errors,
+warnings and the key status of a read, so a failure can be read back after it happened. It is a log channel, so
+VSCodium stamps and levels each line, and the panel's own level picker decides what is shown. The channel never opens
+itself, not even on an error, and nothing is written to disk: its lines live as long as the window. A failed read
+still shows the red box in the tab as well.
+
+| Level | Line | When |
+|---|---|---|
+| error | `the board read failed: <reason>` | `kanbanzai board --json` failed, or printed something that is not JSON |
+| error | `cannot open <path>: <message>` | a brief a click asked for would not open |
+| warn | `the config read failed: <reason> (using the default cards folder)` | `kanbanzai config --json` failed; the board uses the default cards folder |
+| warn | `the session poll failed: <reason>` | `kanbanzai sessions --json` failed, gave an answer that is not a sessions answer, or there is no project folder open |
+| warn | `brief not opened: <path> (not a brief in the cards folder)` | a click asked for a path outside the cards folder, or not a `.md` |
+| warn | `no project folder to show the board for` | the board was asked for with no project open |
+| info | `the board read ok again after N failed reads` | and the same for the config read and the session poll |
+| info | `watching <folder>/**/*.md` | the folder the watcher follows, when it changes (the first good read counts) |
+| info | `setting kanbanzai.command is now "<value>"` (or `unset`) | a change to the command setting |
+| info | `W-12 Designing → Designed — <title>` | a card moves, is added, gains a hold (blocked, waiting on the owner, interrupted) or clears one, or waits on someone else |
+
+The last are the toasts' own words, from the same comparison of two reads: every move in a read is logged, so a burst
+of five moves gives five lines even though the tab shows three and `+N more cards moved` (the cap is the tab's, the log
+is the record). Claims and heartbeats are not logged, nor is a session starting to ask (that is a toast and a message,
+not history). A failure is logged once for a run of the same reason, not once per 60 s refresh or 3 s poll, and one
+line says when it works again; the rule is in `output.js`. The reason is the command's own error text, so a command
+that printed something different each time would be a line each time.
+A channel that fails to log never stops the board: the lines are wrapped and dropped, the tab and the status bar carry
+on.
+
 ## Tests
 
 `node --test board-view/*.test.mjs`
