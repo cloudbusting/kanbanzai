@@ -262,5 +262,44 @@ class MoveTest(MoveCase):
         self.assertEqual(self.column_of()[0], "designing")
 
 
+DEPLOYS = DEFAULT = '[project]\nowner = "Sam"\n[steps.deploy-qa]\nskill = "proj:deploy"\n[steps.ship]\nskill = "proj:deploy"\n'
+
+
+class DeployNoneTest(MoveCase):
+    """A project with deploy skills: a card whose Deploy is None ships nothing and closes from Checked (W-106)."""
+
+    CONFIG = DEPLOYS
+
+    def checked(self, deploy):
+        return self.card("W-01", "the work", "checked", where="worktree W-01", extra=deploy)
+
+    def close(self, *extra):
+        self.claimed()
+        self.worktree()
+        return self.cli("move", "W-01", "done", "--done", "no deploy", *extra)
+
+    def test_a_deploy_none_section_closes_from_checked(self):
+        self.checked("## Deploy\n\nNone: the board's own plugin.\n")
+        code, _, err = self.close()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.column_of()[0], "done")
+
+    def test_a_deploy_none_field_closes_from_checked(self):
+        self.checked("- **Deploy:** None (tooling)\n")
+        code, _, err = self.close()
+        self.assertEqual(code, 0, err)
+
+    def test_a_card_that_ships_still_cannot_skip_the_deploy_steps(self):
+        self.checked("## Deploy\n\nThe QA stack, then production on the same commit.\n")
+        code, _, err = self.close()
+        self.assertEqual(code, 2)
+        self.assertIn("skips a step", err)
+        self.assertEqual(self.column_of()[0], "checked")
+
+    def test_a_card_with_no_deploy_line_cannot_skip_them_either(self):
+        self.checked("")
+        self.assertEqual(self.close()[0], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
