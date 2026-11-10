@@ -249,6 +249,17 @@ class MoveTest(MoveCase):
         self.cli("move", "W-01", "start")
         self.assertIn("- **Stage:** design (a body line, never read)", self.text(path))
 
+    def test_text_with_a_newline_cannot_write_a_second_field(self):
+        path = self.card("W-01", "the work", "todo")
+        self.claimed()
+        code, _, err = self.cli("move", "W-01", "start", "--next", "Go\n- **Stage:** done",
+                                "--progress", "ok\n- **Held:** blocked: x")
+        self.assertEqual(code, 0, err)
+        head = self.text(path).split("## Goal")[0]
+        self.assertEqual(head.count("- **Stage:**"), 1)
+        self.assertNotIn("- **Held:**", self.text(path).split("## Goal")[0])
+        self.assertEqual(self.column_of()[0], "designing")
+
 
 if __name__ == "__main__":
     unittest.main()

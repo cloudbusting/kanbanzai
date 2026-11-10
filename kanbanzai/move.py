@@ -307,6 +307,11 @@ def apply(project: Project, card_id: str, target: str, owner: str, changes: Chan
 # Command line
 
 
+def one_line(text: str | None) -> str | None:
+    """Text for a brief's head or Progress on one line: a newline would write a second field line."""
+    return None if text is None else " ".join(text.split())
+
+
 def run(project: Project, args: argparse.Namespace) -> int:
     try:
         owner = claim.check_owner(args.owner or claim.owner_label(project))
@@ -315,8 +320,9 @@ def run(project: Project, args: argparse.Namespace) -> int:
             raise Refused("--reason goes with --force")
         if args.held is not None and args.clear_held:
             raise Refused("--held and --clear-held cannot go together")
-        changes = Changes(next=args.next, where=args.where, held=args.held, clear_held=args.clear_held,
-                          progress=args.progress, done=args.done, force=args.force, reason=args.reason)
+        changes = Changes(next=one_line(args.next), where=one_line(args.where), held=one_line(args.held),
+                          clear_held=args.clear_held, progress=one_line(args.progress), done=one_line(args.done),
+                          force=args.force, reason=one_line(args.reason))
         with claim.Store(project).locked():
             print(apply(project, card_id, args.target, owner, changes))
         return OK
