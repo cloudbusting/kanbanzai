@@ -288,7 +288,7 @@ class Project:
 
     @property
     def card_re(self) -> re.Pattern:
-        return re.compile(rf"^{self.id_pattern}$")
+        return re.compile(rf"\A{self.id_pattern}\Z")  # \Z: a trailing newline is not part of a card id
 
     @property
     def title_re(self) -> re.Pattern:
