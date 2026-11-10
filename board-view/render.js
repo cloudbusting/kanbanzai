@@ -245,15 +245,15 @@ const STYLE = `
   .card.interrupted { border-left-color: var(--vscode-editorWarning-foreground); border-style: dashed; border-left-style: solid; }
   .card.mark-paused { border-left-color: var(--vscode-descriptionForeground); }
   .card.done { opacity: 0.6; }
-  .head { display: flex; align-items: baseline; gap: 6px; }
-  .id { font-weight: 700; }
+  .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+  .id { font-weight: 700; white-space: nowrap; }
   .glyph { font-size: 0.95em; }
   .glyph-blocked { color: var(--vscode-errorForeground); }
   .glyph-waiting-owner, .glyph-waiting { color: var(--vscode-editorWarning-foreground); }
   .glyph-interrupted { color: var(--vscode-editorWarning-foreground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
-  .glyph-busy, .glyph-idle { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+  .glyph-busy, .glyph-idle { font-size: 0.85em; color: var(--vscode-descriptionForeground); white-space: nowrap; }
   .glyph-idle { opacity: 0.8; }
   /* A session waiting for the owner: the loudest card on the board, in the theme's button colours (legible in every
      theme, and neither the amber of a hold nor the red of a block). */
