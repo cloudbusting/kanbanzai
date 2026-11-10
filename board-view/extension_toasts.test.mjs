@@ -15,7 +15,9 @@ function board(placed) {
 }
 
 // Loads a fresh extension.js; `reads` is the list of boards `kanbanzai board --json` will print, one per read.
-function load(reads) {
+// `answers` is the list of what `kanbanzai sessions --json` will print (the last repeats); it never consumes a board read.
+function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
+  const item = { show() {} };
   const panel = {
     visible: true,
     webview: { html: "", cspSource: "x", onDidReceiveMessage: (f) => { panel.message = f; return { dispose() {} }; } },
@@ -33,12 +35,14 @@ function load(reads) {
     RelativePattern: class {},
     ViewColumn: { Active: 1 },
     StatusBarAlignment: { Left: 1 },
-    window: { createWebviewPanel: () => panel, createStatusBarItem: () => ({ show() {} }), showErrorMessage() {}, showTextDocument: () => Promise.resolve() },
+    ThemeColor: class { constructor(id) { this.id = id; } },
+    window: { createWebviewPanel: () => panel, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve() },
     commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; } },
     Uri: { file: (p) => p },
   };
   const cp = {
     execFile: (_cmd, args, _o, cb) => {
+      if (args[0] === "sessions") return cb(null, JSON.stringify(answers.length > 1 ? answers.shift() : answers[0]), "");
       if (args[0] === "config") return cb(null, JSON.stringify({ project: { owner: "Sam", work: ".kanbanzai/work" } }), "");
       return cb(null, JSON.stringify(reads.length > 1 ? reads.shift() : reads[0]), "");
     },
@@ -53,16 +57,19 @@ function load(reads) {
   const ext = require("./extension.js");
   Module._load = real;
   const context = { subscriptions: [], workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
-  ext.activate(context);
-  return { panel, vscode, context, ext };
+  ext.activate(context, { sessionsMs: 20, idleMs: 20 });
+  return { panel, vscode, context, ext, item };
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 30));
 const toastsIn = (panel) => [...panel.webview.html.matchAll(/<div class="toast level-([a-z]+)[^>]*data-key="([^"]+)"/g)].map((m) => [m[1], m[2]]);
 
-const run = async (reads, body) => {
-  const t = load(reads);
-  try { await body(t); } finally { t.panel.disposed(); } // clears the 60 s refresh timer
+const run = async (reads, body, answers) => {
+  const t = load(reads, answers);
+  try { await body(t); } finally {
+    for (const d of t.context.subscriptions) if (d && d.dispose) d.dispose(); // the sessions poll
+    if (t.panel.disposed) t.panel.disposed(); // and the 60 s refresh timer, once the tab was opened
+  }
 };
 
 test("no toast on the first draw; a move on the next read raises one; a blocked one has a close button", () => run([
@@ -107,4 +114,61 @@ test("events found while the tab is hidden wait for it to be visible, then show 
   panel.viewState({});
   await settle();
   assert.deepEqual(toastsIn(panel), [["progress", "W-1"]]);
+}));
+
+// W-99: the status bar counts the asking cards, and the open tab follows a session's state.
+const asking = (n) => ({ waiting: n, claims: n, cards: {} });
+const slow = () => new Promise((r) => setTimeout(r, 120));
+
+test("the status bar shows the count of asking cards on the warning background, and nothing extra with none", () => run([
+  board({ building: [card("W-1")] }),
+], async ({ item }) => {
+  await slow();
+  assert.equal(item.text, "▦ Board ❓2");
+  assert.equal(item.backgroundColor.id, "statusBarItem.warningBackground");
+  assert.match(item.tooltip, /2 cards/);
+}, [asking(2)]));
+
+test("with no asking card the status bar is the plain label with no background", () => run([
+  board({ building: [card("W-1")] }),
+], async ({ item }) => {
+  await slow();
+  assert.equal(item.text, "▦ Board");
+  assert.equal(item.backgroundColor, undefined);
+}, [asking(0)]));
+
+test("a command that fails or prints rubbish leaves the plain label and no error", () => run([
+  board({ building: [card("W-1")] }),
+], async ({ item }) => {
+  await slow();
+  assert.equal(item.text, "▦ Board");
+}, ["not the shape"]));
+
+test("when the sessions answer changes the visible tab reads the board again; when it does not, it does not", () => run([
+  board({ building: [card("W-1", { owner: "claude:a" })] }),
+  board({ building: [card("W-1", { owner: "claude:a", session: { state: "waiting", since: 1, started: 0, name: "n" } })] }),
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  assert.doesNotMatch(panel.webview.html, /class="card[^"]*\basking\b/);
+  await slow(); // the polls repeat the same first answer: no refresh
+  assert.doesNotMatch(panel.webview.html, /class="card[^"]*\basking\b/);
+}, [asking(0), asking(0), asking(0)]));
+
+test("a changed sessions answer rebuilds the tab with the asking card", () => run([
+  board({ building: [card("W-1", { owner: "claude:a" })] }),
+  board({ building: [card("W-1", { owner: "claude:a", session: { state: "waiting", since: 1, started: 0, name: "n" } })] }),
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  await slow();
+  assert.match(panel.webview.html, /class="card[^"]*\basking\b/);
+}, [asking(0), asking(1)]));
+
+test("the poll stops when the extension is disposed", () => run([board({})], async ({ context, item }) => {
+  await slow();
+  for (const d of context.subscriptions) if (d && d.dispose) d.dispose();
+  item.text = "marker";
+  await slow();
+  assert.equal(item.text, "marker");
 }));
