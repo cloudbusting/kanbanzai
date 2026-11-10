@@ -244,8 +244,8 @@ test("a view carries its kind, so the page can colour a waiting or interrupted t
 });
 
 // W-102: a card whose session starts asking the owner raises a sticky toast of its own.
-const sess = (state, name = "moto-tours-7b") => ({ state, since: 1000, started: 500, name });
-const asking = (id = "W-12", name = "moto-tours-7b") => ({ card: id, key: `ask:${id}`, level: "asking", kind: "asking", headline: `${id} asking`, title: `Title of ${id}`, name, path: `.kanbanzai/work/1-open/${id}-x.md` });
+const sess = (state, name = "proj-7b") => ({ state, since: 1000, started: 500, name });
+const asking = (id = "W-12", name = "proj-7b") => ({ card: id, key: `ask:${id}`, level: "asking", kind: "asking", headline: `${id} asking`, title: `Title of ${id}`, name, path: `.kanbanzai/work/1-open/${id}-x.md` });
 
 test("a session that goes to waiting is one asking event, with the title and the session's name", () => {
   const prev = board({ building: [card("W-12", { session: sess("busy") })] });
@@ -257,7 +257,7 @@ test("a session that goes to waiting is one asking event, with the title and the
   assert.equal(ev[0].key, "ask:W-12");
   assert.equal(ev[0].headline, "W-12 asking");
   assert.equal(ev[0].title, "Title of W-12");
-  assert.equal(ev[0].name, "moto-tours-7b");
+  assert.equal(ev[0].name, "proj-7b");
   assert.equal(ev[0].path, ".kanbanzai/work/1-open/W-12-x.md");
 });
 
@@ -349,7 +349,7 @@ test("an asking view: the word Asking, the ❓ glyph, closable, no time, and 'ti
   assert.equal(v.closable, true);
   assert.equal(v.remainingMs, null);
   assert.equal(v.headline, "W-12 asking");
-  assert.equal(v.detail, "Title of W-12 — moto-tours-7b");
+  assert.equal(v.detail, "Title of W-12 — proj-7b");
   const bare = T.toViews(T.applyEvents(empty(), [{ ...asking(), name: "" }], NOW), NOW)[0];
   assert.equal(bare.detail, "Title of W-12");
 });
