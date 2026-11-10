@@ -86,7 +86,7 @@ At the next board sweep, or as soon as the card is wanted, `/triage` takes the o
 - **folds** it into an existing card's brief, and closes this one;
 - **closes** it with the reason on its Done line (`closed, no work: <reason>`).
 
-A card that must wait for something stays in Todo with a `Held:` line, `blocked: <what>` or `waiting: <whom>`.
+A card that must wait for something stays in Todo with a `- **Held:** blocked: <what>` or `- **Held:** waiting: <whom>` line after Where (the template has none: add it only for a held card).
 
 ## 5. Check and report
 
