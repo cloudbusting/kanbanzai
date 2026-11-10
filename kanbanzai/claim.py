@@ -32,7 +32,7 @@ from pathlib import Path
 from .config import Project
 from .util import Lock, git, parse_time, read_json, to_iso, utcnow, write_json
 
-OWNER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:@/+~-]{0,63}$")
+OWNER = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_.:@/+~-]{0,63}\Z")
 
 OK, ERROR, HELD, EXPIRED = 0, 1, 3, 4
 

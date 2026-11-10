@@ -32,9 +32,16 @@
         "kanbanzai.command": {
           "type": "string",
           "default": "",
-          "description": "The kanbanzai command to run (default: the one recorded at install, else kanbanzai on PATH)."
+          "description": "The kanbanzai command to run (default: the one recorded at install, else kanbanzai on PATH).",
+          "scope": "machine"
         }
       }
+    }
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The board runs the kanbanzai command in the workspace."
     }
   }
 }
