@@ -76,13 +76,27 @@ a merge).
 | Progress `▸` | a card changes column, a card is added, a card waits on someone other than the owner, a hold or interruption clears (`unblocked`) | 5 seconds |
 | Done `✓` | a card reaches Done | 15 seconds |
 | Blocked `⛔` `⏳` `⚠` | a card becomes blocked, waits on the project's owner, or is interrupted | until closed with its `✕` |
+| Asking `❓` | a claimed card's session starts asking the owner (its `session.state` becomes `waiting`), or a card appears already asking | until its session stops asking (answered, ended, claim released, card gone), or closed with its `✕` |
 
 A blocked toast closes itself, and shows a short `unblocked` toast, when the cause clears. A click on a toast opens the
 card's brief. Nothing raises a toast on the first draw, on a reload, when a claim is taken or released, or when a card
 leaves the board. There is one toast per card, at most 5 shown (the oldest short one goes first; a blocked toast is
 never dropped), and a burst of more than 4 short moves shows the first 3 and `+N more cards moved`. Toasts raised while
 the tab is hidden wait and show, with their time starting, when it is visible again. The timings are `PROGRESS_MS` and
-`DONE_MS` in `toasts.js`. 
+`DONE_MS` in `toasts.js`.
+
+An asking toast has a key of its own (`ask:W-12`), so a move or a hold on the same card neither replaces it nor is
+replaced by it. It is sticky like a blocked one (never dropped, never part of a burst), and closing it with `✕` while the
+session still asks does not bring it back; a new ask does. A session already asking at the first draw or after a reload
+raises nothing. It reads the card's `session`, so it covers every harness that fills that field.
+
+**When the Board tab is not in front** its toasts cannot be seen, so a card newly asking also raises a VS Code message
+in the editor's corner, `W-12 asking — <session name>`, with an `Open Board` button (up to three; more at once give
+`N sessions asking`). It comes from the 3 s sessions poll, not from the board read, so it works with the tab closed. A
+session already asking when the window opens is not announced, and a failed poll does not make every asking card new
+at the next one. VS Code cannot withdraw a message from code, so it stays until dismissed; the toast and the card clear
+themselves.
+
 ## Tests
 
-`node --test board-view/board_view.test.mjs board-view/toasts.test.mjs`
+`node --test board-view/*.test.mjs`
