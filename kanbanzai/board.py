@@ -130,6 +130,7 @@ def read_card(project: Project, path: Path) -> tuple[dict | None, list[str]]:
         "owner": None,
         "held": held_of(fields.get("Held")),
         "mark": mark_of(project, stage, fields.get("Held")),
+        "interrupted": False,
         "path": rel,
     }
     return card, problems
@@ -163,6 +164,7 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
     owners = live_claims(project) if claims is None else claims
     problems: list[str] = []
     by_column: dict[str, list[dict]] = {c.key: [] for c in project.columns}
+    by_column_def = project.by_key
     seen: dict[str, str] = {}
     for path in briefs(project):
         card, found = read_card(project, path)
@@ -174,7 +176,10 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
             continue
         seen[card["id"]] = card["path"]
         card["owner"] = owners.get(card["id"])
-        by_column[card.pop("column")].append(card)
+        column = by_column_def[card.pop("column")]
+        # A Doing column's card with no live claim and no Held line was left mid-step (W-94): it is interrupted.
+        card["interrupted"] = bool(column.doing and not card["owner"] and not card["held"])
+        by_column[column.key].append(card)
     work = project.work
     for folder in sorted(p for p in work.iterdir() if p.is_dir()) if work.is_dir() else ():
         if folder.name in project.folders or folder == project.batches:
@@ -188,7 +193,8 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
         else:
             cards.sort(key=lambda c: number(c["id"]))
     return {
-        "columns": [{"key": c.key, "name": c.label, "cards": by_column[c.key]} for c in project.columns],
+        "columns": [{"key": c.key, "name": c.label, "lane": c.lane or "", "doing": c.doing or "",
+                     "cards": by_column[c.key]} for c in project.columns],
         "problems": problems,
     }
 
@@ -209,6 +215,7 @@ def find(board: dict, card_id: str) -> tuple[str, dict] | tuple[None, None]:
 
 
 GLYPHS = {"blocked": " ⛔", "waiting": " ⏳", "waiting-owner": " ⏳"}
+INTERRUPTED = " ⚠"
 
 
 def held_summary(board: dict, owner: str = "") -> str | None:
@@ -228,10 +235,16 @@ def held_summary(board: dict, owner: str = "") -> str | None:
 
 def as_text(board: dict, owner: str = "") -> str:
     lines = [f"Board — {dt.date.today().isoformat()}", ""]
+    lane = None
     for column in board["columns"]:
+        # A lane's name shows once, beside its first column (the Doing one); the Done column below it is indented.
+        name = column.get("lane") or ""
+        label = name if name and name != lane else ""
+        lane = name
         ids = ", ".join(c["id"] + GLYPHS.get(c.get("mark") or "", "") * bool(c.get("held"))
-                        + (" ●" if c["owner"] else "") for c in column["cards"]) or "—"
-        lines.append(f"  {column['name']:<19} {len(column['cards']):>2}  {ids}")
+                        + INTERRUPTED * bool(c.get("interrupted")) + (" ●" if c["owner"] else "")
+                        for c in column["cards"]) or "—"
+        lines.append(f"  {label:<7}{column['name']:<13}{len(column['cards']):>2}  {ids}")
     summary = held_summary(board, owner)
     if summary:
         lines += ["", f"  {summary}"]

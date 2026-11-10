@@ -16,6 +16,11 @@ from .config import Project
 LIMIT = 9800
 
 
+COLUMNS_DOING = ("Columns, in order (a Done column is the last step finished, a Doing column the step in progress; "
+                 "a card moves into the Doing column when its step starts and into the Done column when it ends):")
+COLUMNS_PLAIN = "Columns, in order (a column is the last step finished; a live claim means a session is on the next one):"
+
+
 def build(project: Project) -> str:
     lines = [
         "Kanbanzai: this project's work is a board of cards, one brief per card (command: `kanbanzai`).",
@@ -25,7 +30,7 @@ def build(project: Project) -> str:
         f"{project.lease_minutes:g} minutes and a tool call renews it).",
         f"Config: {project.config_file or 'none (Kanbanzai defaults)'}",
         "",
-        "Columns, in order (a column is the last step finished; a live claim means a session is on the next one):",
+        COLUMNS_DOING if any(c.doing for c in project.columns) else COLUMNS_PLAIN,
     ]
     for column in project.columns:
         if column.next:
@@ -41,18 +46,22 @@ def build(project: Project) -> str:
             via = "finished"
         else:
             via = "no next step"
+        if column.doing:
+            via = f"step in progress: {column.doing} (a live claim means a session is on it; none: interrupted)"
         extra = f"; waits for {project.owner}'s approval" if column.waits_for_owner else ""
-        lines.append(f"  {column.key} ({column.label}, folder {column.folder}): {via}{extra}")
+        lane = f", lane {column.lane}" if column.lane else ""
+        lines.append(f"  {column.key} ({column.label}{lane}, folder {column.folder}): {via}{extra}")
     lines += [
         "",
         f"Pull rule: pull the furthest-along card first ({', '.join(project.pull_order)}), interrupted cards "
-        "(an expired claim) before all.",
+        "(in a Doing column with no live claim, or an expired claim) before all.",
         f"At most {project.wip_limit} cards are started at once: past that, no new card is pulled from the first "
         "column; finish cards instead.",
         "A card that is blocked or waiting stays in its column; its Held line says so, and it is not pulled until the "
         "line is deleted.",
-        f"Claim a card before working on it (`kanbanzai claim claim ID`), move it to the column of the step you "
-        "just finished, release the claim when work stops.",
+        "Claim a card before working on it (`kanbanzai claim claim ID`), move it into the step's Doing column (the "
+        "Stage word `kanbanzai step --for ID` prints), then into its Done column when the step ends, release the "
+        "claim when work stops.",
         f"Every change to a card is made in its worktree ({project.expand(project.worktree_pattern)}); the main checkout holds "
         "only the board.",
         "Each skill starts with `kanbanzai step <name>`; `kanbanzai step --for ID` says what to do next to a card.",

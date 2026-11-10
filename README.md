@@ -5,8 +5,10 @@ by side in the same project.
 
 - **The cards are the board.** Each work item is one Markdown brief in git; its **Stage** line is its column. There
   is no board file to keep in step, and a session that stops leaves a brief the next one resumes from.
-- **A pull system.** A column is the last step finished, in the past tense. A session pulls the furthest-along card
-  nobody is on and does the next step; a cap on started cards keeps work reaching Done.
+- **A pull system.** Each step has a Doing column (the step in progress) and a Done column (the last step finished,
+  in the past tense); the board shows a card's state by where it sits. A session pulls the furthest-along card
+  nobody is on, moves it into the next step's Doing column and does the step, then moves it to that step's Done
+  column; a cap on started cards keeps work reaching Done.
 - **Leases, not locks.** A session claims a card before it works on it; the claim is a lease a hook renews while the
   session works, so parallel sessions (in either tool) never take the same card, and a crashed one frees its card.
 - **One worktree per card.** The main checkout holds only the board; each card's change is made on its own branch.
@@ -84,17 +86,48 @@ every key). A `[[columns]]` list replaces the whole column list. `kanbanzai conf
 The shipped workflow:
 
 ```
-todo ─design→ designed ─build→ built ─check→ checked ─deploy-qa→ qa-approved ─ship→ done
-                                                     paused
+todo ─design→ designing │ designed ─build→ building │ built ─check→ checking │ checked
+      ─deploy-qa→ in-qa │ qa-approved ─ship→ shipping → done                     paused
 ```
 
-`deploy-qa` and `ship` have no skill by default, so a checked card closes straight to done. Cap of five started cards,
-two-hour leases, pull order checked → built → designed → todo, interrupted cards first.
+Twelve columns. The shipped lanes are Design, Build, Check, QA and Ship; each lane is a Doing column and a Done
+column, and Todo, Paused and Done stand alone:
+
+| Lane | Doing | Done |
+|---|---|---|
+| | | `todo` |
+| Design | `designing` | `designed` |
+| Build | `building` | `built` |
+| Check | `checking` | `checked` |
+| QA | `in-qa` (deploying to QA, then tested) | `qa-approved` (tested and passed) |
+| Ship | `shipping` | `done` |
+| | | `paused` |
+
+A session moves a card **twice** per step: first, right after it claims the card (and, from Building on, after the
+card's worktree exists), to the step's Doing word; last, when the step is finished, to the Done word with the new
+Next action. `kanbanzai step --for <ID>` prints both words ("start: Stage `building`; finish: Stage `built`"). A
+settled Todo card goes straight to Building.
+
+What a card's place means:
+
+- **Doing column, live claim:** a session is working it. Nobody else takes it.
+- **Doing column, no live claim and no Held line:** interrupted (the lease expired, or the claim was released
+  mid-step). The board marks it `⚠`; `kanbanzai wip --next` offers it first; it is taken over with
+  `kanbanzai claim claim <ID> --takeover "<why>"`.
+- **Done column (or Todo), no live claim:** available; a session pulls it.
+- **Done column, live claim:** a session carrying straight on to the next step, which keeps the claim between steps.
+  It is not offered.
+
+`deploy-qa` and `ship` have no skill by default, so a checked card closes straight to done. Cap of five started
+cards (Designing through In QA count; QA-approved, which waits on the owner, and Shipping do not), two-hour leases,
+pull order checked → built → designed → todo (from the Done columns), interrupted cards first. A project whose own
+`[[columns]]` have no Doing column works as a one-column-per-step board: the claim is the doing.
 
 A card that cannot move (blocked on another card or an account; waiting on the owner, an outside service or a date)
-stays in the column it finished and carries a `- **Held:** blocked: …` or `- **Held:** waiting: …` line in its
-brief. A held card is never pulled and is never stale, but it still counts toward the cap. Delete the line when the
-blocker clears. Paused is a column of its own: only the owner un-parks a card.
+stays in its column, Doing or Done, and carries a `- **Held:** blocked: …` or `- **Held:** waiting: …` line in its
+brief (an In QA card held `waiting:` for the owner's own test, for example). A held card is never pulled and is never
+stale or interrupted, but it still counts toward the cap. Delete the line when the blocker clears. Paused is a column
+of its own: only the owner un-parks a card.
 
 ## Extending it
 
@@ -107,9 +140,16 @@ asking `kanbanzai step <step>`, and the project's settings answer. Per step:
 | `extend` | project skills the step also follows, at the points the step's skill names | `extend = ["our-code-rules"]` |
 | `context` | project files the step reads first | `context = ["docs/architecture.md"]` |
 | `checks` | (check) the project skills that make up the checks, in order | `checks = ["lint", "test", "review"]` |
+| `during` | the Doing column a card sits in while the step runs (optional; that column's `doing` names the step) | `during = "building"` |
 
 `[project] context` lists files every Kanbanzai skill reads first (the project's rules, where things stand), and
 `[project] owner` is the person the skills address.
+
+Two optional column keys draw the lanes: `lane` (the step's name on the board, shown over its Doing and Done
+columns; empty for Todo, Paused and Done) and `doing` (on a Doing column: the step in progress; absent on a Done
+column). A `doing` that names no step, or a Doing column and its step that disagree (the step's `during` is another column, or
+two Doing columns for one step), are errors; a `during` that names a column the board does not have is dropped, so a
+project that sets its own columns keeps the shipped step keys.
 
 A project that wants a different board:
 

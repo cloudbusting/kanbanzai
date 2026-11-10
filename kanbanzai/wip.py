@@ -168,8 +168,13 @@ def started(project: Project, cards: dict, held: dict) -> list[str]:
 
 
 def step_phrase(project: Project, key: str) -> str:
-    """What a session does to a card in this column: its next step, and the settled one when there is one."""
+    """What a session does to a card in this column: its next step, and the settled one when there is one.
+
+    A Doing column's card is mid-step: the step under way is the one to resume.
+    """
     column = project.by_key[key]
+    if column.doing:
+        return f"resume {column.doing}"
     if column.settled_next:
         return f"{column.next} (or {column.settled_next}, if settled)"
     return str(column.next)
@@ -179,13 +184,27 @@ def pull_candidates(project: Project, cards: dict, held: dict, cap_full: bool = 
                     on_hold: frozenset | set = frozenset()) -> list[tuple]:
     """[(item, work, column key, state)] for the cards a session can pull, in the pull order.
 
-    A card with a live claim is being worked and is never offered. A card whose claim expired is interrupted:
-    offered first, further along first, to be taken over with a reason. Then the cards with no claim, furthest
-    along first, in the configured pull order. A card in a column that waits for the owner is never offered; a
-    card in a column that counts as "claimed" when started (the first) is offered only below the cap. A card on
-    hold (blocked or waiting, W-92) is never offered; it still counts toward the cap.
+    A card with a live claim is being worked and is never offered. An interrupted card is offered first, further
+    along first, to be taken over with a reason: a card in a Doing column (W-94) that no live claim holds, or a
+    card in a Done column whose claim expired. Then the cards with no claim, furthest along first, in the
+    configured pull order. A card in a column that waits for the owner is never offered; a card in a column that
+    counts as "claimed" when started (the first) is offered only below the cap. A card on hold (blocked or
+    waiting, W-92) is never offered; it still counts toward the cap.
     """
-    interrupted, free = [], []
+    interrupted: list[tuple[int, tuple]] = []
+    free: list[tuple] = []
+    order = {column.key: number for number, column in enumerate(project.columns)}
+    for column in project.columns:
+        if not column.doing:
+            continue
+        for item, work, _, _, _ in cards.get(column.key, []):
+            record = held.get(item)
+            if item in on_hold or (record and claim_state(record)[0]):
+                continue
+            why = (f"claim by {claim_state(record)[2]} expired" if record else "no session holds it")
+            interrupted.append((order[column.key], (item, work, column.key, (
+                f"{column.label}: interrupted, {why}; take it over (lease expired or released, session gone), "
+                f"{step_phrase(project, column.key)}"))))
     for key in project.pull_order:
         column = project.by_key[key]
         label = column.label
@@ -195,13 +214,15 @@ def pull_candidates(project: Project, cards: dict, held: dict, cap_full: bool = 
                 continue
             step = step_phrase(project, key)
             if record:
-                interrupted.append((item, work, key, f"{label}: interrupted, claim by {claim_state(record)[2]} "
-                                                      f"expired (take over: lease expired, session gone); {step}"))
+                interrupted.append((order[key], (item, work, key, (
+                    f"{label}: interrupted, claim by {claim_state(record)[2]} expired "
+                    f"(take over: lease expired, session gone); {step}"))))
             elif column.started == "claimed" and cap_full:
                 continue
             else:
                 free.append((item, work, key, f"{label}: {step}"))
-    return interrupted + free
+    interrupted.sort(key=lambda found: -found[0])
+    return [found for _, found in interrupted] + free
 
 
 def days_since(date: str) -> int | None:
@@ -304,19 +325,28 @@ def reconcile(project: Project, cards: dict, wts: list[dict], held: dict | None 
     # A card that finished a step and nobody pulled it goes stale. A first column (a queue) and a column that
     # waits for the owner rest by design: only the started columns are checked.
     for column in project.columns:
-        if column.started is not True:
+        if column.started is not True or column.doing:
             continue
         for item, _, _, _, updated in cards.get(column.key, []):
             age = days_since(updated)
             if (age is not None and age > project.stale_days and item not in mapped and item not in live_cards
                     and item not in on_hold):
                 soft.append(f"{item} ({column.label}): no worktree, no live claim and not updated for {age} days")
+    # A card in a Doing column that no live claim holds was left mid-step (W-94): it is interrupted, not stale.
+    for column in project.columns:
+        if not column.doing:
+            continue
+        for item, *_ in cards.get(column.key, []):
+            if item not in live_cards and item not in on_hold:
+                soft.append(f"{item} ({column.label}): {column.doing} was under way and no session holds it: "
+                            f"interrupted; resume it (take it over with a reason)")
     return hard, soft, cleanup
 
 
 def report(project: Project, args: argparse.Namespace) -> int:
     only = args.card
     held = claims(project)
+    live_all = live_owners(held)
     cards = board_cards(project, held)
     if only:
         held = {card: record for card, record in held.items() if card == only}
@@ -349,8 +379,9 @@ def report(project: Project, args: argparse.Namespace) -> int:
     print(f"WIP — {dt.date.today().isoformat()}")
     print()
     print("Board")
-    loaded = briefs.load(project, claims={})
+    loaded = briefs.load(project, claims=live_all)
     marks = {card["id"]: briefs.GLYPHS.get(card.get("mark") or "", "") * bool(card.get("held"))
+                         + briefs.INTERRUPTED * bool(card.get("interrupted"))
              for _, card in briefs.cards(loaded)}
     for column in project.columns:
         items = cards[column.key]

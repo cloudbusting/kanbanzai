@@ -105,9 +105,22 @@ def next_step(project: Project, card: dict, key: str) -> str | None:
     column = project.by_key[key]
     if card.get("held"):
         return None
+    if column.doing:
+        return column.doing  # mid-step (W-94): resume the step under way
     if column.settled_next and "settled" in (card.get("next") or "").lower():
         return column.settled_next
     return column.next
+
+
+def moves(project: Project, key: str, name: str) -> dict:
+    """The Stage words for the step a card does next (W-94): the Doing word to move into when it starts, the Done
+    word when it finishes; ``resume`` when the card is already in the step's Doing column. A project whose step
+    has no Doing column has no start word: the claim is the doing."""
+    step = project.steps[name]
+    if not step.skill:  # the project has no such step: a card skips it, so there is nothing to start or finish
+        return {"start": None, "finish": None, "resume": False}
+    return {"start": None if project.by_key[key].doing else step.during, "finish": step.into,
+            "resume": bool(project.by_key[key].doing)}
 
 
 def waiting_note(project: Project, key: str, card: dict | None = None) -> str:
@@ -141,10 +154,18 @@ def run(project: Project, args: argparse.Namespace) -> int:
                 print(f"{args.card} is in `{key}` ({out['column_label']}): no next step; {out['note']}.")
             return 0
         found = describe(project, name)
+        words = moves(project, key, name)
         if args.json:
-            print(json.dumps({**out, **found}, ensure_ascii=False))
+            print(json.dumps({**out, **words, **found}, ensure_ascii=False))
         else:
             print(f"{args.card} is in `{key}` ({out['column_label']}); the next step is `{name}`.")
+            if words["finish"] is None:
+                pass
+            elif words["resume"]:
+                print(f"resume: the card is already in `{key}`; if no live claim holds it, take it over "
+                      f"(`claim claim {args.card} --takeover \"<why>\"`); finish: Stage `{words['finish']}`.")
+            elif words["start"]:
+                print(f"start: Stage `{words['start']}`; finish: Stage `{words['finish']}`.")
             print(as_text(found))
         return 0
     if not args.name:

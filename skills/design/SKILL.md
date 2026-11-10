@@ -24,8 +24,8 @@ If `kanbanzai step design` says the project has no design step, a card skips it:
 ## Board first
 
 This skill designs a card; it does not create one, and it does not triage. It starts from a card in **Todo** with a
-brief (made by `/triage`); the session that starts the design claims the card (the do skill) and the card moves to
-**Designed** when the design ends. If there is no card, stop and run `/triage` first. A request that is really "how
+brief (made by `/triage`); the session that starts the design claims the card (the do skill) and moves it to
+**Designing**, and the card moves to **Designed** when the design ends. If there is no card, stop and run `/triage` first. A request that is really "how
 should this work?" is still triaged: its Goal is the question, and this skill answers it.
 
 ## 1. Understand
@@ -66,8 +66,8 @@ For each real choice, take two or three options with their trade-offs and recomm
   commits the design. The project's context says where records live and what they look like; with no such place, put
   the decision in the brief's **Decisions**. The record's card line names this card. A record starts as proposed and
   becomes accepted only with the owner's approval; build state is the card's, never the record's.
-- **The brief** (step 5) is written on the card `/triage` made, in its folder under the card folder. Its Stage stays
-  `todo` while the design runs, with a live claim on the card, and becomes `designed` when it ends. Start from the
+- **The brief** (step 5) is written on the card `/triage` made, in its folder under the card folder. Its Stage is
+  `designing` while the design runs, with a live claim on the card, and becomes `designed` when it ends. Start from the
   card template (`template` in `kanbanzai config`). Do not issue an id or add a card here: if there is no card, stop
   and run `/triage`. That file is the durable state a later session resumes from: tasks, acceptance checks, the
   owner's decisions and a **Next action**. The brief owns the task list from the start; the record is the design
@@ -79,7 +79,7 @@ For each real choice, take two or three options with their trade-offs and recomm
 
 ```
 Goal: what changes, and for whom, in a sentence.
-Stage: designed (set when the design ends; todo, with a live claim, while it runs)
+Stage: designed (set when the design ends; designing, with a live claim, while it runs)
 Next action: the first task, so a new session can start here.
 Acceptance checks: observable and specific. A test that passes, a command and its answer, a screen step, a number
   (cost, time, size).
