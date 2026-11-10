@@ -42,8 +42,28 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 | `⏸` grey edge | paused |
 | `⚠` amber edge | interrupted: in a Doing column with no live claim and no Held line (hover says the step was under way and no session holds it) |
 | `●` | claimed by a session (hover shows which); a claimed card can also carry another mark |
+| `❓ asking 3m`, filled card | the Claude Code session holding the card is waiting for you (a question or a permission prompt) and has been for 3 minutes: the card is filled with the theme's button colours and glows (no glow with reduced motion) |
+| `● busy 12m` / `● idle 4m` | the Claude Code session holding the card is working / idle, and has been for that long |
 
 Done cards are muted. Problems the core finds in a brief show in a strip above the columns.
+
+## Sessions
+
+A card held by a Claude Code session shows what the session is doing, and a session waiting for you stands out. The
+state comes from Claude Code's own status file for each live session (`~/.claude/sessions/<pid>.json`, or under
+`$CLAUDE_CONFIG_DIR`), matched to the card by the claim's owner (`claude:<session id>`): the core reads it
+(`kanbanzai sessions --json`, and a `session` field on each claimed card in `kanbanzai board --json`) and the view only
+shows it. The times count up on the page by themselves, so the board is not rebuilt for a clock.
+
+- **The status bar** reads `▦ Board ❓2` on the theme's warning background while two cards have a session asking, so a
+  waiting session shows with the tab closed. With none it is `▦ Board`.
+- **One session, several cards:** a session that holds more than one card (a batch) marks each of them.
+- **How fast:** every 3 seconds while any card is claimed (every 15 s while none is); a change refreshes the open tab.
+- **When nothing shows:** the file is Claude Code's own and not documented, so a card shows no session mark, and no
+  error, when the file is missing, its shape has changed, its process is not alive on this machine (the process
+  start time must match the one the file recorded, so a dead session's last status is never shown), or the claim is
+  held by something else (an OpenCode session, a person). A session with no card is not shown, and neither is a card
+  whose claim has expired while its session still waits (that card reads `⚠`).
 
 ## Toasts
 

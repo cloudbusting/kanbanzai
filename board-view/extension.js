@@ -10,9 +10,12 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { renderHtml, renderError, safeBriefPath } = require('./render');
 const toasts = require('./toasts');
+const sessions = require('./sessions');
 
 const REFRESH_MS = 60 * 1000;
 const DEBOUNCE_MS = 500;
+const SESSIONS_MS = 3 * 1000; // the claimed cards' sessions, while any card is claimed
+const SESSIONS_IDLE_MS = 15 * 1000; // and while none is
 const RUN_TIMEOUT_MS = 15 * 1000;
 const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
 const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
@@ -35,6 +38,15 @@ function command() {
     if (typeof recorded === 'string' && fs.existsSync(recorded)) return recorded;
   } catch (e) { /* not recorded */ }
   return 'kanbanzai';
+}
+
+// The command's stdout as text, or null when it fails (no command, no project, a timeout).
+function runText(root, args) {
+  return new Promise((resolve) => {
+    execFile(command(), args, { cwd: root, timeout: RUN_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, stdout) => {
+      resolve(err ? null : stdout);
+    });
+  });
 }
 
 function run(root, args) {
@@ -213,9 +225,42 @@ function showBoard(context) {
   void refresh();
 }
 
-function activate(context) {
+// W-99: the status bar counts the cards whose Claude Code session is asking, so it shows with the tab closed, and the
+// open tab is redrawn within a poll of a session's state changing (the claims and sessions live outside the watched folder).
+function watchSessions(context, item, opts) {
+  const fast = (opts && opts.sessionsMs) || SESSIONS_MS; // the tests pass short ones
+  const slow = (opts && opts.idleMs) || SESSIONS_IDLE_MS;
+  let timer = null;
+  let last; // the last answer as text; undefined before the first
+  let stopped = false;
+
+  async function poll() {
+    let wait = slow;
+    try {
+      const root = workspaceRoot();
+      const text = root ? await runText(root, ['sessions', '--json']) : null;
+      if (stopped) return; // disposed while the command ran: leave the status bar as it was
+      const answer = text === null ? null : sessions.parseSessions(text);
+      item.text = sessions.statusLabel(answer);
+      item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+      item.tooltip = answer && answer.waiting > 0
+        ? `Kanbanzai board: ${answer.waiting} card${answer.waiting === 1 ? '' : 's'} with a session asking you`
+        : 'Kanbanzai board';
+      const key = JSON.stringify(answer);
+      if (last !== undefined && key !== last && current && current.panel.visible) void current.refresh();
+      last = key;
+      if (answer && answer.claims > 0) wait = fast;
+    } catch (e) { /* the next poll tries again */ }
+    if (!stopped) timer = setTimeout(poll, wait);
+  }
+
+  void poll();
+  context.subscriptions.push({ dispose: () => { stopped = true; if (timer) clearTimeout(timer); } });
+}
+
+function activate(context, opts) {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-  item.text = '▦ Board';
+  item.text = sessions.PLAIN;
   item.tooltip = 'Kanbanzai board';
   item.command = 'kanbanzai.showBoard';
   item.show();
@@ -223,6 +268,7 @@ function activate(context) {
     item,
     vscode.commands.registerCommand('kanbanzai.showBoard', () => showBoard(context)),
   );
+  watchSessions(context, item, opts);
 }
 
 function deactivate() {
