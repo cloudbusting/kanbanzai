@@ -120,7 +120,7 @@ not a status feed and not a place to talk to the owner: **Progress** is the stag
 stay in the chat.
 
 The brief is the card's only record and what a new session resumes from. An open card's brief stays in its folder
-from the first column to the last open one; only a card that is blocked or waiting, paused or done moves, to that
+from the first column to the last open one; only a card that is paused or done moves, to that
 column's folder (`git mv`; `kanbanzai config` lists the folders). After **every** step, update all three:
 
 - the brief's head: **Stage** (the column of the step just finished), **Updated**, **Where** and the new **Next
@@ -145,8 +145,8 @@ editing`. Rename the session with `session_rename` (OpenCode) or `/rename <title
 session does it. The state is the column's `title` in the config, naming the step this session is doing, which is the
 step after the card's column. After **every** change of the card's Stage line, run it again, so the title never
 disagrees with the board. A step the work skips is skipped in the title too. If the card stops on a red check or a
-decision while it stays in its stage, keep the state and add the reason (`[CHECKING W-01] red: parity`); move it to
-blocked or waiting when that is the real state. Before a card exists, `[TRIAGE]` is enough.
+decision while it stays in its stage, keep the state and add the reason (`[CHECKING W-01] red: parity`); add a
+`Held:` line (blocked or waiting) when that is the real state. Before a card exists, `[TRIAGE]` is enough.
 
 ## 0d. Resuming a card, and the loop
 
@@ -169,7 +169,7 @@ design. The board is the only source of the stage.
 |---|---|
 | a started column (Todo, Designed, Built, Checked…) | claim it, then `kanbanzai step --for <ID>`: Todo starts design (or build, for a card flagged "settled"), Designed starts build, Built starts check, and so on down the config's columns |
 | a column marked `waits_for_owner` | it waits for the owner's approval; with it, claim the card and run its step |
-| Blocked or waiting | test whether the blocker is gone; if so and the next step is Claude's, move the card back to the column its Stage line says (`from <column>`) and carry on, otherwise report the one thing that must happen and stop |
+| a held card (a `Held:` line, in any column) | test whether the blocker is gone; if so and the next step is Claude's, delete the `Held:` line and carry on at the column's next step, otherwise report the one thing that must happen and stop |
 | Paused | ask the owner whether to resume; never unpause on your own |
 | Done | nothing: say what shipped and stop |
 
@@ -226,7 +226,7 @@ Yours: nothing | decide <the question> | approve <the step that waits on the own
 Then, **only when there is something for the owner**, a question tool call with the recommended option first,
 labelled `(Recommended)`, and the real alternatives: a decision their standing answers don't settle, or an approval.
 When the next step is Claude's own, there is no question: the block says `Yours: nothing` and the turn ends. The
-stage word is the column the card is in; `blocked:` and `waiting:` are said out loud, and a turn that stopped on a
+stage word is the column the card is in; a `Held:` line (`blocked:` or `waiting:`) is said out loud, and a turn that stopped on a
 red check names the check.
 
 ## 1. Design

@@ -72,7 +72,7 @@ Every card is **in Todo**; what triage decides is what its brief says comes next
 |---|---|---|
 | small, contained, no open decision (a wording fix, a one-line bug) | Next action "settled: build it" | Goal, one acceptance check, the files, Next action, Out of scope, Comments |
 | needs a choice or a design, or changes how a user works | Next action "design it" | Goal, the decision to settle, Next action |
-| blocked on another card, an account or an outside service | `blocked:` or `waiting:`, `from todo` (the card moves to the blocked column's folder) | Goal, what it waits for, Next action |
+| blocked on another card, an account or an outside service | a `Held:` line, `blocked: <what>` or `waiting: <whom>` (the card stays in Todo) | Goal, what it waits for, Next action |
 | deliberately not now | `paused` (the card moves to the paused column's folder) | Goal, why it is parked |
 | not wanted, a duplicate, already live | Done, `closed, no work: <reason>` (the card moves to the done column's folder) | Goal and the reason (step 5) |
 
@@ -104,7 +104,7 @@ into <ID>`). Do not rewrite the card's design or tasks.
 Say why in one line in the report, and move the card to Done with the Done line `closed, no work: <why>` (the id
 stays taken; nothing is deleted). Close only for: already live, a duplicate, out of scope for the project, or a
 choice the owner made against it. Never decide scope on the owner's behalf when the cost is theirs: if it needs
-them, make a `waiting:` card naming the owner instead of closing it.
+them, make a Todo card with a `Held: waiting: <the owner>` line instead of closing it.
 
 ## 6. Check and report
 

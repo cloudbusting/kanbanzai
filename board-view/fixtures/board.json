@@ -12,10 +12,10 @@
           "done": null,
           "owner": null,
           "mark": null,
-          "from": null,
           "id": "W-81",
           "title": "A todo observation",
-          "path": "docs/work/1-open/W-81-obs.md"
+          "path": "docs/work/1-open/W-81-obs.md",
+          "held": null
         },
         {
           "stage": "todo",
@@ -25,10 +25,10 @@
           "done": null,
           "owner": null,
           "mark": null,
-          "from": null,
           "id": "W-82",
           "title": "Another",
-          "path": "docs/work/1-open/W-82-another.md"
+          "path": "docs/work/1-open/W-82-another.md",
+          "held": null
         }
       ]
     },
@@ -47,7 +47,20 @@
           "owner": "claude:2281217",
           "mark": null,
           "path": "docs/work/1-open/W-75-board.md",
-          "from": null
+          "held": null
+        },
+        {
+          "id": "W-11",
+          "title": "Waiting on the owner",
+          "stage": "designed",
+          "next": "Decide",
+          "updated": "2026-11-02",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "waiting-owner",
+          "path": "docs/work/1-open/W-11-owner.md",
+          "held": "waiting: Sam"
         }
       ]
     },
@@ -66,14 +79,41 @@
           "owner": null,
           "mark": null,
           "path": "docs/work/1-open/W-80-evil.md",
-          "from": null
+          "held": null
+        },
+        {
+          "id": "W-10",
+          "title": "A blocked card",
+          "stage": "built",
+          "next": "Unblock",
+          "updated": "2026-11-01",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "blocked",
+          "path": "docs/work/1-open/W-10-blocked.md",
+          "held": "blocked: needs the SCP"
         }
       ]
     },
     {
       "key": "checked",
       "name": "Checked",
-      "cards": []
+      "cards": [
+        {
+          "id": "W-12",
+          "title": "Waiting on a supplier",
+          "stage": "checked",
+          "next": "Reply",
+          "updated": "2026-11-03",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "waiting",
+          "path": "docs/work/1-open/W-12-supplier.md",
+          "held": "waiting: a supplier"
+        }
+      ]
     },
     {
       "key": "qa-approved",
@@ -90,52 +130,7 @@
           "owner": null,
           "mark": "waiting-owner",
           "path": "docs/work/1-open/W-07-prod.md",
-          "from": null
-        }
-      ]
-    },
-    {
-      "key": "blocked",
-      "name": "Blocked or waiting",
-      "cards": [
-        {
-          "id": "W-10",
-          "title": "A blocked card",
-          "stage": "blocked: needs the SCP",
-          "next": "Unblock",
-          "updated": "2026-11-01",
-          "where": "—",
-          "done": null,
-          "owner": null,
-          "mark": "blocked",
-          "path": "docs/work/x-blocked/W-10-blocked.md",
-          "from": "built"
-        },
-        {
-          "id": "W-11",
-          "title": "Waiting on the owner",
-          "stage": "waiting: Sam",
-          "next": "Decide",
-          "updated": "2026-11-02",
-          "where": "—",
-          "done": null,
-          "owner": null,
-          "mark": "waiting-owner",
-          "path": "docs/work/x-blocked/W-11-owner.md",
-          "from": null
-        },
-        {
-          "id": "W-12",
-          "title": "Waiting on a supplier",
-          "stage": "waiting: a supplier",
-          "next": "Reply",
-          "updated": "2026-11-03",
-          "where": "—",
-          "done": null,
-          "owner": null,
-          "mark": "waiting",
-          "path": "docs/work/x-blocked/W-12-supplier.md",
-          "from": null
+          "held": null
         }
       ]
     },
@@ -154,7 +149,7 @@
           "owner": null,
           "mark": "paused",
           "path": "docs/work/x-paused/W-20-paused.md",
-          "from": null
+          "held": null
         }
       ]
     },
@@ -173,7 +168,7 @@
           "owner": null,
           "mark": null,
           "path": "docs/work/10-done/W-01-done.md",
-          "from": null
+          "held": null
         }
       ]
     }

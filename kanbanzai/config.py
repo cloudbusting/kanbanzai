@@ -24,7 +24,7 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS_FILE = PACKAGE_ROOT / "defaults" / "config.toml"
 SHIPPED_TEMPLATE = PACKAGE_ROOT / "templates" / "card.md"
 CONFIG_NAME = "config.toml"
-KINDS = ("open", "held", "parked", "done")
+KINDS = ("open", "parked", "done")
 
 
 class ConfigError(Exception):
@@ -187,6 +187,10 @@ class Project:
                 raise ConfigError("every [[columns]] entry needs a key and a folder")
             key = str(item["key"])
             kind = str(item.get("kind") or "open")
+            if kind == "held":
+                raise ConfigError(f"column {key!r}: the 'held' kind is gone (W-92): a blocked or waiting card stays "
+                                  "in the column it finished, and a '- **Held:**' line in its brief says so; "
+                                  "remove this column")
             if kind not in KINDS:
                 raise ConfigError(f"column {key!r}: kind must be one of {', '.join(KINDS)}")
             started = item.get("started", False)
@@ -212,7 +216,6 @@ class Project:
                 self.stage_column[word] = column.key
         self.folders = list(dict.fromkeys(c.folder for c in columns))
         self.open_keys = [c.key for c in columns if c.kind == "open"]
-        self.held_words = {w for c in columns if c.kind == "held" for w in c.words}
 
     def _steps(self) -> None:
         raw = self._section("steps")
@@ -297,11 +300,6 @@ class Project:
     @property
     def card_file_re(self) -> re.Pattern:
         return re.compile(rf"^({self.id_pattern})-.+\.md$")
-
-    @property
-    def from_re(self) -> re.Pattern:
-        keys = "|".join(re.escape(k) for k in sorted(self.open_keys, key=len, reverse=True))
-        return re.compile(r"\bfrom (" + keys + r")\b", re.I)
 
     def column(self, key: str) -> Column:
         return self.by_key[key]
