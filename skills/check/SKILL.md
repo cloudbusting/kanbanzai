@@ -28,7 +28,7 @@ If `kanbanzai step check` says the project has no check step, a card skips it: g
 
 The card's brief gives the acceptance checks, the files the change touched and the **Docs** line; its **Comments**
 are the hand-over. No card or no brief: stop and say so. The card is **Checking** through every check below (the first
-move, right after the claim: **Stage** `checking`, **Updated**), with this session's claim on it, and its **Next action** names the check it is on; it becomes **Checked** only when every
+move, right after the claim: `kanbanzai move <ID> start`), with this session's claim on it, and its **Next action** names the check it is on; it becomes **Checked** only when every
 check is green and the review is done. A red check keeps it Checking, named in **Next action** and after the session
 title (`[CHECKING W-12] red: parity`); nothing moves on red. A red check whose fix changes the code moves the card back
 to **Building** (the build step's Doing column) to redo the build; a re-run of the check leaves it Checking.
@@ -77,8 +77,8 @@ When the checks are green and the review is done:
    `<ID> wip: …`; this is the finished change's commit. Stage only the change's own files by path
    (`git add <files>`, never `-A`); never stage another session's files. If the index is not clean, use
    `git commit --only -- <files>`. Don't amend a commit that is pushed.
-2. Set the brief's **Stage** to `checked`, **Updated**, the new **Next action** (the next step, from `kanbanzai
-   step --for <ID>`), tick the tasks, and add a dated line to **Progress**. Commit the brief in the main checkout as
+2. `kanbanzai move <ID> finish --next "<the next step, from kanbanzai step --for <ID>>" --progress "<the checks>"`
+   (it sets **Stage** to `checked`, **Updated**, **Next action** and the **Progress** line), and tick the tasks. Commit the brief in the main checkout as
    its own commit, `<ID>: board — checked`.
 3. If the next step is a deploy step with a skill (`kanbanzai step deploy-qa` says), merge the card's branch into the
    main branch now, from the main checkout (`git merge --no-ff <branch>`): the deploy step ships what the main branch

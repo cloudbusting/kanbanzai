@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from . import board, check, claim, context, init, number, sessions, step, wip
+from . import board, check, claim, context, init, move, number, sessions, step, wip
 from .config import ConfigError, NoProject, Project
 
 # Commands a hook runs: with no project (or a broken one) they say nothing and succeed.
@@ -42,7 +42,7 @@ def show_config(project: Project, args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="kanbanzai", description="The agent kanban: cards, claims, numbers, wip.")
     sub = parser.add_subparsers(dest="command", required=True)
-    for module in (board, claim, number, sessions, wip, check, step, context, init):
+    for module in (board, claim, move, number, sessions, wip, check, step, context, init):
         module.register(sub)
     config = sub.add_parser("config", help="the resolved configuration, with absolute paths")
     config.add_argument("--json", action="store_true")

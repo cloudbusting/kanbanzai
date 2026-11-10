@@ -101,8 +101,8 @@ and branch patterns, with `batch_branch` for a card in a batch:
 git worktree add <the card's worktree path> -b <the card's batch branch> main
 ```
 
-Put the path and branch in the map, set the card's **Where** to `worktree <ID>` and its **Stage** to `building` (with
-**Updated**: the do skill's first move). The brief stays in the main checkout. A worktree with no card is a bug, and `kanbanzai wip` will say so. Remove the worktree when the card's
+Put the path and branch in the map, move the card with `kanbanzai move <ID> start --where "worktree <ID>"` (the do skill's
+first move: it sets **Where**, **Stage** `building` and **Updated** together). The brief stays in the main checkout. A worktree with no card is a bug, and `kanbanzai wip` will say so. Remove the worktree when the card's
 commit is merged; a clean worktree that is behind main is only clutter.
 
 **Claims.** The main session claims every card in the batch before it spawns; the claim is the card's only owner
