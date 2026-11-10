@@ -97,8 +97,8 @@ Progress: dated one-liners; /do appends after each step, with the new Next actio
 environment) and say what a task or an acceptance check must name. Put them in the brief, under the head they name
 or as a line of their own.
 
-Finish by setting **Stage** to `designed`, **Updated** and the **Next action** (the do skill's update, when it ran
-this step; do it yourself when design runs alone). Run `kanbanzai check`; it must pass.
+Finish with `kanbanzai move <ID> finish --next "<the first task>"` (the do skill's update, when it ran this step; do
+it yourself when design runs alone). Run `kanbanzai check`; it must pass.
 
 ## What it never does
 
