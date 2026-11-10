@@ -20,7 +20,7 @@ const SESSIONS_IDLE_MS = 15 * 1000; // and while none is
 const RUN_TIMEOUT_MS = 15 * 1000;
 const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
 const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
-const SAFE_TOAST_KEY = /^[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, or 'burst'
+const SAFE_TOAST_KEY = /^(?:ask:)?[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, 'burst', or 'ask:' and a card id
 
 function workspaceRoot() {
   const folders = vscode.workspace.workspaceFolders || [];
