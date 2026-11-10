@@ -1,9 +1,10 @@
 """Parity: on twisty's real board, with twisty's config, Kanbanzai prints what twisty's own tools print.
 
-The old tools (tools/board.py, wip.py, claim.py, number.py in the twisty checkout) are copied, with the board's
-briefs and the config, into a throwaway git project; both generations then run against that one copy, so every
-path in the output is the same. The outputs are compared after only the changes the generalisation makes on
-purpose (see ``normalise``). Skipped when the twisty checkout or its Kanbanzai config is not beside this repo.
+The old tools (tools/board.py, wip.py, claim.py, number.py) and the board's briefs are taken from twisty's git
+history at the last commit that had them (OLD_COMMIT), with the Kanbanzai config twisty first ran on, which kept
+the board in docs/work (CONFIG_COMMIT), into a throwaway git project; both generations then run against that one
+copy, so every path in the output is the same. The outputs are compared after only the changes the generalisation
+makes on purpose (see ``normalise``). Skipped when the twisty checkout or those commits are not beside this repo.
 """
 
 import datetime as dt
@@ -21,7 +22,8 @@ from .support import BIN, GIT_ENV, git, make_repo
 
 CODE = pathlib.Path(__file__).resolve().parents[2]
 OLD_REPO = CODE / "moto-tours"
-CONFIG = CODE / "moto-tours-W-84" / ".kanbanzai" / "config.toml"
+OLD_COMMIT = "9dc1140"     # twisty's main before Kanbanzai: the old tools and docs/work
+CONFIG_COMMIT = "38264cc"  # twisty's W-84 branch: its first Kanbanzai config, with the board in docs/work
 OLD_TOOLS = ("board.py", "claim.py", "number.py", "wip.py")
 
 # What the generalisation changes on purpose, applied to the old output before comparing.
@@ -49,7 +51,20 @@ def card_text(card, work, stage, where="—"):
             f"- **Where:** {where}\n\n## Goal\n\nA made-up card.\n\n## Comments\n")
 
 
-@unittest.skipUnless(OLD_REPO.is_dir() and CONFIG.is_file(), "twisty's checkout and its Kanbanzai config are not here")
+def _have_history() -> bool:
+    if not OLD_REPO.is_dir():
+        return False
+    return all(subprocess.run(["git", "-C", str(OLD_REPO), "cat-file", "-e", f"{commit}^{{commit}}"],
+                              capture_output=True).returncode == 0 for commit in (OLD_COMMIT, CONFIG_COMMIT))
+
+
+def _extract(commit: str, paths: list[str], into: pathlib.Path) -> None:
+    archive = subprocess.run(["git", "-C", str(OLD_REPO), "archive", commit, *paths], capture_output=True,
+                             check=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(into)], input=archive, check=True)
+
+
+@unittest.skipUnless(_have_history(), "twisty's checkout and its pinned commits are not here")
 class ParityTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="kanbanzai-parity-")).resolve()
@@ -60,12 +75,8 @@ class ParityTest(unittest.TestCase):
             self.env.pop(key, None)
         # The checkout is laid out as twisty's is: docs/work (a copy of the real board), tools/, and the config.
         self.repo = make_repo(self.tmp / "copy", None, commit=False)
-        shutil.copytree(OLD_REPO / "docs" / "work", self.repo / "docs" / "work")
-        (self.repo / "tools").mkdir()
-        for name in OLD_TOOLS:
-            shutil.copy2(OLD_REPO / "tools" / name, self.repo / "tools" / name)
-        (self.repo / ".kanbanzai").mkdir()
-        shutil.copy2(CONFIG, self.repo / ".kanbanzai" / "config.toml")
+        _extract(OLD_COMMIT, ["docs/work", *(f"tools/{name}" for name in OLD_TOOLS)], self.repo)
+        _extract(CONFIG_COMMIT, [".kanbanzai/config.toml"], self.repo)
 
     def commit(self):
         git(self.repo, "add", "-A")
@@ -115,9 +126,10 @@ class ParityTest(unittest.TestCase):
     def run_all(self):
         self.same(("board.py", "--json"), ("board", "--json"))
         self.same(("wip.py", "--next"), ("wip", "--next"), squeeze=True)
-        self.same(("wip.py", "--title", "W-84"), ("wip", "--title", "W-84"))
+        self.same(("wip.py", "--title", "W-83"), ("wip", "--title", "W-83"))
+        self.same(("wip.py", "--title", "W-21"), ("wip", "--title", "W-21"))
         self.same(("wip.py", "--audit"), ("wip", "--audit"))
-        self.same(("wip.py", "--audit", "--card", "W-84"), ("wip", "--audit", "--card", "W-84"))
+        self.same(("wip.py", "--audit", "--card", "W-83"), ("wip", "--audit", "--card", "W-83"))
         self.same(("wip.py", "--cleanup"), ("wip", "--cleanup"))
         self.same(("wip.py",), ("wip",))
 
