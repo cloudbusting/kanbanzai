@@ -1,0 +1,12 @@
+{
+  "name": "kanbanzai",
+  "owner": { "name": "Kanbanzai" },
+  "description": "The Kanbanzai plugin, from its own repo.",
+  "plugins": [
+    {
+      "name": "kanbanzai",
+      "source": "./",
+      "description": "A kanban of work-item cards built for coding agents."
+    }
+  ]
+}

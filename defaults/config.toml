@@ -1,0 +1,157 @@
+# Kanbanzai's shipped workflow.
+#
+# A project's `.kanbanzai/config.toml` (in its main checkout) overrides this file key by key. Tables merge;
+# a project that sets `[[columns]]` replaces the whole column list, and a project that sets a `[steps.<name>]`
+# table replaces that step's keys it names. Paths are relative to the main checkout unless absolute;
+# `{git_common}` is `git rev-parse --git-common-dir` (the `.git` every worktree shares).
+#
+# A column is the last step finished, in the past tense, and a live claim on a card means a session is on the
+# next step. Each step names the column it moves a card into and the skill that does it.
+
+[project]
+prefix = "W"                      # card ids are <prefix>-<number>: W-01, W-02 …
+digits = 2                        # zero-padded to at least this many digits
+owner = "the user"                # the person the skills address and whose decisions they ask for
+home = ".kanbanzai"               # the project's Kanbanzai folder: this config, and by default the rest
+work = ".kanbanzai/work"          # the cards: one brief per card, in git
+state = ".kanbanzai/state"        # the leases (claims/) and the number ledger (numbers/): never in git
+claims = ""                       # empty: <state>/claims
+numbers = ""                      # empty: <state>/numbers
+batches = ""                      # empty: <work>/batches
+template = ""                     # empty: Kanbanzai's templates/card.md
+worktree = "../{repo}-{id}"       # a card's worktree; {repo} is the main checkout's folder name
+main_branch = "main"              # the branch the board and finished work live on
+branch = "{id}"                   # a card's branch
+batch_branch = "batch/{id}"       # a card's branch inside a batch
+context = []                      # project files every Kanbanzai skill reads first (rules, where things stand)
+
+[claims]
+lease_minutes = 120               # a claim is a lease; the heartbeat renews it while the session works
+owner_env = "KANBANZAI_OWNER"     # set it to override the detected session label (KANBANZAI_OWNER is always read)
+
+[flow]
+wip_limit = 5                     # cards started and not yet past the last started column, a claimed Todo included
+stale_days = 7                    # an unclaimed card in a started column with no news for this long is stale
+pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; interrupted cards before all
+
+# The columns, in the board's order. Keys:
+#   key      the column's id, and the Stage word that puts a card in it (unless `words` says more)
+#   label    its name on the board
+#   words    the Stage words that mean this column (default: [key])
+#   folder   the folder under <work> its briefs live in
+#   kind     open (on the way), held (blocked or waiting: the Stage line says `from <column>`), parked, done
+#   started  true: counts against wip_limit; "claimed": counts only with a live claim (the first column)
+#   next     the step a session does to a card in this column (absent: nothing; the card waits)
+#   title    the session-title state while a session does that step
+#   worktree true: a claimed card here must have a worktree (its next step changes files)
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "design"
+settled_next = "build"           # a Todo card whose Next action says "settled" skips design
+title = "DESIGNING"
+settled_title = "BUILDING"
+
+[[columns]]
+key = "designed"
+label = "Designed"
+folder = "1-open"
+kind = "open"
+started = true
+next = "build"
+title = "BUILDING"
+worktree = true
+
+[[columns]]
+key = "built"
+label = "Built"
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+title = "CHECKING"
+worktree = true
+
+[[columns]]
+key = "checked"
+label = "Checked"
+folder = "1-open"
+kind = "open"
+started = true
+next = "deploy-qa"
+title = "IN QA"
+worktree = true
+
+[[columns]]
+key = "qa-approved"
+label = "QA-approved"
+folder = "1-open"
+kind = "open"
+next = "ship"
+title = "SHIPPING"
+worktree = true
+waits_for_owner = true            # never pulled: it waits for the owner's approval
+
+[[columns]]
+key = "blocked"
+label = "Blocked or waiting"
+words = ["blocked", "waiting"]
+folder = "x-blocked"
+kind = "held"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+title = "PAUSED"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+title = "DONE"
+
+# The steps. Each moves a card into one column, and names:
+#   skill    the skill that runs it ("kanbanzai:<name>" for Kanbanzai's own, or a project skill's name).
+#            Empty: the project has no such step, and a card skips it (`kanbanzai step` says where to go).
+#   extend   project skills the step also follows, at the points the step's skill names
+#   context  project files the step reads before it starts
+#   checks   (the check step) the project skills that make up the checks, run in order; empty: the project's
+#            own tests, as its README or CLAUDE.md says, and the diff review
+
+[steps.design]
+into = "designed"
+skill = "kanbanzai:design"
+extend = []
+context = []
+
+[steps.build]
+into = "built"
+skill = "kanbanzai:build"
+extend = []
+context = []
+
+[steps.check]
+into = "checked"
+skill = "kanbanzai:check"
+checks = []
+extend = []
+context = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+skill = ""                        # no deploy by default: a checked card closes (kanbanzai:do, the close)
+extend = []
+context = []
+
+[steps.ship]
+into = "done"
+skill = ""
+extend = []
+context = []
