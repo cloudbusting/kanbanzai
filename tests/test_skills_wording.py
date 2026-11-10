@@ -31,9 +31,9 @@ class SkillWordingTest(unittest.TestCase):
             self.assertIn("kanbanzai move", self.read(name), name)
 
     def test_the_do_skill_says_the_claim_moves_the_card_and_how_to_opt_out(self):
-        text = self.read("do")
+        text = " ".join(self.read("do").split())  # the lines wrap
         self.assertIn("--no-move", text)
-        self.assertIn("claim moves the card", text)
+        self.assertIn("The claim moves the card", text)
 
     def test_the_readme_documents_the_claim_move_and_the_unstarted_flag(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
