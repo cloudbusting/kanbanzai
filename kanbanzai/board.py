@@ -246,7 +246,8 @@ def as_text(board: dict, owner: str = "") -> str:
         label = name if name and name != lane else ""
         lane = name
         ids = ", ".join(c["id"] + GLYPHS.get(c.get("mark") or "", "") * bool(c.get("held"))
-                        + INTERRUPTED * bool(c.get("interrupted")) + (" ●" if c["owner"] else "") + (" ❓" if (c.get("session") or {}).get("state") == "waiting" else "")
+                        + INTERRUPTED * bool(c.get("interrupted")) + (" ●" if c["owner"] else "")
+                        + (" ❓" if (c.get("session") or {}).get("state") == "waiting" else "")
                         for c in column["cards"]) or "—"
         lines.append(f"  {label:<7}{column['name']:<13}{len(column['cards']):>2}  {ids}")
     summary = held_summary(board, owner)
