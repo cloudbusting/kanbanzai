@@ -59,7 +59,7 @@ class BoardTest(ProjectCase):
         self.assertEqual(card, {
             "id": "W-75", "title": "The briefs are the board", "stage": "built",
             "next": "Write board.py, then the extension", "updated": "2026-11-10", "where": "worktree W-75",
-            "done": None, "owner": "claude:42", "mark": None, "held": None, "interrupted": False,
+            "done": None, "owner": "claude:42", "mark": None, "held": None, "interrupted": False, "session": None,
             "path": ".kanbanzai/work/1-open/W-75-x.md"})
 
     def test_wrapped_held_line(self):

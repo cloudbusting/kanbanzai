@@ -15,6 +15,7 @@ import re
 import sys
 from pathlib import Path
 
+from . import sessions
 from .config import Project
 
 FIELD = re.compile(r"^- \*\*([A-Za-z ]+):\*\*\s*(.*)$")
@@ -131,6 +132,7 @@ def read_card(project: Project, path: Path) -> tuple[dict | None, list[str]]:
         "held": held_of(fields.get("Held")),
         "mark": mark_of(project, stage, fields.get("Held")),
         "interrupted": False,
+        "session": None,
         "path": rel,
     }
     return card, problems
@@ -162,6 +164,7 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
     folder. Open columns are in card-number order; Done is newest first by its Done date.
     """
     owners = live_claims(project) if claims is None else claims
+    by_card = sessions.for_claims(owners)
     problems: list[str] = []
     by_column: dict[str, list[dict]] = {c.key: [] for c in project.columns}
     by_column_def = project.by_key
@@ -176,6 +179,7 @@ def load(project: Project, claims: dict[str, str] | None = None) -> dict:
             continue
         seen[card["id"]] = card["path"]
         card["owner"] = owners.get(card["id"])
+        card["session"] = by_card.get(card["id"])
         column = by_column_def[card.pop("column")]
         # A Doing column's card with no live claim and no Held line was left mid-step (W-94): it is interrupted.
         card["interrupted"] = bool(column.doing and not card["owner"] and not card["held"])
@@ -243,6 +247,7 @@ def as_text(board: dict, owner: str = "") -> str:
         lane = name
         ids = ", ".join(c["id"] + GLYPHS.get(c.get("mark") or "", "") * bool(c.get("held"))
                         + INTERRUPTED * bool(c.get("interrupted")) + (" ●" if c["owner"] else "")
+                        + (" ❓" if (c.get("session") or {}).get("state") == "waiting" else "")
                         for c in column["cards"]) or "—"
         lines.append(f"  {label:<7}{column['name']:<13}{len(column['cards']):>2}  {ids}")
     summary = held_summary(board, owner)
