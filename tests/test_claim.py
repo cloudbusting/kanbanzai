@@ -6,6 +6,7 @@ import datetime as dt
 import io
 import json
 import os
+import sys
 import unittest
 from unittest import mock
 
@@ -25,10 +26,11 @@ class HeartbeatTest(ProjectCase):
                          "renewed_at": claim.to_iso(now),
                          "expires_at": claim.to_iso(now + dt.timedelta(minutes=left_minutes)), "minutes": 120.0})
 
-    def beat(self, owner="tester:me"):
-        args = argparse.Namespace(owner=owner, minutes=None)
+    def beat(self, owner="tester:me", hook=False, stdin=""):
+        args = argparse.Namespace(owner=owner, minutes=None, hook=hook)
         out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), \
+                mock.patch.object(sys, "stdin", io.StringIO(stdin)):
             code = claim.cmd_heartbeat(self.project, args)
         self.assertEqual((out.getvalue(), err.getvalue()), ("", ""))  # a hook says nothing
         return code
@@ -77,6 +79,35 @@ class HeartbeatTest(ProjectCase):
     def test_it_never_fails_the_tool_call(self):
         with mock.patch.object(claim, "Store", side_effect=OSError("disk")):
             self.assertEqual(self.beat(), claim.OK)
+
+    def hook_beat(self, stdin, **env):
+        """What the Claude Code hook does: no owner given, the session id on stdin."""
+        keys = ("MY_SESSION", "KANBANZAI_OWNER", "OPENCODE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID")
+        with mock.patch.dict(os.environ, env):
+            for key in keys:
+                if key not in env:
+                    os.environ.pop(key, None)
+            with mock.patch.object(claim, "_parent_process", return_value=None):
+                return self.beat(owner=None, hook=True, stdin=stdin)
+
+    def test_the_hook_renews_the_claim_of_the_session_id_on_its_stdin(self):
+        self.put("W-05", "claude:sid-1", 10)
+        self.put("W-06", "claude:sid-2", 10)
+        self.assertEqual(self.hook_beat('{"session_id": "sid-1", "tool_name": "Bash"}'), claim.OK)
+        self.assertGreater(self.left("W-05"), 119)
+        self.assertLess(self.left("W-06"), 11)  # another session's claim is left alone
+        self.assertEqual(self.store.load("W-05")["owner"], "claude:sid-1")
+
+    def test_the_hook_prefers_the_environments_session_id_when_it_has_one(self):
+        self.put("W-05", "claude:sid-1", 10)
+        self.hook_beat('{"session_id": "other"}', CLAUDE_CODE_SESSION_ID="sid-1")
+        self.assertGreater(self.left("W-05"), 119)
+
+    def test_the_hook_survives_bad_or_empty_stdin(self):
+        self.put("W-05", "claude:sid-1", 10)
+        for stdin in ("", "{not json", "[]", '{"session_id": 5}', '{"session_id": "two words"}'):
+            self.assertEqual(self.hook_beat(stdin), claim.OK)
+        self.assertLess(self.left("W-05"), 11)
 
     def test_the_command_says_nothing_and_succeeds_outside_a_project(self):
         code, out, err = self.cli("claim", "heartbeat", cwd=self.tmp)
@@ -150,7 +181,7 @@ class OwnerLabelTest(ProjectCase):
     CONFIG = '[project]\nowner = "Sam"\n[claims]\nowner_env = "MY_SESSION"\n'
 
     def label(self, **env):
-        keys = ("MY_SESSION", "KANBANZAI_OWNER", "OPENCODE_SESSION_ID", "CLAUDE_SESSION_ID")
+        keys = ("MY_SESSION", "KANBANZAI_OWNER", "OPENCODE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID")
         with mock.patch.dict(os.environ, env):
             for key in keys:
                 if key not in env:
@@ -165,6 +196,22 @@ class OwnerLabelTest(ProjectCase):
     def test_then_the_harness_session_ids(self):
         self.assertEqual(self.label(OPENCODE_SESSION_ID="ses_1", CLAUDE_SESSION_ID="c"), "opencode:ses_1")
         self.assertEqual(self.label(CLAUDE_SESSION_ID="abc"), "claude:abc")
+
+    def test_claude_code_labels_by_its_session_id_not_its_process(self):
+        sid = "193f0c70-5c58-4f5f-affa-4b4c839e72b5"
+        self.assertEqual(self.label(CLAUDE_CODE_SESSION_ID=sid), f"claude:{sid}")
+        claim.check_owner(f"claude:{sid}")  # it fits the owner pattern
+        self.assertEqual(self.label(CLAUDE_CODE_SESSION_ID="a", CLAUDE_SESSION_ID="b"), "claude:a")
+        self.assertEqual(self.label(OPENCODE_SESSION_ID="ses_1", CLAUDE_CODE_SESSION_ID="a"), "opencode:ses_1")
+        self.assertEqual(self.label(KANBANZAI_OWNER="shipped", CLAUDE_CODE_SESSION_ID="a"), "shipped")
+
+    def test_the_process_is_only_the_last_resort(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            for key in ("MY_SESSION", "KANBANZAI_OWNER", "OPENCODE_SESSION_ID", "CLAUDE_CODE_SESSION_ID",
+                        "CLAUDE_SESSION_ID"):
+                os.environ.pop(key, None)
+            with mock.patch.object(claim, "_parent_process", return_value="claude:77"):
+                self.assertEqual(claim.owner_label(self.project), "claude:77")
 
     def test_an_empty_variable_is_not_a_label(self):
         self.assertEqual(self.label(MY_SESSION="  ", KANBANZAI_OWNER="shipped"), "shipped")

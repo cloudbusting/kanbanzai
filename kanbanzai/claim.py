@@ -6,7 +6,7 @@
     kanbanzai claim renew ID [--minutes N]
     kanbanzai claim release ID
     kanbanzai claim takeover ID --reason REASON
-    kanbanzai claim heartbeat                # renew this session's live claims (a hook runs it)
+    kanbanzai claim heartbeat [--hook]       # renew this session's live claims (a hook runs it)
 
 The claim is a lease (``claims.lease_minutes``, two hours by default): a hook runs ``heartbeat`` whenever the
 session works, so a long step is never offered to another session while its owner lives, and a session that
@@ -143,8 +143,9 @@ def _parent_process() -> str | None:
 
 
 def owner_label(project: Project) -> str:
-    """This session's label: the configured variable (claims.owner_env), KANBANZAI_OWNER, the harness's session id,
-    the Claude Code process above this shell, then user@host."""
+    """This session's label: the configured variable (claims.owner_env), KANBANZAI_OWNER, the harness's session id
+    (OpenCode's, then Claude Code's: it survives a restart, a process id does not), the Claude Code process above
+    this shell (only when the shell has no session id), then user@host."""
     for key in dict.fromkeys((project.owner_env, "KANBANZAI_OWNER")):
         value = (os.environ.get(key) or "").strip() if key else ""
         if value:
@@ -152,9 +153,10 @@ def owner_label(project: Project) -> str:
     session = os.environ.get("OPENCODE_SESSION_ID")
     if session:
         return f"opencode:{session}"
-    session = os.environ.get("CLAUDE_SESSION_ID")
-    if session:
-        return f"claude:{session}"
+    for key in ("CLAUDE_CODE_SESSION_ID", "CLAUDE_SESSION_ID"):
+        session = (os.environ.get(key) or "").strip()
+        if session:
+            return f"claude:{session}"
     parent = _parent_process()
     if parent:
         return parent
@@ -304,6 +306,21 @@ def cmd_renew(project: Project, args: argparse.Namespace) -> int:
         return OK
 
 
+def hook_session() -> None:
+    """A Claude Code hook gets the session id on stdin (``session_id``); the environment is not promised to carry
+    it. Offer it as CLAUDE_CODE_SESSION_ID so the hook labels itself as the session's shells do. Anything odd on
+    stdin is ignored, and a variable already set wins."""
+    if (os.environ.get("CLAUDE_CODE_SESSION_ID") or "").strip():
+        return
+    try:
+        data = json.loads(sys.stdin.read())
+        session = data.get("session_id") if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return
+    if isinstance(session, str) and session.strip() and OWNER.match(f"claude:{session.strip()}"):
+        os.environ["CLAUDE_CODE_SESSION_ID"] = session.strip()
+
+
 def cmd_heartbeat(project: Project, args: argparse.Namespace) -> int:
     """Renew every claim this session holds that has used half its lease, in silence and without failing.
 
@@ -311,6 +328,8 @@ def cmd_heartbeat(project: Project, args: argparse.Namespace) -> int:
     owner's claim, and always exits 0: a heartbeat must never break the work it watches.
     """
     try:
+        if getattr(args, "hook", False):
+            hook_session()
         me = check_owner(args.owner or owner_label(project))
         minutes = project.lease_minutes if args.minutes is None else args.minutes
         now = utcnow()
@@ -398,7 +417,10 @@ def register(sub) -> None:
                        help="take a card from another owner (required when its claim is live or expired)")
     renew = with_owner(with_lease(actions.add_parser("renew", help="extend your claim at a step boundary")))
     renew.add_argument("card")
-    with_owner(with_lease(actions.add_parser("heartbeat", help="renew this session's claims that are half used")))
+    heartbeat = with_owner(with_lease(actions.add_parser(
+        "heartbeat", help="renew this session's claims that are half used")))
+    heartbeat.add_argument("--hook", action="store_true",
+                           help="a Claude Code hook: take the session id from the JSON on stdin")
     release = with_owner(actions.add_parser("release", help="give the card back"))
     release.add_argument("card")
     takeover = with_owner(with_lease(actions.add_parser("takeover", help="take an expired or abandoned card")))
