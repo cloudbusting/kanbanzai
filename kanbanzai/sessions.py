@@ -98,10 +98,13 @@ def of_owner(owner: str | None, found: dict[str, dict]) -> dict | None:
 
 def for_claims(claims: dict[str, str]) -> dict[str, dict]:
     """{card: session} for the claims ({card: owner label}) that have one."""
-    if not any(owner.startswith(PREFIX) for owner in claims.values()):
+    try:
+        if not any(owner.startswith(PREFIX) for owner in claims.values()):
+            return {}
+        found = read_all()
+        return {card: s for card, owner in claims.items() if (s := of_owner(owner, found))}
+    except Exception:  # noqa: BLE001 - the board never fails for want of a session's state
         return {}
-    found = read_all()
-    return {card: s for card, owner in claims.items() if (s := of_owner(owner, found))}
 
 
 def run(project, args: argparse.Namespace) -> int:

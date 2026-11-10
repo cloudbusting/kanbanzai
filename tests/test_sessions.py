@@ -116,6 +116,14 @@ class SessionOfACardTest(SessionCase):
 
 
 class SessionOnTheBoardTest(SessionCase):
+    def test_a_reader_that_fails_never_fails_the_board(self):
+        self.session()
+        self.card("W-99", "Ninety-nine", "building")
+        with mock.patch.object(sessions, "read_all", side_effect=RuntimeError("boom")):
+            card = self.card_of(self.board({"W-99": f"claude:{SID}"}), "W-99")
+        self.assertIsNone(card["session"])
+        self.assertEqual(card["owner"], f"claude:{SID}")
+
     def test_an_unclaimed_card_has_session_none_and_the_key(self):
         self.card("W-99", "Ninety-nine", "built")
         card = self.card_of(self.board({}), "W-99")
