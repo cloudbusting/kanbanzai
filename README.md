@@ -19,14 +19,14 @@ by side in the same project.
 
 ```
 bin/kanbanzai              the one command (Python 3.13+, standard library only)
-kanbanzai/                 the core: config, board, claims, numbers, wip, check, step, context, init
+kanbanzai/                 the core: config, board, claims, sessions, numbers, wip, check, step, context, init
 defaults/config.toml       the shipped workflow
 skills/                    obs, triage, design, do, next, wip, audit, cleanup, build, check
 templates/card.md          the brief template
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and `kanbanzai` on the shell's PATH
-board-view/                a read-only board in a VSCodium/VS Code tab
+board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
 tests/                     python3 -I -m unittest discover -s tests -t .
 ```
 

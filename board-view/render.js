@@ -5,6 +5,7 @@
 // names none.
 
 const path = require('path');
+const { elapsed, sessionOf } = require('./sessions');
 
 const COLUMNS = [
   ['todo', 'Todo'],
@@ -22,6 +23,7 @@ const MARKS = {
   paused: { glyph: '⏸', text: 'Paused' },
 };
 const CLAIMED_GLYPH = '●';
+const SESSION_WORD = { waiting: 'asking', busy: 'busy', idle: 'idle' };
 const INTERRUPTED_TEXT = 'Interrupted: the step was under way and no session holds it';
 
 function esc(value) {
@@ -50,7 +52,7 @@ function markOf(key, ownerName) {
   return Object.prototype.hasOwnProperty.call(MARKS, key) ? MARKS[key] : null;
 }
 
-function cardHtml(card, colKey, ownerName) {
+function cardHtml(card, colKey, ownerName, now) {
   const c = obj(card);
   const id = String(c.id || '');
   const title = String(c.title || '');
@@ -66,8 +68,12 @@ function cardHtml(card, colKey, ownerName) {
   if (mark) hover.push(markInfo.text);
   if (c.held) hover.push(`Held: ${c.held}`);
   if (owner) hover.push(`Claimed by ${owner}`);
+  // The claiming Claude Code session, when `kanbanzai board` found a live one: asking (waiting for the owner), busy or idle.
+  const session = owner ? sessionOf(c.session) : null;
+  if (session) hover.push(`Session${session.name ? ` ${session.name}` : ''}: ${SESSION_WORD[session.state]} for ${elapsed(session.since, now)}`);
 
   const classes = ['card'];
+  if (session && session.state === 'waiting') classes.push('asking');
   if (mark) classes.push(`mark-${mark}`);
   if (owner) classes.push('claimed');
   if (colKey === 'done') classes.push('done');
@@ -79,7 +85,11 @@ function cardHtml(card, colKey, ownerName) {
   let glyphs = '';
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
-  if (owner) glyphs += `<span class="glyph glyph-claimed" title="${esc(`Claimed by ${owner}`)}">${CLAIMED_GLYPH}</span>`;
+  if (session) {
+    const label = session.state === 'waiting' ? `❓ ${SESSION_WORD.waiting}` : `${CLAIMED_GLYPH} ${SESSION_WORD[session.state]}`;
+    const kind = session.state === 'waiting' ? 'glyph-asking' : `glyph-claimed glyph-${session.state}`;
+    glyphs += `<span class="glyph ${kind}" data-since="${session.since}" data-label="${esc(label)}" title="${esc(`Claimed by ${owner}`)}">${esc(label)} ${esc(elapsed(session.since, now))}</span>`;
+  } else if (owner) glyphs += `<span class="glyph glyph-claimed" title="${esc(`Claimed by ${owner}`)}">${CLAIMED_GLYPH}</span>`;
 
   let body = `<div class="head"><span class="id">${esc(id)}</span>${glyphs}</div>`;
   body += `<div class="title">${esc(title)}</div>`;
@@ -132,7 +142,7 @@ function laneHtml(lane) {
   return `<div class="lane"><div class="lane-name">${esc(lane.name)}</div><div class="lane-cols">${lane.cols.join('\n')}</div></div>`;
 }
 
-function boardColumns(board, collapsedKeys, owner) {
+function boardColumns(board, collapsedKeys, owner, now) {
   const b = obj(board);
   const shut = new Set(arr(collapsedKeys).map(String));
   const byKey = new Map();
@@ -147,7 +157,7 @@ function boardColumns(board, collapsedKeys, owner) {
   for (const [key, name] of order) {
     const col = byKey.get(key);
     const cards = arr(col && col.cards);
-    const html = columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner)), cards.length, shut.has(key));
+    const html = columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner, now)), cards.length, shut.has(key));
     const laneName = col && col.lane ? String(col.lane) : '';
     if (lane && lane.name !== laneName) {
       out.push(laneHtml(lane));
@@ -243,6 +253,19 @@ const STYLE = `
   .glyph-interrupted { color: var(--vscode-editorWarning-foreground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
+  .glyph-busy, .glyph-idle { font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+  .glyph-idle { opacity: 0.8; }
+  /* A session waiting for the owner: the loudest card on the board, in the theme's button colours (legible in every
+     theme, and neither the amber of a hold nor the red of a block). */
+  .card.asking {
+    background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+    border-color: var(--vscode-button-background); border-left: 6px solid var(--vscode-focusBorder);
+  }
+  .card.asking:hover { background: var(--vscode-button-hoverBackground, var(--vscode-button-background)); }
+  .card.asking .glyph-asking { color: inherit; font-weight: 700; margin-left: auto; white-space: nowrap; }
+  .card.asking .id, .card.asking .title { color: inherit; }
+  @keyframes asking-glow { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 8px 2px var(--vscode-focusBorder); } }
+  @media (prefers-reduced-motion: no-preference) { .card.asking { animation: asking-glow 2.4s ease-in-out infinite; } }
   .toasts {
     position: fixed; left: 8px; bottom: 24px; z-index: 10; width: 280px; max-width: calc(100% - 16px);
     max-height: calc(100% - 16px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
@@ -281,6 +304,13 @@ const STYLE = `
 
 const SCRIPT = `
   const vscode = acquireVsCodeApi();
+  ${elapsed.toString()}
+  // A session's time counts up here, so the board is not redrawn for a clock.
+  setInterval(() => {
+    document.querySelectorAll('[data-since]').forEach((el) => {
+      el.textContent = el.dataset.label + ' ' + elapsed(Number(el.dataset.since), Date.now());
+    });
+  }, 15000);
   const board = document.querySelector('.board');
   function saveState() {
     const cols = {};
@@ -355,7 +385,7 @@ function renderHtml(board, opts) {
   if (problems.length) {
     inner += `<div class="problems" role="alert">${problems.map((p) => `<div>${esc(p)}</div>`).join('')}</div>\n`;
   }
-  inner += `<div class="board">${boardColumns(board, obj(opts).collapsed, obj(opts).owner).join('\n')}</div>`;
+  inner += `<div class="board">${boardColumns(board, obj(opts).collapsed, obj(opts).owner, typeof obj(opts).now === 'number' ? obj(opts).now : Date.now()).join('\n')}</div>`;
   inner += toastsHtml(obj(opts).toasts);
   return shell(inner, opts);
 }
