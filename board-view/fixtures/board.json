@@ -1,0 +1,184 @@
+{
+  "columns": [
+    {
+      "key": "todo",
+      "name": "Todo",
+      "cards": [
+        {
+          "stage": "todo",
+          "next": "Triage it",
+          "updated": "2026-11-10",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": null,
+          "from": null,
+          "id": "W-81",
+          "title": "A todo observation",
+          "path": "docs/work/1-open/W-81-obs.md"
+        },
+        {
+          "stage": "todo",
+          "next": "Size it",
+          "updated": "2026-11-10",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": null,
+          "from": null,
+          "id": "W-82",
+          "title": "Another",
+          "path": "docs/work/1-open/W-82-another.md"
+        }
+      ]
+    },
+    {
+      "key": "designed",
+      "name": "Designed",
+      "cards": [
+        {
+          "id": "W-75",
+          "title": "The briefs are the board: one open folder and a kanban view",
+          "stage": "designed",
+          "next": "Build the extension",
+          "updated": "2026-11-10",
+          "where": "—",
+          "done": null,
+          "owner": "claude:2281217",
+          "mark": null,
+          "path": "docs/work/1-open/W-75-board.md",
+          "from": null
+        }
+      ]
+    },
+    {
+      "key": "built",
+      "name": "Built",
+      "cards": [
+        {
+          "id": "W-80",
+          "title": "Evil <script>alert(1)</script> & \"quoted\" 'title'",
+          "stage": "built",
+          "next": "Next <b>step</b>",
+          "updated": "2026-11-09",
+          "where": "worktree W-80",
+          "done": null,
+          "owner": null,
+          "mark": null,
+          "path": "docs/work/1-open/W-80-evil.md",
+          "from": null
+        }
+      ]
+    },
+    {
+      "key": "checked",
+      "name": "Checked",
+      "cards": []
+    },
+    {
+      "key": "qa-approved",
+      "name": "QA-approved",
+      "cards": [
+        {
+          "id": "W-07",
+          "title": "QA-approved card",
+          "stage": "qa-approved",
+          "next": "the owner's word",
+          "updated": "2026-11-09",
+          "where": "main",
+          "done": null,
+          "owner": null,
+          "mark": "waiting-owner",
+          "path": "docs/work/1-open/W-07-prod.md",
+          "from": null
+        }
+      ]
+    },
+    {
+      "key": "blocked",
+      "name": "Blocked or waiting",
+      "cards": [
+        {
+          "id": "W-10",
+          "title": "A blocked card",
+          "stage": "blocked: needs the SCP",
+          "next": "Unblock",
+          "updated": "2026-11-01",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "blocked",
+          "path": "docs/work/x-blocked/W-10-blocked.md",
+          "from": "built"
+        },
+        {
+          "id": "W-11",
+          "title": "Waiting on the owner",
+          "stage": "waiting: Sam",
+          "next": "Decide",
+          "updated": "2026-11-02",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "waiting-owner",
+          "path": "docs/work/x-blocked/W-11-owner.md",
+          "from": null
+        },
+        {
+          "id": "W-12",
+          "title": "Waiting on a supplier",
+          "stage": "waiting: a supplier",
+          "next": "Reply",
+          "updated": "2026-11-03",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "waiting",
+          "path": "docs/work/x-blocked/W-12-supplier.md",
+          "from": null
+        }
+      ]
+    },
+    {
+      "key": "paused",
+      "name": "Paused",
+      "cards": [
+        {
+          "id": "W-20",
+          "title": "A paused card",
+          "stage": "paused",
+          "next": "Later",
+          "updated": "2026-10-20",
+          "where": "—",
+          "done": null,
+          "owner": null,
+          "mark": "paused",
+          "path": "docs/work/x-paused/W-20-paused.md",
+          "from": null
+        }
+      ]
+    },
+    {
+      "key": "done",
+      "name": "Done",
+      "cards": [
+        {
+          "id": "W-01",
+          "title": "A finished card",
+          "stage": "done",
+          "next": "—",
+          "updated": "2026-10-01",
+          "where": "main",
+          "done": "2026-10-02",
+          "owner": null,
+          "mark": null,
+          "path": "docs/work/10-done/W-01-done.md",
+          "from": null
+        }
+      ]
+    }
+  ],
+  "problems": [
+    "W-99: no Stage line (docs/work/1-open/W-99-bad.md)"
+  ]
+}

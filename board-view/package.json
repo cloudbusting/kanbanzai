@@ -1,0 +1,40 @@
+{
+  "name": "kanbanzai-board",
+  "displayName": "Kanbanzai Board",
+  "description": "The project's Kanbanzai board as a compact kanban in an editor tab. Read-only.",
+  "version": "0.3.0",
+  "publisher": "kanbanzai",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "workspaceContains:.kanbanzai/config.toml"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "kanbanzai.showBoard",
+        "title": "Kanbanzai: Show Board"
+      }
+    ],
+    "configuration": {
+      "title": "Kanbanzai",
+      "properties": {
+        "kanbanzai.command": {
+          "type": "string",
+          "default": "",
+          "description": "The kanbanzai command to run (default: the one recorded at install, else kanbanzai on PATH)."
+        }
+      }
+    }
+  }
+}
