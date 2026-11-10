@@ -58,8 +58,9 @@ tool's PATH. The plugin loads in place: an edit here reaches a project at its ne
 ```
 
 The plugin registers the same skills, puts `kanbanzai` on the PATH of the shells OpenCode starts, labels them with
-the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call and adds the
-board's context to each request. Nothing to install: it is plain JavaScript.
+the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call, adds the board's
+context to each request, and writes each session's state (busy, idle or asking) into the project's state folder so the
+board can show it, as it shows a Claude Code session's. Nothing to install: it is plain JavaScript.
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
@@ -185,6 +186,7 @@ kanbanzai claim owner|status [ID]|claim ID [--note T] [--takeover R]|renew ID|re
 kanbanzai number [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
+kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
 kanbanzai config [--json]                the resolved settings
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init                           set a project up
