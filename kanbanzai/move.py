@@ -160,7 +160,18 @@ def resolve(project: Project, target: str) -> str | None:
     return None
 
 
-def legal_targets(project: Project, key: str, card: dict) -> dict[str, str]:
+DEPLOY_FIELD = re.compile(r"^- \*\*Deploy:\*\*\s*None\b", re.MULTILINE)
+DEPLOY_SECTION = re.compile(r"^## Deploy\s*\n\s*None\b", re.MULTILINE)
+DEPLOY_STEPS = ("deploy-qa", "ship")
+
+
+def ships_nothing(text: str) -> bool:
+    """True when the brief's Deploy is None (a ``- **Deploy:** None`` line or a ``## Deploy`` section that starts
+    with None): the card skips the deploy steps and closes from Checked."""
+    return bool(DEPLOY_FIELD.search(text) or DEPLOY_SECTION.search(text))
+
+
+def legal_targets(project: Project, key: str, card: dict, nothing_to_ship: bool = False) -> dict[str, str]:
     """{column key: why} for the columns this card may move to without ``--force``."""
     column = project.by_key[key]
     found: dict[str, str] = {key: "stay"}
@@ -175,6 +186,8 @@ def legal_targets(project: Project, key: str, card: dict) -> dict[str, str]:
         after = (described or {}).get("instead") or {}
         if after.get("action") == "close":
             found[after["column"]] = "close"
+        elif nothing_to_ship and name in DEPLOY_STEPS:
+            found[next(c.key for c in project.columns if c.kind == "done")] = "close"
     if column.doing and project.steps[column.doing].into in project.by_key:
         found[project.steps[column.doing].into] = "finish"
     position = project.columns.index(column)
@@ -238,8 +251,10 @@ def apply(project: Project, card_id: str, target: str, owner: str, changes: Chan
     if goal.kind == "done" and not (changes.done or "").strip():
         raise Refused(f"{card_id}: a move into {goal.label} needs --done \"<date, commit, what shipped>\"")
 
+    source = project.root / card["path"]
+    original = source.read_text(encoding="utf-8")
     problems: list[str] = []
-    allowed = legal_targets(project, key, look)
+    allowed = legal_targets(project, key, look, ships_nothing(original))
     if destination not in allowed:
         if column.kind == "parked":
             problems.append(f"{card_id} is Paused: only {project.owner} un-parks it")
@@ -282,8 +297,7 @@ def apply(project: Project, card_id: str, target: str, owner: str, changes: Chan
     elif changes.clear_held:
         fields["Held"] = None
 
-    source = project.root / card["path"]
-    text = set_fields(source.read_text(encoding="utf-8"), fields)
+    text = set_fields(original, fields)
     if changes.progress:
         text = add_progress(text, f"- {today}: {changes.progress}")
     destination_path = project.work / goal.folder / source.name
