@@ -52,13 +52,13 @@ def board_cards(project: Project, held: dict | None = None) -> dict[str, list[tu
                             for c in column["cards"]] for column in loaded["columns"]}
 
 
-def state_word(project: Project, key: str, stage: str, next_action: str = "") -> str:
-    """The title state for a column: the step done to a card next. A held card reads its Stage line."""
+def state_word(project: Project, key: str, stage: str, next_action: str = "", held: str | None = None) -> str:
+    """The title state for a column: the step done to a card next. A held card reads its Held line."""
     column = project.by_key.get(key)
     if column is None:
         return key.upper()
-    if column.kind == "held":
-        return briefs.stage_word(stage).upper()
+    if briefs.held_of(held) and column.kind == "open":
+        return briefs.stage_word(briefs.held_of(held)).upper()
     if column.settled_title and "settled" in (next_action or "").lower():
         return column.settled_title
     return column.title or key.upper()
@@ -70,7 +70,7 @@ def title_for(project: Project, item: str) -> str | None:
     key, card = briefs.find(loaded, item)
     if card is None:
         return None
-    return f"[{state_word(project, key, card['stage'], card.get('next', ''))} {item}] {card['title']}"
+    return f"[{state_word(project, key, card['stage'], card.get('next', ''), card.get('held'))} {item}] {card['title']}"
 
 
 def claim_state(record: dict) -> tuple[bool, dt.datetime | None, str]:
@@ -148,6 +148,12 @@ def card_of(project: Project, wt: dict, spaces: list[str] | None = None) -> str 
     return None
 
 
+def on_hold(project: Project) -> set[str]:
+    """The ids of the cards with a Held line: blocked or waiting, never pulled, never stale, still counted."""
+    loaded = briefs.load(project, claims={})
+    return {card["id"] for _, card in briefs.cards(loaded) if card.get("held")}
+
+
 def started(project: Project, cards: dict, held: dict) -> list[str]:
     """The cards counted against the cap: those in a started column, and a first-column card with a live claim."""
     found = [c[0] for column in project.columns if column.started is True for c in cards.get(column.key, [])]
@@ -169,13 +175,15 @@ def step_phrase(project: Project, key: str) -> str:
     return str(column.next)
 
 
-def pull_candidates(project: Project, cards: dict, held: dict, cap_full: bool = False) -> list[tuple]:
+def pull_candidates(project: Project, cards: dict, held: dict, cap_full: bool = False,
+                    on_hold: frozenset | set = frozenset()) -> list[tuple]:
     """[(item, work, column key, state)] for the cards a session can pull, in the pull order.
 
     A card with a live claim is being worked and is never offered. A card whose claim expired is interrupted:
     offered first, further along first, to be taken over with a reason. Then the cards with no claim, furthest
     along first, in the configured pull order. A card in a column that waits for the owner is never offered; a
-    card in a column that counts as "claimed" when started (the first) is offered only below the cap.
+    card in a column that counts as "claimed" when started (the first) is offered only below the cap. A card on
+    hold (blocked or waiting, W-92) is never offered; it still counts toward the cap.
     """
     interrupted, free = [], []
     for key in project.pull_order:
@@ -183,7 +191,7 @@ def pull_candidates(project: Project, cards: dict, held: dict, cap_full: bool = 
         label = column.label
         for item, work, _, _, _ in cards.get(key, []):
             record = held.get(item)
-            if record and claim_state(record)[0]:
+            if item in on_hold or (record and claim_state(record)[0]):
                 continue
             step = step_phrase(project, key)
             if record:
@@ -204,7 +212,7 @@ def days_since(date: str) -> int | None:
 
 
 def reconcile(project: Project, cards: dict, wts: list[dict], held: dict | None = None,
-              only: str | None = None) -> tuple[list[str], list[str], list[str]]:
+              only: str | None = None, on_hold: frozenset | set = frozenset()) -> tuple[list[str], list[str], list[str]]:
     """(hard, soft, cleanup): board/work/claim mismatches, warnings, and removable worktrees.
 
     With ``only`` set to a card id, only that card's findings are returned; unrelated orphans are left to cleanup.
@@ -300,7 +308,8 @@ def reconcile(project: Project, cards: dict, wts: list[dict], held: dict | None 
             continue
         for item, _, _, _, updated in cards.get(column.key, []):
             age = days_since(updated)
-            if age is not None and age > project.stale_days and item not in mapped and item not in live_cards:
+            if (age is not None and age > project.stale_days and item not in mapped and item not in live_cards
+                    and item not in on_hold):
                 soft.append(f"{item} ({column.label}): no worktree, no live claim and not updated for {age} days")
     return hard, soft, cleanup
 
@@ -320,7 +329,7 @@ def report(project: Project, args: argparse.Namespace) -> int:
         full = not only and len(begun) >= project.wip_limit
         order = ", ".join(project.label(key) for key in project.pull_order)
         print(f"Next candidates (pull order: interrupted, then {order})")
-        candidates = pull_candidates(project, scope, held, cap_full=full)
+        candidates = pull_candidates(project, scope, held, cap_full=full, on_hold=on_hold(project))
         if full:
             last = [c for c in project.columns if c.started is True][-1:]
             beyond = f"past {last[0].label}" if last else "finished"
@@ -335,7 +344,7 @@ def report(project: Project, args: argparse.Namespace) -> int:
 
     bts = batches(project)
     wts = worktrees(project)
-    hard, soft, cleanup = reconcile(project, cards, wts, held, only)
+    hard, soft, cleanup = reconcile(project, cards, wts, held, only, on_hold(project))
     root = project.root
     print(f"WIP — {dt.date.today().isoformat()}")
     print()

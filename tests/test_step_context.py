@@ -98,10 +98,10 @@ class StepTest(ProjectCase):
         self.assertEqual(found["extend"], [])
 
     def test_for_a_card_that_waits(self):
-        self.card("W-20", "Held", "blocked: W-08, from built", "x-blocked")
+        self.card("W-20", "Held", "built", held="blocked: W-08")
         self.card("W-21", "Parked", "paused", "x-paused")
         self.card("W-23", "Finished", "done", "10-done", done="2026-11-10 — ok")
-        for card, text in (("W-20", "resumes at the column"), ("W-21", "only Sam un-parks it"),
+        for card, text in (("W-20", "is held: blocked: W-08"), ("W-21", "only Sam un-parks it"),
                            ("W-23", "it is finished")):
             code, out, _ = self.cli("step", "--for", card)
             self.assertEqual(code, 0)
@@ -135,14 +135,16 @@ class ContextTest(ProjectCase):
         self.assertIn("checked (Checked, folder 1-open): next step: deploy-qa (release)", out)
         self.assertIn("qa-approved (QA-approved, folder 1-open): next step: ship (no skill: the card skips it); "
                       "waits for Sam's approval", out)
-        self.assertIn("blocked (Blocked or waiting, folder x-blocked): held", out)
+        self.assertNotIn("x-blocked", out)
+        self.assertNotIn("Blocked or waiting", out)
+        self.assertIn("A card that is blocked or waiting stays in its column; its Held line says so", out)
         self.assertIn("Pull rule: pull the furthest-along card first (checked, built, designed, todo)", out)
         self.assertIn("At most 5 cards are started at once", out)
         self.assertIn("The owner is Sam", out)
         self.assertIn(f"(../{self.root.name}-{{id}})", out)
         self.assertIn("Read first:\n  RULES.md\n  docs/where-things-stand.md", out)
         # The order of the columns is the board's order.
-        keys = [out.index(f"  {key} (") for key in ("todo", "designed", "built", "checked", "qa-approved", "blocked",
+        keys = [out.index(f"  {key} (") for key in ("todo", "designed", "built", "checked", "qa-approved",
                                                        "paused", "done")]
         self.assertEqual(keys, sorted(keys))
 

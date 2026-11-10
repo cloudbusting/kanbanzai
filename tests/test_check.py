@@ -7,10 +7,11 @@ from kanbanzai import check
 from .support import ProjectCase
 
 
-def good_brief(card, stage="designed", extra=""):
+def good_brief(card, stage="designed", extra="", held=None):
     done = "- **Done:** 2026-11-10 — live\n" if stage == "done" else ""
+    held = f"- **Held:** {held}\n" if held else ""
     return (f"# {card}: Some work\n\n- **Stage:** {stage}\n- **Updated:** 2026-11-10\n{done}"
-            f"- **Next action:** Do it\n- **Where:** —\n\n## Goal\n\nSee [the guide](../../../README.md).{extra}\n\n"
+            f"- **Next action:** Do it\n- **Where:** —\n{held}\n## Goal\n\nSee [the guide](../../../README.md).{extra}\n\n"
             "## Comments\n")
 
 
@@ -22,11 +23,11 @@ class CheckTest(ProjectCase):
         (self.root / "template.md").write_text(
             "# W-NN: <the work>\n\n- **Stage:** todo\n- **Updated:** YYYY-MM-DD\n- **Next action:** <step>\n"
             "- **Where:** —\n\n## Goal\n\n## Comments\n", encoding="utf-8")
-        for card, stage, folder in (("W-01", "designed", "1-open"), ("W-02", "qa-approved", "1-open"),
-                                    ("W-03", "waiting: Sam, from designed", "x-blocked"),
-                                    ("W-04", "paused", "x-paused"), ("W-05", "done", "10-done"),
-                                    ("W-08", "todo", "1-open")):
-            self.put(folder, f"{card}-work.md", good_brief(card, stage))
+        for card, stage, folder, held in (("W-01", "designed", "1-open", None), ("W-02", "qa-approved", "1-open", None),
+                                          ("W-03", "designed", "1-open", "waiting: Sam, a decision"),
+                                          ("W-04", "paused", "x-paused", None), ("W-05", "done", "10-done", None),
+                                          ("W-08", "todo", "1-open", "blocked: W-01")):
+            self.put(folder, f"{card}-work.md", good_brief(card, stage, held=held))
 
     def fails(self, check_fn, needle):
         problems = check_fn(self.project)
@@ -78,8 +79,8 @@ class CheckTest(ProjectCase):
         self.fails(check.check_stages, "unknown stage")
 
     def test_folder_does_not_match_stage(self):
-        self.put("1-open", "W-06-x.md", good_brief("W-06", "blocked: W-01"))
-        self.fails(check.check_stages, "belongs in .kanbanzai/work/x-blocked/")
+        self.put("x-paused", "W-06-x.md", good_brief("W-06", "designed"))
+        self.fails(check.check_stages, "belongs in .kanbanzai/work/1-open/")
         self.put("10-done", "W-07-x.md", good_brief("W-07", "built"))
         self.fails(check.check_stages, "belongs in .kanbanzai/work/1-open/")
 
@@ -87,11 +88,24 @@ class CheckTest(ProjectCase):
         self.put("x-paused", "W-01-again.md", good_brief("W-01", "paused"))
         self.fails(check.check_unique, "W-01 is also")
 
-    def test_a_held_card_forgets_where_it_stopped(self):
-        self.put("x-blocked", "W-06-x.md", good_brief("W-06", "waiting: Sam"))
-        self.fails(check.check_from, "W-06-x.md: a waiting card names the stage it stopped at")
-        self.put("x-blocked", "W-07-x.md", good_brief("W-07", "blocked: W-01, from nowhere"))
-        self.fails(check.check_from, "W-07-x.md: a blocked card names the stage")
+    def test_a_held_line_says_blocked_or_waiting(self):
+        self.put("1-open", "W-06-x.md", good_brief("W-06", "built", held="stuck on something"))
+        self.fails(check.check_held, "W-06-x.md: a Held line starts 'blocked' or 'waiting'")
+        self.put("1-open", "W-07-x.md", good_brief("W-07", "built", held="blocked"))
+        self.fails(check.check_held, "W-07-x.md: a Held line says what it is held on")
+        for held in ("blocked: W-01", "waiting: Sam — the key", "—"):
+            self.put("1-open", "W-09-x.md", good_brief("W-09", "built", held=held))
+            self.assertFalse([p for p in check.check_held(self.project) if "W-09" in p], held)
+
+    def test_a_paused_or_done_card_is_not_held(self):
+        self.put("x-paused", "W-06-x.md", good_brief("W-06", "paused", held="blocked: W-01"))
+        self.fails(check.check_held, "W-06-x.md: a paused card is not held")
+        self.put("10-done", "W-07-x.md", good_brief("W-07", "done", held="waiting: Sam"))
+        self.fails(check.check_held, "W-07-x.md: a done card is not held")
+
+    def test_the_old_blocked_stage_names_the_held_line(self):
+        self.put("1-open", "W-06-x.md", good_brief("W-06", "blocked: W-01, from built"))
+        self.fails(check.check_stages, "a Held line")
 
     def test_broken_link(self):
         self.put("1-open", "W-06-x.md", good_brief("W-06", extra=" And [gone](../nowhere.md)."))

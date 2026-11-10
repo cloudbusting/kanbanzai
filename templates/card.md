@@ -1,13 +1,14 @@
 # <ID>: <the work, in a few words>
 
 - **Stage:** todo (the first word is the card's column, the last step finished: `todo`, `designed`, `built`,
-  `checked`, `qa-approved`, `blocked: …, from <column>`, `waiting: …, from <column>`, `paused` or `done` in the
-  shipped workflow, or the project's own column keys; every card starts in the first column)
+  `checked`, `qa-approved`, `paused` or `done` in the shipped workflow, or the project's own column keys; every
+  card starts in the first column. A card that cannot move keeps its column and adds a **Held** line below)
 - **Updated:** YYYY-MM-DD
 - **Done:** — (the date, and where it went live, when the card is finished)
 - **ADR:** <one or more links to decision records, or "none"; each record names this card>
 - **Next action:** <one concrete step; the next session starts here>
 - **Where:** — before work starts, then `worktree <ID>` (the card's worktree and branch); `main` only on a Done card
+- **Held:** (only while blocked or waiting; delete the line when it clears) `blocked: <another card, an account, a key>` or `waiting: <the owner, an outside service, a date>`
 
 ## Goal
 

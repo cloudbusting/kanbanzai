@@ -12,7 +12,6 @@ const COLUMNS = [
   ['built', 'Built'],
   ['checked', 'Checked'],
   ['qa-approved', 'QA-approved'],
-  ['blocked', 'Blocked or waiting'],
   ['paused', 'Paused'],
   ['done', 'Done'],
 ];
@@ -64,7 +63,7 @@ function cardHtml(card, colKey, ownerName) {
   if (next) hover.push(`Next: ${next}`);
   if (updated) hover.push(`Updated: ${updated}`);
   if (mark) hover.push(markInfo.text);
-  if (c.from) hover.push(`Stopped at: ${c.from}`);
+  if (c.held) hover.push(`Held: ${c.held}`);
   if (owner) hover.push(`Claimed by ${owner}`);
 
   const classes = ['card'];

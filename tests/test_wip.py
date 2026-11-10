@@ -160,6 +160,11 @@ class WipTest(ProjectCase):
         _, soft, _ = self.reconcile({"checked": [("W-30", "work", "worktree W-30", "—", "2026-01-01")]}, [])
         self.assertTrue(any("not updated for" in line for line in soft))
 
+    def test_a_held_card_is_not_stale(self):
+        cards = {"built": [("W-30", "work", "worktree W-30", "—", "2026-01-01")]}
+        _, soft, _ = self.reconcile(cards, [], on_hold={"W-30"})
+        self.assertFalse(any("not updated" in line for line in soft))
+
     # What a session can pull.
 
     def offered(self, out):
@@ -225,6 +230,21 @@ class WipTest(ProjectCase):
         self.assertEqual([c[0] for c in found], ["W-42", "W-43", "W-40"])
         self.assertIn("interrupted", found[0][3])
         self.assertIn("tester:old", found[0][3])
+
+    def test_a_held_card_is_never_offered_but_still_counts_toward_the_cap(self):
+        self.card("W-11", "A queued card", "todo")
+        self.card("W-12", "Stuck", "checked", held="waiting: Sam — the key")
+        self.card("W-13", "Stuck todo", "todo", held="blocked: W-12")
+        out = self.next_output()
+        self.assertEqual(set(self.offered(out)), {"W-07", "W-10", "W-11"})  # not W-12, not W-13
+        cards = {"built": [("W-32", "b", "—", "—", "2026-11-10")], "todo": [("W-33", "c", "—", "—", "2026-11-10")]}
+        self.assertEqual(wip.started(self.project, cards, {}), ["W-32"])  # a held Todo card has no claim: not counted
+        found = wip.pull_candidates(self.project, cards, {}, on_hold={"W-32", "W-33"})
+        self.assertEqual(found, [])
+        # a held card counts toward the cap: W-07, W-10 and the held W-12 are three, two more make five
+        for n in range(20, 20 + self.project.wip_limit - 3):
+            self.card(f"W-{n}", f"Work {n}", "checked")
+        self.assertNotIn("W-11", self.offered(self.next_output()))
 
     def test_a_claim_card_filter_limits_next(self):
         self.card("W-11", "A queued card", "todo")

@@ -27,8 +27,8 @@ tab. Only `.md` files inside the cards folder can be opened.
 
 ## What it shows
 
-The project's columns, in its order (the shipped ones: Todo, Designed, Built, Checked, QA-approved, Blocked or
-waiting, Paused, Done). A blocked or waiting card's hover text says which column it stopped at. An empty column
+The project's columns, in its order (the shipped ones: Todo, Designed, Built, Checked, QA-approved, Paused, Done).
+A held card (blocked or waiting) stays in its column with a mark, and its hover text says what it is held on. An empty column
 shrinks to a narrow strip showing its name and 0. Every column with cards has a `▾` toggle that collapses it to the
 same strip; click the strip to expand it. Which columns are collapsed is remembered for the workspace.
 

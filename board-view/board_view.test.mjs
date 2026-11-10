@@ -15,8 +15,8 @@ const pkg = JSON.parse(readFileSync(path.join(here, "package.json"), "utf8"));
 const NONCE = "abc123NONCE";
 const html = renderHtml(board, { nonce: NONCE, cspSource: "vscode-webview://x", owner: "Sam" });
 
-const ORDER = ["todo", "designed", "built", "checked", "qa-approved", "blocked", "paused", "done"];
-const COUNTS = [2, 1, 1, 0, 1, 3, 1, 1];
+const ORDER = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"];
+const COUNTS = [2, 2, 2, 1, 1, 1, 1];
 
 function sections() {
   return [...html.matchAll(/<section class="col col-([a-z-]+)( empty)?"[^>]*>(.*?)<\/section>/gs)].map((m) => ({
@@ -26,7 +26,7 @@ function sections() {
   }));
 }
 
-test("8 columns in order, with their counts", () => {
+test("7 columns in order, with their counts", () => {
   const cols = sections();
   assert.deepEqual(cols.map((c) => c.key), ORDER);
   cols.forEach((c, i) => {
@@ -44,11 +44,11 @@ test("empty columns are strips showing name and 0", () => {
     assert.ok(!c.inner.includes('class="card'), `${c.key} has no cards`);
   }
   assert.ok(cols.filter((c) => !c.empty).every((c) => COUNTS[ORDER.indexOf(c.key)] > 0));
-  assert.match(html, /<section class="col col-checked empty"[^>]*><div class="strip"><span class="name">Checked<\/span><span class="count">0<\/span>/);
   assert.match(html, /<span class="name">QA-approved<\/span>/);
   assert.doesNotMatch(html, /Ready for QA|In QA|Ready for production/);
   assert.doesNotMatch(html, /Prod gate/);
-  assert.match(html, /<span class="name">Blocked or waiting<\/span>/);
+  assert.doesNotMatch(html, /Blocked or waiting/);
+  assert.doesNotMatch(html, /col-blocked/);
 });
 
 test("a card shows its ID, title, next, updated and hover text", () => {
@@ -81,7 +81,7 @@ test("each mark has its glyph and class; a claimed card has the claimed glyph", 
 });
 
 test("a card can carry a mark and a claim", () => {
-  const b = { columns: [{ key: "blocked", cards: [{ id: "W-5", title: "t", mark: "blocked", owner: "s1", path: "docs/work/x-blocked/W-5.md" }] }] };
+  const b = { columns: [{ key: "built", cards: [{ id: "W-5", title: "t", mark: "blocked", owner: "s1", path: "docs/work/1-open/W-5.md" }] }] };
   const out = renderHtml(b, { nonce: NONCE });
   assert.match(out, /class="card mark-blocked claimed"/);
   assert.match(out, /glyph-blocked/);
@@ -96,9 +96,19 @@ test("a todo card is an ordinary card and opens its own brief", () => {
   assert.doesNotMatch(html, /TODO\.md/);
 });
 
-test("a blocked card says where it stopped", () => {
+test("a held card stays in its column and says what it is held on", () => {
+  const built = sections().find((c) => c.key === "built");
+  assert.match(built.inner, /class="card mark-blocked"/);
   const card = html.match(/<div class="card mark-blocked"[^>]*>/)[0];
-  assert.match(card, /Stopped at: built/);
+  assert.match(card, /Held: blocked: needs the SCP/);
+  assert.doesNotMatch(card, /Stopped at/);
+  const designed = sections().find((c) => c.key === "designed");
+  assert.match(designed.inner, /glyph-waiting-owner">⏳ Sam</);
+});
+
+test("the shipped default columns have no blocked column", () => {
+  const out = renderHtml({ columns: [] }, { nonce: NONCE });
+  assert.doesNotMatch(out, /Blocked or waiting|col-blocked/);
 });
 
 test("the problems strip shows above the columns, and only when there are problems", () => {
@@ -134,7 +144,7 @@ test("a hostile nonce cannot break out of the CSP or tags", () => {
 test("a missing or odd board still renders: the default columns, or the ones it names", () => {
   for (const b of [null, undefined, {}, { columns: "x", problems: null }, { columns: [null, "x"] }]) {
     const out = renderHtml(b, { nonce: NONCE });
-    assert.equal([...out.matchAll(/<section class="col /g)].length, 8);
+    assert.equal([...out.matchAll(/<section class="col /g)].length, 7);
   }
   const one = renderHtml({ columns: [null, { key: "built", cards: [null, {}] }] }, { nonce: NONCE });
   assert.equal([...one.matchAll(/<section class="col /g)].length, 1);

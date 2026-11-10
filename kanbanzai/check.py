@@ -5,7 +5,7 @@
 Each check is a function over a project that returns its problems, so a test can prove every check can fail.
 The checks are the ones every project shares: the column folders exist and nothing else is a board folder, each
 brief's first line names its number and its file name, its head has the fields, its stage is known and its folder
-matches, no two share a number, a held card says where it stopped, every relative link resolves, and each brief
+matches, no two share a number, a Held line says blocked or waiting, every relative link resolves, and each brief
 and the template end in ``## Comments``.
 """
 
@@ -81,7 +81,10 @@ def check_stages(project: Project) -> list[str]:
     for path in board.briefs(project):
         stage = board.header(path.read_text(encoding="utf-8"))[1].get("Stage", "")
         key = project.stage_column.get(board.stage_word(stage))
-        if key is None:
+        if key is None and board.stage_word(stage) in board.HOLD_WORDS:
+            problems.append(f"{project.rel(path)}: a {board.stage_word(stage)} card stays in the column it finished; "
+                            f"its Stage is that column and a Held line says '{board.stage_word(stage)}: …'")
+        elif key is None:
             problems.append(f"{project.rel(path)}: unknown stage {stage[:40]!r}")
         elif path.parent.name != project.by_key[key].folder:
             problems.append(f"{project.rel(path)}: a {board.stage_word(stage)} card belongs in "
@@ -102,15 +105,27 @@ def check_unique(project: Project) -> list[str]:
     return problems
 
 
-def check_from(project: Project) -> list[str]:
-    """A held card says which column it stopped at ('from designed'), so it knows where to resume."""
+def check_held(project: Project) -> list[str]:
+    """A card that cannot move stays in its column and says why on a Held line: 'blocked: …' or 'waiting: …'.
+
+    Only a card on the way (an open column) can be held; the old 'blocked' and 'waiting' Stage words are
+    reported by check_stages.
+    """
     problems = []
     for path in board.briefs(project):
-        stage = board.header(path.read_text(encoding="utf-8"))[1].get("Stage", "")
-        word = board.stage_word(stage)
-        if word in project.held_words and board.from_of(project, stage) is None:
-            problems.append(f"{project.rel(path)}: a {word} card names the stage it stopped at, "
-                            f"'from <{'|'.join(project.open_keys)}>', in its Stage line")
+        stage, held = (board.header(path.read_text(encoding="utf-8"))[1].get(name, "") for name in ("Stage", "Held"))
+        held = board.held_of(held)
+        if held is None:
+            continue
+        name = project.rel(path)
+        column = project.by_key.get(project.stage_column.get(board.stage_word(stage), ""))
+        word = board.stage_word(held)
+        if word not in board.HOLD_WORDS:
+            problems.append(f"{name}: a Held line starts 'blocked' or 'waiting', not {held[:30]!r}")
+        elif held.lstrip()[len(word):].strip(" :—,") == "":
+            problems.append(f"{name}: a Held line says what it is held on ('{word}: <what>')")
+        if column is not None and column.kind != "open":
+            problems.append(f"{name}: a {board.stage_word(stage)} card is not held; remove its Held line")
     return problems
 
 
@@ -153,7 +168,7 @@ def check_template(project: Project) -> list[str]:
     return problems
 
 
-CHECKS = (check_folders, check_titles, check_headers, check_stages, check_unique, check_from, check_links,
+CHECKS = (check_folders, check_titles, check_headers, check_stages, check_unique, check_held, check_links,
           check_comments, check_template)
 
 

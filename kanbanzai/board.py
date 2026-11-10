@@ -27,26 +27,33 @@ def stage_word(stage: str) -> str:
     return parts[0].strip().lower() if parts else ""
 
 
-def mark_of(project: Project, stage: str) -> str | None:
+HOLD_WORDS = ("blocked", "waiting")
+
+
+def held_of(value: str | None) -> str | None:
+    """The text of a brief's Held line, or None when the card is not held (no line, ``—`` or empty)."""
+    value = (value or "").strip()
+    return None if value in ("", "—", "-") or value.startswith("— ") else value
+
+
+def mark_of(project: Project, stage: str, held: str | None = None) -> str | None:
     """The card's mark on the board: blocked, waiting-owner, waiting, paused or None.
 
-    Only a card in a held or parked column has one. A waiting card whose Stage starts with the project's owner
-    (``waiting: <owner> — a decision``) is ``waiting-owner``: the owner is the one to nudge.
+    A card is held by a Held line (``blocked: W-08``, ``waiting: <owner> — a decision``) and stays in its column
+    (W-92); a card in a parked column is ``paused``. A waiting card whose Held line starts with the project's owner
+    is ``waiting-owner``: the owner is the one to nudge.
     """
-    word = stage_word(stage)
-    column = project.by_key.get(project.stage_column.get(word, ""))
-    if column is None or column.kind not in ("held", "parked"):
+    column = project.by_key.get(project.stage_column.get(stage_word(stage), ""))
+    if column is not None and column.kind == "parked":
+        return stage_word(stage)
+    held = held_of(held)
+    if column is None or column.kind != "open" or held is None:
         return None
+    word = stage_word(held)
     if word == "waiting":
-        rest = stage.strip()[len("waiting"):].lstrip(" :").lower()
+        rest = held[len("waiting"):].lstrip(" :").lower()
         return "waiting-owner" if rest.startswith(project.owner.lower()) else "waiting"
-    return word
-
-
-def from_of(project: Project, stage: str) -> str | None:
-    """The column key a held card stopped at (``from designed``), or None."""
-    found = project.from_re.search(stage)
-    return found.group(1).lower() if found else None
+    return word if word in HOLD_WORDS else None
 
 
 def header(text: str) -> tuple[str | None, dict[str, str]]:
@@ -100,6 +107,9 @@ def read_card(project: Project, path: Path) -> tuple[dict | None, list[str]]:
     if not stage:
         return None, problems + [f"{rel}: no Stage line"]
     key = project.stage_column.get(stage_word(stage))
+    if key is None and stage_word(stage) in HOLD_WORDS:
+        return None, problems + [f"{rel}: a {stage_word(stage)} card stays in the column it finished: its Stage is "
+                                 f"that column, and a '- **Held:** {stage_word(stage)}: …' line says it is held"]
     if key is None:
         return None, problems + [f"{rel}: unknown stage {stage[:40]!r}"]
     column = project.by_key[key]
@@ -118,8 +128,8 @@ def read_card(project: Project, path: Path) -> tuple[dict | None, list[str]]:
         "where": fields.get("Where", ""),
         "done": done,
         "owner": None,
-        "mark": mark_of(project, stage),
-        "from": from_of(project, stage) if stage_word(stage) in project.held_words else None,
+        "held": held_of(fields.get("Held")),
+        "mark": mark_of(project, stage, fields.get("Held")),
         "path": rel,
     }
     return card, problems
@@ -198,11 +208,33 @@ def find(board: dict, card_id: str) -> tuple[str, dict] | tuple[None, None]:
     return None, None
 
 
-def as_text(board: dict) -> str:
+GLYPHS = {"blocked": " ⛔", "waiting": " ⏳", "waiting-owner": " ⏳"}
+
+
+def held_summary(board: dict, owner: str = "") -> str | None:
+    """One line on the held cards: who they wait on, then what is waiting, then what is blocked; None when none."""
+    groups: dict[str, list[str]] = {"waiting-owner": [], "waiting": [], "blocked": []}
+    for _, card in cards(board):
+        if card.get("held") and card.get("mark") in groups:
+            groups[card["mark"]].append(card["id"])
+    total = sum(len(ids) for ids in groups.values())
+    if not total:
+        return None
+    parts = [f"waiting on {owner or 'the owner'} {', '.join(groups['waiting-owner'])}" if groups["waiting-owner"] else "",
+             f"waiting {', '.join(groups['waiting'])}" if groups["waiting"] else "",
+             f"blocked {', '.join(groups['blocked'])}" if groups["blocked"] else ""]
+    return f"Held {total}: " + "; ".join(part for part in parts if part)
+
+
+def as_text(board: dict, owner: str = "") -> str:
     lines = [f"Board — {dt.date.today().isoformat()}", ""]
     for column in board["columns"]:
-        ids = ", ".join(c["id"] + (" ●" if c["owner"] else "") for c in column["cards"]) or "—"
+        ids = ", ".join(c["id"] + GLYPHS.get(c.get("mark") or "", "") * bool(c.get("held"))
+                        + (" ●" if c["owner"] else "") for c in column["cards"]) or "—"
         lines.append(f"  {column['name']:<19} {len(column['cards']):>2}  {ids}")
+    summary = held_summary(board, owner)
+    if summary:
+        lines += ["", f"  {summary}"]
     if board["problems"]:
         lines += ["", "Problems"] + [f"  ! {p}" for p in board["problems"]]
     return "\n".join(lines)
@@ -214,7 +246,7 @@ def run(project: Project, args) -> int:
         json.dump(board, sys.stdout, ensure_ascii=False)
         sys.stdout.write("\n")
     else:
-        print(as_text(board))
+        print(as_text(board, project.owner))
     return 0
 
 
