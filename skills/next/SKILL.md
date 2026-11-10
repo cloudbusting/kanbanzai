@@ -35,7 +35,7 @@ Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile
   card (an expired claim) is a candidate only if the batch takes it over with the logged reason "lease expired,
   session gone";
 - its brief has no open decision for the owner;
-- it is not `blocked:`, `waiting:` or `paused`, and not already past the build — those are pulled by `/do` after the
+- it is not held (a `Held:` line) or `paused`, and not already past the build — those are pulled by `/do` after the
   batch, one at a time, in the pull order (`flow.pull_order`);
 - it does not edit the board or the shared files the project's context lists (its rules, its config, its status
   documents).

@@ -103,15 +103,18 @@ def as_text(found: dict) -> str:
 def next_step(project: Project, card: dict, key: str) -> str | None:
     """The step name a session does next to a card in this column, or None when the card waits."""
     column = project.by_key[key]
+    if card.get("held"):
+        return None
     if column.settled_next and "settled" in (card.get("next") or "").lower():
         return column.settled_next
     return column.next
 
 
-def waiting_note(project: Project, key: str) -> str:
+def waiting_note(project: Project, key: str, card: dict | None = None) -> str:
     column = project.by_key[key]
-    if column.kind == "held":
-        return "it resumes at the column named by `from <column>` in its Stage line, when the blocker clears"
+    if card and card.get("held"):
+        return (f"it is held: {card['held']}. When the blocker clears, delete its Held line and carry on at "
+                f"its next step")
     if column.kind == "parked":
         return f"it is parked: only {project.owner} un-parks it"
     if column.kind == "done":
@@ -131,7 +134,7 @@ def run(project: Project, args: argparse.Namespace) -> int:
         name = next_step(project, card, key)
         out: dict = {"card": args.card, "column": key, "column_label": project.label(key), "next": name}
         if name is None:
-            out["note"] = waiting_note(project, key)
+            out["note"] = waiting_note(project, key, card)
             if args.json:
                 print(json.dumps(out, ensure_ascii=False))
             else:

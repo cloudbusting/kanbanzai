@@ -85,11 +85,16 @@ The shipped workflow:
 
 ```
 todo ─design→ designed ─build→ built ─check→ checked ─deploy-qa→ qa-approved ─ship→ done
-              blocked / waiting (from <column>)      paused
+                                                     paused
 ```
 
 `deploy-qa` and `ship` have no skill by default, so a checked card closes straight to done. Cap of five started cards,
 two-hour leases, pull order checked → built → designed → todo, interrupted cards first.
+
+A card that cannot move (blocked on another card or an account; waiting on the owner, an outside service or a date)
+stays in the column it finished and carries a `- **Held:** blocked: …` or `- **Held:** waiting: …` line in its
+brief. A held card is never pulled and is never stale, but it still counts toward the cap. Delete the line when the
+blocker clears. Paused is a column of its own: only the owner un-parks a card.
 
 ## Extending it
 

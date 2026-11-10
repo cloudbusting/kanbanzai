@@ -39,7 +39,7 @@ pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; 
 #   label    its name on the board
 #   words    the Stage words that mean this column (default: [key])
 #   folder   the folder under <work> its briefs live in
-#   kind     open (on the way), held (blocked or waiting: the Stage line says `from <column>`), parked, done
+#   kind     open (on the way; a blocked or waiting card stays here, its Held line says so), parked, done
 #   started  true: counts against wip_limit; "claimed": counts only with a live claim (the first column)
 #   next     the step a session does to a card in this column (absent: nothing; the card waits)
 #   title    the session-title state while a session does that step
@@ -95,13 +95,6 @@ next = "ship"
 title = "SHIPPING"
 worktree = true
 waits_for_owner = true            # never pulled: it waits for the owner's approval
-
-[[columns]]
-key = "blocked"
-label = "Blocked or waiting"
-words = ["blocked", "waiting"]
-folder = "x-blocked"
-kind = "held"
 
 [[columns]]
 key = "paused"

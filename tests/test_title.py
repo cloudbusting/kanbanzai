@@ -7,17 +7,17 @@ from kanbanzai import wip
 
 from .support import ProjectCase
 
-FOLDER = {"blocked": "x-blocked", "waiting": "x-blocked", "paused": "x-paused", "done": "10-done"}
+FOLDER = {"paused": "x-paused", "done": "10-done"}
 
 
 class TitleTest(ProjectCase):
-    def write_board(self, stage="designed", next_action="Do it"):
+    def write_board(self, stage="designed", next_action="Do it", held=None):
         """A board with W-10's brief at the given stage, in its folder."""
         shutil.rmtree(self.work, ignore_errors=True)
         for folder in self.FOLDERS:
             (self.work / folder).mkdir(parents=True)
         self.card("W-10", "Fuel at each leg", stage, FOLDER.get(stage.split(":")[0], "1-open"),
-                  next_action=next_action)
+                  next_action=next_action, held=held)
 
     def title(self, item):
         code, out, err = self.cli("wip", "--title", item)
@@ -43,11 +43,13 @@ class TitleTest(ProjectCase):
         self.write_board("todo", next_action="settled: build it")
         self.assertEqual(self.title("W-10")[1], "[BUILDING W-10] Fuel at each leg")
 
-    def test_blocked_and_waiting_come_from_the_stage_line(self):
-        self.write_board("blocked: W-08, from built")
+    def test_blocked_and_waiting_come_from_the_held_line(self):
+        self.write_board("built", held="blocked: W-08")
         self.assertTrue(self.title("W-10")[1].startswith("[BLOCKED W-10]"))
-        self.write_board("waiting: Sam, from designed")
+        self.write_board("designed", held="waiting: Sam")
         self.assertTrue(self.title("W-10")[1].startswith("[WAITING W-10]"))
+        self.write_board("designed", held="—")
+        self.assertTrue(self.title("W-10")[1].startswith("[BUILDING W-10]"))
 
     def test_an_item_that_is_not_on_the_board_is_an_error(self):
         self.write_board()

@@ -21,7 +21,7 @@ class DefaultPathsTest(ProjectCase):
         self.assertIn('owner = "the user"', config)
         self.assertEqual(config.count("["), config.count("]"))  # a short, valid-looking file
         self.assertEqual((home / ".gitignore").read_text(encoding="utf-8"), "state/\n")
-        for folder in ("1-open", "x-blocked", "x-paused", "10-done"):
+        for folder in ("1-open", "x-paused", "10-done"):
             self.assertTrue((home / "work" / folder).is_dir(), folder)
         self.assertIn("made     .kanbanzai/config.toml", out)
         before = {p: p.read_bytes() for p in home.rglob("*") if p.is_file()}

@@ -35,8 +35,6 @@ def build(project: Project) -> str:
             if column.settled_next:
                 settled = project.steps[column.settled_next]
                 via += f"; when its Next action says settled: {column.settled_next} ({settled.skill or 'no skill'})"
-        elif column.kind == "held":
-            via = "held: blocked or waiting; the Stage line says `from <column>` and the card resumes there"
         elif column.kind == "parked":
             via = f"parked: only {project.owner} un-parks it"
         elif column.kind == "done":
@@ -51,6 +49,8 @@ def build(project: Project) -> str:
         "(an expired claim) before all.",
         f"At most {project.wip_limit} cards are started at once: past that, no new card is pulled from the first "
         "column; finish cards instead.",
+        "A card that is blocked or waiting stays in its column; its Held line says so, and it is not pulled until the "
+        "line is deleted.",
         f"Claim a card before working on it (`kanbanzai claim claim ID`), move it to the column of the step you "
         "just finished, release the claim when work stops.",
         f"Every change to a card is made in its worktree ({project.expand(project.worktree_pattern)}); the main checkout holds "

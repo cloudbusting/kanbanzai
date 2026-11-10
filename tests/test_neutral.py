@@ -8,7 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 # The words that must not appear (what `grep -riE` would find), built so this file is not itself a match.
 WORDS = re.compile("|".join(["twis" + "ty", "mo" + "to", "ri" + "der", "a" + "ws", "an" + "dy"]), re.I)
 SKIPPED_DIRS = {".git", "__pycache__", "node_modules"}
-SKIPPED_FILES = {"test_parity.py", "test_neutral.py"}
+SKIPPED_FILES = {"test_neutral.py"}
 
 
 class NeutralTest(unittest.TestCase):
