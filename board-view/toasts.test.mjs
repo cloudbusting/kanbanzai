@@ -216,3 +216,10 @@ test("toViews: glyph, word and remaining time; sticky ones can be closed; seen o
   assert.equal(v[0].detail, "one");
   assert.ok(v.every((x) => typeof x.key === "string" && x.key && typeof x.path === "string"));
 });
+
+test("blocked then unblocked inside one batch (events held while the tab was hidden) leaves the unblocked toast, not a stale blocked one", () => {
+  const blocked = { card: "W-1", level: "blocked", kind: "blocked", headline: "W-1 blocked", title: "t", path: "p" };
+  const clear = { card: "W-1", level: "progress", kind: "cleared", headline: "W-1 unblocked", title: "t", path: "p", clears: true };
+  const s = T.applyEvents(empty(), [blocked, clear], NOW);
+  assert.deepEqual(s.stack.map((t) => [t.key, t.level, t.headline]), [["W-1", "progress", "W-1 unblocked"]]);
+});
