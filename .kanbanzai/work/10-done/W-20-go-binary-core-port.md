@@ -1,11 +1,11 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11 — v0.6.0, 37bad92, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.6.0
 - **ADR:** none
-- **Next action:** Tag v0.6.0 and kanbanzai--v0.6.0 on the release commit, push main and both tags; then attach the source bundle and .vsix to the GitHub release and verify the published artifacts.
-- **Where:** worktree W-20
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
