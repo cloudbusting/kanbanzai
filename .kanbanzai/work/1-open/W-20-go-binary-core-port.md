@@ -1,11 +1,12 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Package the source bundle, the five binary archives, the .vsix and their checksums; prove them; then the owner's install check and release approval.
+- **Next action:** The owner's install check from the package artifacts; then settle the release version, licence and author/icon and run the ship step.
 - **Where:** worktree W-20
+- **Held:** waiting: the owner, install the .vsix or a binary from /tmp/kanbanzai-package-W-20-0.5.3 and try the board; decide the release version, licence and author/icon
 
 ## Goal
 
@@ -258,6 +259,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 14 done: removed the Python core, CLI and tests; merged main (W-23 OpenCode commands) and kept them in the Node harness; CI is Go+Node; the no-Python test passes; the Go binary at bin/kanbanzai checks the 23-card board and audits W-20 (6148782).
 - 2026-11-11: Task 15 done: the acceptance rehearsal passed — go test/vet, Node, five release archives + SHA256SUMS, .vsix with no machine path, the no-Python binary, go install, and a source bundle that builds and runs in a fresh repo. Found and fixed the bundle's missing assets.go (36d4c1d).
 - 2026-11-11: Checked: QA pass — go test/vet, Node (extension and OpenCode), hooks, JS syntax, config/steps, audit, check (23 cards) and the .vsix; claude validate passed with author/icon warnings only. Main review accepted; the source bundle now carries assets.go (36d4c1d).
+- 2026-11-11: Packaged: source bundle, five binary archives, .vsix and SHA256SUMS at /tmp/kanbanzai-package-W-20-0.5.3. The source builds and runs in a fresh repo, the Linux binary reports v0.5.3, the checksums verify, the .vsix carries no machine path and the plugin installs from the bundle. Waiting on the owner's install check and the release decision.
 
 ## Out of scope
 
