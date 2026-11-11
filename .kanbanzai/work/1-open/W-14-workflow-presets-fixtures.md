@@ -46,7 +46,7 @@ Presets rot as the schema evolves, and a non-software preset exposes every place
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 - 2026-11-11: direction settled with the owner: presets are delivery styles (software, marketing, homework, docs and so on), each a flow document in W-06's schema plus a template/schema and defaults; W-14 configures W-13's bounded linear flow and adds no second format.
 
 ## Comments

@@ -27,7 +27,7 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 - [ ] Add the flow vocabulary — a command or JSON block that every skill can quote — tests prove it covers custom columns and steps.
 - [ ] Rewrite the step skills — skills/build, check, design, do, next, obs, triage, wip, audit, cleanup — a custom-flow fixture drives each skill's contract test.
-- [ ] Add the anti-hardcoding guard — tests/test_skills_wording.py or a new test — the shipped names are only allowed in examples.
+- [ ] Add the anti-hardcoding guard — `skills_wording_test.go` or a new Go test — the shipped names are only allowed in examples.
 - [ ] Update the README examples — every example uses `<ID>` and the project's own words — a docs test checks the placeholders.
 
 ## Out of scope

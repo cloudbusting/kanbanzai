@@ -26,9 +26,9 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 ## Tasks
 
-- [ ] Config and parsing — config.py, a type module — typed and legacy IDs resolve; unknown prefixes fail with the valid list.
-- [ ] The global ledger — number.py, a migration from per-prefix ledgers — tests prove ordering, reservation, release, mark, worktree scan and legacy merge.
-- [ ] Adopt typed IDs everywhere — board.py, check.py, claim.py, move.py, wip.py, sessions.py, context.py — the fixture suite passes with mixed types.
+- [ ] Config and parsing — `internal/config`, a type package — typed and legacy IDs resolve; unknown prefixes fail with the valid list.
+- [ ] The global ledger — `internal/number`, a migration from per-prefix ledgers — tests prove ordering, reservation, release, mark, worktree scan and legacy merge.
+- [ ] Adopt typed IDs everywhere — `internal/board`, `internal/check`, `internal/claim`, `internal/move`, `internal/wip`, `internal/sessions`, `internal/context` — the fixture suite passes with mixed types.
 - [ ] Extend the JSON contract — `board --json`, `config --json`, `number --status` — a consumer test reads the type and the project identity.
 
 ## Out of scope
@@ -42,7 +42,7 @@ A global sequence with type prefixes is easy to misread: `BUG-7` means the seven
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 

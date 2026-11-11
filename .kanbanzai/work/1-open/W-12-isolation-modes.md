@@ -26,8 +26,8 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 ## Tasks
 
-- [ ] Add the mode and its audit rules — config.py, wip.py — a fixture per mode produces the documented hard and soft findings.
-- [ ] Generalise worktree helpers — claim.py, move.py, context.py, a workspace module — a mode-aware Where is used by every command.
+- [ ] Add the mode and its audit rules — `internal/config`, `internal/wip` — a fixture per mode produces the documented hard and soft findings.
+- [ ] Generalise worktree helpers — `internal/claim`, `internal/move`, `internal/context`, a workspace package — a mode-aware Where is used by every command.
 - [ ] Generalise the skills — do, build, check, next, cleanup — a shared-checkout fixture follows the text without inventing a worktree.
 - [ ] Document the trade-offs — README, docs/isolation.md — the owner can choose with evidence.
 
@@ -42,7 +42,7 @@ A shared checkout removes the collision safety the worktree gives parallel sessi
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 
