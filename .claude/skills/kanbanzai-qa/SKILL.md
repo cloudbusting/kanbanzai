@@ -20,23 +20,23 @@ Run from the card's worktree. Stop at the first red; report the shortest output 
 
 | Area | Command |
 |---|---|
-| Core, adapters, skills, neutrality | `python3 -I -m unittest discover -s tests -t .` |
+| Core, adapters, skills, neutrality | `go test ./...` |
+| Static checks | `go vet ./...` |
 | Board extension | `node --test board-view/*.test.mjs` |
-| OpenCode fake harness | `python3 -I -m unittest discover -s tests -t . -p 'test_opencode.py' -v` |
-| Skill wording and neutral text | `python3 -I -m unittest discover -s tests -t . -p 'test_skills_wording.py'` then `-p 'test_neutral.py'` |
+| OpenCode fake harness | `node --test opencode/*.test.mjs` |
 | Hook scripts | `bash -n hooks/*.sh` |
 | JavaScript syntax | `node --check opencode/server.js && for f in board-view/*.js; do node --check "$f"; done` |
 | Plugin metadata | `claude plugin validate .` |
 | The board config resolves | `kanbanzai config`, then `kanbanzai step design`, `build`, `check`, `deploy-qa` and `ship` |
 | The card is true | `kanbanzai wip --audit --card <ID>` |
 | Briefs and folders | `kanbanzai check` |
-| Extension package dry run | `python3 board-view/install.py --vsix-only /tmp/kanbanzai-board-<ID>.vsix` |
+| Extension package dry run | `go run ./tools/vsix -o /tmp/kanbanzai-board-<ID>.vsix` |
 
-The last command is needed whenever `board-view/` or `install.py` changed. Inspect the archive with
-`python3 -m zipfile -l` and confirm `extension/package.json`, `extension/README.md`, every runtime module and
-`extension/bin.json` are present.
+The last command is needed whenever `board-view/` or `tools/vsix` changed. Inspect the archive with `unzip -l`
+and confirm `extension/package.json`, `extension/README.md` and every runtime module are present, with no `bin.json`
+and no machine path.
 
-The Python suite is about 280 tests and 30 seconds; the node suite is about 130. A skip for a missing `node` or
+The Go suite is about 240 tests and a few seconds; the Node suite is about 20. A skip for a missing `node` or
 `claude` is not a failure, but say what was skipped and why. A failure outside the card's area is reported, never
 fixed here.
 
@@ -46,11 +46,11 @@ Report a line only when something fails or is doubtful:
 
 - **Local only:** no new network call, remote asset, telemetry, analytics, hosted service or account. A URL in
   documentation is named as documentation.
-- **No dependencies:** no new Python package, no new JavaScript dependency, no lockfile or vendored bundle
+- **No dependencies:** no new Go module, no new JavaScript dependency, no lockfile or vendored bundle
   without the owner's decision. The standard library and the plain modules are the policy.
 - **No secrets or machine paths:** no token, key, password, session id or absolute checkout path in shipped code,
-  metadata or an artifact. The extension's `bin.json` records the local command at install time; a release
-  artifact must not pretend that path is portable.
+  metadata or an artifact. The extension runs the setting or PATH and the `.vsix` carries no `bin.json`; a release
+  artifact must never bake in this machine.
 - **Adapters:** every hook is guarded, nothing throws into the harness, a missing command or event is ignored,
   and both Claude Code and OpenCode are covered. The fake-harness test passes.
 - **Extension:** values are escaped, the nonce and content security policy are intact, `safeBriefPath` still
@@ -87,7 +87,7 @@ editor, say exactly what remains manual and why it was not run.
 
 ```
 QA: pass | findings
-Checks: python <n> pass | node <n> pass | claude validate <result> | hooks <result> | audit <result>
+Checks: go <n> pass | node <n> pass | claude validate <result> | hooks <result> | audit <result>
 Must fix: <file:line — the problem, and how it fails>
 Should fix: <...>
 Acceptance: <each check: holds or fails, with evidence>
