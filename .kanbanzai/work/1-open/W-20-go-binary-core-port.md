@@ -1,10 +1,10 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Release v0.6.0 under MIT with publisher cloudbusting (the TeamClaudeStatus config): add LICENSE and CHANGELOG, bump the plugin and extension to 0.6.0, tag and publish. The icon is W-24; ship without it and say so.
+- **Next action:** Tag v0.6.0 and kanbanzai--v0.6.0 on the release commit, push main and both tags; then attach the source bundle and .vsix to the GitHub release and verify the published artifacts.
 - **Where:** worktree W-20
 
 ## Goal
@@ -260,6 +260,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Checked: QA pass — go test/vet, Node (extension and OpenCode), hooks, JS syntax, config/steps, audit, check (23 cards) and the .vsix; claude validate passed with author/icon warnings only. Main review accepted; the source bundle now carries assets.go (36d4c1d).
 - 2026-11-11: Packaged: source bundle, five binary archives, .vsix and SHA256SUMS at /tmp/kanbanzai-package-W-20-0.5.3. The source builds and runs in a fresh repo, the Linux binary reports v0.5.3, the checksums verify, the .vsix carries no machine path and the plugin installs from the bundle. Waiting on the owner's install check and the release decision.
 - 2026-11-11: QA-approved: the owner chose v0.6.0/MIT/cloudbusting and asked to install the extension. The .vsix is installed as kanbanzai.kanbanzai-board and its kanbanzai.command points at the Go binary; the icon is W-24. The release waits for the other session's W-23 brief to clear the main tree.
+- 2026-11-11: Release prep: MIT LICENSE and CHANGELOG; plugin/marketplace/extension at 0.6.0 with publisher cloudbusting and the public repository; README licence and bundle list; the package/release source lists carry LICENSE and CHANGELOG. Validation passes (icon warning only; W-24). Release artifacts rebuilt and proven at /tmp/kanbanzai-release-W-20-0.6.0.
 
 ## Out of scope
 
