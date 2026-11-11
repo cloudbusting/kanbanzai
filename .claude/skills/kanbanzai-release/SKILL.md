@@ -133,7 +133,8 @@ python3 -I board-view/install.py --vsix-only "$OUT/kanbanzai-board-<extension-ve
 (cd "$OUT" && sha256sum * > SHA256SUMS)
 ```
 
-Run this from a clean checkout at the tagged commit. Verify the archive listing and the `.vsix` manifest version
+Once `LICENSE` and `CHANGELOG.md` exist, add them to the archive path list; `git archive` fails on a path that is
+not in the tag, so keep the list to files that are present. Run this from a clean checkout at the tagged commit. Verify the archive listing and the `.vsix` manifest version
 before publishing; the package step's checks apply again to these files.
 
 ### GitHub release
