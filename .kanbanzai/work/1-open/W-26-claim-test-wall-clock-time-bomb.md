@@ -1,11 +1,11 @@
 # W-26: The claim test is a wall-clock time bomb, failing CI on every platform
 
-- **Stage:** todo
+- **Stage:** built
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** check: run kanbanzai-qa on the clock-independent claim test
+- **Where:** worktree W-26
 
 ## Goal
 
@@ -31,6 +31,9 @@ from Checked.
 
 Does not change `Describe`, `Remaining`, `Live` or any other production behavior or signature; does not address the
 separate Node.js 20 deprecation and Go cache warnings shown in the same run.
+## Progress
+
+- 2026-11-11: Built in batch B-01: `TestLeaseAndTimeText`'s two `Describe` fixtures are built around `timeutil.Now()` (live expires in an hour, expired an hour ago), so the assertions hold at any date; production code untouched; `go test ./...` is green and the test was proven at four pinned clocks. Next is check.
 
 ## Comments
 
