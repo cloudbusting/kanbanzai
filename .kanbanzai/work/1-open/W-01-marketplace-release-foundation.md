@@ -1,10 +1,10 @@
 # W-01: Marketplace release foundation: licence, metadata, versioning and CI
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run kanbanzai-qa on the release foundation
+- **Next action:** close: the brief's Deploy line is None (tooling, docs and metadata), so the card closes from Checked without deploy-qa
 - **Where:** worktree W-01
 
 ## Goal
@@ -43,6 +43,7 @@ A wrong licence or author field is hard to retract once published. The compatibi
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 - 2026-11-11: Built in batch B-01: marketplace version and entry metadata; `tools/release -check` (manifests, CHANGELOG and tag agree) with tests; CI and release validation (`claude plugin validate --strict`), the install smoke test and the per-OS/arch build; SECURITY.md, SUPPORT.md and a tested-versions compatibility table; a root release test proves each. W-20's licence, CHANGELOG and base workflows were kept. Next is check.
+- 2026-11-11: checks: go test ./... green, go vet clean, node 130 pass, hooks syntax clean, claude plugin validate --strict passed, release -check on 0.6.0, the install smoke test installs kanbanzai@kanbanzai from the packaged artifact, board check ok; review: fixed the smoke scan to skip .kanbanzai (board content, not shipped code) after it tripped on the batch file
 
 ## Comments
 

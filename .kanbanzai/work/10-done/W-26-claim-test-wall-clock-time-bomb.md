@@ -1,11 +1,11 @@
 # W-26: The claim test is a wall-clock time bomb, failing CI on every platform
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11 — merged as 2091bfd; no deploy (test-only)
 - **ADR:** none
-- **Next action:** close: the brief's Deploy line is None (test-only), so the card closes from Checked without deploy-qa
-- **Where:** worktree W-26
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
