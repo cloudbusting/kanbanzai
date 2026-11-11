@@ -1,6 +1,6 @@
 # W-23: The OpenCode plugin registers commands
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
