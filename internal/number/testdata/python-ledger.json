@@ -1,0 +1,16 @@
+{
+  "issued": [
+    7,
+    10,
+    21
+  ],
+  "reserved": [
+    {
+      "at": "2026-11-11T05:00:00+00:00",
+      "item": "W-22",
+      "note": "from the Python core",
+      "number": 22,
+      "owner": "tester:python"
+    }
+  ]
+}
