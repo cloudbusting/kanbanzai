@@ -14,8 +14,9 @@ LOADER = r"""
 const Module = require('module');
 const path = require('path');
 const vscode = {
-  workspace: { workspaceFolders: [], getConfiguration: () => ({ get: () => '' }) },
-  window: { createStatusBarItem: () => ({ show() {} }), createWebviewPanel() {} },
+  workspace: { workspaceFolders: [], getConfiguration: () => ({ get: () => '' }), onDidChangeConfiguration: () => ({ dispose() {} }) },
+  window: { createStatusBarItem: () => ({ show() {} }), createWebviewPanel() {},
+    createOutputChannel: () => ({ info() {}, warn() {}, error() {}, show() {}, dispose() {} }) },
   StatusBarAlignment: { Left: 1 }, ViewColumn: { Active: 1 }, ThemeColor: class {},
   commands: { registerCommand: () => ({ dispose() {} }) },
 };
