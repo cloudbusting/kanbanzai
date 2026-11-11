@@ -3,7 +3,7 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
-## Unreleased
+## [0.6.2] — 2026-11-12
 
 - W-03: Version-1 configuration is strict: file-qualified unknown-key suggestions, exact-path exceptions, typed
   values and validated numeric ranges. Existing unversioned files require `kanbanzai config upgrade` (preview),
