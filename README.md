@@ -32,9 +32,11 @@ board-view/                a read-only board in a VSCodium/VS Code tab, with eac
 icon/                      the Kanbanzai mark's SVG source
 tools/icon/                the stdlib renderer for the plugin and extension PNGs
 tools/vsix/                the .vsix packer
-tools/release/             the per-OS/arch release builder
+tools/release/             the per-OS/arch release builder and version check
 LICENSE                    MIT
 CHANGELOG.md               what each release changed
+SECURITY.md                how to report a vulnerability
+SUPPORT.md                 where to ask a question
 ```
 
 ## Install Kanbanzai
@@ -51,6 +53,18 @@ kanbanzai init
 Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
 prerequisite) and makes no network request. A Go developer can build it instead with
 `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
+
+## Compatibility
+
+The table says what is supported and where it was tested. A version in the "Tested" column is evidence, not a
+promise about versions that were not tested; raising a pin is a change to this table and to CI together.
+
+| Part | Supported | Tested |
+|---|---|---|
+| The `kanbanzai` command | Go 1.24 or later (the module's floor) | Go 1.24 on Linux, macOS and Windows in CI; Go 1.26.10 in development |
+| Claude Code plugin and marketplace | Claude Code 2.1.312 | `claude plugin validate --strict .` in CI, and an install from a packaged artifact into a throwaway project |
+| OpenCode plugin | OpenCode V2 (2.2.6 tested) | OpenCode 2.2.6 in development; the fake-harness test (`opencode/server.test.mjs`) proves registration, PATH, owner, heartbeat and context in CI, not a live OpenCode session |
+| Board extension | VS Code and VSCodium 1.85 or later (`engines.vscode` in `board-view/package.json`) | The extension's JavaScript with `node --test` in CI; the editor host is not run in CI, so check the tab by hand in your editor |
 
 ## Set up a project
 
@@ -73,7 +87,7 @@ kanbanzai init      # .kanbanzai/: config.toml, work/, state/ (gitignored)
 The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …). The hooks run the `kanbanzai`
 command from `KANBANZAI_BIN` or PATH (a local build in `bin/` is the fallback). The plugin loads in place: an edit
 here reaches a project at its next session (or `/reload-plugins`). This repository is also its own public
-marketplace: `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
+marketplace: `/plugin marketplace add cloudbusting/kanbanzai`, then `/plugin install kanbanzai@kanbanzai`.
 
 **OpenCode** — in the project's `.opencode/opencode.json`:
 
@@ -254,11 +268,21 @@ node --test board-view/*.test.mjs opencode/*.test.mjs
 go run ./tools/icon                        # icon/kanbanzai.svg → the plugin and extension PNGs
 go run ./tools/icon -check                 # prove the committed PNGs are the source's render
 go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
+go run ./tools/release -check              # the manifests and CHANGELOG.md agree
 go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
+KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
 ```
 
 The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
-five archives from a tag, and `tools/vsix` builds the editor package.
+five archives from a tag, and `tools/vsix` builds the editor package. CI validates the plugin and marketplace with
+`claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
+`CHANGELOG.md` and the version agree; a tag runs the same version check before it builds.
+
+## Support and security
+
+Questions and bugs go to [GitHub Issues](https://github.com/cloudbusting/kanbanzai/issues); see
+[SUPPORT.md](SUPPORT.md). Report a vulnerability privately through a GitHub Security Advisory, as
+[SECURITY.md](SECURITY.md) describes, never in a public issue.
 
 ## Licence
 
