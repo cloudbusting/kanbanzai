@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Turn an ad-hoc request or a report into a card in the first column, and size a Todo card — fold it into another card, say what it is and how big, or close it with a reason. It decides what the work item is and how big it is, never how it should work. Use before any change, when the owner asks for a feature, fix or bug, after /obs, or for a design question; /design takes over once a card is started.
+description: Turn an ad-hoc request or a report into a card in the first column, and size a Todo card — fold it into another card, say what it is and how big, or close it with a reason. It decides what the work item is and how big it is, never how it should work. Use before any change, when the owner asks for a feature, fix or bug, reports an observation, or asks a design question; /design takes over once a card is started.
 argument-hint: "<the request, a card id in Todo, or 'todo' for the whole column>"
 ---
 
@@ -88,7 +88,7 @@ Write the card's brief — it is the card; there is no board file — in its col
 **Stage**, **Updated**, **Next action** and **Where** `—`; `kanbanzai check` fails on a missing or malformed one.
 Then:
 
-- a card that came from `/obs` or a report is already in Todo: its Goal keeps the words, and you add what is missing;
+- a card that came from a report or an observation is already in Todo: its Goal keeps the words, and you add what is missing;
 - do **not** claim the card: the session that starts the work claims it (`/do`) and moves it out of Todo;
 - do **not** write tasks, an estimate, the owner's decision or a decision record.
 
