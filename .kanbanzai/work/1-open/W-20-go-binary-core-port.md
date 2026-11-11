@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 8: sessions (Claude Code and OpenCode state files, process liveness, for_claims, the --json shape), porting test_sessions.py.
+- **Next action:** Task 9: wip (board, claims and worktrees reconciled; --next, --title, --audit, --cleanup), porting test_wip.py and test_title.py.
 - **Where:** worktree W-20
 
 ## Goal
@@ -250,6 +250,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 5 done: the number ledger (f5bfd49), with the all-worktree scan and the Python ledger fixture; claims and numbers proven under forced locks. go test ./... green.
 - 2026-11-11: Task 6 done: the step command, the standing context and init (07a86f0); go test ./... green.
 - 2026-11-11: Task 7 done: the board check, with all nine checks and the command output (17ed09c); go test ./... green.
+- 2026-11-11: Task 8 done: the Claude Code and OpenCode session readers with process liveness (5f7fc4b); Windows and macOS cross-builds compile. go test ./... green.
 
 ## Out of scope
 
