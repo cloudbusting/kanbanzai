@@ -1,7 +1,9 @@
-// tools/release builds the five supported release archives and their checksums.
+// tools/release builds the five supported release archives and their checksums, and checks that the tag, the
+// manifests and CHANGELOG.md carry one version.
 //
 // Run from the repository root:
 //
+//	go run ./tools/release -check -version v0.5.0
 //	go run ./tools/release -version v0.5.0 -out dist
 //
 // It cross-compiles with CGO_ENABLED=0 and -trimpath; every binary is self-contained. A release is built from a tag
@@ -179,11 +181,8 @@ func main() {
 	version := flag.String("version", "", "the release tag, like v1.2.3")
 	out := flag.String("out", "dist", "the directory for the archives and SHA256SUMS")
 	root := flag.String("root", "", "the repository root (default: found from the current directory)")
+	check := flag.Bool("check", false, "check that the manifests, CHANGELOG.md and -version agree, then exit")
 	flag.Parse()
-	if *version == "" {
-		fmt.Fprintln(os.Stderr, "release: -version <tag> is needed")
-		os.Exit(2)
-	}
 	directory := *root
 	if directory == "" {
 		found, err := findRoot()
@@ -192,6 +191,23 @@ func main() {
 			os.Exit(1)
 		}
 		directory = found
+	}
+	if *check {
+		checked, err := Check(directory, *version)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "release: %v\n", err)
+			os.Exit(1)
+		}
+		if *version == "" {
+			fmt.Printf("version %s: the manifests and CHANGELOG.md agree\n", checked)
+		} else {
+			fmt.Printf("version %s: the manifests, CHANGELOG.md and tag %s agree\n", checked, *version)
+		}
+		return
+	}
+	if *version == "" {
+		fmt.Fprintln(os.Stderr, "release: -version <tag> is needed")
+		os.Exit(2)
 	}
 	names, err := Build(directory, *version, *out)
 	if err != nil {
