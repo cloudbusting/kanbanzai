@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The Kanbanzai mark: a K of three cards; the amber lower arm is the card being pulled. -->
+  <rect width="1024" height="1024" rx="232" fill="#4F46E5"/>
+  <line x1="342" y1="512" x2="682" y2="310" stroke="#FFFFFF" stroke-width="156" stroke-linecap="round"/>
+  <line x1="342" y1="512" x2="682" y2="714" stroke="#F59E0B" stroke-width="156" stroke-linecap="round"/>
+  <line x1="342" y1="300" x2="342" y2="724" stroke="#FFFFFF" stroke-width="156" stroke-linecap="round"/>
+</svg>

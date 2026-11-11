@@ -56,8 +56,8 @@ func TestTheVSIXContainsTheExtensionAndNoMachinePath(t *testing.T) {
 		names[file.Name] = true
 	}
 	for _, want := range []string{"extension.vsixmanifest", "[Content_Types].xml", "extension/package.json",
-		"extension/README.md", "extension/extension.js", "extension/render.js", "extension/sessions.js",
-		"extension/toasts.js", "extension/output.js"} {
+		"extension/README.md", "extension/icon.png", "extension/extension.js", "extension/render.js",
+		"extension/sessions.js", "extension/toasts.js", "extension/output.js"} {
 		if !names[want] {
 			t.Fatalf("the vsix lacks %s; has %v", want, names)
 		}
@@ -78,10 +78,21 @@ func TestTheVSIXContainsTheExtensionAndNoMachinePath(t *testing.T) {
 	if packed.Version != pkg.Version || packed.Publisher != pkg.Publisher {
 		t.Fatalf("packed package = %#v", packed)
 	}
+	if packed.Icon != "icon.png" {
+		t.Fatalf("packed package icon = %q, want icon.png", packed.Icon)
+	}
+	contentTypes := string(readZipFile(t, reader, "[Content_Types].xml"))
+	if !strings.Contains(contentTypes, `Extension=".png"`) || !strings.Contains(contentTypes, `ContentType="image/png"`) {
+		t.Fatalf("content types lack the png declaration: %s", contentTypes)
+	}
 	manifest := string(readZipFile(t, reader, "extension.vsixmanifest"))
 	if !strings.Contains(manifest, `Version="`+pkg.Version+`"`) ||
 		!strings.Contains(manifest, `Id="`+pkg.Name+`"`) {
 		t.Fatalf("manifest = %s", manifest)
+	}
+	if !strings.Contains(manifest, `Microsoft.VisualStudio.Services.Icons.Default`) ||
+		!strings.Contains(manifest, `Path="extension/icon.png"`) {
+		t.Fatalf("manifest lacks the icon asset: %s", manifest)
 	}
 
 	if _, err := exec.LookPath("node"); err != nil {

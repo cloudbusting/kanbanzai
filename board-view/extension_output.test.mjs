@@ -59,7 +59,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
     ThemeColor: class { constructor(id) { this.id = id; } },
     window: {
       createOutputChannel: (name, opts) => { channel.name = name; channel.opts = opts; vscode.channels.push(channel); return channel; },
-      createWebviewPanel: () => panel,
+      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; },
       createStatusBarItem: () => item,
       showErrorMessage: (...args) => { vscode.errors.push(args); },
       showWarningMessage: () => Promise.resolve(undefined),
@@ -67,7 +67,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
     },
     commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
     channels: [], errors: [], patterns: [], command: "kz",
-    Uri: { file: (p) => p },
+    Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const next = (list) => (list.length > 1 ? list.shift() : list[0]);
   const cp = {
@@ -89,7 +89,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
   delete require.cache[require.resolve("./extension.js")];
   const ext = require("./extension.js");
   Module._load = real;
-  const context = { subscriptions: [], workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
+  const context = { subscriptions: [], extensionUri: "/ext", workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
   ext.activate(context, { sessionsMs: 20, idleMs: 20 });
   return { panel, vscode, context, ext, item, channel };
 }
@@ -115,6 +115,12 @@ test("activate makes one log channel named Kanbanzai, and nothing opens it", () 
   assert.equal(channel.name, "Kanbanzai");
   assert.deepEqual(channel.opts, { log: true }, "a log channel, with levels");
   assert.equal(channel.shown, 0, "never shown by itself, not even for a move or a failure");
+}));
+
+test("the board panel carries the extension's icon", () => run({}, async ({ vscode, panel }) => {
+  vscode.run();
+  await settle();
+  assert.equal(panel.options.iconPath, "/ext/icon.png");
 }));
 
 test("the board writes no log file: its lines live in the channel only", () => {

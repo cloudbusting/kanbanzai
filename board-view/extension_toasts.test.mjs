@@ -39,10 +39,10 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
     ThemeColor: class { constructor(id) { this.id = id; } },
     window: {
       createOutputChannel: () => ({ info() {}, warn() {}, error() {}, show() {}, dispose() {} }),
-      createWebviewPanel: () => panel, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
+      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
     commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
     warnings: [], executed: [], choose: undefined,
-    Uri: { file: (p) => p },
+    Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const cp = {
     execFile: (_cmd, args, _o, cb) => {
@@ -60,7 +60,7 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
   delete require.cache[require.resolve("./extension.js")];
   const ext = require("./extension.js");
   Module._load = real;
-  const context = { subscriptions: [], workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
+  const context = { subscriptions: [], extensionUri: "/ext", workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
   ext.activate(context, { sessionsMs: 20, idleMs: 20 });
   return { panel, vscode, context, ext, item };
 }

@@ -28,6 +28,7 @@ type Package struct {
 	Categories    []string          `json:"categories"`
 	ExtensionKind []string          `json:"extensionKind"`
 	Engines       map[string]string `json:"engines"`
+	Icon          string            `json:"icon"`
 }
 
 const contentTypes = `<?xml version="1.0" encoding="utf-8"?>
@@ -35,6 +36,7 @@ const contentTypes = `<?xml version="1.0" encoding="utf-8"?>
 	`<Default Extension=".json" ContentType="application/json"/>` +
 	`<Default Extension=".js" ContentType="application/javascript"/>` +
 	`<Default Extension=".md" ContentType="text/markdown"/>` +
+	`<Default Extension=".png" ContentType="image/png"/>` +
 	`<Default Extension=".vsixmanifest" ContentType="text/xml"/>` +
 	`<Default Extension=".xml" ContentType="text/xml"/>` +
 	`</Types>`
@@ -49,7 +51,7 @@ func BuildVSIX(dir, dest string) (Package, error) {
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return pkg, err
 	}
-	names := []string{"package.json", "README.md"}
+	names := []string{"package.json", "README.md", "icon.png"}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return pkg, err
@@ -141,6 +143,7 @@ func manifest(pkg Package) string {
   <Assets>
     <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
     <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
+    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/icon.png" Addressable="true" />
   </Assets>
 </PackageManifest>
 `
