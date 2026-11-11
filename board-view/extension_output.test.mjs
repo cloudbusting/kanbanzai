@@ -12,6 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const CONFIG = { project: { owner: "Sam", work: ".kanbanzai/work" } };
+const VERSIONED_CONFIG = { ...CONFIG, config_version: 1, config_allow_unknown: ["project.future"] };
 
 function card(id, extra = {}) { return { id, title: `T ${id}`, path: `.kanbanzai/work/1-open/${id}-x.md`, ...extra }; }
 function board(placed) {
@@ -215,6 +216,17 @@ test("the watched folder is logged when it changes, not on every refresh", () =>
     "watching .kanbanzai/work/**/*.md",
     "watching .kanbanzai/cards/**/*.md",
   ]);
+}));
+
+test("old and versioned config JSON resolve the same cards folder", () => run({
+  configs: [CONFIG, VERSIONED_CONFIG],
+}, async ({ panel, vscode, channel }) => {
+  vscode.run();
+  await settle();
+  panel.viewState({});
+  await settle();
+  assert.deepEqual(texts(channel).filter((t) => t.startsWith("watching ")), ["watching .kanbanzai/work/**/*.md"]);
+  assert.equal(channel.lines.filter((l) => l.level === "warn" || l.level === "error").length, 0);
 }));
 
 test("a change to kanbanzai.command is logged, and unsetting it", () => run({}, async ({ vscode, channel }) => {

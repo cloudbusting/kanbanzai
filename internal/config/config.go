@@ -94,7 +94,10 @@ type Project struct {
 	Toplevel  string
 	GitCommon string
 
-	ConfigFile string
+	ConfigFile         string
+	ConfigVersion      int
+	ConfigAllowUnknown []string
+	IgnoredUnknown     []string
 
 	Prefix             string
 	Digits             int
@@ -148,6 +151,9 @@ func Find(start string) (*Project, error) {
 	return New(root, top, common, nil)
 }
 
+// Locate finds the shared main checkout without loading its configuration, for diagnosis and upgrades.
+func Locate(start string) (root, top, common string, err error) { return locate(start) }
+
 // New loads the configuration for a project whose main checkout is root.
 func New(root, toplevel, gitCommon string, extra map[string]any) (*Project, error) {
 	root = absolute(root)
@@ -162,36 +168,64 @@ func New(root, toplevel, gitCommon string, extra map[string]any) (*Project, erro
 	home := asString(defaultProject["home"], ".kanbanzai")
 	merged := defaults
 	configFile := ""
+	ignored := []string{}
 	for _, base := range uniqueStrings([]string{root, toplevel}) {
 		candidate := configCandidate(base, home)
-		if fileExists(candidate) {
+		if _, statErr := os.Lstat(candidate); statErr == nil {
 			configFile = candidate
 			over, err := ReadTOML(candidate)
 			if err != nil {
 				return nil, err
 			}
+			if err := validateVersion(over, candidate); err != nil {
+				return nil, err
+			}
+			ignored, err = validateSchema(over, candidate)
+			if err != nil {
+				return nil, err
+			}
 			merged = merge(defaults, over)
 			break
+		} else if !os.IsNotExist(statErr) {
+			return nil, errf("%s: cannot inspect config (%v)", candidate, statErr)
 		}
 	}
 	if extra != nil {
+		if _, exists := extra["config_version"]; exists {
+			if err := validateVersion(extra, "config overrides"); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := validateSchema(extra, "config overrides"); err != nil {
+			return nil, err
+		}
 		merged = merge(merged, extra)
 	}
 	p := &Project{
-		Root:       root,
-		Toplevel:   absolute(toplevel),
-		GitCommon:  absoluteOrEmpty(gitCommon),
-		ConfigFile: configFile,
-		cfg:        merged,
+		Root:           root,
+		Toplevel:       absolute(toplevel),
+		GitCommon:      absoluteOrEmpty(gitCommon),
+		ConfigFile:     configFile,
+		cfg:            merged,
+		ConfigVersion:  CurrentVersion,
+		IgnoredUnknown: ignored,
 	}
+	p.ConfigAllowUnknown, _ = stringList(merged["config_allow_unknown"])
 	if err := p.build(); err != nil {
-		return nil, err
+		return nil, qualifyError(sourceName(configFile), err)
 	}
 	return p, nil
 }
 
 // ReadTOML reads a config file, naming it in every error.
 func ReadTOML(path string) (map[string]any, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, errf("%s: cannot inspect config (%v)", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, errf("%s: config must be a regular file; replace the directory or special file", path)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, errf("%s: cannot be read (%v)", path, err)
@@ -211,6 +245,12 @@ func readDefaults() (map[string]any, error) {
 	parsed, err := parseTOML(string(data))
 	if err != nil {
 		return nil, errf("defaults/config.toml: %v", err)
+	}
+	if err := validateVersion(parsed, "defaults/config.toml"); err != nil {
+		return nil, err
+	}
+	if _, err := validateSchema(parsed, "defaults/config.toml"); err != nil {
+		return nil, err
 	}
 	return parsed, nil
 }
@@ -728,6 +768,7 @@ func (p *Project) AsDict() map[string]any {
 		}
 	}
 	return map[string]any{
+		"config_version": p.ConfigVersion, "config_allow_unknown": p.ConfigAllowUnknown,
 		"root": p.Root, "toplevel": p.Toplevel, "git_common": optional(p.GitCommon),
 		"config_file": optional(p.ConfigFile),
 		"project":     project,
