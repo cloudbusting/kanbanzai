@@ -1,0 +1,24 @@
+# Changelog
+
+All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
+and the editor extension carry the same version.
+
+## [0.6.0] — 2026-11-11
+
+- W-20: The `kanbanzai` command is a self-contained Go binary with no runtime prerequisite. It is published for
+  Linux amd64/arm64, macOS amd64/arm64 and Windows amd64, and installs with
+  `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest`. The Python core, its tests and
+  `board-view/install.py` are gone.
+- W-23: The OpenCode plugin registers the workflow commands, `/build` (and `kanbanzai:build` for every skill), and
+  runs the skill with the session's prompt.
+- The Claude Code plugin and the editor extension declare the MIT licence, the `cloudbusting` author/publisher and
+  the public repository, and carry the same version.
+- The editor extension runs the `kanbanzai` command from the `kanbanzai.command` setting or PATH and carries no
+  machine path. The command must be installed first. The `.vsix` is attached to the GitHub release; it is not yet
+  published to a marketplace.
+- The plugin and extension have no icon yet; W-24 designs it for a later release.
+
+## 0.5.3 and earlier
+
+Before 0.6.0 the command was the Python core in `kanbanzai/`, and the versions were recorded only in the plugin and
+extension manifests.

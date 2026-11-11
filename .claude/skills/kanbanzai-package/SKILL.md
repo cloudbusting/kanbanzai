@@ -56,7 +56,7 @@ paths from the committed tree, never the working directory:
 
 ```bash
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" HEAD \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md
+  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md LICENSE CHANGELOG.md
 ```
 
 Do not include `.kanbanzai/`, `.claude/`, `.git/`, pycache or state. The extension's own test files travel in the

@@ -198,7 +198,8 @@ test("package.json has no dependencies and the expected shape", () => {
   assert.ok(!("dependencies" in pkg));
   assert.ok(!("devDependencies" in pkg));
   assert.equal(pkg.name, "kanbanzai-board");
-  assert.equal(pkg.publisher, "kanbanzai");
+  assert.equal(pkg.publisher, "cloudbusting");
+  assert.equal(pkg.license, "MIT");
   assert.equal(pkg.main, "./extension.js");
   assert.deepEqual(pkg.extensionKind, ["workspace"]);
   assert.deepEqual(pkg.activationEvents, ["workspaceContains:.kanbanzai/config.toml"]);
