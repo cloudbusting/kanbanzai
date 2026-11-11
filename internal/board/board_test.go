@@ -522,7 +522,7 @@ func TestClaimedNotStarted(t *testing.T) {
 	// The grace is a setting.
 	putClaim("W-01", 25, nil)
 	testutil.Write(t, filepath.Join(project.Root, ".kanbanzai", "config.toml"),
-		"[project]\nowner = \"Sam\"\n[flow]\nmove_grace_minutes = 30\n")
+		"config_version=1\n[project]\nowner = \"Sam\"\n[flow]\nmove_grace_minutes = 30\n")
 	reloaded, err := config.Find(project.Root)
 	if err != nil {
 		t.Fatal(err)

@@ -19,6 +19,8 @@ const ConfigText = `# Kanbanzai config for this project. Only what differs from 
 # ` + "`kanbanzai config`" + ` prints the settings in force. Tables merge key by key; a list (such as [[columns]])
 # replaces the default one whole.
 
+config_version = 1
+
 [project]
 owner = "the user"      # the person the skills address and whose decisions they ask for
 
@@ -38,7 +40,7 @@ func Run(project *config.Project, out io.Writer) int {
 	}
 	made := []string{}
 	kept := []string{}
-	writeNew(filepath.Join(project.Home, "config.toml"), ConfigText, &made, &kept, project)
+	writeNew(config.BootstrapPath(project.Root), ConfigText, &made, &kept, project)
 	writeNew(filepath.Join(project.Home, ".gitignore"), GitignoreText, &made, &kept, project)
 	for _, folder := range project.Folders {
 		writeNew(filepath.Join(project.Work, folder, ".gitkeep"), "", &made, &kept, project)

@@ -473,7 +473,7 @@ func TestWorktreeConfigWhenMainHasNone(t *testing.T) {
 	main := loadProject(t, testutil.Repo(t, ""))
 	other := filepath.Join(t.TempDir(), "wt")
 	testutil.Git(t, main.Root, "worktree", "add", "-q", "-b", "branch-config", other)
-	testutil.Write(t, filepath.Join(other, ".kanbanzai", "config.toml"), "[project]\nowner = \"Branch\"\n")
+	testutil.Write(t, filepath.Join(other, ".kanbanzai", "config.toml"), "config_version=1\n[project]\nowner = \"Branch\"\n")
 	t.Setenv("KANBANZAI_PROJECT", "")
 	found, err := Find(other)
 	if err != nil {
@@ -551,7 +551,7 @@ func TestConfigErrors(t *testing.T) {
 		want string
 	}{
 		{"prefix letters", "[project]\nprefix = \"W1\"\n", "letters only"},
-		{"context list", "[project]\ncontext = \"x\"\n", "must be a list of files"},
+		{"context list", "[project]\ncontext = \"x\"\n", "must be a list of strings"},
 		{"project table", "project = 1\n", "[project] must be a table"},
 		{"claims table", "claims = 1\n", "[claims] must be a table"},
 		{"flow table", "flow = 1\n", "[flow] must be a table"},
@@ -614,7 +614,12 @@ func TestProjectSkills(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	project := loadProject(t, root)
+	// Exercise the repository's config as input, independent of the host checkout's migration state.
+	text, err := os.ReadFile(filepath.Join(root, ".kanbanzai", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := loadProject(t, testutil.Repo(t, string(text)))
 	if !reflect.DeepEqual(project.Steps["design"].Extend, []string{"kanbanzai-design"}) {
 		t.Fatalf("design extend = %v", project.Steps["design"].Extend)
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/context"
+	"github.com/cloudbusting/kanbanzai/internal/doctor"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	initcmd "github.com/cloudbusting/kanbanzai/internal/init"
 	"github.com/cloudbusting/kanbanzai/internal/move"
@@ -36,7 +37,9 @@ commands:
   check                          validate every brief
   step NAME | --for ID           what runs a step
   sessions [--json]              the claimed cards with a live session
-  config [--json]                the resolved settings
+  config [--json]                the versioned, resolved settings
+  config upgrade [--apply]       preview/apply a safe config schema upgrade
+  doctor [--json]                diagnose this installation without repairs
   context                        the standing context
   init                           set a project up
 
@@ -70,6 +73,26 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	if hasHelp(rest) {
 		fmt.Fprintf(out, "usage: kanbanzai %s [options]\n", command)
 		return 0
+	}
+	if command == "config" && len(rest) > 0 && rest[0] == "upgrade" {
+		positionals, _, set, err := parse(rest[1:], map[string]bool{"apply": true}, nil)
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, "config upgrade", err)
+		}
+		text, err := config.Upgrade("", set["apply"])
+		if err != nil {
+			fmt.Fprintf(errOut, "kanbanzai: config upgrade: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(out, text)
+		return 0
+	}
+	if command == "doctor" {
+		positionals, _, set, err := parse(rest, map[string]bool{"json": true}, nil)
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, command, err)
+		}
+		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
 	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")
@@ -330,6 +353,7 @@ func showConfig(project *config.Project, out io.Writer) {
 	fmt.Fprintf(out, "project root:   %s\n", project.Root)
 	fmt.Fprintf(out, "this worktree:  %s\n", project.Toplevel)
 	fmt.Fprintf(out, "config file:    %s\n", configFile)
+	fmt.Fprintf(out, "config_version: %d\n", project.ConfigVersion)
 	values := []struct {
 		name  string
 		value string
