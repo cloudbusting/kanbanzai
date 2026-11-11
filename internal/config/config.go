@@ -662,6 +662,22 @@ func (p *Project) FormatID(number int) string {
 	return fmt.Sprintf("%s-%0*d", p.Prefix, p.Digits, number)
 }
 
+// TemplateText is the shipped card template, or the project's own when it names one.
+func (p *Project) TemplateText() (string, error) {
+	if p.TemplateIsShipped {
+		data, err := kanbanzai.Files.ReadFile("templates/card.md")
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+	data, err := os.ReadFile(p.Template)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // ContextFiles is the project's context files, absolute.
 func (p *Project) ContextFiles() []string {
 	out := make([]string, 0, len(p.Context))
