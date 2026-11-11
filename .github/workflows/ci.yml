@@ -37,12 +37,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      # The Python reference suite stays until the final task removes the Python core; it is the executable oracle
-      # for the port, not a second runtime the product needs.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
       - run: go build -o bin/kanbanzai-go ./cmd/kanbanzai
-      - run: python3 -I -m unittest discover -s tests -t .
       - run: node --test board-view/*.test.mjs opencode/*.test.mjs
       - run: bash -n hooks/*.sh

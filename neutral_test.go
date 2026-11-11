@@ -17,7 +17,8 @@ var forbidden = regexp.MustCompile("(?i)" + strings.Join([]string{
 	"twis" + "ty", "mo" + "to", "ri" + "der", "a" + "ws", "an" + "dy",
 }, "|"))
 
-var skippedDirs = map[string]bool{".git": true, ".kanbanzai": true, "__pycache__": true, "node_modules": true}
+var skippedDirs = map[string]bool{".git": true, ".kanbanzai": true, "__pycache__": true, "node_modules": true,
+	"bin": true, "dist": true}
 
 func TestNoProjectIsNamed(t *testing.T) {
 	root, err := testutil.RepoRoot()
