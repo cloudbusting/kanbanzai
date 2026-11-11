@@ -26,7 +26,13 @@ only, stop and say the card's Deploy line is None.
 ## Before building
 
 - The card's checks are green and the main session has reviewed the diff.
-- The worktree is clean and committed. Note the commit: `git rev-parse HEAD`.
+- The check step merged the card's branch into the main branch, because this project has a deploy step. Package
+  from the main checkout at that merge commit, not from the card's worktree: the release tags the main branch and
+  the artifact must match it.
+- The main checkout is clean and on its main branch. Note the commit: `git rev-parse HEAD`.
+- This package is the rehearsal and the proof of the procedure. If the release commit later differs because the
+  version metadata changed, the release step rebuilds the final artifacts from its tag; the package step does not
+  publish.
 - The version metadata is what the release will publish:
   - `.claude-plugin/plugin.json` → `version`
   - `.claude-plugin/marketplace.json` → the plugin entry (a version here must agree with `plugin.json`)
