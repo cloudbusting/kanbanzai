@@ -1,12 +1,11 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** The owner's install check from the package artifacts; then settle the release version, licence and author/icon and run the ship step.
+- **Next action:** Release v0.6.0 under MIT with publisher cloudbusting (the TeamClaudeStatus config): add LICENSE and CHANGELOG, bump the plugin and extension to 0.6.0, tag and publish. The icon is W-24; ship without it and say so.
 - **Where:** worktree W-20
-- **Held:** waiting: the owner, install the .vsix or a binary from /tmp/kanbanzai-package-W-20-0.5.3 and try the board; decide the release version, licence and author/icon
 
 ## Goal
 
@@ -260,6 +259,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 15 done: the acceptance rehearsal passed — go test/vet, Node, five release archives + SHA256SUMS, .vsix with no machine path, the no-Python binary, go install, and a source bundle that builds and runs in a fresh repo. Found and fixed the bundle's missing assets.go (36d4c1d).
 - 2026-11-11: Checked: QA pass — go test/vet, Node (extension and OpenCode), hooks, JS syntax, config/steps, audit, check (23 cards) and the .vsix; claude validate passed with author/icon warnings only. Main review accepted; the source bundle now carries assets.go (36d4c1d).
 - 2026-11-11: Packaged: source bundle, five binary archives, .vsix and SHA256SUMS at /tmp/kanbanzai-package-W-20-0.5.3. The source builds and runs in a fresh repo, the Linux binary reports v0.5.3, the checksums verify, the .vsix carries no machine path and the plugin installs from the bundle. Waiting on the owner's install check and the release decision.
+- 2026-11-11: QA-approved: the owner chose v0.6.0/MIT/cloudbusting and asked to install the extension. The .vsix is installed as kanbanzai.kanbanzai-board and its kanbanzai.command points at the Go binary; the icon is W-24. The release waits for the other session's W-23 brief to clear the main tree.
 
 ## Out of scope
 
