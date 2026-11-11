@@ -295,12 +295,18 @@ func assertNoCheckoutPath(t *testing.T, root, artifact string) {
 		if err != nil || entry.IsDir() {
 			return nil
 		}
+		relative, _ := filepath.Rel(artifact, path)
+		// The board is the user's own content, not shipped code: a card brief or a batch map names the worktree it
+		// was made in on purpose. The scan covers the plugin's code, metadata and docs, which may never bake in a
+		// path from this machine.
+		if name := filepath.ToSlash(relative); name == ".kanbanzai" || strings.HasPrefix(name, ".kanbanzai/") {
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil
 		}
 		if bytes.Contains(data, []byte(root)) {
-			relative, _ := filepath.Rel(artifact, path)
 			t.Errorf("%s carries the checkout path %s", filepath.ToSlash(relative), root)
 		}
 		return nil
