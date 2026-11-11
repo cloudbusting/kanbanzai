@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# A developer's local Claude settings (the marketplace path is machine-specific).
+.claude/settings.local.json

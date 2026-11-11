@@ -7,7 +7,9 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 # The words that must not appear (what `grep -riE` would find), built so this file is not itself a match.
 WORDS = re.compile("|".join(["twis" + "ty", "mo" + "to", "ri" + "der", "a" + "ws", "an" + "dy"]), re.I)
-SKIPPED_DIRS = {".git", "__pycache__", "node_modules"}
+# The board is this project's own data, not shipped text: its cards may name another project or host. The check is
+# about what a user of Kanbanzai receives, so the board folder is out of scope.
+SKIPPED_DIRS = {".git", ".kanbanzai", "__pycache__", "node_modules"}
 SKIPPED_FILES = {"test_neutral.py"}
 
 

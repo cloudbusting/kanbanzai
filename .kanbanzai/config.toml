@@ -1,0 +1,40 @@
+# Kanbanzai's own board. Only what differs from Kanbanzai's shipped defaults belongs here: the columns, the cap of
+# five started cards, the two-hour lease and the pull order are the defaults. `kanbanzai config` prints the settings
+# in force. Tables merge key by key; a list (such as [[columns]]) replaces the default one whole.
+#
+# This repository develops Kanbanzai itself: the Python core, the editor extension in board-view/, and the Claude
+# Code and OpenCode adapters. The project skills in .claude/skills/ are local development rules; they are not
+# shipped to users. The shipped skills in skills/ are the product.
+#
+# The steps below wire the repository's own skills into the shipped flow:
+#   design  extends the shipped design step with the local-only architecture and contract rules
+#   build   extends the shipped build step with the code, test and security rules
+#   check   runs the repository's QA skill as its check
+#   deploy-qa packages the extension and both plugin bundles and proves them in throwaway projects
+#   ship    publishes an owner-approved release from the packaged commit
+
+[project]
+owner = "the owner"      # the person the skills address and whose decisions they ask for
+context = ["README.md"]  # read first by every Kanbanzai skill
+
+# More you can set (see Kanbanzai's defaults/config.toml for every key):
+#   [project]  prefix, work, claims, numbers, worktree, context = ["rules file", ...]
+#   [flow]     wip_limit, pull_order
+#   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
+
+[steps.design]
+extend = ["kanbanzai-design"]      # the architecture, the public contracts and the owner's decisions
+context = []
+
+[steps.build]
+extend = ["kanbanzai-build"]       # standard library only, plain JavaScript, tests first, defensive adapters
+
+[steps.check]
+checks = ["kanbanzai-qa"]          # the core, extension and adapter suites, then the rules review
+extend = []
+
+[steps.deploy-qa]
+skill = "kanbanzai-package"        # build and prove the .vsix and the plugin bundles; never publish
+
+[steps.ship]
+skill = "kanbanzai-release"        # version, tag, push to the public remote, publish and verify
