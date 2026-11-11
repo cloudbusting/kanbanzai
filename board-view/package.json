@@ -2,10 +2,13 @@
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
   "description": "The project's Kanbanzai board as a compact kanban in an editor tab. Read-only.",
-  "version": "0.5.3",
-  "publisher": "kanbanzai",
-  "license": "UNLICENSED",
-  "private": true,
+  "version": "0.6.0",
+  "publisher": "cloudbusting",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cloudbusting/kanbanzai.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

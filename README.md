@@ -31,6 +31,8 @@ opencode/                  OpenCode (V2): the same skills, heartbeat, context, a
 board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
 tools/vsix/                the .vsix packer
 tools/release/             the per-OS/arch release builder
+LICENSE                    MIT
+CHANGELOG.md               what each release changed
 ```
 
 ## Install Kanbanzai
@@ -256,4 +258,5 @@ five archives from a tag, and `tools/vsix` builds the editor package.
 
 ## Licence
 
-Not yet licensed for use outside its author's projects.
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Kanbanzai contributors. The Claude Code plugin and the editor
+extension declare the same licence.

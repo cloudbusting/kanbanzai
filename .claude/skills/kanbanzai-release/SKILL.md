@@ -136,7 +136,7 @@ OUT="${TMPDIR:-/tmp}/kanbanzai-release-<ID>-<version>"
 mkdir -p "$OUT"
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
   -o "$OUT/kanbanzai-<version>.tar.gz" "v<version>" \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md
+  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md LICENSE CHANGELOG.md
 go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
 (cd "$OUT" && sha256sum * > SHA256SUMS)
 ```
