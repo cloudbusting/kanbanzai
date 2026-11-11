@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 10: the CLI surface and parity sweep (every subcommand and flag, --version, help, quiet commands, exit codes), then run the Python CLI tests against the Go binary.
+- **Next action:** Task 11a: opencode/server.js and the Claude hooks resolve KANBANZAI_BIN/PATH (then the local build) and inject one actionable line when missing; port the fake harness to Node. Then 11b: the extension and the Go .vsix tool.
 - **Where:** worktree W-20
 
 ## Goal
@@ -252,6 +252,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 7 done: the board check, with all nine checks and the command output (17ed09c); go test ./... green.
 - 2026-11-11: Task 8 done: the Claude Code and OpenCode session readers with process liveness (5f7fc4b); Windows and macOS cross-builds compile. go test ./... green.
 - 2026-11-11: Task 9 done: wip with the audit, pull order, titles, batches and worktree reconciliation (ab38ca7); go test ./... green and the Windows/macOS cross-builds compile.
+- 2026-11-11: Task 10 done: the CLI surface and parity sweep (a1ed6d4); the full Python suite (285 tests) passes against the Go binary and go test ./... is green.
 
 ## Out of scope
 
