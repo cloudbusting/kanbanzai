@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 12: docs and the project skills in Go terms (README, board-view README, defaults comments, .claude/skills/kanbanzai-*), and the Go ports of the skills-wording and neutral-text checks.
+- **Next action:** Task 14: remove the Python core, the bin/kanbanzai script and tests/; update CI to Go and Node; build the Go binary to bin/kanbanzai and cut the board over; then task 15 (acceptance rehearsal).
 - **Where:** worktree W-20
 
 ## Goal
@@ -254,6 +254,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 9 done: wip with the audit, pull order, titles, batches and worktree reconciliation (ab38ca7); go test ./... green and the Windows/macOS cross-builds compile.
 - 2026-11-11: Task 10 done: the CLI surface and parity sweep (a1ed6d4); the full Python suite (285 tests) passes against the Go binary and go test ./... is green.
 - 2026-11-11: Tasks 11a/11b done: OpenCode and the hooks resolve KANBANZAI_BIN/PATH and inject the missing-command line; the Node fake harness and the Go .vsix tool are in place (0dac75c). 280 Python tests pass against the Go binary; Node and Go tests green.
+- 2026-11-11: Tasks 12 and 13 done: docs and project skills in Go terms, with the Go wording/neutral tests (0e57b95); the release builder, tag workflow and release/package skills (1a7e366). Five archives + SHA256SUMS build locally; 272 Python tests pass against the Go binary; Node and Go tests green.
 
 ## Out of scope
 
