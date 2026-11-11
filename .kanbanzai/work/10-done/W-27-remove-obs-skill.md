@@ -1,11 +1,11 @@
 # W-27: Remove the /obs skill now that triage is the front door
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11: commit 5c999ed merged as 0cf6c90; no deploy
 - **ADR:** none
-- **Next action:** deploy-qa: none (Deploy: None) — close the card
-- **Where:** worktree W-27
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
