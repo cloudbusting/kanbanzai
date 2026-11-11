@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 9: wip (board, claims and worktrees reconciled; --next, --title, --audit, --cleanup), porting test_wip.py and test_title.py.
+- **Next action:** Task 10: the CLI surface and parity sweep (every subcommand and flag, --version, help, quiet commands, exit codes), then run the Python CLI tests against the Go binary.
 - **Where:** worktree W-20
 
 ## Goal
@@ -251,6 +251,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 6 done: the step command, the standing context and init (07a86f0); go test ./... green.
 - 2026-11-11: Task 7 done: the board check, with all nine checks and the command output (17ed09c); go test ./... green.
 - 2026-11-11: Task 8 done: the Claude Code and OpenCode session readers with process liveness (5f7fc4b); Windows and macOS cross-builds compile. go test ./... green.
+- 2026-11-11: Task 9 done: wip with the audit, pull order, titles, batches and worktree reconciliation (ab38ca7); go test ./... green and the Windows/macOS cross-builds compile.
 
 ## Out of scope
 
