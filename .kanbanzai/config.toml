@@ -6,6 +6,8 @@
 # Code and OpenCode adapters. The project skills in .claude/skills/ are local development rules; they are not
 # shipped to users. The shipped skills in skills/ are the product.
 #
+# Intake: `/kanbanzai-triage` is this repository's front door; the shipped `/triage` still writes the card.
+#
 # The steps below wire the repository's own skills into the shipped flow:
 #   design  extends the shipped design step with the local-only architecture and contract rules
 #   build   extends the shipped build step with the code, test and security rules
