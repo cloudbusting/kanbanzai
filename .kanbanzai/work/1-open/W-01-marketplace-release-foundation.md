@@ -1,6 +1,6 @@
 # W-01: Marketplace release foundation: licence, metadata, versioning and CI
 
-- **Stage:** built
+- **Stage:** checking
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
