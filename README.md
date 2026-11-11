@@ -76,11 +76,12 @@ marketplace: `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
 { "plugins": ["<path to kanbanzai>/opencode"] }
 ```
 
-The plugin registers the same skills, puts the command's directory on the PATH of the shells OpenCode starts, labels
-them with the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call, adds
-the board's context to each request, and writes each session's state (busy, idle or asking) into the project's state
-folder so the board can show it, as it shows a Claude Code session's. The plugin is plain JavaScript with nothing to
-install, but it needs the `kanbanzai` command: `KANBANZAI_BIN` first, then PATH.
+The plugin registers the same skills and commands (`/build` and `/kanbanzai:build`), puts the command's directory on
+the PATH of the shells OpenCode starts, labels them with the session (`KANBANZAI_OWNER=opencode:<session>`), renews
+the session's claims after each tool call, adds the board's context to each request, and writes each session's state
+(busy, idle or asking) into the project's state folder so the board can show it, as it shows a Claude Code session's.
+The plugin is plain JavaScript with nothing to install, but it needs the `kanbanzai` command: `KANBANZAI_BIN` first,
+then PATH.
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.

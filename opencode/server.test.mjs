@@ -32,15 +32,19 @@ function newProject() {
 
 function fakeContext(project, events = null) {
   const added = [];
+  const commands = [];
+  const prompts = [];
   const hooks = {};
   const ctx = {
     location: { directory: project },
     skill: { transform: async (fn) => fn({ add: (skill) => added.push(skill), list: () => added }) },
+    command: { transform: async (fn) => fn({ add: (command) => commands.push(command), list: () => commands }) },
     tool: { hook: async (name, fn) => { hooks["tool." + name] = fn; } },
     shell: { hook: async (name, fn) => { hooks["shell." + name] = fn; } },
     session: {
       hook: async (name, fn) => { hooks["session." + name] = fn; },
       get: async () => ({ title: "the card's work", time: { created: 1794349166610 } }),
+      prompt: async (input) => { prompts.push(input); },
     },
     event: {
       subscribe: async function* () {
@@ -48,7 +52,7 @@ function fakeContext(project, events = null) {
       },
     },
   };
-  return { ctx, hooks, added };
+  return { ctx, hooks, added, commands, prompts };
 }
 
 async function loadPlugin(tag) {
@@ -63,7 +67,7 @@ function run(args, cwd, env = {}) {
 test("registers the skills, labels a shell, heartbeats, adds context and writes state", async () => {
   const project = newProject();
   process.env.KANBANZAI_BIN = BIN;
-  const { ctx, hooks, added } = fakeContext(project);
+  const { ctx, hooks, added, commands, prompts } = fakeContext(project);
   const plugin = await loadPlugin("?found");
   const cleanup = await plugin.setup(ctx);
   try {
@@ -71,6 +75,13 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       .filter((name) => existsSync(path.join(ROOT, "skills", name, "SKILL.md")))
       .sort();
     assert.deepEqual(added.map((skill) => skill.id).sort(), expected);
+    const prefixed = expected.map((name) => `kanbanzai:${name}`);
+    assert.deepEqual(commands.map((entry) => entry.name).sort(), [...expected, ...prefixed].sort());
+    const build = commands.find((entry) => entry.name === "build");
+    assert.ok(build, "the build command was not registered");
+    await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" });
+    assert.match(prompts[0].text, /# Build/);
+    assert.match(prompts[0].text, /do the thing/);
 
     const command = "kanbanzai claim owner";
     await hooks["tool.execute.before"]({ tool: "bash", sessionID: "ses_test1", input: { command } });
