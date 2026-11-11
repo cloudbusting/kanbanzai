@@ -1,6 +1,6 @@
 ---
 name: kanbanzai-build
-description: Kanbanzai's code rules for its core command, board extension and two harness adapters — standard library Python, dependency-free plain JavaScript, tests written first, cross-harness parity, defensive adapters and the security surfaces of a local tool. Kanbanzai's build skill follows it through extend.
+description: Kanbanzai's code rules for its core command, board extension and two harness adapters — standard library Go, dependency-free plain JavaScript, tests written first, cross-harness parity, defensive adapters and the security surfaces of a local tool. Kanbanzai's build skill follows it through extend.
 ---
 
 # Building Kanbanzai
@@ -29,18 +29,18 @@ Where only the owner can check a screen in the editor, write the manual step in 
 
 ## The code rules
 
-### The Python core (`kanbanzai/`, `bin/kanbanzai`)
+### The Go core (`cmd/kanbanzai`, `internal/`)
 
-- The standard library only, and Python 3.13 grammar. The development machine may be newer; do not use a 3.14
-  feature. Check any new syntax with `ast.parse(..., feature_version=(3, 13))`.
-- `python3 -I` is how a session runs it: no site packages, no environment-dependent imports. Keep the shebang and
-  the self-contained `bin/kanbanzai` working.
+- The Go standard library only: `go.mod` has no `require`. Go 1.24 is the floor; a release builds with
+  `CGO_ENABLED=0 -trimpath`, so the binary is self-contained and carries no checkout path.
+- Tests come first, beside the package (`go test ./...`), and `go vet ./...` is clean. An exact output, an exit
+  code or a JSON field is a test, not a comment.
 - Writes that a crashed session could leave half-written are atomic. Claims tolerate a stale lease. Errors go to
-  stderr with the command's documented exit code; do not raise a traceback at a user.
-- A new platform assumption (a lock, `/proc`, a shell utility) is guarded, or the README states the supported
-  platform. Do not make the command fail to import on another system.
+  stderr with the command's documented exit code; do not panic at a user.
+- A platform assumption (a lock, `/proc`, a process handle, a path separator) lives in a build-tagged file or is
+  guarded; the README names the supported platforms. The Windows and macOS cross-builds must compile.
 - `board --json`, `config --json` and `sessions --json` are contracts. A field change updates `board-view/`, the
-  tests and the README example in the same change.
+  tests and the README in the same change.
 
 ### The board extension (`board-view/`)
 
@@ -53,8 +53,8 @@ Where only the owner can check a screen in the editor, write the manual step in 
   a `.md` file inside the cards folder with `safeBriefPath`. No remote script, font, image or stylesheet.
 - A watcher follows the cards folder from the resolved config, not a hardcoded folder. A session poll fails
   quietly and keeps the previous baseline. A new toast or mark has a test in the extension suite.
-- Packaging stays declarative: every runtime module is in `install.py`'s file set (it globs, so keep the glob
-  honest), and `package.json` carries the command, activation and setting.
+- Packaging stays declarative: `tools/vsix` globs `board-view/*.js` (so keep the glob honest) and `package.json`
+  carries the command, activation and setting. The package carries no machine path.
 
 ### The Claude Code adapter (`.claude-plugin/`, `hooks/`, `skills/`)
 
@@ -74,23 +74,25 @@ Where only the owner can check a screen in the editor, write the manual step in 
   sanitized before it becomes a file name. The context injection is bounded and refreshed.
 - Session state is written atomically, one file per session, under the project's state folder, and only for
   events in this project. Never read another harness's private files.
-- The fake-harness test (`tests.test_opencode`) is the proof that registration, PATH, owner, heartbeat and
-  context still work. Extend it for every new hook.
+- The command is `KANBANZAI_BIN`, then `kanbanzai` on PATH, then a local build; the shell PATH gets the resolved
+  directory, and a missing command injects one actionable line. The fake-harness test (`opencode/server.test.mjs`)
+  is the proof that registration, PATH, owner, heartbeat, context and that line still work. Extend it for every new
+  hook.
 
 ## Commands
 
 | Area | Command |
 |---|---|
-| Core, both adapters, skills wording, neutral text | `python3 -I -m unittest discover -s tests -t .` |
+| Core, adapters, skills wording, neutral text | `go test ./...` |
+| Static checks | `go vet ./...` |
 | Extension render, sessions, toasts, output | `node --test board-view/*.test.mjs` |
-| OpenCode adapter alone | `python3 -I -m unittest discover -s tests -t . -p 'test_opencode.py' -v` |
-| Skill wording and neutrality | `python3 -I -m unittest discover -s tests -t . -p 'test_skills_wording.py'` then `-p 'test_neutral.py'` |
-| Extension package dry run | `python3 board-view/install.py --vsix-only /tmp/kanbanzai-board.vsix` |
+| OpenCode fake harness | `node --test opencode/*.test.mjs` |
+| Extension package dry run | `go run ./tools/vsix -o /tmp/kanbanzai-board.vsix` |
 | Claude plugin metadata and skills | `claude plugin validate .` |
 | Hook shell syntax | `bash -n hooks/*.sh` |
 
-The Python suite is about 280 tests and 30 seconds at the time of writing; the node suite is about 130 tests.
-Counts grow. A failing test outside the card is reported to the main session, not fixed in passing.
+The Go suite is about 240 tests and a few seconds at the time of writing; the Node suite is about 20. Counts
+grow. A failing test outside the card is reported to the main session, not fixed in passing.
 
 ## Security surfaces to keep
 

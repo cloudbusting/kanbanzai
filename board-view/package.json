@@ -32,7 +32,7 @@
         "kanbanzai.command": {
           "type": "string",
           "default": "",
-          "description": "The kanbanzai command to run (default: the one recorded at install, else kanbanzai on PATH).",
+          "description": "The kanbanzai command to run: an absolute path, or empty for kanbanzai on PATH.",
           "scope": "machine"
         }
       }
