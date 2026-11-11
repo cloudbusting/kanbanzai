@@ -29,6 +29,8 @@ skills/                    obs, triage, design, do, next, wip, audit, cleanup, b
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
 board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
+icon/                      the Kanbanzai mark's SVG source
+tools/icon/                the stdlib renderer for the plugin and extension PNGs
 tools/vsix/                the .vsix packer
 tools/release/             the per-OS/arch release builder
 LICENSE                    MIT
@@ -249,6 +251,8 @@ go build -o bin/kanbanzai ./cmd/kanbanzai   # a local build, ignored by git
 go test ./...
 go vet ./...
 node --test board-view/*.test.mjs opencode/*.test.mjs
+go run ./tools/icon                        # icon/kanbanzai.svg → the plugin and extension PNGs
+go run ./tools/icon -check                 # prove the committed PNGs are the source's render
 go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
 go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
 ```
