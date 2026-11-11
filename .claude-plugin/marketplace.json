@@ -1,5 +1,6 @@
 {
   "name": "kanbanzai",
+  "version": "0.6.0",
   "owner": {
     "name": "cloudbusting",
     "url": "https://github.com/cloudbusting"
@@ -14,7 +15,12 @@
       "author": {
         "name": "cloudbusting",
         "url": "https://github.com/cloudbusting"
-      }
+      },
+      "homepage": "https://github.com/cloudbusting/kanbanzai",
+      "repository": "https://github.com/cloudbusting/kanbanzai",
+      "license": "MIT",
+      "keywords": ["kanban", "workflow", "agents", "board"],
+      "category": "workflow"
     }
   ]
 }

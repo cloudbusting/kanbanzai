@@ -25,9 +25,23 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+  validate:
+    name: Plugin and version
+    runs-on: ubuntu-latest
+    env:
+      # The version the README's compatibility table names. Raise both together.
+      CLAUDE_CODE_VERSION: "2.1.312"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - run: claude plugin validate --strict .
+
   build:
     name: Build the five archives
-    needs: test
+    needs: [test, validate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +49,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - run: go run ./tools/release -check -version "$GITHUB_REF_NAME"
       - run: go run ./tools/release -version "$GITHUB_REF_NAME" -out dist
       - uses: actions/upload-artifact@v4
         with:
