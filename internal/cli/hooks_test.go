@@ -32,6 +32,15 @@ func TestTheSessionStartHookFindsTheCommandOrSaysHowToInstallIt(t *testing.T) {
 	if !strings.Contains(string(out), "Kanbanzai: this project's work is a board") {
 		t.Fatalf("the hook did not print the context: %q", out)
 	}
+	// Strict-version failures must remain actionable context, never a hook failure.
+	testutil.Write(t, filepath.Join(project, ".kanbanzai", "config.toml"), "[project]\nowner='Legacy'\n")
+	command = exec.Command("bash", hook)
+	command.Dir = project
+	command.Env = env
+	out, err = command.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "kanbanzai config upgrade") {
+		t.Fatalf("legacy-config hook: %v %q", err, out)
+	}
 
 	missing := append(os.Environ(), "CLAUDE_PROJECT_DIR="+project, "KANBANZAI_PROJECT=",
 		"KANBANZAI_BIN="+filepath.Join(project, "no-such-command"))

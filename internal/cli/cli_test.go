@@ -46,6 +46,7 @@ func writeCard(t *testing.T, project *config.Project, id, title, stage, folded s
 }
 
 func TestVersionHelpAndUsage(t *testing.T) {
+	newProject(t, "")
 	if code, out, _ := runCLI(t, "--version"); code != 0 || strings.TrimSpace(out) != "kanbanzai dev" {
 		t.Fatalf("version = %d %q", code, out)
 	}
