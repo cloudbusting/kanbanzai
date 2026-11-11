@@ -11,6 +11,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -532,5 +533,35 @@ func TestClaimedNotStarted(t *testing.T) {
 	putClaim("W-01", 35, nil)
 	if card := column(Load(reloaded, nil, nil), "todo")[0]; !card.ClaimedNotStarted {
 		t.Fatal("a 35-minute claim was not flagged at a 30-minute grace")
+	}
+}
+
+func TestASessionOnAClaimedCard(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, "W-99", "Ninety-nine", "building", cardOptions{})
+	started := int64(1794343666976)
+	result := Load(project, map[string]string{"W-99": "claude:x"},
+		map[string]sessions.Record{"W-99": {State: "waiting", Since: 1794343821000, Started: &started,
+			Name: "proj-7b"}})
+	card := column(result, "building")[0]
+	if card.Session == nil || card.Session.State != "waiting" || card.Session.Name != "proj-7b" {
+		t.Fatalf("session = %#v", card.Session)
+	}
+	if card.Session.Started == nil || *card.Session.Started != started {
+		t.Fatalf("started = %#v", card.Session.Started)
+	}
+	text := AsText(result, "Sam")
+	if !strings.Contains(text, "W-99 ● ❓") {
+		t.Fatalf("the waiting mark is missing:\n%s", text)
+	}
+	fields := cardMap(t, card)
+	session, ok := fields["session"].(map[string]any)
+	if !ok || session["state"] != "waiting" {
+		t.Fatalf("session JSON = %#v", fields["session"])
+	}
+	// A session that is not waiting gets no question mark.
+	card.Session = &sessions.Record{State: "busy", Since: 1, Name: "p"}
+	if strings.Contains(AsText(result, "Sam"), "W-99 ● ❓") {
+		t.Fatal("a busy session was marked as waiting")
 	}
 }
