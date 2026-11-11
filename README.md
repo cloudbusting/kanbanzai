@@ -50,6 +50,7 @@ cd <your project>
 
 The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …); `kanbanzai` is on the Bash
 tool's PATH. The plugin loads in place: an edit here reaches a project at its next session (or `/reload-plugins`).
+This repository is also its own public marketplace: `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
 
 **OpenCode** — in the project's `.opencode/opencode.json`:
 
