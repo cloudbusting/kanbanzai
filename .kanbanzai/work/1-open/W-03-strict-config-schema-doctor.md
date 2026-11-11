@@ -1,10 +1,10 @@
 # W-03: Strict, versioned config schema with actionable validation and a doctor
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-11
+- **Stage:** shipping
+- **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** release: 0.6.1 after the owner approves
+- **Next action:** release: 0.6.2 after the owner approves
 - **Where:** worktree W-03
 
 ## Goal
