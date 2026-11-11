@@ -15,7 +15,7 @@ The settings file becomes a validated contract rather than a set of keys the cod
 
 - [ ] Every table has an allowlist; an unknown key is a `ConfigError` naming the file, table, key and the nearest valid key, with an explicit escape hatch for forward-compatible keys.
 - [ ] The config carries a `config_version`; an older version is migrated or refused with the exact upgrade command, and a newer version is refused clearly.
-- [ ] `kanbanzai doctor [--json]` checks Python, git, the main branch, config validity, folders, template, state ignore rules, lock/write access, command resolution and adapter wiring, and exits non-zero on a blocking problem.
+- [ ] `kanbanzai doctor [--json]` checks git, the main branch, the `kanbanzai` binary's version, config validity, folders, template, state ignore rules, lock/write access, command resolution and adapter wiring, and exits non-zero on a blocking problem.
 - [ ] The doctor and schema tests cover a fresh project, a custom home/state path, a malformed file, an unknown key, an older version and a worktree.
 - [ ] `kanbanzai config --json` emits a schema version and the resolved values, so adapters can rely on it.
 
@@ -25,9 +25,9 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 ## Tasks
 
-- [ ] Define the schema — kanbanzai/config.py, defaults/config.toml, a schema module — tests prove unknown keys, types, ranges and cross-references fail with actionable messages.
+- [ ] Define the schema — `internal/config`, `defaults/config.toml`, a schema package — tests prove unknown keys, types, ranges and cross-references fail with actionable messages.
 - [ ] Add versioning and migration — config_version, upgrade hooks, docs — an old and a new fixture both behave as specified.
-- [ ] Build the doctor — kanbanzai/doctor.py, cli.py — a broken fixture produces one finding per problem and exit 1.
+- [ ] Build the doctor — `internal/doctor`, `internal/cli` — a broken fixture produces one finding per problem and exit 1.
 - [ ] Document every key and the unknown-key policy — README, defaults/config.toml — a docs test checks every key is documented.
 
 ## Out of scope
@@ -41,7 +41,7 @@ Strict validation can break existing configs that carry harmless extra keys. The
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 

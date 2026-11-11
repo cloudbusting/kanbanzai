@@ -26,8 +26,8 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 ## Tasks
 
-- [ ] Detection — kanbanzai/init.py, a detect module — git root, branch, remotes, existing config, folders, template, `.gitignore` and host rule files; fixtures cover fresh, existing, worktree and non-main.
-- [ ] The plan and dry run — init.py, cli.py — a JSON plan is the single source of writes and the report is stable for tests.
+- [ ] Detection — `internal/init`, a detect package — git root, branch, remotes, existing config, folders, template, `.gitignore` and host rule files; fixtures cover fresh, existing, worktree and non-main.
+- [ ] The plan and dry run — `internal/init`, `internal/cli` — a JSON plan is the single source of writes and the report is stable for tests.
 - [ ] Safe writes and recovery — backup, atomic write, create-only defaults, state ignores — a partial failure leaves a re-runnable project.
 - [ ] Post-init verification — run check/doctor/audit, report the exact next actions — tests assert the output and exit codes.
 
@@ -42,7 +42,7 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 

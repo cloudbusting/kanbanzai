@@ -9,7 +9,7 @@
 
 ## Goal
 
-The board view is currently a local `.vsix` built by `install.py`, with `UNLICENSED`, `private: true` and a recorded absolute path to this checkout. Publish it as a normal VS Code/VSCodium extension: publisher, icon, repository, licence, README, changelog, activation that works with a relocated board, a command setting and a marketplace install with no Python checkout path baked in.
+The board view is currently a local `.vsix` built by `tools/vsix`, with `UNLICENSED`, `private: true` and a recorded absolute path to this checkout. Publish it as a normal VS Code/VSCodium extension: publisher, icon, repository, licence, README, changelog, activation that works with a relocated board, a command setting and a marketplace install with no checkout path baked in.
 
 The owner asked: "what is the best way of delivering the extension and plugins and command binary in one install to VSCode(ium)? Can the vsix bundle the command binary and the plugins, or run the init if that's how it installs the plugins?" This card owns the extension's install carrier: whether the `.vsix` carries the `kanbanzai` binary for its platform (and the adapter files it can place) or downloads a pinned one, and how the extension wires the host project. Today the `.vsix` carries only the extension and spawns `kanbanzai` from `kanbanzai.command` or PATH; `kanbanzai init` writes `.kanbanzai/` only and installs no Claude Code or OpenCode plugin. The plugin side is W-05 (setup) and W-15 (OpenCode package); W-22 owns the pinned version and the upgrade. Done when a clean editor profile installs one `.vsix` and shows a board with no separate command install (or a documented, tested two-step).
 
@@ -31,7 +31,7 @@ ship in the extension's `.vsix`; it needs a packaged artifact and the owner's ap
 
 - [ ] Marketplace metadata and icon — board-view/package.json, README, CHANGELOG, icon — a validation script checks every required field.
 - [ ] Command and activation resolution — extension.js, settings — fixtures cover PATH, setting, custom home and missing command.
-- [ ] Package and smoke test — install.py replaced by the standard `vsce package` (or a documented equivalent) — CI installs the built artifact.
+- [ ] Package and smoke test — the standard `vsce package` (or `tools/vsix`) — CI installs the built artifact.
 - [ ] Document install and trust — board-view/README.md, docs/board-view.md — a new user can install and open the board.
 
 ## Out of scope

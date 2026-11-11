@@ -28,7 +28,7 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 - [ ] Write the skill — skills/setup/SKILL.md — a wording test asserts it names detection, the plan, approval and verification.
 - [ ] Define the plan handoff — the skill writes a plan file and calls `kanbanzai init --plan` — an integration test runs the flow in a fixture repo.
-- [ ] Add the harness registration checks — tests/test_skills_wording.py, tests/test_opencode.py — both adapters expose the skill.
+- [ ] Add the harness registration checks — `skills_wording_test.go`, `opencode/server.test.mjs` — both adapters expose the skill.
 - [ ] Document the setup path — README, docs/setup.md — a fresh reader can go from clone to board.
 
 ## Out of scope
@@ -42,7 +42,7 @@ An agent that guesses the main branch or owner creates a board that looks right 
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 

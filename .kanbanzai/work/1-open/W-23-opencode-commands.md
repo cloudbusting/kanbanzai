@@ -65,8 +65,8 @@ package and release: the plugin is shipped in the plugin bundle.
 - 2026-11-11 — triaged as a design card; the OpenCode server API documents `ctx.command.transform`, which
   `opencode/server.js` never calls.
 - 2026-11-11: Design settled: the plugin registers commands through ctx.command.transform; the bare and kanbanzai: names; the execute runs the skill's body in the current session.
-- 2026-11-11: Built: opencode/server.js registers a command for every skill under its bare and kanbanzai: name; the command runs the skill's body in the current session; tests/test_opencode.py and the README are updated.
-- 2026-11-11: The checks passed: 285 Python tests, 125 node tests, the OpenCode fake harness 3 tests, claude plugin validate passed with warnings, the hook scripts and the plugin's syntax are clean; the review found no real findings.
+- 2026-11-11: Built: opencode/server.js registers a command for every skill under its bare and kanbanzai: name; the command runs the skill's body in the current session; `opencode/server.test.mjs` and the README are updated.
+- 2026-11-11: The checks passed: 285 reference tests (the pre-port suite that later proved the Go parity), 125 node tests, the OpenCode fake harness 3 tests, claude plugin validate passed with warnings, the hook scripts and the plugin's syntax are clean; the review found no real findings.
 - 2026-11-11: QA against opencode 2.2.6 found the commands still absent: `opencode/server.js:151` called
   `editor.list()` in the command transform, the real `CommandEditor` is add-only, and OpenCode disabled the plugin
   after the transform failure. Fixed the transform to log the names it added, and made the fake harness model the

@@ -25,7 +25,7 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 ## Tasks
 
-- [ ] Model and serialise the flow — a flow module, config.py, tests — show/export round-trip.
+- [ ] Model and serialise the flow — a flow package (`internal/flow`), `internal/config`, tests — show/export round-trip.
 - [ ] Validate the graph — steps, columns, lanes, reachability, cycles, pull order, gates and skill names — invalid fixtures fail with one message each.
 - [ ] Plan card migration — scan the board, map old stage words to new columns, include folders and links — a rename, merge and removal fixture produce the expected plan.
 - [ ] Apply and verify — backup, journal, atomic rewrite, check/doctor, rollback test — a failed apply leaves the board as it was.
@@ -41,7 +41,7 @@ A config change can move every card. The plan must be the reviewed artifact, and
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 
 ## Comments
 

@@ -47,7 +47,7 @@ Too many gate types can make the board unreadable. Start with the five named gat
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
-- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 - 2026-11-11: direction settled with the owner: the flow's transitions, gates and close conditions become data inside the current linear pipeline; an arbitrary state graph, parallel steps and per-type flows are out of scope, and W-14's presets configure this bounded model.
 
 ## Comments
