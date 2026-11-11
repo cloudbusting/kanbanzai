@@ -1,10 +1,10 @@
 # W-03: Strict, versioned config schema with actionable validation and a doctor
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: package commit 5d8aa24, record checksums and prove installs in throwaway projects
+- **Next action:** release: 0.6.1 after the owner approves
 - **Where:** worktree W-03
 
 ## Goal
@@ -29,7 +29,7 @@ package and release: the Go command, embedded defaults and init output change. S
 - [x] Migration (parallel with doctor) — `internal/config/upgrade*.go` — `config.Upgrade(start, apply)` previews v0→v1 by default; --apply validates the complete prospective config, preserves all original bytes/settings, takes an exclusive backup and writes atomically; repeated apply is a no-op, future versions refuse, invalid input changes nothing. Cover worktrees and custom home.
 - [x] Doctor (parallel with migration) — `internal/doctor/*` — `doctor.Run(start, Options)` checks independently of config loading and reports stable findings {id, status, message, fix}; statuses pass/warning/error/skipped, JSON {schema_version:1, ok, findings}, exit 1 only for errors. Cover fresh/init, malformed/unknown/old config, custom paths, worktrees, wiring, locks and resolution.
 - [x] CLI/init and consumers — `internal/cli/*`, `internal/init/*`, `board-view/*test*`, `opencode/*test*`, hook contract tests — route doctor and config upgrade before strict loading; malformed flags exit 2; preserve quiet-hook behavior. Additive config JSON fields config_version and config_allow_unknown preserve all existing field shapes. Init writes version 1 to the fixed bootstrap location, never overwrites it.
-- [ ] Documentation — `README.md`, `defaults/config.toml`, `CHANGELOG.md`, repository config fixture — document every schema key, migration, escape hatch, custom home and doctor limitations; schema-to-doc coverage test. Run all configured checks, package/install tests and stop before release approval.
+- [x] Documentation — `README.md`, `defaults/config.toml`, `CHANGELOG.md`, repository config fixture — document every schema key, migration, escape hatch, custom home and doctor limitations; schema-to-doc coverage test. Run all configured checks, package/install tests and stop before release approval.
 
 ## Docs
 
@@ -60,5 +60,6 @@ Strict validation can break existing configs that carry harmless extra keys. The
 - 2026-11-11: Configured checks green (Go/vet, 128 board and 4 OpenCode tests, hooks, syntax, plugin validation, board audit and VSIX listing). Final review found unsupported-but-valid adapter declarations must warn rather than error; fixing in scope.
 - 2026-11-11: Final-review fix proven red/green: wildcard package exports and uninspectable remote plugin sources warn rather than falsely block; doctor and CLI suites green.
 - 2026-11-11: Checked 5d8aa24: all Go tests/vet, 128 board + 4 OpenCode tests, hook/JS syntax and Claude validation pass; config/steps, brief validation, audit and VSIX contents verified; whole diff reviewed, no dependencies/network/version bump. Baseline/additive consumer compatibility tests intentionally pass without adapter runtime changes.
+- 2026-11-11: Packaged 0.6.1 at 3f3ef5a: source/plugin bundle, five cross-platform binaries, .vsix and SHA256SUMS; fresh project init/check/board, doctor and legacy v0 upgrade proof passed; Claude plugin installed and validated in a throwaway config; OpenCode entry point and extension archive listing passed. No artifact was pushed or published.
 
 ## Comments
