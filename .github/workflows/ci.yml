@@ -40,3 +40,23 @@ jobs:
       - run: go build -o bin/kanbanzai-go ./cmd/kanbanzai
       - run: node --test board-view/*.test.mjs opencode/*.test.mjs
       - run: bash -n hooks/*.sh
+
+  plugin:
+    name: Plugin (validation, release check, install smoke)
+    runs-on: ubuntu-latest
+    env:
+      # The version the README's compatibility table names. Raise both together.
+      CLAUDE_CODE_VERSION: "2.1.312"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - run: claude plugin validate --strict .
+      - run: go run ./tools/release -check
+      - run: KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
