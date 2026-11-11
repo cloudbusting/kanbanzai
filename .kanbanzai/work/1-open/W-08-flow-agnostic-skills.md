@@ -41,6 +41,8 @@ Over-generalising can make a skill vague enough to be unsafe. Each skill still n
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage — W-27 removes the `/obs` skill; drop `obs` from this card's skill list and wording test when it
+  is designed.
 
 ## Comments
 
