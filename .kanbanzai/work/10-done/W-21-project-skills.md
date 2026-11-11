@@ -63,6 +63,8 @@ the documentation a session sees.
 
 - 2026-11-11: captured and completed in the main checkout: the six skills, the step wiring, the harness setup,
   the wiring test and the full suite.
+- 2026-11-11: the public remote was created at `https://github.com/cloudbusting/kanbanzai` and the main branch
+  pushed; the README now names its install command.
 
 ## Out of scope
 
