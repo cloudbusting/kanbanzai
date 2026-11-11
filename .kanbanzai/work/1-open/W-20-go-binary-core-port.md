@@ -1,10 +1,10 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** designed
+- **Stage:** building
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 0: scaffold the Go module, embedded assets and test harness (go.mod, cmd/kanbanzai, internal/testutil, CI); prove go build ./..., go test ./... and go vet ./... green.
+- **Next action:** Task 3: brief and board (head fields, cards, marks, JSON/text, sessions map), porting test_board.py, test_columns.py's board parts and test_doing.py's board marks.
 - **Where:** worktree W-20
 
 ## Goal
@@ -244,6 +244,7 @@ Engineering decisions made here (not owner choices):
   W-05, W-06, W-07, W-10, W-11, W-12, W-13, W-14, W-15, W-17, W-18 and W-19; cards that only read the command's
   output stay open: W-08, W-09 and W-16.
 - 2026-11-11: Designed the Go port: owner chose remove Python in this card, GitHub Releases + go install, Linux/macOS amd64+arm64 and Windows amd64, and a stdlib-only TOML parser; tasks 0-15 and the parity map are written.
+- 2026-11-11: Build tasks 0-2 done: Go module, embedded assets, test harness and CI (ec18c78); config and focused TOML parser (4ec9ca9); fsutil, advisory locks, claims and owner identity (e1f718e). go test ./... and go vet ./... green.
 
 ## Out of scope
 
