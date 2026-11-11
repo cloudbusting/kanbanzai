@@ -1,12 +1,11 @@
 # W-24: Design the Kanbanzai icon and export the plugin and extension PNGs
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11 — icon merged at 53079ab (pushed); no release cut — the icon ships with the next version (owner decision)
 - **ADR:** none
-- **Next action:** release: settle the next version (0.6.1 recommended) after the owner approves, with the plugin icon as its first submission
-- **Where:** worktree W-24
-- **Held:** waiting: the owner's installed-.vsix look and release approval
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -131,6 +130,8 @@ end-to-end check needs T2's PNG.
   (the card being pulled). The owner saw the 512/128/32/16 px preview on light and dark. The plugin's icon is the
   first submission and becomes the listing icon only once: the approved mark is final before the portal's first
   save.
+- Owner, 2026-11-11: close W-24 as merged and let the icon ship with the next release; no 0.6.1 is cut for it. The
+  published v0.6.0 predates the icon, so the icon's first shipped artifact is whatever release comes next.
 - Engineer: the source is `icon/kanbanzai.svg` (1024 viewBox); the plugin's PNG is 1024 and its listing names it in
   `.claude-plugin/plugin.json`; the extension's PNG is 512, named by `board-view/package.json`, used as the board
   panel's `iconPath`, and packed by `tools/vsix` with the `Icons.Default` asset; the export is a new `tools/icon` in
@@ -148,6 +149,7 @@ end-to-end check needs T2's PNG.
 - 2026-11-11: build: T1–T4 done — icon/kanbanzai.svg renders the plugin 1024 and extension 512 PNGs through the stdlib tools/icon; the board panel and .vsix carry the icon; docs name the export; all Go and Node suites plus claude plugin validate pass. The owner's installed-.vsix look check is not run.
 - 2026-11-11: check: kanbanzai-qa pass — go test ./... and go vet clean, node 130 pass, hooks and JS syntax clean, claude plugin validate passes, the .vsix carries extension/icon.png with the Icons.Default asset and no bin.json, go run ./tools/icon -check says icon ok, audit and kanbanzai check pass; the owner's installed-.vsix look check remains.
 - 2026-11-11: deploy-qa: packaged 0.6.0 at 53079ab — source bundle, five binaries and the .vsix; proofs pass (fresh project, claude validate/install, opencode, vsix icon); installed cloudbusting.kanbanzai-board@0.6.0 in the editor; reload and the owner's release approval remain.
+- 2026-11-11: close: the owner chose to close the card as merged rather than cut 0.6.1; the icon is in main (merge 53079ab, pushed) and ships with the next release. The published v0.6.0 vsix predates it. Worktree and branch removed.
 
 ## Out of scope
 
