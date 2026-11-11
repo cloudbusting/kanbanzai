@@ -42,13 +42,21 @@ func TestStrictSchema(t *testing.T) {
 	}
 }
 
+// mentionsPath reports whether a diagnostic names a path, tolerating the
+// case and separator differences Windows reports between the caller's path
+// and the file system's.
+func mentionsPath(message, path string) bool {
+	normalize := func(s string) string { return strings.ToLower(filepath.ToSlash(s)) }
+	return strings.Contains(normalize(message), normalize(path))
+}
+
 func TestConfigVersionContract(t *testing.T) {
 	for _, text := range []string{"[project]\nowner='Legacy'\n", "config_version=0\n", "config_version=2\n", "config_version='1'\n"} {
 		root := testutil.Repo(t, "")
 		path := filepath.Join(root, ".kanbanzai", "config.toml")
 		testutil.Write(t, path, text)
 		_, err := Find(root)
-		if err == nil || !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "config_version") {
+		if err == nil || !mentionsPath(err.Error(), path) || !strings.Contains(err.Error(), "config_version") {
 			t.Fatalf("version %q: %v", text, err)
 		}
 		if !strings.Contains(text, "=2") && !strings.Contains(text, "='1'") && !strings.Contains(err.Error(), "kanbanzai config upgrade") {
@@ -102,7 +110,7 @@ func TestConfigPathCannotSilentlyFallBack(t *testing.T) {
 	if err := os.Symlink(filepath.Join(root, "missing.toml"), path); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	if _, err := Find(root); err == nil || !strings.Contains(err.Error(), path) {
+	if _, err := Find(root); err == nil || !mentionsPath(err.Error(), path) {
 		t.Fatalf("broken symlink config: %v", err)
 	}
 }
