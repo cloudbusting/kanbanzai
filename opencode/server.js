@@ -128,6 +128,7 @@ export default {
 
     try {
       await ctx.command.transform((editor) => {
+        const commands = []
         for (const skill of readSkills()) {
           for (const name of [skill.id, `kanbanzai:${skill.id}`]) {
             try {
@@ -143,12 +144,13 @@ export default {
                   }
                 },
               })
+              commands.push(name)
             } catch (e) {
               debug({ command: name, error: String(e) })
             }
           }
         }
-        debug({ commands: editor.list().map((c) => c.name) })
+        debug({ commands })
       })
     } catch {}
 
