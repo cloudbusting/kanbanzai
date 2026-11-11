@@ -1,11 +1,11 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** designing
+- **Stage:** building
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** design it: choose the Go parity scope, the distribution and the supported platforms
-- **Where:** —
+- **Next action:** Task 14: remove the Python core, the bin/kanbanzai script and tests/; update CI to Go and Node; build the Go binary to bin/kanbanzai and cut the board over; then task 15 (acceptance rehearsal).
+- **Where:** worktree W-20
 
 ## Goal
 
@@ -243,6 +243,18 @@ Engineering decisions made here (not owner choices):
   design must reconcile the two before either is built. This card is a prerequisite for W-01, W-02, W-03, W-04,
   W-05, W-06, W-07, W-10, W-11, W-12, W-13, W-14, W-15, W-17, W-18 and W-19; cards that only read the command's
   output stay open: W-08, W-09 and W-16.
+- 2026-11-11: Designed the Go port: owner chose remove Python in this card, GitHub Releases + go install, Linux/macOS amd64+arm64 and Windows amd64, and a stdlib-only TOML parser; tasks 0-15 and the parity map are written.
+- 2026-11-11: Build tasks 0-2 done: Go module, embedded assets, test harness and CI (ec18c78); config and focused TOML parser (4ec9ca9); fsutil, advisory locks, claims and owner identity (e1f718e). go test ./... and go vet ./... green.
+- 2026-11-11: Task 3 done: brief reader and board (debedd4), with the Python board tests ported; go test ./... green.
+- 2026-11-11: Task 4 done: the move command, its refusals and log, and the claim-starts-step callback (02fcd9e).
+- 2026-11-11: Task 5 done: the number ledger (f5bfd49), with the all-worktree scan and the Python ledger fixture; claims and numbers proven under forced locks. go test ./... green.
+- 2026-11-11: Task 6 done: the step command, the standing context and init (07a86f0); go test ./... green.
+- 2026-11-11: Task 7 done: the board check, with all nine checks and the command output (17ed09c); go test ./... green.
+- 2026-11-11: Task 8 done: the Claude Code and OpenCode session readers with process liveness (5f7fc4b); Windows and macOS cross-builds compile. go test ./... green.
+- 2026-11-11: Task 9 done: wip with the audit, pull order, titles, batches and worktree reconciliation (ab38ca7); go test ./... green and the Windows/macOS cross-builds compile.
+- 2026-11-11: Task 10 done: the CLI surface and parity sweep (a1ed6d4); the full Python suite (285 tests) passes against the Go binary and go test ./... is green.
+- 2026-11-11: Tasks 11a/11b done: OpenCode and the hooks resolve KANBANZAI_BIN/PATH and inject the missing-command line; the Node fake harness and the Go .vsix tool are in place (0dac75c). 280 Python tests pass against the Go binary; Node and Go tests green.
+- 2026-11-11: Tasks 12 and 13 done: docs and project skills in Go terms, with the Go wording/neutral tests (0e57b95); the release builder, tag workflow and release/package skills (1a7e366). Five archives + SHA256SUMS build locally; 272 Python tests pass against the Go binary; Node and Go tests green.
 
 ## Out of scope
 
