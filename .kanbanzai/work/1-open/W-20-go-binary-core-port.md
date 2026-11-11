@@ -1,11 +1,11 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** design it: choose the Go parity scope, the distribution and the supported platforms
-- **Where:** —
+- **Next action:** Task 0: scaffold the Go module, embedded assets and test harness (go.mod, cmd/kanbanzai, internal/testutil, CI); prove go build ./..., go test ./... and go vet ./... green.
+- **Where:** worktree W-20
 
 ## Goal
 
@@ -243,6 +243,7 @@ Engineering decisions made here (not owner choices):
   design must reconcile the two before either is built. This card is a prerequisite for W-01, W-02, W-03, W-04,
   W-05, W-06, W-07, W-10, W-11, W-12, W-13, W-14, W-15, W-17, W-18 and W-19; cards that only read the command's
   output stay open: W-08, W-09 and W-16.
+- 2026-11-11: Designed the Go port: owner chose remove Python in this card, GitHub Releases + go install, Linux/macOS amd64+arm64 and Windows amd64, and a stdlib-only TOML parser; tasks 0-15 and the parity map are written.
 
 ## Out of scope
 
