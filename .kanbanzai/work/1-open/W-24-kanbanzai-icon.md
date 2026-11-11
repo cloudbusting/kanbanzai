@@ -1,10 +1,10 @@
 # W-24: Design the Kanbanzai icon and export the plugin and extension PNGs
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run kanbanzai:check and the project's kanbanzai-qa over the W-24 diff, then the owner's installed-.vsix look check
+- **Next action:** deploy-qa: package the .vsix and the Claude Code and OpenCode bundles with kanbanzai-package, then the owner's installed-.vsix look check
 - **Where:** worktree W-24
 
 ## Goal
@@ -145,6 +145,7 @@ end-to-end check needs T2's PNG.
 - 2026-11-11: design: every icon surface is named — `plugin.json` `icon` for the plugin's directory listing; for the extension, `board-view/package.json` `icon`, the board panel's `iconPath` (the Board tab) and the `.vsix` `Icons.Default` asset; the marketplace entry cannot carry it and the OpenCode plugin has no icon surface.
 - 2026-11-11: build: recovered the crashed session's T1 in worktree W-24 — the exact source and the stdlib renderer are green at 32/512/1024 and reject an unsupported <path>; both PNGs are written; T2 next.
 - 2026-11-11: build: T1–T4 done — icon/kanbanzai.svg renders the plugin 1024 and extension 512 PNGs through the stdlib tools/icon; the board panel and .vsix carry the icon; docs name the export; all Go and Node suites plus claude plugin validate pass. The owner's installed-.vsix look check is not run.
+- 2026-11-11: check: kanbanzai-qa pass — go test ./... and go vet clean, node 130 pass, hooks and JS syntax clean, claude plugin validate passes, the .vsix carries extension/icon.png with the Icons.Default asset and no bin.json, go run ./tools/icon -check says icon ok, audit and kanbanzai check pass; the owner's installed-.vsix look check remains.
 
 ## Out of scope
 
