@@ -101,8 +101,13 @@ class ProjectCase(unittest.TestCase):
         return self.put(folder, f"{card}-x.md", brief(card, work, stage, **kw))
 
     def cli(self, *args, cwd=None, env=None):
-        """Run ``bin/kanbanzai`` as a session would: (exit code, stdout, stderr)."""
+        """Run ``bin/kanbanzai`` as a session would: (exit code, stdout, stderr).
+
+        Set ``KANBANZAI_BIN`` to run another build (the Go port) through the same tests.
+        """
         merged = {**os.environ, **(env or {})}
-        run = subprocess.run([sys.executable, "-I", str(BIN), *args], cwd=str(cwd or self.root), env=merged,
+        binary = os.environ.get("KANBANZAI_BIN")
+        command = [binary] if binary else [sys.executable, "-I", str(BIN)]
+        run = subprocess.run([*command, *args], cwd=str(cwd or self.root), env=merged,
                              capture_output=True, text=True, check=False)
         return run.returncode, run.stdout, run.stderr
