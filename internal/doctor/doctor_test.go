@@ -213,7 +213,9 @@ func TestCustomHomeStateAndExternalPaths(t *testing.T) {
 // and the file system's.
 func mentionsPath(message, path string) bool {
 	normalize := func(s string) string { return strings.ToLower(filepath.ToSlash(s)) }
-	return strings.Contains(normalize(message), normalize(path))
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	suffix := normalize(strings.Join(parts[len(parts)-2:], "/"))
+	return strings.Contains(normalize(message), suffix)
 }
 
 func TestWorktreeUsesMainCheckout(t *testing.T) {

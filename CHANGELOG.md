@@ -3,6 +3,10 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.6.4] — 2026-11-12
+
+- W-03: Windows-only release check fix: the 0.6.3 release check failed; the 0.6.2 changes are included in this release. The config and doctor tests now compare the stable path suffix.
+
 ## [0.6.3] — 2026-11-12
 
 - W-03: Windows-only release check fix: the config and doctor tests now accept Windows path and symlink behaviour. The 0.6.2 changes are included in this release; 0.6.2 was not published.
