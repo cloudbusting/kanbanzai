@@ -1,10 +1,10 @@
 # W-23: The OpenCode plugin registers commands
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run kanbanzai-qa on the fixed command transform
+- **Next action:** deploy-qa: package the plugin bundle and prove the command install (kanbanzai-package), then the owner approves the release
 - **Where:** worktree W-23
 
 ## Goal
@@ -16,13 +16,13 @@ names work in both harnesses.
 
 ## Acceptance checks
 
-- [ ] The fake OpenCode driver in `opencode/server.test.mjs` registers one command per skill, and each command's
+- [x] The fake OpenCode driver in `opencode/server.test.mjs` registers one command per skill, and each command's
       `execute` calls `ctx.session.prompt` with the skill's body and the user's prompt text.
-- [ ] The command list contains both `build` and `kanbanzai:build` for the `build` skill, and the same pair for
+- [x] The command list contains both `build` and `kanbanzai:build` for the `build` skill, and the same pair for
       every skill in `skills/`; against a real OpenCode server, not only the fake.
-- [ ] `plugin.setup` loads without a `ctx.command` transform and a command whose `execute` throws does not throw
+- [x] `plugin.setup` loads without a `ctx.command` transform and a command whose `execute` throws does not throw
       into OpenCode.
-- [ ] `node --test opencode/*.test.mjs` and the rest of the project's checks pass, and the README's OpenCode
+- [x] `node --test opencode/*.test.mjs` and the rest of the project's checks pass, and the README's OpenCode
       section names the commands the plugin registers.
 
 ## Deploy
@@ -31,15 +31,15 @@ package and release: the plugin is shipped in the plugin bundle.
 
 ## Tasks
 
-- [ ] Register the commands in `opencode/server.js` — add `skillBody` to strip the frontmatter, call
+- [x] Register the commands in `opencode/server.js` — add `skillBody` to strip the frontmatter, call
       `ctx.command.transform` in the `setup` try, and add `name` and `kanbanzai:<name>` for every skill with the
       skill's description and an `execute` that appends the skill's body to the user's text and calls
       `ctx.session.prompt` with the same delivery; guard both the registration and the execute — the
       `opencode/server.test.mjs` fake driver proves the commands and the execute.
-- [ ] Add the command to the fake OpenCode — `opencode/server.test.mjs` — model the command editor as add-only,
+- [x] Add the command to the fake OpenCode — `opencode/server.test.mjs` — model the command editor as add-only,
       capture the commands, and assert the names and the `execute`'s `session.prompt` call — `node --test
       opencode/*.test.mjs` passes.
-- [ ] Update the docs — `README.md`'s OpenCode section and the `opencode/server.js` header comment — say the plugin
+- [x] Update the docs — `README.md`'s OpenCode section and the `opencode/server.js` header comment — say the plugin
       registers the same commands as the Claude Code plugin and name the bare and `kanbanzai:` forms — the wording
       test and the README's OpenCode section pass.
 
@@ -76,6 +76,7 @@ package and release: the plugin is shipped in the plugin bundle.
 - 2026-11-11: Merged into `main` as `1646bf0` at the owner's call, before the check step. A fresh OpenCode
   2.2.6 server against the main checkout's `opencode/` reports 23 commands: the 3 built-ins and the 20 Kanbanzai
   names, so the fix is live in the main checkout. Next is still `check`.
+- 2026-11-11: Checked: 266 Go tests, 127 board-view node tests and the 3 OpenCode harness tests pass; go vet, hooks and JS syntax clean; claude plugin validate and the board check pass; a real OpenCode 2.2.6 server's command transform registered build and kanbanzai:build for every skill (18 names).
 
 ## Out of scope
 
@@ -93,3 +94,6 @@ plugin and drop every command, including the harness's own.
 - 2026-11-11 — the owner's request: "the opencode plugin does not register commands properly (e.g. /build or
   /kanbanzai:build)". `opencode/server.js` registers only `ctx.skill.transform`; it never calls
   `ctx.command.transform`, which the OpenCode server API documents for adding commands.
+- 2026-11-11 — check (opencode:ses_e35eab6e1ffeVo7Vue66rHjAsK): the W-23 branch was already an ancestor of main
+  (`fdf73ea`, merged as `1646bf0`); fast-forwarded the worktree to main `8adbdfd` and ran the checks on that tree.
+  The owner tested it live in OpenCode and passed it: "it works correctly".
