@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** release: v0.6.0 after the owner approves, with the plugin icon as its first submission
+- **Next action:** release: settle the next version (0.6.1 recommended) after the owner approves, with the plugin icon as its first submission
 - **Where:** worktree W-24
 - **Held:** waiting: the owner's installed-.vsix look and release approval
 
@@ -202,3 +202,7 @@ end-to-end check needs T2's PNG.
   Installed `cloudbusting.kanbanzai-board@0.6.0` in the editor; its `icon.png` sha256 matches the artifact. Reload
   the window to see the Board tab and Extensions view. Release waits on the owner: version 0.6.0, MIT, publisher
   cloudbusting, and the plugin icon is the first submission (final).
+- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: the owner's check installed the v0.6.0 release-page vsix
+  (24,236 bytes, sha `aa0e9f82…`), which predates this card: no `extension/icon.png`, no `icon` field, no
+  `Icons.Default` asset. The icon build is the local 33,917-byte vsix (sha `9cec9e85…`). v0.6.0 is published and
+  its assets are immutable; the icon ships in the next release, and the release step settles that version.
