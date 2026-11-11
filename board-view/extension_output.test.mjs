@@ -21,7 +21,7 @@ const asking = (n) => ({ waiting: n, claims: n, cards: {} });
 
 // Loads a fresh extension.js. `reads`, `answers` and `configs` are what the three commands print, one per run (the last
 // repeats); an entry of `null` makes that run fail, as a broken command does.
-function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], folders, throwing } = {}) {
+function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], folders, throwing, missing } = {}) {
   const record = (level, text) => {
     if (throwing) throw new Error("the channel is broken");
     channel.lines.push({ level, text });
@@ -72,6 +72,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
   const next = (list) => (list.length > 1 ? list.shift() : list[0]);
   const cp = {
     execFile: (_cmd, args, _o, cb) => {
+      if (missing) return cb(Object.assign(new Error("spawn kanbanzai ENOENT"), { code: "ENOENT" }), "", "");
       const list = args[0] === "sessions" ? answers : args[0] === "config" ? configs : reads;
       const entry = next(list);
       if (entry === null) return cb(new Error("boom"), "", "boom");
@@ -123,6 +124,17 @@ test("the board writes no log file: its lines live in the channel only", () => {
     assert.doesNotMatch(readFileSync(path.join(here, name), "utf8"), /writeFile|appendFile|createWriteStream/, name);
   }
 });
+
+test("a missing command says how to install it, in the tab and the log", () => run({ missing: true },
+  async ({ panel, vscode, channel }) => {
+    vscode.run();
+    await settle();
+    assert.match(panel.webview.html, /not found/);
+    assert.match(panel.webview.html, /github\.com\/cloudbusting\/kanbanzai\/releases/);
+    assert.match(panel.webview.html, /kanbanzai\.command/);
+    assert.ok(channel.lines.some((l) => l.level === "error" && l.text.includes("not found") &&
+      l.text.includes("kanbanzai.command")), JSON.stringify(channel.lines));
+  }));
 
 test("a failed board read logs one error line, and the tab still shows the box", () => run({
   reads: [null, null, board({})],
