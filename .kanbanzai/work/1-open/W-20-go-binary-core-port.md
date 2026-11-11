@@ -1,10 +1,10 @@
 # W-20: Port the core to Go: one binary `kanbanzai` command and its tooling
 
-- **Stage:** building
+- **Stage:** checked
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 15: the acceptance rehearsal — the full Go/Node/QA checks, the release and .vsix dry runs, the no-Python binary, and the owner's manual install checks.
+- **Next action:** Package the source bundle, the five binary archives, the .vsix and their checksums; prove them; then the owner's install check and release approval.
 - **Where:** worktree W-20
 
 ## Goal
@@ -256,6 +256,8 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Tasks 11a/11b done: OpenCode and the hooks resolve KANBANZAI_BIN/PATH and inject the missing-command line; the Node fake harness and the Go .vsix tool are in place (0dac75c). 280 Python tests pass against the Go binary; Node and Go tests green.
 - 2026-11-11: Tasks 12 and 13 done: docs and project skills in Go terms, with the Go wording/neutral tests (0e57b95); the release builder, tag workflow and release/package skills (1a7e366). Five archives + SHA256SUMS build locally; 272 Python tests pass against the Go binary; Node and Go tests green.
 - 2026-11-11: Task 14 done: removed the Python core, CLI and tests; merged main (W-23 OpenCode commands) and kept them in the Node harness; CI is Go+Node; the no-Python test passes; the Go binary at bin/kanbanzai checks the 23-card board and audits W-20 (6148782).
+- 2026-11-11: Task 15 done: the acceptance rehearsal passed — go test/vet, Node, five release archives + SHA256SUMS, .vsix with no machine path, the no-Python binary, go install, and a source bundle that builds and runs in a fresh repo. Found and fixed the bundle's missing assets.go (36d4c1d).
+- 2026-11-11: Checked: QA pass — go test/vet, Node (extension and OpenCode), hooks, JS syntax, config/steps, audit, check (23 cards) and the .vsix; claude validate passed with author/icon warnings only. Main review accepted; the source bundle now carries assets.go (36d4c1d).
 
 ## Out of scope
 
