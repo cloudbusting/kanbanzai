@@ -25,11 +25,11 @@ A card whose **Deploy** line is `None` never reaches this step; it closes from C
 ## 1. The public remote
 
 The owner has allowed a public repository in the `CloudBusting` GitHub organisation. The expected remote is
-`https://github.com/CloudBusting/kanbanzai`.
+`https://github.com/cloudbusting/kanbanzai`.
 
 ```bash
 git remote -v
-gh repo view CloudBusting/kanbanzai
+gh repo view cloudbusting/kanbanzai
 ```
 
 - If `origin` already exists, it must be that repository. If it points anywhere else, stop and ask; never
@@ -37,7 +37,7 @@ gh repo view CloudBusting/kanbanzai
 - If the repository does not exist and the owner has approved this release, create it once:
 
 ```bash
-gh repo create CloudBusting/kanbanzai --public --source . --remote origin \
+gh repo create cloudbusting/kanbanzai --public --source . --remote origin \
   --description "A kanban of work-item cards built for coding agents."
 ```
 
@@ -138,7 +138,7 @@ configuration, not this machine's plugins:
 
 ```bash
 C="$(mktemp -d)"
-CLAUDE_CONFIG_DIR="$C" claude plugin marketplace add CloudBusting/kanbanzai
+CLAUDE_CONFIG_DIR="$C" claude plugin marketplace add cloudbusting/kanbanzai
 CLAUDE_CONFIG_DIR="$C" claude plugin install kanbanzai@kanbanzai
 CLAUDE_CONFIG_DIR="$C" claude plugin list
 CLAUDE_CONFIG_DIR="$C" claude plugin details kanbanzai@kanbanzai
@@ -149,16 +149,21 @@ Check that the installed plugin contains the skills, hooks, `bin/kanbanzai`, `ka
 
 ### The editor extension
 
-Publish to a marketplace only when `board-view/package.json` has a real publisher, licence and the owner's
-publishing token in the environment:
+The current `install.py` records this checkout's command in `extension/bin.json`. That makes a useful local `.vsix`
+and a bad marketplace artifact: another machine cannot run the recorded path. Do not publish it to a marketplace
+until the extension resolves the command from a setting, PATH or a packaged launcher. Attaching it to the GitHub
+release is allowed only when the owner accepts that limitation; say it plainly in the notes.
+
+Publish to a marketplace only when `board-view/package.json` has a real publisher, licence, a portable command
+resolution and the owner's publishing token in the environment:
 
 ```bash
 npx @vscode/vsce publish --packagePath "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
-Never put a token in the repository or a command that is logged. If there is no publisher or token, attach the
-`.vsix` to the GitHub release and record that the owner must install it manually. Do not describe an unpublished
-extension as available in a marketplace.
+Never put a token in the repository or a command that is logged. If there is no publisher, token or portable
+command, attach the `.vsix` to the GitHub release or leave it out, and record that the owner must install it
+manually. Do not describe an unpublished extension as available in a marketplace.
 
 ### OpenCode
 
@@ -172,7 +177,7 @@ From a clean machine state, not the build tree:
 
 ```bash
 V="$(mktemp -d)" && cd "$V"
-gh release download "kanbanzai--v<version>" --repo CloudBusting/kanbanzai
+gh release download "kanbanzai--v<version>" --repo cloudbusting/kanbanzai
 sha256sum -c SHA256SUMS
 tar -xzf kanbanzai-<version>.tar.gz
 ./kanbanzai-<version>/bin/kanbanzai init
