@@ -1,11 +1,12 @@
 # W-24: Design the Kanbanzai icon and export the plugin and extension PNGs
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: package the .vsix and the Claude Code and OpenCode bundles with kanbanzai-package, then the owner's installed-.vsix look check
+- **Next action:** release: v0.6.0 after the owner approves, with the plugin icon as its first submission
 - **Where:** worktree W-24
+- **Held:** waiting: the owner's installed-.vsix look and release approval
 
 ## Goal
 
@@ -146,6 +147,7 @@ end-to-end check needs T2's PNG.
 - 2026-11-11: build: recovered the crashed session's T1 in worktree W-24 — the exact source and the stdlib renderer are green at 32/512/1024 and reject an unsupported <path>; both PNGs are written; T2 next.
 - 2026-11-11: build: T1–T4 done — icon/kanbanzai.svg renders the plugin 1024 and extension 512 PNGs through the stdlib tools/icon; the board panel and .vsix carry the icon; docs name the export; all Go and Node suites plus claude plugin validate pass. The owner's installed-.vsix look check is not run.
 - 2026-11-11: check: kanbanzai-qa pass — go test ./... and go vet clean, node 130 pass, hooks and JS syntax clean, claude plugin validate passes, the .vsix carries extension/icon.png with the Icons.Default asset and no bin.json, go run ./tools/icon -check says icon ok, audit and kanbanzai check pass; the owner's installed-.vsix look check remains.
+- 2026-11-11: deploy-qa: packaged 0.6.0 at 53079ab — source bundle, five binaries and the .vsix; proofs pass (fresh project, claude validate/install, opencode, vsix icon); installed cloudbusting.kanbanzai-board@0.6.0 in the editor; reload and the owner's release approval remain.
 
 ## Out of scope
 
@@ -193,3 +195,10 @@ end-to-end check needs T2's PNG.
   about concurrent edits; this recovery session finished T1–T4 and committed `16fea2a`. The renderer is
   `*image.NRGBA` and `-check` compares straight colours — do not go back to premultiplied `image.RGBA`. The owner's
   installed-`.vsix` look check is the only step not run.
+- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: deploy-qa: packaged 0.6.0 at main `53079ab` in
+  `/tmp/kanbanzai-package-W-24-0.6.0` — source bundle with `icon/`, five binary archives and
+  `kanbanzai-board-0.6.0.vsix`, all in `SHA256SUMS`. Fresh-project build/init/check/board JSON, `claude plugin
+  validate` and a throwaway marketplace install, `node --check opencode`, and the vsix icon/manifest all pass.
+  Installed `cloudbusting.kanbanzai-board@0.6.0` in the editor; its `icon.png` sha256 matches the artifact. Reload
+  the window to see the Board tab and Extensions view. Release waits on the owner: version 0.6.0, MIT, publisher
+  cloudbusting, and the plugin icon is the first submission (final).
