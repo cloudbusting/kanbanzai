@@ -9,5 +9,6 @@
   "homepage": "https://github.com/cloudbusting/kanbanzai",
   "repository": "https://github.com/cloudbusting/kanbanzai",
   "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
   "keywords": ["kanban", "workflow", "agents", "board"]
 }

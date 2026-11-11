@@ -21,6 +21,9 @@ go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
 Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with the VSCodium server's
 `codium --install-extension`, then run **Developer: Reload Window** once. The package contains no machine path.
 
+The mark is `icon/kanbanzai.svg` at the repository root; `go run ./tools/icon` regenerates `board-view/icon.png`,
+which the Extensions view and the Board tab show.
+
 ## Open
 
 Click `▦ Board` in the status bar, or run **Kanbanzai: Show Board** from the command palette. The extension starts in
