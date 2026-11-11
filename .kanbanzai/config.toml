@@ -20,6 +20,7 @@ config_version = 1
 [project]
 owner = "the owner"      # the person the skills address and whose decisions they ask for
 context = ["README.md"]  # read first by every Kanbanzai skill
+worktree = "../worktrees/kanbanzai/{id}"
 
 # More you can set (see Kanbanzai's defaults/config.toml for every key):
 #   [project]  prefix, work, claims, numbers, worktree, context = ["rules file", ...]
