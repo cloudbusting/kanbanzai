@@ -3,6 +3,13 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.6.1] — 2026-11-11
+
+- W-23: The OpenCode plugin registers the workflow commands again. Its command transform called `list()` on
+  OpenCode's add-only command editor, so OpenCode disabled the plugin and `/build`, `/kanbanzai:build` (and every
+  other skill's pair) were missing.
+- W-24: The Claude Code plugin and the editor extension ship the Kanbanzai icon.
+
 ## [0.6.0] — 2026-11-11
 
 - W-20: The `kanbanzai` command is a self-contained Go binary with no runtime prerequisite. It is published for
