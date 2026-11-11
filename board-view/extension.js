@@ -147,6 +147,7 @@ function showBoard(context, log) {
     enableScripts: true,
     retainContextWhenHidden: true,
     localResourceRoots: [],
+    iconPath: vscode.Uri.joinPath(context.extensionUri, 'icon.png'),
   });
 
   const disposables = [];
