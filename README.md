@@ -29,6 +29,7 @@ hooks/                     Claude Code: the heartbeat after every tool call, the
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
 board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
 tools/vsix/                the .vsix packer
+tools/release/             the per-OS/arch release builder
 ```
 
 ## Install Kanbanzai
@@ -245,6 +246,7 @@ go test ./...
 go vet ./...
 node --test board-view/*.test.mjs opencode/*.test.mjs
 go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
+go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
 ```
 
 The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
