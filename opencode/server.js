@@ -5,8 +5,8 @@
 // It does for OpenCode what `.claude-plugin/` and `hooks/` do for Claude Code, from the same files:
 //   - registers Kanbanzai's skills (../skills/*/SKILL.md) under their own names, and the commands that run
 //     them under their bare name and `kanbanzai:<name>`;
-//   - puts `kanbanzai` (../bin) on the PATH of every shell OpenCode starts, and labels the shell with its
-//     session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
+//   - puts `kanbanzai` (KANBANZAI_BIN, PATH, or a local build) on the PATH of every shell OpenCode starts, and
+//     labels the shell with its session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
 //   - renews this session's claims after every tool call (the heartbeat);
 //   - adds the board's standing context (`kanbanzai context`) to every model request;
 //   - writes each session's state (busy, idle, or asking you) under the project's state folder, so the board view
@@ -22,13 +22,43 @@ import { fileURLToPath } from "node:url"
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, "..")
-const BIN = path.join(ROOT, "bin")
-const KANBANZAI = path.join(BIN, "kanbanzai")
+const DEV_BIN = path.join(ROOT, "bin", process.platform === "win32" ? "kanbanzai.exe" : "kanbanzai")
 const CONTEXT_TTL_MS = 10 * 60 * 1000
 const SHELL_TOOLS = new Set(["bash", "shell"])
+const MISSING = "Kanbanzai: the `kanbanzai` command is not installed. Install it from " +
+  "https://github.com/cloudbusting/kanbanzai/releases and put it on PATH, or set KANBANZAI_BIN."
 const debug = (what) => {
   if (process.env.KANBANZAI_DEBUG_LOG) try { fs.appendFileSync(process.env.KANBANZAI_DEBUG_LOG, JSON.stringify(what) + "\n") } catch {}
 }
+
+function isFile(candidate) {
+  try {
+    return fs.statSync(candidate).isFile()
+  } catch {
+    return false
+  }
+}
+
+// The command: KANBANZAI_BIN (an explicit path, even a wrong one), then kanbanzai on PATH, then a local build.
+export function resolveCommand() {
+  const explicit = (process.env.KANBANZAI_BIN || "").trim()
+  if (explicit) return { command: explicit, found: isFile(explicit) }
+  const names = process.platform === "win32" ? ["kanbanzai.exe", "kanbanzai"] : ["kanbanzai"]
+  for (const dir of (process.env.PATH || "").split(path.delimiter)) {
+    if (!dir) continue
+    for (const name of names) {
+      const candidate = path.join(dir, name)
+      if (isFile(candidate)) return { command: candidate, found: true }
+    }
+  }
+  if (isFile(DEV_BIN)) return { command: DEV_BIN, found: true }
+  return { command: "kanbanzai", found: false }
+}
+
+const resolved = resolveCommand()
+const KANBANZAI = resolved.command
+const COMMAND_FOUND = resolved.found
+const COMMAND_DIR = path.isAbsolute(KANBANZAI) ? path.dirname(KANBANZAI) : null
 
 function frontmatter(text) {
   const found = /^---\n([\s\S]*?)\n---\n?/.exec(text)
@@ -135,7 +165,9 @@ export default {
       await ctx.shell.hook("create.before", (event) => {
         if (!event || !event.env) return
         const current = event.env.PATH || process.env.PATH || ""
-        if (!current.split(path.delimiter).includes(BIN)) event.env.PATH = BIN + path.delimiter + current
+        if (COMMAND_DIR && !current.split(path.delimiter).includes(COMMAND_DIR)) {
+          event.env.PATH = COMMAND_DIR + path.delimiter + current
+        }
         const sessionID = pending.get(event.command)
         if (sessionID) {
           pending.delete(event.command)
@@ -162,6 +194,9 @@ export default {
       await ctx.session.hook("context", async (event) => {
         const text = await standing()
         if (text && event && Array.isArray(event.system)) event.system.push({ type: "text", text })
+        if (!COMMAND_FOUND && event && Array.isArray(event.system)) {
+          event.system.push({ type: "text", text: MISSING })
+        }
       })
     } catch {}
 

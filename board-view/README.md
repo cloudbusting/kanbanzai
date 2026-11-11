@@ -8,13 +8,18 @@ rules for a card live in one place, the core. Plain JavaScript, no build step, n
 
 ## Install
 
+Install the `kanbanzai` command first: download a release archive for your OS/arch from
+<https://github.com/cloudbusting/kanbanzai/releases>, put the binary on PATH, and check `kanbanzai --version`. The
+extension runs `kanbanzai` from PATH; the `kanbanzai.command` setting names an absolute path instead.
+
+Pack this folder into a `.vsix`:
+
 ```bash
-python3 -I <kanbanzai>/board-view/install.py
+go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
 ```
 
-That packs this folder into a `.vsix` (recording this checkout's `bin/kanbanzai` in it) and installs it with the
-VSCodium server's own `codium --install-extension`. Then run **Developer: Reload Window** once. (`--vsix-only PATH`
-writes the `.vsix` and stops.) The `kanbanzai.command` setting overrides the recorded command.
+Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with the VSCodium server's
+`codium --install-extension`, then run **Developer: Reload Window** once. The package contains no machine path.
 
 ## Open
 

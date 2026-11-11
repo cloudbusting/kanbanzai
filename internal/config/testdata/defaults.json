@@ -1,0 +1,196 @@
+{
+  "claims": {
+    "lease_minutes": 120,
+    "owner_env": "KANBANZAI_OWNER"
+  },
+  "columns": [
+    {
+      "folder": "1-open",
+      "key": "todo",
+      "kind": "open",
+      "label": "Todo",
+      "next": "design",
+      "settled_next": "build",
+      "settled_title": "BUILDING",
+      "started": "claimed",
+      "title": "DESIGNING"
+    },
+    {
+      "doing": "design",
+      "folder": "1-open",
+      "key": "designing",
+      "kind": "open",
+      "label": "Designing",
+      "lane": "Design",
+      "started": true,
+      "title": "DESIGNING"
+    },
+    {
+      "folder": "1-open",
+      "key": "designed",
+      "kind": "open",
+      "label": "Designed",
+      "lane": "Design",
+      "next": "build",
+      "started": true,
+      "title": "BUILDING",
+      "worktree": true
+    },
+    {
+      "doing": "build",
+      "folder": "1-open",
+      "key": "building",
+      "kind": "open",
+      "label": "Building",
+      "lane": "Build",
+      "started": true,
+      "title": "BUILDING",
+      "worktree": true
+    },
+    {
+      "folder": "1-open",
+      "key": "built",
+      "kind": "open",
+      "label": "Built",
+      "lane": "Build",
+      "next": "check",
+      "started": true,
+      "title": "CHECKING",
+      "worktree": true
+    },
+    {
+      "doing": "check",
+      "folder": "1-open",
+      "key": "checking",
+      "kind": "open",
+      "label": "Checking",
+      "lane": "Check",
+      "started": true,
+      "title": "CHECKING",
+      "worktree": true
+    },
+    {
+      "folder": "1-open",
+      "key": "checked",
+      "kind": "open",
+      "label": "Checked",
+      "lane": "Check",
+      "next": "deploy-qa",
+      "started": true,
+      "title": "IN QA",
+      "worktree": true
+    },
+    {
+      "doing": "deploy-qa",
+      "folder": "1-open",
+      "key": "in-qa",
+      "kind": "open",
+      "label": "In QA",
+      "lane": "QA",
+      "started": true,
+      "title": "IN QA",
+      "worktree": true
+    },
+    {
+      "folder": "1-open",
+      "key": "qa-approved",
+      "kind": "open",
+      "label": "QA-approved",
+      "lane": "QA",
+      "next": "ship",
+      "title": "SHIPPING",
+      "waits_for_owner": true,
+      "worktree": true
+    },
+    {
+      "doing": "ship",
+      "folder": "1-open",
+      "key": "shipping",
+      "kind": "open",
+      "label": "Shipping",
+      "lane": "Ship",
+      "title": "SHIPPING",
+      "worktree": true
+    },
+    {
+      "folder": "x-paused",
+      "key": "paused",
+      "kind": "parked",
+      "label": "Paused",
+      "title": "PAUSED"
+    },
+    {
+      "folder": "10-done",
+      "key": "done",
+      "kind": "done",
+      "label": "Done",
+      "title": "DONE"
+    }
+  ],
+  "flow": {
+    "move_grace_minutes": 10,
+    "pull_order": [
+      "checked",
+      "built",
+      "designed",
+      "todo"
+    ],
+    "stale_days": 7,
+    "wip_limit": 5
+  },
+  "project": {
+    "batch_branch": "batch/{id}",
+    "batches": "",
+    "branch": "{id}",
+    "claims": "",
+    "context": [],
+    "digits": 2,
+    "home": ".kanbanzai",
+    "main_branch": "main",
+    "numbers": "",
+    "owner": "the user",
+    "prefix": "W",
+    "state": ".kanbanzai/state",
+    "template": "",
+    "work": ".kanbanzai/work",
+    "worktree": "../{repo}-{id}"
+  },
+  "steps": {
+    "build": {
+      "context": [],
+      "during": "building",
+      "extend": [],
+      "into": "built",
+      "skill": "kanbanzai:build"
+    },
+    "check": {
+      "checks": [],
+      "context": [],
+      "during": "checking",
+      "extend": [],
+      "into": "checked",
+      "skill": "kanbanzai:check"
+    },
+    "deploy-qa": {
+      "context": [],
+      "during": "in-qa",
+      "extend": [],
+      "into": "qa-approved",
+      "skill": ""
+    },
+    "design": {
+      "context": [],
+      "during": "designing",
+      "extend": [],
+      "into": "designed",
+      "skill": "kanbanzai:design"
+    },
+    "ship": {
+      "context": [],
+      "during": "shipping",
+      "extend": [],
+      "into": "done",
+      "skill": ""
+    }
+  }
+}

@@ -31,15 +31,19 @@ function workspaceRoot() {
   return folders.length ? folders[0].uri.fsPath : null;
 }
 
-// The command: the `kanbanzai.command` setting, else the one install.py recorded beside this file, else PATH.
+// The command: the `kanbanzai.command` setting, else kanbanzai on PATH.
 function command() {
   const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
   if (typeof set === 'string' && set) return set;
-  try {
-    const recorded = JSON.parse(fs.readFileSync(path.join(__dirname, 'bin.json'), 'utf8')).command;
-    if (typeof recorded === 'string' && fs.existsSync(recorded)) return recorded;
-  } catch (e) { /* not recorded */ }
-  return 'kanbanzai';
+  return process.platform === 'win32' ? 'kanbanzai.exe' : 'kanbanzai';
+}
+
+const MISSING_COMMAND = 'The `kanbanzai` command was not found. Install it from ' +
+  'https://github.com/cloudbusting/kanbanzai/releases and put it on PATH, or set the `kanbanzai.command` setting.';
+
+// A missing command is a setup problem, not a JSON parse or a timeout: say how to fix it.
+function missing(err) {
+  return err && err.code === 'ENOENT';
 }
 
 // The command's stdout as text, or the reason it failed (no command, no project, a timeout). W-104 keeps the reason
@@ -47,7 +51,8 @@ function command() {
 function runText(root, args) {
   return new Promise((resolve) => {
     execFile(command(), args, { cwd: root, timeout: RUN_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
-      if (err) resolve({ error: String(stderr || '').trim() || err.message });
+      if (missing(err)) resolve({ error: MISSING_COMMAND });
+      else if (err) resolve({ error: String(stderr || '').trim() || err.message });
       else resolve({ text: stdout });
     });
   });
@@ -60,6 +65,10 @@ function run(root, args) {
       args,
       { cwd: root, timeout: RUN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
+        if (missing(err)) {
+          resolve({ error: { reason: MISSING_COMMAND, text: MISSING_COMMAND } });
+          return;
+        }
         if (err) {
           const detail = String(stderr || '').trim() || err.message;
           resolve({ error: { reason: detail, text: `kanbanzai ${args[0]} failed: ${detail}` } });
