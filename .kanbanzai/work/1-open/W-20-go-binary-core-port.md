@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 3: brief and board (head fields, cards, marks, JSON/text, sessions map), porting test_board.py, test_columns.py's board parts and test_doing.py's board marks.
+- **Next action:** Task 5: the number ledger (lock, worktree scan, allocate/peek/status/release/mark), porting test_number.py.
 - **Where:** worktree W-20
 
 ## Goal
@@ -245,6 +245,8 @@ Engineering decisions made here (not owner choices):
   output stay open: W-08, W-09 and W-16.
 - 2026-11-11: Designed the Go port: owner chose remove Python in this card, GitHub Releases + go install, Linux/macOS amd64+arm64 and Windows amd64, and a stdlib-only TOML parser; tasks 0-15 and the parity map are written.
 - 2026-11-11: Build tasks 0-2 done: Go module, embedded assets, test harness and CI (ec18c78); config and focused TOML parser (4ec9ca9); fsutil, advisory locks, claims and owner identity (e1f718e). go test ./... and go vet ./... green.
+- 2026-11-11: Task 3 done: brief reader and board (debedd4), with the Python board tests ported; go test ./... green.
+- 2026-11-11: Task 4 done: the move command, its refusals and log, and the claim-starts-step callback (02fcd9e).
 
 ## Out of scope
 
