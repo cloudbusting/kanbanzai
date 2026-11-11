@@ -1,0 +1,11 @@
+{
+  "card": "W-01",
+  "owner": "tester:python",
+  "claimed_at": "2026-11-11T05:00:00+00:00",
+  "renewed_at": "2026-11-11T05:00:00+00:00",
+  "expires_at": "2099-11-11T07:00:00+00:00",
+  "minutes": 120.0,
+  "branch": "W-01",
+  "where": "/tmp/kanbanzai-W-01",
+  "note": "written by the Python core"
+}
