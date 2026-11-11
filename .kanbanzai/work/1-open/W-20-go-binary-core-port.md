@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 5: the number ledger (lock, worktree scan, allocate/peek/status/release/mark), porting test_number.py.
+- **Next action:** Task 6: the step command (text and JSON), the standing context and init; port test_step_context.py and the init/default-path tests.
 - **Where:** worktree W-20
 
 ## Goal
@@ -247,6 +247,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Build tasks 0-2 done: Go module, embedded assets, test harness and CI (ec18c78); config and focused TOML parser (4ec9ca9); fsutil, advisory locks, claims and owner identity (e1f718e). go test ./... and go vet ./... green.
 - 2026-11-11: Task 3 done: brief reader and board (debedd4), with the Python board tests ported; go test ./... green.
 - 2026-11-11: Task 4 done: the move command, its refusals and log, and the claim-starts-step callback (02fcd9e).
+- 2026-11-11: Task 5 done: the number ledger (f5bfd49), with the all-worktree scan and the Python ledger fixture; claims and numbers proven under forced locks. go test ./... green.
 
 ## Out of scope
 
