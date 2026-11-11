@@ -1,11 +1,11 @@
 # W-03: Strict, versioned config schema with actionable validation and a doctor
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.6.4, 6a624bc, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.6.4
 - **ADR:** none
-- **Next action:** release: 0.6.2 after the owner approves
-- **Where:** worktree W-03
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
