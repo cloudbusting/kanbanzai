@@ -208,6 +208,14 @@ func TestCustomHomeStateAndExternalPaths(t *testing.T) {
 	}
 }
 
+// mentionsPath reports whether a diagnostic names a path, tolerating the
+// case and separator differences Windows reports between the caller's path
+// and the file system's.
+func mentionsPath(message, path string) bool {
+	normalize := func(s string) string { return strings.ToLower(filepath.ToSlash(s)) }
+	return strings.Contains(normalize(message), normalize(path))
+}
+
 func TestWorktreeUsesMainCheckout(t *testing.T) {
 	root := initialized(t, "")
 	testutil.Git(t, root, "add", "-A")
@@ -220,7 +228,7 @@ func TestWorktreeUsesMainCheckout(t *testing.T) {
 		t.Fatalf("worktree diagnosis: %+v", report)
 	}
 	f := finding(t, report, "project", "pass")
-	if !strings.Contains(f.Message, root) {
+	if !mentionsPath(f.Message, root) {
 		t.Fatalf("not shared project: %+v", f)
 	}
 }
