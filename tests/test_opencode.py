@@ -23,14 +23,19 @@ DRIVER = r"""
 import plugin from %(server)s
 const hooks = {}
 const added = []
+const commands = []
+const prompts = []
 const ctx = {
   location: { directory: %(project)s },
   skill: { transform: async (fn) => fn({ add: (s) => added.push(s), list: () => added }) },
+  command: { transform: async (fn) => fn({ add: (c) => commands.push(c), list: () => commands }) },
   tool: { hook: async (name, fn) => { hooks["tool." + name] = fn } },
   shell: { hook: async (name, fn) => { hooks["shell." + name] = fn } },
-  session: { hook: async (name, fn) => { hooks["session." + name] = fn } },
+  session: { hook: async (name, fn) => { hooks["session." + name] = fn }, prompt: async (input) => { prompts.push(input) } },
 }
 await plugin.setup(ctx)
+const build = commands.find((c) => c.name === "build")
+if (build) await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" })
 const command = "kanbanzai claim owner"
 hooks["tool.execute.before"]({ tool: "bash", sessionID: "ses_test1", input: { command } })
 const shell = { command, cwd: %(project)s, timeout: 0, shell: "/bin/sh", env: { PATH: "/usr/bin:/bin" } }
@@ -44,6 +49,8 @@ await new Promise((r) => setTimeout(r, 1500))
 console.log(JSON.stringify({
   skills: added.map((s) => s.id).sort(),
   paths: added.map((s) => s.path),
+  commands: commands.map((c) => c.name).sort(),
+  prompt: prompts[0] && prompts[0].text,
   shellPath: shell.env.PATH, owner: shell.env.KANBANZAI_OWNER,
   otherOwner: other.env.KANBANZAI_OWNER ?? null,
   system: request.system.map((p) => p.text).join("\n"),
@@ -75,6 +82,7 @@ const read = () => {
 const ctx = {
   location: { directory: PROJECT, project: { id: "p", directory: PROJECT, canonical: PROJECT } },
   skill: { transform: async () => {} },
+  command: { transform: async () => {} },
   tool: { hook: async () => {} },
   shell: { hook: async () => {} },
   session: {
@@ -162,6 +170,9 @@ class OpenCodePlugin(unittest.TestCase):
 
         expected = sorted(p.name for p in (ROOT / "skills").iterdir() if (p / "SKILL.md").is_file())
         self.assertEqual(seen["skills"], expected)
+        self.assertEqual(seen["commands"], sorted(expected + [f"kanbanzai:{name}" for name in expected]))
+        self.assertIn("# Build", seen["prompt"])
+        self.assertIn("do the thing", seen["prompt"])
         self.assertTrue(all(Path(p).is_file() for p in seen["paths"]))
         self.assertTrue(seen["shellPath"].startswith(str(ROOT / "bin") + os.pathsep))
         self.assertEqual(seen["owner"], "opencode:ses_test1")
@@ -209,6 +220,7 @@ class OpenCodePlugin(unittest.TestCase):
         driver.write_text("""
 import plugin from %(server)s
 const ctx = { location: { directory: %(project)s }, skill: { transform: async () => {} },
+              command: { transform: async () => {} },
               tool: { hook: async () => {} }, shell: { hook: async () => {} }, session: { hook: async () => {} } }
 const cleanup = await plugin.setup(ctx)
 console.log(JSON.stringify({ loaded: true, cleanup: typeof cleanup }))

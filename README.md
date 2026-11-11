@@ -58,10 +58,11 @@ This repository is also its own public marketplace: `/plugin install kanbanzai -
 { "plugins": ["<path to kanbanzai>/opencode"] }
 ```
 
-The plugin registers the same skills, puts `kanbanzai` on the PATH of the shells OpenCode starts, labels them with
-the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call, adds the board's
-context to each request, and writes each session's state (busy, idle or asking) into the project's state folder so the
-board can show it, as it shows a Claude Code session's. Nothing to install: it is plain JavaScript.
+The plugin registers the same skills and commands (`/build` and `/kanbanzai:build`), puts `kanbanzai` on the PATH of
+the shells OpenCode starts, labels them with the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's
+claims after each tool call, adds the board's context to each request, and writes each session's state (busy, idle or
+asking) into the project's state folder so the board can show it, as it shows a Claude Code session's. Nothing to
+install: it is plain JavaScript.
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
