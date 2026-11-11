@@ -3,7 +3,8 @@
 //   { "plugins": ["<path to kanbanzai>/opencode"] }
 //
 // It does for OpenCode what `.claude-plugin/` and `hooks/` do for Claude Code, from the same files:
-//   - registers Kanbanzai's skills (../skills/*/SKILL.md) under their own names;
+//   - registers Kanbanzai's skills (../skills/*/SKILL.md) under their own names, and the commands that run
+//     them under their bare name and `kanbanzai:<name>`;
 //   - puts `kanbanzai` (../bin) on the PATH of every shell OpenCode starts, and labels the shell with its
 //     session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
 //   - renews this session's claims after every tool call (the heartbeat);
@@ -38,6 +39,11 @@ function frontmatter(text) {
     if (m) fields[m[1]] = m[2].replace(/^["']|["']$/g, "")
   }
   return fields
+}
+
+function stripFrontmatter(text) {
+  const found = /^---\n[\s\S]*?\n---\n?/.exec(text)
+  return found ? text.slice(found[0].length) : text
 }
 
 export function readSkills(dir = path.join(ROOT, "skills")) {
@@ -87,6 +93,32 @@ export default {
           }
         }
         debug({ registered: editor.list().map((s) => s.id) })
+      })
+    } catch {}
+
+    try {
+      await ctx.command.transform((editor) => {
+        for (const skill of readSkills()) {
+          for (const name of [skill.id, `kanbanzai:${skill.id}`]) {
+            try {
+              editor.add({
+                name,
+                description: skill.description,
+                execute: async ({ sessionID, prompt, delivery }) => {
+                  try {
+                    const text = [stripFrontmatter(skill.content), prompt && prompt.text].filter(Boolean).join("\n\n")
+                    await ctx.session.prompt({ ...prompt, sessionID, text, delivery })
+                  } catch (e) {
+                    debug({ command: name, error: String(e) })
+                  }
+                },
+              })
+            } catch (e) {
+              debug({ command: name, error: String(e) })
+            }
+          }
+        }
+        debug({ commands: editor.list().map((c) => c.name) })
       })
     } catch {}
 
