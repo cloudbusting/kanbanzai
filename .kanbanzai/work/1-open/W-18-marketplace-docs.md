@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** settled: rewrite the README and add the host guides after the setup and workflow cards
 - **Where:** —
-- **Held:** blocked: W-20 (the install-first docs must name one command and one runtime story)
 
 ## Goal
 
@@ -42,6 +41,7 @@ Docs written before the features settle will need a second pass. Keep the instal
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

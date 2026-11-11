@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design: define the detection inputs, the init plan format and the post-init guarantees
 - **Where:** —
-- **Held:** blocked: W-20 (init is command code; it is written once, in the delivered implementation)
 
 ## Goal
 
@@ -43,6 +42,7 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

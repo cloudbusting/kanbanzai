@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design: define the flow document, the migration plan and the apply/rollback contract
 - **Where:** —
-- **Held:** blocked: W-20 (the workflow subcommand is command code; it is written once, in the delivered implementation)
 
 ## Goal
 
@@ -42,6 +41,7 @@ A config change can move every card. The plan must be the reviewed artifact, and
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

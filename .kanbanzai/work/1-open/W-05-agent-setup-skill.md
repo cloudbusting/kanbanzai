@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design: define the interview, the detection summary and the approval gates
 - **Where:** —
-- **Held:** blocked: W-20 (the setup skill runs the delivered command and must document one install path)
 
 ## Goal
 
@@ -43,6 +42,7 @@ An agent that guesses the main branch or owner creates a board that looks right 
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** settled: choose the licence and apply the marketplace metadata
 - **Where:** —
-- **Held:** blocked: W-20 (the release pipeline and compatibility table must name the delivered binary, not the Python package)
 
 ## Goal
 
@@ -42,6 +41,7 @@ A wrong licence or author field is hard to retract once published. The compatibi
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

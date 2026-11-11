@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design after the issue-type model card: implement the allocator and the ID parser
 - **Where:** —
-- **Held:** blocked: W-20 (the number allocator is command code; it is written once, in the delivered implementation)
 
 ## Goal
 
@@ -43,6 +42,7 @@ A global sequence with type prefixes is easy to misread: `BUG-7` means the seven
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

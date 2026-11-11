@@ -3,14 +3,15 @@
 - **Stage:** todo
 - **Updated:** 2026-11-11
 - **Done:** —
-- **ADR:** none
-- **Next action:** design after the multi-project card: choose publisher, activation and command resolution
+- **ADR:** needed — the install carrier and its trust model (design writes it)
+- **Next action:** design: choose the one-install carrier (a bundled binary and adapter files in the `.vsix`, a pinned download, or PATH), publisher and activation; activation details follow W-16
 - **Where:** —
-- **Held:** blocked: W-20 (the extension's command resolution and marketplace install depend on the delivered binary)
 
 ## Goal
 
 The board view is currently a local `.vsix` built by `install.py`, with `UNLICENSED`, `private: true` and a recorded absolute path to this checkout. Publish it as a normal VS Code/VSCodium extension: publisher, icon, repository, licence, README, changelog, activation that works with a relocated board, a command setting and a marketplace install with no Python checkout path baked in.
+
+The owner asked: "what is the best way of delivering the extension and plugins and command binary in one install to VSCode(ium)? Can the vsix bundle the command binary and the plugins, or run the init if that's how it installs the plugins?" This card owns the extension's install carrier: whether the `.vsix` carries the `kanbanzai` binary for its platform (and the adapter files it can place) or downloads a pinned one, and how the extension wires the host project. Today the `.vsix` carries only the extension and spawns `kanbanzai` from `kanbanzai.command` or PATH; `kanbanzai init` writes `.kanbanzai/` only and installs no Claude Code or OpenCode plugin. The plugin side is W-05 (setup) and W-15 (OpenCode package); W-22 owns the pinned version and the upgrade. Done when a clean editor profile installs one `.vsix` and shows a board with no separate command install (or a documented, tested two-step).
 
 ## Acceptance checks
 
@@ -23,7 +24,8 @@ The board view is currently a local `.vsix` built by `install.py`, with `UNLICEN
 
 ## Deploy
 
-None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no product code.
+`package and release`: the card changes `board-view/package.json`, `board-view/extension.js` and `tools/vsix`, which
+ship in the extension's `.vsix`; it needs a packaged artifact and the owner's approved release.
 
 ## Tasks
 
@@ -43,6 +45,10 @@ The extension executes a host command; a marketplace reviewer and a user both ne
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: folded the owner's one-install question in (with W-22, W-05, W-15): the card now owns the `.vsix`
+  install carrier: a bundled binary and adapter files, a pinned download, or PATH, plus the extension's setup
+  command. W-20 (v0.6.0) delivered the binary, so its `Held` line is gone; the Deploy line now says
+  `package and release`.
 
 ## Comments
 
