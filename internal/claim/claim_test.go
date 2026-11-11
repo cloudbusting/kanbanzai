@@ -564,12 +564,16 @@ func TestLeaseAndTimeText(t *testing.T) {
 	if got := When("nope"); got != "unknown" {
 		t.Fatalf("when unknown = %q", got)
 	}
-	if text := Describe(live, "tester:a"); !strings.Contains(text, "held by you") {
+	// Describe reads the real clock, so its records are built around now rather than the fixed now above.
+	realNow := timeutil.Now()
+	if text := Describe(map[string]any{"card": "W-01", "owner": "tester:a",
+		"claimed_at": timeutil.ToISO(realNow.Add(-time.Hour)),
+		"expires_at": timeutil.ToISO(realNow.Add(time.Hour))}, "tester:a"); !strings.Contains(text, "held by you") {
 		t.Fatalf("describe = %q", text)
 	}
 	if text := Describe(map[string]any{"card": "W-01", "owner": "tester:a",
-		"claimed_at": "2020-01-01T05:00:00+00:00", "expires_at": "2020-01-01T05:55:00+00:00"},
-		"tester:a"); !strings.Contains(text, "EXPIRED claim by you") {
+		"claimed_at": timeutil.ToISO(realNow.Add(-2 * time.Hour)),
+		"expires_at": timeutil.ToISO(realNow.Add(-time.Hour))}, "tester:a"); !strings.Contains(text, "EXPIRED claim by you") {
 		t.Fatalf("expired describe = %q", text)
 	}
 }
