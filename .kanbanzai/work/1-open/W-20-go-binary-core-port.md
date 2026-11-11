@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 14: remove the Python core, the bin/kanbanzai script and tests/; update CI to Go and Node; build the Go binary to bin/kanbanzai and cut the board over; then task 15 (acceptance rehearsal).
+- **Next action:** Task 15: the acceptance rehearsal — the full Go/Node/QA checks, the release and .vsix dry runs, the no-Python binary, and the owner's manual install checks.
 - **Where:** worktree W-20
 
 ## Goal
@@ -255,6 +255,7 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 10 done: the CLI surface and parity sweep (a1ed6d4); the full Python suite (285 tests) passes against the Go binary and go test ./... is green.
 - 2026-11-11: Tasks 11a/11b done: OpenCode and the hooks resolve KANBANZAI_BIN/PATH and inject the missing-command line; the Node fake harness and the Go .vsix tool are in place (0dac75c). 280 Python tests pass against the Go binary; Node and Go tests green.
 - 2026-11-11: Tasks 12 and 13 done: docs and project skills in Go terms, with the Go wording/neutral tests (0e57b95); the release builder, tag workflow and release/package skills (1a7e366). Five archives + SHA256SUMS build locally; 272 Python tests pass against the Go binary; Node and Go tests green.
+- 2026-11-11: Task 14 done: removed the Python core, CLI and tests; merged main (W-23 OpenCode commands) and kept them in the Node harness; CI is Go+Node; the no-Python test passes; the Go binary at bin/kanbanzai checks the 23-card board and audits W-20 (6148782).
 
 ## Out of scope
 
