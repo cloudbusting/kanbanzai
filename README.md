@@ -24,7 +24,7 @@ go.mod                     the Go module (Go 1.24+, standard library only, no re
 assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
-skills/                    obs, triage, design, do, next, wip, audit, cleanup, build, check
+skills/                    triage, design, do, next, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH

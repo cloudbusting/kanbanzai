@@ -50,7 +50,7 @@ Never list every card's detail; the board is the briefs (`kanbanzai board`, or t
 ## Reconcile (main session only)
 
 - **An orphan worktree:** find out what it holds (`git -C <path> status`, `git -C <path> diff`). If it is a piece
-  of work, give it a card (`/obs` makes it in Todo, then `/triage`) and name the card in the worktree's branch; if it
+  of work, give it a card (`/triage` makes it in Todo) and name the card in the worktree's branch; if it
   is finished, merge or drop it and remove the worktree. Never delete a worktree with uncommitted changes without the
   owner's word (`project.owner` in `kanbanzai config`).
 - **A split card:** keep the worktree with the real work, and move anything wanted from the other into it. A card has
