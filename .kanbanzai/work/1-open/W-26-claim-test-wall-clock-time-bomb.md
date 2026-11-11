@@ -1,11 +1,11 @@
 # W-26: The claim test is a wall-clock time bomb, failing CI on every platform
 
-- **Stage:** todo
+- **Stage:** checked
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** close: the brief's Deploy line is None (test-only), so the card closes from Checked without deploy-qa
+- **Where:** worktree W-26
 
 ## Goal
 
@@ -31,6 +31,10 @@ from Checked.
 
 Does not change `Describe`, `Remaining`, `Live` or any other production behavior or signature; does not address the
 separate Node.js 20 deprecation and Go cache warnings shown in the same run.
+## Progress
+
+- 2026-11-11: Built in batch B-01: `TestLeaseAndTimeText`'s two `Describe` fixtures are built around `timeutil.Now()` (live expires in an hour, expired an hour ago), so the assertions hold at any date; production code untouched; `go test ./...` is green and the test was proven at four pinned clocks. Next is check.
+- 2026-11-11: checks: go test ./... green, go vet clean, node 130 pass, hooks syntax clean, audit pass; review: the fixtures are relative to timeutil.Now() and the test fails without the change
 
 ## Comments
 
