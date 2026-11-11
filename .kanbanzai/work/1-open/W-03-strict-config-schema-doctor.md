@@ -1,6 +1,6 @@
 # W-03: Strict, versioned config schema with actionable validation and a doctor
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
