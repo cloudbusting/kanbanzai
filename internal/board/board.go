@@ -18,7 +18,6 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
-	"github.com/cloudbusting/kanbanzai/internal/movelog"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -125,7 +124,7 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 		}
 		card.Interrupted = column.Doing != "" && card.Owner == nil && card.Held == nil
 		card.ClaimedNotStarted = len(records) > 0 &&
-			unstartedMinutes(project, column, card.Held != nil, records[card.ID], card.ID, now) != nil
+			claim.UnstartedMinutes(project, column, card.Held != nil, records[card.ID], now) != nil
 		byColumn[column.Key] = append(byColumn[column.Key], card)
 	}
 	work := project.Work
@@ -333,6 +332,21 @@ func HeldSummary(board *Board, owner string) string {
 	return fmt.Sprintf("Held %d: %s", total, strings.Join(parts, "; "))
 }
 
+// MarkText is the held, interrupted and claimed-not-started marks a board or wip line puts after a card id.
+func MarkText(card *Card, unstarted bool) string {
+	var builder strings.Builder
+	if card.Held != nil && card.Mark != nil {
+		builder.WriteString(glyphs[*card.Mark])
+	}
+	if card.Interrupted {
+		builder.WriteString(interruptedMark)
+	}
+	if unstarted {
+		builder.WriteString(unstartedMark)
+	}
+	return builder.String()
+}
+
 func cardText(card *Card) string {
 	var builder strings.Builder
 	builder.WriteString(card.ID)
@@ -352,40 +366,6 @@ func cardText(card *Card) string {
 		builder.WriteString(" ❓")
 	}
 	return builder.String()
-}
-
-func unstartedMinutes(project *config.Project, column config.Column, held bool, record map[string]any,
-	card string, now time.Time) *int {
-	if record == nil || !claim.Live(record, now) || held {
-		return nil
-	}
-	if step, ok := record["step"].(bool); ok && !step {
-		return nil
-	}
-	if column.Kind != "open" || column.Doing != "" {
-		return nil
-	}
-	claimed, claimedOK := timeutil.Parse(record["claimed_at"])
-	moved, movedOK := movelog.Last(project, card)
-	var since time.Time
-	switch {
-	case claimedOK && movedOK:
-		since = claimed
-		if moved.After(since) {
-			since = moved
-		}
-	case claimedOK:
-		since = claimed
-	case movedOK:
-		since = moved
-	default:
-		return nil
-	}
-	minutes := int(now.Sub(since) / time.Minute)
-	if float64(minutes) >= project.MoveGraceMinutes {
-		return &minutes
-	}
-	return nil
 }
 
 func dueDate(card *Card) string {

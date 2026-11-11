@@ -21,6 +21,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	"github.com/cloudbusting/kanbanzai/internal/movelog"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
 
@@ -159,6 +160,45 @@ func Remaining(record map[string]any, now time.Time) string {
 	}
 	hours := seconds / 3600
 	return fmt.Sprintf("%dh %dm left", hours, (seconds%3600)/60)
+}
+
+// UnstartedMinutes is how long a live claim has sat on a card that never started its step, or nil.
+//
+// A card is "claimed, not started" when its claim is live and is for a step, the card is not held, its column is an
+// open one that is not a Doing column, and the claim, or the card's last move, is older than
+// flow.move_grace_minutes.
+func UnstartedMinutes(project *config.Project, column config.Column, held bool, record map[string]any,
+	now time.Time) *int {
+	if record == nil || !Live(record, now) || held {
+		return nil
+	}
+	if step, ok := record["step"].(bool); ok && !step {
+		return nil
+	}
+	if column.Kind != "open" || column.Doing != "" {
+		return nil
+	}
+	claimed, claimedOK := timeutil.Parse(record["claimed_at"])
+	moved, movedOK := movelog.Last(project, stringOf(record["card"], ""))
+	var since time.Time
+	switch {
+	case claimedOK && movedOK:
+		since = claimed
+		if moved.After(since) {
+			since = moved
+		}
+	case claimedOK:
+		since = claimed
+	case movedOK:
+		since = moved
+	default:
+		return nil
+	}
+	minutes := int(now.Sub(since) / time.Minute)
+	if float64(minutes) >= project.MoveGraceMinutes {
+		return &minutes
+	}
+	return nil
 }
 
 // Describe is one claim in one line, from me's point of view.
