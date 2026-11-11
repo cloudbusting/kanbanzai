@@ -1,11 +1,11 @@
 # W-01: Marketplace release foundation: licence, metadata, versioning and CI
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11 — merged as fe8ccc2; no deploy (tooling, docs and metadata)
 - **ADR:** none
-- **Next action:** close: the brief's Deploy line is None (tooling, docs and metadata), so the card closes from Checked without deploy-qa
-- **Where:** worktree W-01
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
