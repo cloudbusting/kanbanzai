@@ -38,7 +38,18 @@ function fakeContext(project, events = null) {
   const ctx = {
     location: { directory: project },
     skill: { transform: async (fn) => fn({ add: (skill) => added.push(skill), list: () => added }) },
-    command: { transform: async (fn) => fn({ add: (command) => commands.push(command), list: () => commands }) },
+    // The real CommandEditor is add-only. A transform that throws disables the plugin and discards what it
+    // registered, so the fake does the same: a callback error leaves no command behind.
+    command: {
+      transform: async (fn) => {
+        try {
+          fn({ add: (command) => commands.push(command) })
+        } catch (e) {
+          commands.length = 0
+          throw e
+        }
+      },
+    },
     tool: { hook: async (name, fn) => { hooks["tool." + name] = fn; } },
     shell: { hook: async (name, fn) => { hooks["shell." + name] = fn; } },
     session: {
