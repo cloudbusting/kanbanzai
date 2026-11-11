@@ -73,6 +73,9 @@ package and release: the plugin is shipped in the plugin bundle.
   add-only editor and its failure (a throwing transform discards the registrations). `node --test
   opencode/*.test.mjs` passes, and `command.list` from a real server now returns the 3 built-ins and 20 Kanbanzai
   commands (`build` and `kanbanzai:build` among them).
+- 2026-11-11: Merged into `main` as `1646bf0` at the owner's call, before the check step. A fresh OpenCode
+  2.2.6 server against the main checkout's `opencode/` reports 23 commands: the 3 built-ins and the 20 Kanbanzai
+  names, so the fix is live in the main checkout. Next is still `check`.
 
 ## Out of scope
 
