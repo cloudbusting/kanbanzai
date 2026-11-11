@@ -8,8 +8,8 @@ argument-hint: "<the request, a card id in Todo, or 'todo' for the whole column>
 
 The shipped `triage` skill is the procedure: every work item becomes a card in Todo before another skill touches
 it, triage decides only what the work item is and how big it is, and it never designs, claims, builds or ships.
-Read that procedure first, then this skill's facts. In Claude Code the shipped skill is `kanbanzai:triage`; the
-bare `triage` may be this project's copy, so follow both this file and the shipped one.
+Read that procedure first, then this skill's facts. The shipped skill is `kanbanzai:triage` in Claude Code and
+`triage` in OpenCode; follow both this file and the shipped one.
 
 Read `kanbanzai context`, `kanbanzai config` and `README.md` before starting. The `owner` in the config is the
 person whose decisions the skills ask for.
