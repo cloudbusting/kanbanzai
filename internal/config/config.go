@@ -324,13 +324,10 @@ func (p *Project) build() error {
 		return errf("project.context must be a list of files")
 	}
 	p.Context = context
-	p.contextPaths = make([]string, 0, len(context))
 	for _, item := range context {
-		path, err := p.path(item)
-		if err != nil {
+		if _, err := p.path(item); err != nil {
 			return err
 		}
-		p.contextPaths = append(p.contextPaths, path)
 	}
 
 	p.LeaseMinutes = asFloat(claims["lease_minutes"], 120)
@@ -667,8 +664,15 @@ func (p *Project) FormatID(number int) string {
 
 // ContextFiles is the project's context files, absolute.
 func (p *Project) ContextFiles() []string {
-	out := make([]string, len(p.contextPaths))
-	copy(out, p.contextPaths)
+	out := make([]string, 0, len(p.Context))
+	for _, item := range p.Context {
+		path, err := p.path(item)
+		if err != nil {
+			out = append(out, item)
+			continue
+		}
+		out = append(out, path)
+	}
 	return out
 }
 

@@ -3,11 +3,14 @@
 package step
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 )
 
 // Instead is what happens to a card whose next step has no skill: the card skips ahead to a step, a close or a stop.
@@ -214,4 +217,117 @@ func copyStrings(values []string) []string {
 	out := make([]string, len(values))
 	copy(out, values)
 	return out
+}
+
+// Options is one step command.
+type Options struct {
+	Name string
+	For  string
+	JSON bool
+	Out  io.Writer
+	Err  io.Writer
+}
+
+// Run is the step command.
+func Run(project *config.Project, opts Options) int {
+	out, errOut := writers(opts.Out, opts.Err)
+	if opts.For != "" {
+		loaded := board.Load(project, map[string]string{}, nil)
+		key, card := board.Find(loaded, opts.For)
+		if card == nil {
+			fmt.Fprintf(errOut, "%s: no card on the board\n", opts.For)
+			return 1
+		}
+		name := NextStep(project, card, key)
+		result := map[string]any{"card": opts.For, "column": key, "column_label": project.Label(key), "next": nil}
+		if name == "" {
+			note := WaitingNote(project, key, card)
+			result["note"] = note
+			if opts.JSON {
+				writeJSON(out, result)
+			} else {
+				fmt.Fprintf(out, "%s is in `%s` (%s): no next step; %s.\n", opts.For, key,
+					project.Label(key), note)
+			}
+			return 0
+		}
+		result["next"] = name
+		words := Moves(project, key, name)
+		if words.Start != "" {
+			result["start"] = words.Start
+		} else {
+			result["start"] = nil
+		}
+		if words.Finish != "" {
+			result["finish"] = words.Finish
+		} else {
+			result["finish"] = nil
+		}
+		result["resume"] = words.Resume
+		found := Describe(project, name)
+		for key, value := range descriptionMap(found) {
+			result[key] = value
+		}
+		if opts.JSON {
+			writeJSON(out, result)
+			return 0
+		}
+		fmt.Fprintf(out, "%s is in `%s` (%s); the next step is `%s`.\n", opts.For, key, project.Label(key), name)
+		if words.Finish != "" {
+			if words.Resume {
+				fmt.Fprintf(out, "resume: the card is already in `%s`; if no live claim holds it, take it over "+
+					"(`claim claim %s --takeover \"<why>\"`); finish: Stage `%s`.\n", key, opts.For, words.Finish)
+			} else if words.Start != "" {
+				fmt.Fprintf(out, "start: Stage `%s`; finish: Stage `%s`.\n", words.Start, words.Finish)
+			}
+		}
+		fmt.Fprintln(out, AsText(found))
+		return 0
+	}
+	if opts.Name == "" {
+		fmt.Fprintln(errOut, "step: give a step name, or --for ID")
+		return 2
+	}
+	found := Describe(project, opts.Name)
+	if found == nil {
+		fmt.Fprintf(errOut, "step: this project has no step named '%s' (it has: %s)\n", opts.Name,
+			strings.Join(project.StepOrder, ", "))
+		return 1
+	}
+	if opts.JSON {
+		writeJSON(out, found)
+	} else {
+		fmt.Fprintln(out, AsText(found))
+	}
+	return 0
+}
+
+func descriptionMap(found *Description) map[string]any {
+	data, err := json.Marshal(found)
+	if err != nil {
+		return map[string]any{}
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return map[string]any{}
+	}
+	return result
+}
+
+func writeJSON(out io.Writer, value any) {
+	data, err := fsutil.MarshalIndent(value)
+	if err != nil {
+		return
+	}
+	_, _ = out.Write(append(data, '\n'))
+}
+
+func writers(out, errOut io.Writer) (io.Writer, io.Writer) {
+	if out == nil {
+		out = io.Discard
+	}
+	if errOut == nil {
+		errOut = io.Discard
+	}
+	return out, errOut
 }
