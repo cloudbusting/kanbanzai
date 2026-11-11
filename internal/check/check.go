@@ -244,13 +244,8 @@ func Comments(project *config.Project) []string {
 	problems := []string{}
 	for _, path := range board.Briefs(project) {
 		data, _ := os.ReadFile(path)
-		headings := []string{}
-		for _, line := range strings.Split(string(data), "\n") {
-			if strings.HasPrefix(line, "## ") {
-				headings = append(headings, line)
-			}
-		}
-		if len(headings) == 0 || headings[len(headings)-1] != "## Comments" {
+		sections := headings(string(data))
+		if len(sections) == 0 || sections[len(sections)-1] != "## Comments" {
 			problems = append(problems, fmt.Sprintf("%s: the last section must be '## Comments'", project.Rel(path)))
 		}
 	}
@@ -281,16 +276,23 @@ func Template(project *config.Project) []string {
 			problems = append(problems, fmt.Sprintf("%s: the template has no '- **%s:**' line in its head", name, field))
 		}
 	}
-	headings := []string{}
-	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(line, "## ") {
-			headings = append(headings, line)
-		}
-	}
+	headings := headings(text)
 	if len(headings) == 0 || headings[len(headings)-1] != "## Comments" {
 		problems = append(problems, fmt.Sprintf("%s: the last section must be '## Comments'", name))
 	}
 	return problems
+}
+
+// headings is the `## ` section lines of a text, without a CRLF's carriage return, so a checkout or an editor on
+// Windows reads the same as one on Unix.
+func headings(text string) []string {
+	sections := []string{}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			sections = append(sections, strings.TrimSuffix(line, "\r"))
+		}
+	}
+	return sections
 }
 
 // ProblemsOf is every problem on the board, in check order.
