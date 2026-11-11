@@ -1,11 +1,11 @@
 # W-01: Marketplace release foundation: licence, metadata, versioning and CI
 
-- **Stage:** todo
+- **Stage:** checking
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** settled: choose the licence and apply the marketplace metadata
-- **Where:** —
+- **Next action:** check: run kanbanzai-qa on the release foundation
+- **Where:** worktree W-01
 
 ## Goal
 
@@ -42,6 +42,7 @@ A wrong licence or author field is hard to retract once published. The compatibi
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: Built in batch B-01: marketplace version and entry metadata; `tools/release -check` (manifests, CHANGELOG and tag agree) with tests; CI and release validation (`claude plugin validate --strict`), the install smoke test and the per-OS/arch build; SECURITY.md, SUPPORT.md and a tested-versions compatibility table; a root release test proves each. W-20's licence, CHANGELOG and base workflows were kept. Next is check.
 
 ## Comments
 
