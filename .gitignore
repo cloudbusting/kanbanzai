@@ -1,5 +1,11 @@
 __pycache__/
 *.pyc
 
+# Local build outputs: the release builds its binaries from a tag, and a developer's build is not tracked.
+/bin/kanbanzai
+/bin/kanbanzai-go
+/bin/kanbanzai.exe
+dist/
+
 # A developer's local Claude settings (the marketplace path is machine-specific).
 .claude/settings.local.json
