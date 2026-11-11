@@ -1,11 +1,11 @@
 # W-02: Portable, packaged core: one installable kanbanzai command
 
-- **Stage:** todo
+- **Stage:** done
 - **Updated:** 2026-11-11
-- **Done:** —
+- **Done:** 2026-11-11 — closed, no work: superseded by W-20 (Go binary core port, v0.6.0)
 - **ADR:** none
-- **Next action:** design: choose PyPI, bundled or hybrid distribution and the supported-platform policy
-- **Where:** —
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -42,6 +42,7 @@ Bundling a Python runtime is heavy; relying on a system Python makes install fai
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
+- 2026-11-11: triage: closed - W-20 shipped the portable Go binary (v0.6.0), which covers every check in this Python-era brief: packaged installs for Linux, macOS and Windows, the cross-platform lock and liveness paths, adapters that resolve the command from PATH or a setting, and the embedded defaults and template.
 
 ## Comments
 
