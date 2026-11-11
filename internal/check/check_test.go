@@ -289,3 +289,25 @@ func TestAMissingShippedTemplateIsNotTheProjectsFault(t *testing.T) {
 		}
 	}
 }
+
+func TestACRLFTemplateAndBriefAreRead(t *testing.T) {
+	project := soundProject(t)
+	template := filepath.Join(project.Root, "template.md")
+	if err := os.WriteFile(template, []byte(strings.ReplaceAll(goodTemplate, "\n", "\r\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if problems := Template(project); len(problems) != 0 {
+		t.Fatalf("a CRLF template: %v", problems)
+	}
+	path := filepath.Join(project.Work, "1-open", "W-01-work.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(strings.ReplaceAll(string(data), "\n", "\r\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if problems := Comments(project); len(problems) != 0 {
+		t.Fatalf("a CRLF brief: %v", problems)
+	}
+}
