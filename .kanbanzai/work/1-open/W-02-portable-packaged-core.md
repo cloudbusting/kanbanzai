@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design: choose PyPI, bundled or hybrid distribution and the supported-platform policy
 - **Where:** —
-- **Held:** blocked: W-20 (the Go binary decides the command's distribution; this card's Python packaging premise is under review)
 
 ## Goal
 
@@ -42,6 +41,7 @@ Bundling a Python runtime is heavy; relying on a system Python makes install fai
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

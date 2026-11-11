@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design after the type, schema, workflow and isolation cards: plan the host migration
 - **Where:** —
-- **Held:** blocked: W-20 (the host migration must end on the delivered command, not the Python checkout)
 
 ## Goal
 
@@ -43,6 +42,7 @@ The host is a live board with uncommitted cards. The migration must be one atomi
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

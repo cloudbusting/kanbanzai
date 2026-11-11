@@ -6,7 +6,6 @@
 - **ADR:** none
 - **Next action:** design: define the isolation modes and the audit rule for each
 - **Where:** —
-- **Held:** blocked: W-20 (claim, move and audit are command code; they are written once, in the delivered implementation)
 
 ## Goal
 
@@ -43,6 +42,7 @@ A shared checkout removes the collision safety the worktree gives parallel sessi
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; design refreshes any Python-era wording in this brief.
 
 ## Comments
 

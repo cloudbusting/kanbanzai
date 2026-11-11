@@ -6,7 +6,7 @@
 - **ADR:** needed — the upgrade and migration contract (design writes it)
 - **Next action:** design: define how a new marketplace release is detected, how the installed command is pinned to that release and moves with the extension, and how the host's config, cards and tooling are migrated and updated
 - **Where:** —
-- **Held:** blocked: W-20 (the upgrade path must update the delivered command), W-03 (it must migrate a versioned config)
+- **Held:** blocked: W-03 (it must migrate a versioned config)
 
 ## Goal
 
@@ -72,6 +72,9 @@ Open for design and the owner:
 - 2026-11-11: folded the owner's request that the `go install` path be pinned to a version and move with the
   extension into the Goal, Next action and Decisions; it constrains the upgrade contract and overlaps W-20's
   `@latest` developer path and W-01's release versioning.
+- 2026-11-11: folded the owner's one-install follow-up in (with W-17, W-05, W-15): the `.vsix` carrying the pinned
+  binary is now one of the carriers design must weigh against a download or PATH; W-17 owns the extension side.
+  W-20 is done (v0.6.0), so it is gone from the `Held` line; only W-03 remains.
 
 ## Out of scope
 
