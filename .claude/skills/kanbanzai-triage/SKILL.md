@@ -1,6 +1,6 @@
 ---
 name: kanbanzai-triage
-description: The front door for work on Kanbanzai itself — its Python core, board extension, Claude Code plugin and OpenCode plugin. Turn a request into a card in Todo, size it, fold it into an existing card, park it or close it, and mark whether it is settled or needs design. Use before any change in this repository, after an observation, or for a question about the product.
+description: The front door for work on Kanbanzai itself — its Go core, board extension, Claude Code plugin and OpenCode plugin. Turn a request into a card in Todo, size it, fold it into an existing card, park it or close it, and mark whether it is settled or needs design. Use before any change in this repository, after an observation, or for a question about the product.
 argument-hint: "<the request, a card id in Todo, or 'todo' for the whole column>"
 ---
 
@@ -20,7 +20,7 @@ Kanbanzai ships three things, all local:
 
 | Piece | Lives in | What it does |
 |---|---|---|
-| The core and its command | `kanbanzai/`, `bin/kanbanzai`, `defaults/`, `templates/` | Reads cards, config, claims, numbers, moves and context. It is the only place the workflow's rules live. |
+| The core and its command | `cmd/kanbanzai`, `internal/`, `go.mod`, `defaults/`, `templates/` | Reads cards, config, claims, numbers, moves and context. It is the only place the workflow's rules live. |
 | The harness adapters | `opencode/`, `hooks/`, `.claude-plugin/`, `skills/` | Register the skills, put the command on a shell's PATH, renew claims and add the board's context for Claude Code and OpenCode. |
 | The board extension | `board-view/` | A read-only kanban in an editor tab. It runs the command and renders its JSON; it parses no workflow itself. |
 
@@ -84,7 +84,7 @@ the extension must do.
 
 The Deploy line decides whether the card goes through packaging and release:
 
-- **`package and release`** when the card changes a shipped artifact: `kanbanzai/`, `bin/`, `defaults/`,
+- **`package and release`** when the card changes a shipped artifact: `cmd/`, `internal/`, `go.mod`, `defaults/`,
   `templates/`, `skills/`, `hooks/`, `opencode/`, `.claude-plugin/` or `board-view/` other than tests and
   development notes.
 - **`None`** when the card changes only `.kanbanzai/`, `.claude/skills/`, tests, `README.md`, CI configuration or

@@ -14,7 +14,7 @@ lookup, send an explore subagent a bounded question; keep the decision and the b
 
 ## The system the design must fit
 
-- **One core.** `kanbanzai/` and `bin/kanbanzai` own the workflow: cards, folders, stages, claims, numbers,
+- **One core.** `cmd/kanbanzai` and `internal/` own the workflow: cards, folders, stages, claims, numbers,
   moves, config, context and session records. Every other piece calls the command. A design that copies a rule
   into JavaScript, a hook or a skill is wrong.
 - **Two thin adapters.** The Claude Code plugin (`.claude-plugin/`, `hooks/`, `skills/`) and the OpenCode plugin
@@ -35,8 +35,8 @@ These are public. A design that changes one names every consumer and every migra
 |---|---|
 | `board --json`, `config --json`, `sessions --json` field names and shapes | `board-view/`, tests, the skills |
 | Exit codes and messages of `claim`, `move`, `number`, `check`, `wip` | skills, hooks, extension, tests |
-| The brief's head fields and Stage words | `board.py`, `move.py`, `check.py`, every skill, the extension |
-| `defaults/config.toml` keys and their meaning | every host project, the skills, `config.py` |
+| The brief's head fields and Stage words | `internal/board`, `internal/move`, `internal/check`, every skill, the extension |
+| `defaults/config.toml` keys and their meaning | every host project, the skills, `internal/config` |
 | Skill names and frontmatter | both adapters, `claude plugin validate`, OpenCode discovery |
 | Hook input and output | Claude Code's hook contract, OpenCode's plugin API |
 | State file locations and shapes under `.kanbanzai/state/` | claims, sessions, the extension, the board command |
@@ -49,9 +49,9 @@ change.
 
 Before proposing anything, hold the design against each of these:
 
-- **No dependencies.** Python is the standard library on 3.13 or newer. The extension and the OpenCode plugin are
-  plain JavaScript with no package dependency and no build step. A new package is an owner decision with a
-  licence and a supply-chain cost.
+- **No dependencies.** The command is the Go standard library; `go.mod` has no `require`. The extension and the
+  OpenCode plugin are plain JavaScript with no package dependency and no build step. A new module is an owner
+  decision with a licence and a supply-chain cost.
 - **No network.** No `fetch`, HTTP client, remote script, remote font, telemetry or hosted service in shipped
   code. A documentation link is not a runtime call, but say so explicitly when a URL is added.
 - **No secret or machine-specific path in shipped code.** The command is found from a setting or PATH. A release
@@ -62,9 +62,9 @@ Before proposing anything, hold the design against each of these:
 - **The extension is read-only and defensive.** It escapes text, uses a nonce and a content security policy,
   confines a click to a brief inside the cards folder, and treats every JSON field as optional. A design that
   adds a command, an editor write or a remote asset changes that contract deliberately.
-- **Portability.** The command runs on the platforms the README promises. The Python is 3.13 grammar even though
-  the development machine may be newer. A lock, a process check or a shell feature that exists on only one system
-  is named as a limitation or guarded.
+- **Portability.** The command runs on the platforms the README promises: Linux/macOS amd64 and arm64, Windows
+  amd64. A lock, a process check or a shell feature that exists on only one system lives in a build-tagged file or
+  is named as a limitation; a release builds with `CGO_ENABLED=0 -trimpath`.
 - **The board is the record.** A design writes the brief the build works from; it does not edit a Stage line by
   hand, invent a card or move another card.
 

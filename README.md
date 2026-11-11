@@ -18,23 +18,39 @@ by side in the same project.
 ## What it ships
 
 ```
-bin/kanbanzai              the one command (Python 3.13+, standard library only)
-kanbanzai/                 the core: config, board, claims, sessions, numbers, wip, check, step, context, init
-defaults/config.toml       the shipped workflow
+cmd/kanbanzai              the command's entry point
+internal/                  the core: config, brief, board, claim, move, number, step, context, check, sessions, wip, cli
+go.mod                     the Go module (Go 1.24+, standard library only, no require)
+defaults/config.toml       the shipped workflow (embedded in the binary)
+templates/card.md          the brief template (embedded in the binary)
 skills/                    obs, triage, design, do, next, wip, audit, cleanup, build, check
-templates/card.md          the brief template
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
-opencode/                  OpenCode (V2): the same skills, heartbeat, context, and `kanbanzai` on the shell's PATH
+opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
 board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
-tests/                     python3 -I -m unittest discover -s tests -t .
+tools/vsix/                the .vsix packer
 ```
 
-## Install in a project
+## Install Kanbanzai
+
+Download the archive for your OS/arch from
+[GitHub Releases](https://github.com/cloudbusting/kanbanzai/releases), verify it against `SHA256SUMS`, extract
+`kanbanzai` (`kanbanzai.exe` on Windows) and put it on PATH:
+
+```bash
+kanbanzai --version
+kanbanzai init
+```
+
+Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
+prerequisite) and makes no network request. A Go developer can build it instead with
+`go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
+
+## Set up a project
 
 ```bash
 cd <your project>
-<path to kanbanzai>/bin/kanbanzai init      # .kanbanzai/: config.toml, work/, state/ (gitignored)
+kanbanzai init      # .kanbanzai/: config.toml, work/, state/ (gitignored)
 ```
 
 **Claude Code** — in the project's `.claude/settings.json`:
@@ -48,9 +64,10 @@ cd <your project>
 }
 ```
 
-The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …); `kanbanzai` is on the Bash
-tool's PATH. The plugin loads in place: an edit here reaches a project at its next session (or `/reload-plugins`).
-This repository is also its own public marketplace: `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
+The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …). The hooks run the `kanbanzai`
+command from `KANBANZAI_BIN` or PATH (a local build in `bin/` is the fallback). The plugin loads in place: an edit
+here reaches a project at its next session (or `/reload-plugins`). This repository is also its own public
+marketplace: `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
 
 **OpenCode** — in the project's `.opencode/opencode.json`:
 
@@ -58,10 +75,11 @@ This repository is also its own public marketplace: `/plugin install kanbanzai -
 { "plugins": ["<path to kanbanzai>/opencode"] }
 ```
 
-The plugin registers the same skills, puts `kanbanzai` on the PATH of the shells OpenCode starts, labels them with
-the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call, adds the board's
-context to each request, and writes each session's state (busy, idle or asking) into the project's state folder so the
-board can show it, as it shows a Claude Code session's. Nothing to install: it is plain JavaScript.
+The plugin registers the same skills, puts the command's directory on the PATH of the shells OpenCode starts, labels
+them with the session (`KANBANZAI_OWNER=opencode:<session>`), renews the session's claims after each tool call, adds
+the board's context to each request, and writes each session's state (busy, idle or asking) into the project's state
+folder so the board can show it, as it shows a Claude Code session's. The plugin is plain JavaScript with nothing to
+install, but it needs the `kanbanzai` command: `KANBANZAI_BIN` first, then PATH.
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
@@ -192,6 +210,7 @@ kanbanzai sessions [--json]              the claimed cards with a live session, 
 kanbanzai config [--json]                the resolved settings
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init                           set a project up
+kanbanzai --version                      the command's version
 ```
 
 **Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
@@ -217,6 +236,19 @@ in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `s
 with no session id falls back to `claude:<process id>`, which a restart changes.
 
 Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
+
+## Development
+
+```bash
+go build -o bin/kanbanzai ./cmd/kanbanzai   # a local build, ignored by git
+go test ./...
+go vet ./...
+node --test board-view/*.test.mjs opencode/*.test.mjs
+go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
+```
+
+The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
+five archives from a tag, and `tools/vsix` builds the editor package.
 
 ## Licence
 

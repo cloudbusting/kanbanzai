@@ -48,8 +48,8 @@ Do not create a second remote or a second repository. Do not push from a dirty t
 Read the current versions:
 
 ```bash
-python3 -m json.tool .claude-plugin/plugin.json | grep '"version"'
-python3 -m json.tool board-view/package.json | grep '"version"'
+node -e 'const fs=require("fs"); console.log(JSON.parse(fs.readFileSync(".claude-plugin/plugin.json","utf8")).version)'
+node -e 'const fs=require("fs"); console.log(JSON.parse(fs.readFileSync("board-view/package.json","utf8")).version)'
 ```
 
 Use semantic versioning. A breaking public-contract change is major, a new capability is minor, a fix is patch.
@@ -128,8 +128,8 @@ OUT="${TMPDIR:-/tmp}/kanbanzai-release-<ID>-<version>"
 mkdir -p "$OUT"
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
   -o "$OUT/kanbanzai-<version>.tar.gz" "kanbanzai--v<version>" \
-  .claude-plugin bin kanbanzai defaults templates skills hooks opencode board-view README.md
-python3 -I board-view/install.py --vsix-only "$OUT/kanbanzai-board-<extension-version>.vsix"
+  .claude-plugin cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md
+go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
 (cd "$OUT" && sha256sum * > SHA256SUMS)
 ```
 
@@ -165,15 +165,13 @@ CLAUDE_CONFIG_DIR="$C" claude plugin list
 CLAUDE_CONFIG_DIR="$C" claude plugin details kanbanzai@kanbanzai
 ```
 
-Check that the installed plugin contains the skills, hooks, `bin/kanbanzai`, `kanbanzai/`, `defaults/` and
-`templates/`, and that no path points at this checkout.
+Check that the installed plugin contains the skills, hooks, `cmd/kanbanzai`, `internal/`, `defaults/`, `templates/`
+and `tools/`, and that no path points at this checkout. The `kanbanzai` command is installed separately on PATH.
 
 ### The editor extension
 
-The current `install.py` records this checkout's command in `extension/bin.json`. That makes a useful local `.vsix`
-and a bad marketplace artifact: another machine cannot run the recorded path. Do not publish it to a marketplace
-until the extension resolves the command from a setting, PATH or a packaged launcher. Attaching it to the GitHub
-release is allowed only when the owner accepts that limitation; say it plainly in the notes.
+The `.vsix` runs `kanbanzai` from the `kanbanzai.command` setting or PATH and carries no machine path, so it is a
+portable artifact. Say in the notes that the command must be installed and on PATH first.
 
 Publish to a marketplace only when `board-view/package.json` has a real publisher, licence, a portable command
 resolution and the owner's publishing token in the environment:
@@ -200,10 +198,11 @@ From a clean machine state, not the build tree:
 V="$(mktemp -d)" && cd "$V"
 gh release download "kanbanzai--v<version>" --repo cloudbusting/kanbanzai
 sha256sum -c SHA256SUMS
-tar -xzf kanbanzai-<version>.tar.gz
-./kanbanzai-<version>/bin/kanbanzai init
-./kanbanzai-<version>/bin/kanbanzai check
-./kanbanzai-<version>/bin/kanbanzai board --json | python3 -m json.tool >/dev/null
+tar -xzf "kanbanzai_<version>_linux_amd64.tar.gz"
+./kanbanzai --version
+./kanbanzai init
+./kanbanzai check
+./kanbanzai board --json | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))' 
 ```
 
 For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, the owner's

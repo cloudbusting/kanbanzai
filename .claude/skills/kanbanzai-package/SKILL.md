@@ -56,7 +56,7 @@ paths from the committed tree, never the working directory:
 
 ```bash
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" HEAD \
-  .claude-plugin bin kanbanzai defaults templates skills hooks opencode board-view README.md
+  .claude-plugin cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md
 ```
 
 Do not include `.kanbanzai/`, `.claude/`, `.git/`, pycache or state. The extension's own test files travel in the
@@ -66,21 +66,20 @@ there, and no state or secret may be.
 ### 2. The editor extension
 
 ```bash
-python3 -I board-view/install.py --vsix-only "$OUT/kanbanzai-board-<extension-version>.vsix"
+go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
-The `.vsix` records this checkout's `bin/kanbanzai` in `extension/bin.json`. That is useful for a local install
-and is not a portable marketplace artifact. Say so in the report; the release step must not attach a `.vsix` that
-bakes in this machine unless the owner accepts it.
+The `.vsix` runs `kanbanzai` from the `kanbanzai.command` setting or PATH and carries no machine path, so it is a
+portable artifact.
 
 Verify the archive:
 
 ```bash
-python3 -m zipfile -l "$OUT/kanbanzai-board-<extension-version>.vsix"
+unzip -l "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
-`extension/package.json`, `extension/README.md`, every runtime `.js` module, `extension.vsixmanifest` and
-`extension/bin.json` must be present. The manifest version must match `package.json`.
+`extension/package.json`, `extension/README.md`, every runtime `.js` module and `extension.vsixmanifest` must be
+present, and there must be no `extension/bin.json`. The manifest version must match `package.json`.
 
 ### 3. Checksums
 
@@ -97,12 +96,13 @@ Run each proof from the artifact, not from the source tree where possible.
 ```bash
 T="$(mktemp -d)" && cd "$T" && git init -q -b main
 tar -xzf "$OUT/kanbanzai-<version>.tar.gz"
-"$T/kanbanzai-<version>/bin/kanbanzai" init
-"$T/kanbanzai-<version>/bin/kanbanzai" check
-"$T/kanbanzai-<version>/bin/kanbanzai" board --json | python3 -m json.tool >/dev/null
+(cd "$T/kanbanzai-<version>" && go build -trimpath -o "$T/kanbanzai" ./cmd/kanbanzai)
+"$T/kanbanzai" init
+"$T/kanbanzai" check
+"$T/kanbanzai" board --json | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))'
 ```
 
-The bundle must work with no checkout beside it and no Python package installed.
+The bundle must work with no checkout beside it and no runtime prerequisite.
 
 ### The Claude Code plugin
 
@@ -141,7 +141,7 @@ install and a look at the Board tab is the owner's check; name the screen and th
 ## Security and cleanliness
 
 - `tar -tzf` and the `.vsix` listing contain no `.git`, `.kanbanzai/state`, `__pycache__`, `.env`, key, token or
-  local absolute path other than the known `bin.json` record.
+  local absolute path.
 - No network call was added to build the artifacts. The commands above use only local tools.
 - The artifacts were built from the committed SHA, not from uncommitted work.
 
