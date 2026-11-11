@@ -1,10 +1,10 @@
 # W-23: The OpenCode plugin registers commands
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: package the plugin bundle and prove the command install (kanbanzai-package), then the owner approves the release
+- **Next action:** release: 0.6.1 suggested, after the owner approves; the release rebuilds the artifacts from its tag and records the command fix in the changelog
 - **Where:** worktree W-23
 
 ## Goal
@@ -77,6 +77,7 @@ package and release: the plugin is shipped in the plugin bundle.
   2.2.6 server against the main checkout's `opencode/` reports 23 commands: the 3 built-ins and the 20 Kanbanzai
   names, so the fix is live in the main checkout. Next is still `check`.
 - 2026-11-11: Checked: 266 Go tests, 127 board-view node tests and the 3 OpenCode harness tests pass; go vet, hooks and JS syntax clean; claude plugin validate and the board check pass; a real OpenCode 2.2.6 server's command transform registered build and kanbanzai:build for every skill (18 names).
+- 2026-11-11: Packaged 0.6.0 from main 8adbdfd: the source bundle, the five binary archives with SHA256SUMS and the .vsix. Proofs: a fresh project built from the bundle passes init, check and board --json; claude plugin validate and install pass from a throwaway config; the bundle's opencode/server.js syntax and its 9 skills are present; the .vsix lists every runtime module with no bin.json and no machine path.
 
 ## Out of scope
 
@@ -97,3 +98,7 @@ plugin and drop every command, including the harness's own.
 - 2026-11-11 — check (opencode:ses_e35eab6e1ffeVo7Vue66rHjAsK): the W-23 branch was already an ancestor of main
   (`fdf73ea`, merged as `1646bf0`); fast-forwarded the worktree to main `8adbdfd` and ran the checks on that tree.
   The owner tested it live in OpenCode and passed it: "it works correctly".
+- 2026-11-11 — package (opencode:ses_e35eab6e1ffeVo7Vue66rHjAsK): the 0.6.0 changelog already names W-23, but
+  the fix `fdf73ea` landed after the `v0.6.0` tag (`37bad92`), so the next release's changelog must record the fixed
+  command transform. The rehearsal package was built from main `8adbdfd`; it is in
+  `/tmp/kanbanzai-package-W-23-0.6.0` with its `SHA256SUMS`.
