@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-11
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 6: the step command (text and JSON), the standing context and init; port test_step_context.py and the init/default-path tests.
+- **Next action:** Task 8: sessions (Claude Code and OpenCode state files, process liveness, for_claims, the --json shape), porting test_sessions.py.
 - **Where:** worktree W-20
 
 ## Goal
@@ -248,6 +248,8 @@ Engineering decisions made here (not owner choices):
 - 2026-11-11: Task 3 done: brief reader and board (debedd4), with the Python board tests ported; go test ./... green.
 - 2026-11-11: Task 4 done: the move command, its refusals and log, and the claim-starts-step callback (02fcd9e).
 - 2026-11-11: Task 5 done: the number ledger (f5bfd49), with the all-worktree scan and the Python ledger fixture; claims and numbers proven under forced locks. go test ./... green.
+- 2026-11-11: Task 6 done: the step command, the standing context and init (07a86f0); go test ./... green.
+- 2026-11-11: Task 7 done: the board check, with all nine checks and the command output (17ed09c); go test ./... green.
 
 ## Out of scope
 
