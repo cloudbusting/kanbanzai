@@ -63,7 +63,19 @@ Do not include `.kanbanzai/`, `.claude/`, `.git/`, pycache or state. The extensi
 source bundle and that is fine for a source release. Verify the listing with `tar -tzf`; every runtime file must be
 there, and no state or secret may be.
 
-### 2. The editor extension
+### 2. The binary archives
+
+Rehearse the release builder from the main checkout:
+
+```bash
+go run ./tools/release -version "v<version>" -out "$OUT"
+```
+
+It cross-compiles `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64` and `windows/amd64` with
+`CGO_ENABLED=0 -trimpath` and writes the five archives and a `SHA256SUMS`. The release workflow rebuilds the same
+set from the tag; this run proves the procedure.
+
+### 3. The editor extension
 
 ```bash
 go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
@@ -81,15 +93,19 @@ unzip -l "$OUT/kanbanzai-board-<extension-version>.vsix"
 `extension/package.json`, `extension/README.md`, every runtime `.js` module and `extension.vsixmanifest` must be
 present, and there must be no `extension/bin.json`. The manifest version must match `package.json`.
 
-### 3. Checksums
+### 4. Checksums
 
 ```bash
-cd "$OUT" && sha256sum * > SHA256SUMS
+cd "$OUT" && sha256sum *.tar.gz *.zip *.vsix > SHA256SUMS
 ```
+
+The workflow's release carries a `SHA256SUMS` for the five binary archives; this one covers the source bundle and
+the `.vsix` as well.
 
 ## Prove it
 
-Run each proof from the artifact, not from the source tree where possible.
+Run each proof from the artifact, not from the source tree where possible. The five binary archives and their
+`SHA256SUMS` are in `$OUT`; the release workflow proves the same build from the tag.
 
 ### The command and a fresh project
 
@@ -140,7 +156,7 @@ install and a look at the Board tab is the owner's check; name the screen and th
 
 ## Security and cleanliness
 
-- `tar -tzf` and the `.vsix` listing contain no `.git`, `.kanbanzai/state`, `__pycache__`, `.env`, key, token or
+- `tar -tzf`, `unzip -l` and the five binary archives contain no `.git`, `.kanbanzai/state`, `.env`, key, token or
   local absolute path.
 - No network call was added to build the artifacts. The commands above use only local tools.
 - The artifacts were built from the committed SHA, not from uncommitted work.

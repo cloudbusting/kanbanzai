@@ -104,15 +104,23 @@ claude plugin tag . --dry-run
 claude plugin tag . --message "Kanbanzai <version>"
 ```
 
-The tag is `kanbanzai--v<version>` and points at the release commit. If the owner wants one repository-wide tag
-as well, create it on the same commit; never tag a different commit.
-
-Push the main branch and the tag only after the tests and the package report are green:
+The tag is `kanbanzai--v<version>` and points at the release commit. The Go module needs the standard
+`v<version>` tag on the same commit, so `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest`
+resolves the release:
 
 ```bash
-git push origin main
-git push origin kanbanzai--v<version>
+git tag "v<version>" "$(git rev-parse "kanbanzai--v<version>^{commit}")"
 ```
+
+Push the main branch and both tags only after the tests and the package report are green:
+
+```bash
+git push origin main "v<version>" "kanbanzai--v<version>"
+```
+
+The `v<version>` tag starts `.github/workflows/release.yml`: it runs the Go tests on Ubuntu, macOS and Windows,
+builds the five archives and `SHA256SUMS`, and attaches them to the `v<version>` release. The
+`kanbanzai--v<version>` tag is the marketplace tag. Never tag a different commit.
 
 If the push is rejected, stop. Never force-push `main` or move a published tag.
 
@@ -127,7 +135,7 @@ after that, so rebuild, do not reuse the earlier directory:
 OUT="${TMPDIR:-/tmp}/kanbanzai-release-<ID>-<version>"
 mkdir -p "$OUT"
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
-  -o "$OUT/kanbanzai-<version>.tar.gz" "kanbanzai--v<version>" \
+  -o "$OUT/kanbanzai-<version>.tar.gz" "v<version>" \
   .claude-plugin cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md
 go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
 (cd "$OUT" && sha256sum * > SHA256SUMS)
@@ -139,18 +147,17 @@ before publishing; the package step's checks apply again to these files.
 
 ### GitHub release
 
-Attach the rebuilt artifacts and the checksums:
+The tag workflow creates the `v<version>` release with the five binary archives and their `SHA256SUMS`. Attach the
+source bundle and the `.vsix`, and write the notes:
 
 ```bash
-gh release create "kanbanzai--v<version>" \
-  "$OUT"/*.tar.gz "$OUT"/*.vsix "$OUT"/SHA256SUMS \
-  --title "Kanbanzai <version>" \
-  --notes-file <the release notes> \
-  --verify-tag
+gh release upload "v<version>" "$OUT/kanbanzai-<version>.tar.gz" \
+  "$OUT/kanbanzai-board-<extension-version>.vsix" --clobber
+gh release edit "v<version>" --notes-file <the release notes>
 ```
 
-Write the notes from the changelog: what changed for a user, the artifacts and their versions, the commit, and
-anything that waits for a manual editor check.
+Write the notes from the changelog: what changed for a user, the artifacts and their versions, the commit, the
+`go install` line, and anything that waits for a manual editor check.
 
 ### Claude Code marketplace
 
@@ -196,13 +203,15 @@ From a clean machine state, not the build tree:
 
 ```bash
 V="$(mktemp -d)" && cd "$V"
-gh release download "kanbanzai--v<version>" --repo cloudbusting/kanbanzai
+gh release download "v<version>" --repo cloudbusting/kanbanzai
 sha256sum -c SHA256SUMS
 tar -xzf "kanbanzai_<version>_linux_amd64.tar.gz"
 ./kanbanzai --version
 ./kanbanzai init
 ./kanbanzai check
-./kanbanzai board --json | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))' 
+./kanbanzai board --json | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))'
+GOBIN="$(mktemp -d)" go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@"v<version>"
+"$GOBIN/kanbanzai" --version
 ```
 
 For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, the owner's
@@ -212,6 +221,8 @@ install into a clean editor profile and a look at a fixture board is the remaini
 
 - The release notes and `CHANGELOG.md` name the version, the card, the artifacts and the commit.
 - `README.md` has the published install command if the listing is live.
+- Both tags point at the release commit; the `v<version>` release carries the five binaries, `SHA256SUMS`, the
+  source bundle and the `.vsix`.
 - The card moves to Done:
   `kanbanzai move <ID> done --done "YYYY-MM-DD — v<version>, <sha>, <release URL>"`.
 - Release the claim, merge the card's branch, remove the worktree and branch, and report to the owner: what was
