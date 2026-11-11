@@ -123,6 +123,73 @@ Each path can be moved in the settings (`[project] work`, `state`, `claims`, `nu
 
 `.kanbanzai/config.toml` overrides [defaults/config.toml](defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
+The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate
+config discovery. `init` uses that same location and never overwrites a config. The existing worktree fallback is
+used only when the main checkout has no config. Changing `home` does not implicitly change `work` or `state`;
+set those paths explicitly (paths remain relative to the main checkout).
+
+### Config contract and upgrades
+
+New configs start with the root key `config_version = 1`. A project with no file uses the embedded version-1
+defaults. An existing unversioned file is version 0: normal commands refuse it with an upgrade instruction, rather
+than silently changing it. From either the main checkout or a worktree:
+
+```bash
+kanbanzai config upgrade           # preview; writes nothing
+kanbanzai config upgrade --apply   # validate, back up config.toml.v0.bak, then write atomically
+```
+
+The v0→v1 upgrade only adds or replaces the root version value; it preserves comments, formatting and settings.
+It first validates the prospective config, including references. Unknown or invalid settings require a correction
+before upgrading: none are dropped or renamed automatically. Apply refuses a symlink or a pre-existing backup,
+and a repeated apply on version 1 changes nothing. Keep the backup until you have verified the installation; it
+can contain private project settings. Do not edit the source concurrently with an upgrade. A newer version is
+always refused: install a compatible newer binary, never lower the file's version to bypass validation.
+
+Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, and each
+`[steps.<name>]` (step names remain user-defined). Errors identify the source file and key and suggest a repair or
+the nearest valid key. Values are not coerced: strings, booleans, integers and lists of strings must have their
+declared types. `digits` is an integer from 1 through 18; `wip_limit` and `stale_days` are positive integers;
+`lease_minutes` and `move_grace_minutes` are positive finite numbers at most 153722867 minutes (the duration
+limit). Zero is not an alias for a default. `started` accepts only `true`, `false` or `"claimed"`; `kind` accepts
+`"open"`, `"parked"` or `"done"`. Existing custom-column behavior is retained: inherited steps with no destination
+on that board are inactive and absent Doing columns are dropped. Referenced steps and pull-order columns must exist.
+See `defaults/config.toml` for every key, optional value and merge rule.
+
+To intentionally retain a setting from a future version, opt in by **exact unknown dotted path** at the root:
+
+```toml
+config_version = 1
+config_allow_unknown = ["project.future_key", "extensions"]
+
+[project]
+future_key = "not used by this binary"
+```
+
+Unknown table paths may be allowlisted as a whole. Column keys use `columns.<setting>` (applies to all entries);
+steps use `steps.<step-name>.<setting>`. No wildcards are accepted. An exception never bypasses a known key's type,
+range, version or reference checks; it does not make the setting work. Doctor warns for every actually ignored
+path. `config --json` adds `config_version` and `config_allow_unknown` alongside the existing resolved fields;
+consumers should keep treating fields defensively and tolerate additive fields.
+
+### Diagnose an installation
+
+```bash
+kanbanzai doctor
+kanbanzai doctor --json
+```
+
+Doctor diagnoses even a malformed or old config. It checks git and the main branch, binary version and command
+resolution, config, folders and template, state ignore/tracking rules, write/lock access and local adapter wiring.
+It never repairs configuration, runs adapter code or makes a network request. Temporary access probes are removed.
+Config-dependent checks are skipped when the config cannot load, while independent findings are still reported.
+Missing adapters and development binaries are warnings (CLI-only use is valid); declared broken local wiring is
+an error. Wiring inspection is not proof that a live harness loaded the plugin; remote/global installs and settings
+the local inspector cannot evaluate require manual verification.
+
+Exit 0 means no blocking finding; exit 1 means an error; invalid arguments exit 2. The JSON contract is
+`{ "schema_version": 1, "ok": true, "findings": [...] }`; each finding has `id`, `status`, `message`, `fix`, with
+status `pass`, `warning`, `error` or `skipped`. This report version is distinct from `config_version`.
 
 The shipped workflow:
 
@@ -228,7 +295,9 @@ kanbanzai number [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
 kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
-kanbanzai config [--json]                the resolved settings
+kanbanzai config [--json]                the versioned, resolved settings
+kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
+kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init                           set a project up
 kanbanzai --version                      the command's version

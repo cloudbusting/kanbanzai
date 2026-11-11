@@ -3,6 +3,15 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## Unreleased
+
+- W-03: Version-1 configuration is strict: file-qualified unknown-key suggestions, exact-path exceptions, typed
+  values and validated numeric ranges. Existing unversioned files require `kanbanzai config upgrade` (preview),
+  then `--apply` (backup and atomic write). No setting is silently dropped. Config discovery stays at
+  `.kanbanzai/config.toml` even with a custom data home; init now respects that location.
+- W-03: `kanbanzai doctor [--json]` reports local installation/config/access/adapter findings, even for a broken
+  config, without repairs or network access. Resolved config JSON adds its version and unknown-key allowlist.
+
 ## [0.6.1] — 2026-11-11
 
 - W-23: The OpenCode plugin registers the workflow commands again. Its command transform called `list()` on

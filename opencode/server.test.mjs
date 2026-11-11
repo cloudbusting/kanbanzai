@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -77,6 +77,9 @@ function run(args, cwd, env = {}) {
 
 test("registers the skills, labels a shell, heartbeats, adds context and writes state", async () => {
   const project = newProject();
+  const config = JSON.parse(run(["config", "--json"], project));
+  assert.equal(config.config_version, 1, "init and adapter command use the versioned contract");
+  assert.deepEqual(config.config_allow_unknown, []);
   process.env.KANBANZAI_BIN = BIN;
   const { ctx, hooks, added, commands, prompts } = fakeContext(project);
   const plugin = await loadPlugin("?found");
@@ -119,6 +122,23 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
     const request = { sessionID: "ses_test1", system: [], messages: [], tools: {} };
     await hooks["session.context"](request);
     assert.ok(request.system.map((part) => part.text).join("\n").includes(".kanbanzai"));
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("a legacy config injects the same upgrade instruction as the Claude hook", async () => {
+  const project = newProject();
+  process.env.KANBANZAI_BIN = BIN;
+  writeFileSync(path.join(project, ".kanbanzai", "config.toml"), "[project]\nowner='Legacy'\n");
+  const { ctx, hooks } = fakeContext(project);
+  const plugin = await loadPlugin("?legacy-config");
+  const cleanup = await plugin.setup(ctx);
+  try {
+    const request = { sessionID: "ses_legacy", system: [] };
+    await hooks["session.context"](request);
+    assert.match(request.system.map((part) => part.text).join("\n"), /kanbanzai config upgrade/);
   } finally {
     cleanup();
     rmSync(project, { recursive: true, force: true });

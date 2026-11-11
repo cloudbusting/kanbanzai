@@ -163,6 +163,9 @@ func Repo(t *testing.T, config string) string {
 	}
 	Write(t, filepath.Join(dir, "README.md"), "# A project\n")
 	if config != "" {
+		if !strings.Contains(config, "config_version") {
+			config = "config_version = 1\n" + config
+		}
 		Write(t, filepath.Join(dir, ".kanbanzai", "config.toml"), config)
 		Write(t, filepath.Join(dir, ".kanbanzai", ".gitignore"), "state/\n")
 	}

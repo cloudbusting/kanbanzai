@@ -10,11 +10,18 @@
 # step's Done column when it finishes. Todo, Paused and Done are single columns. Each step names the column it moves
 # a card into (`into`), the column it sits in while it runs (`during`) and the skill that does it.
 
+# Version of this config contract (not the command's release version).
+config_version = 1
+# Exact unknown dotted paths to ignore, never a type/range/version bypass. Doctor warns for ignored keys.
+# Column paths are columns.<setting>; step paths are steps.<name>.<setting>. Unknown tables may be listed whole.
+# No wildcards. Unversioned files require `kanbanzai config upgrade` (preview), then `--apply` (backup/write).
+config_allow_unknown = []
+
 [project]
 prefix = "W"                      # card ids are <prefix>-<number>: W-01, W-02 …
-digits = 2                        # zero-padded to at least this many digits
+digits = 2                        # integer 1 through 18; zero-padded to at least this many digits
 owner = "the user"                # the person the skills address and whose decisions they ask for
-home = ".kanbanzai"               # the project's Kanbanzai folder: this config, and by default the rest
+home = ".kanbanzai"               # data home; config discovery stays at .kanbanzai/config.toml
 work = ".kanbanzai/work"          # the cards: one brief per card, in git
 state = ".kanbanzai/state"        # the leases (claims/) and the number ledger (numbers/): never in git
 claims = ""                       # empty: <state>/claims
@@ -28,13 +35,13 @@ batch_branch = "batch/{id}"       # a card's branch inside a batch
 context = []                      # project files every Kanbanzai skill reads first (rules, where things stand)
 
 [claims]
-lease_minutes = 120               # a claim is a lease; the heartbeat renews it while the session works
+lease_minutes = 120               # positive finite minutes, <=153722867; heartbeat renews the lease
 owner_env = "KANBANZAI_OWNER"     # set it to override the detected session label (KANBANZAI_OWNER is always read)
 
 [flow]
-wip_limit = 5                     # cards started and not yet past the last started column, a claimed Todo included
-stale_days = 7                    # an unclaimed card in a started column with no news for this long is stale
-move_grace_minutes = 10           # a live claim on a card still in Todo or a Done column this long is "claimed, not started"
+wip_limit = 5                     # positive integer; started cards (a claimed Todo included) before the last started column
+stale_days = 7                    # positive integer; unclaimed started card with no news this long is stale
+move_grace_minutes = 10           # positive finite minutes, <=153722867; live claim still in Todo/Done this long is "claimed, not started"
 pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; interrupted cards before all
 
 # The columns, in the board's order. Keys:
