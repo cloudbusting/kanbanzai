@@ -90,8 +90,10 @@ claude plugin validate .
 A warning about missing author or icon is a release finding, not noise. Fix what the card owns; ask the owner for
 an identity or an icon they must supply.
 
-Commit the release prep on the card's branch with the card id, then merge it to the main branch as the check step
-does. Stage only the release's files by path. The tree must be clean before tagging.
+The card's branch was already merged into the main branch by the check step. Make the release prep in the card's
+worktree on a short release branch from main, commit it with the card id, and merge it to main as the check step
+does. Stage only the release's files by path. The tree must be clean before tagging, and the tag goes on that
+release commit.
 
 ## 4. Tag and push
 
@@ -116,9 +118,27 @@ If the push is rejected, stop. Never force-push `main` or move a published tag.
 
 ## 5. Publish
 
+### Rebuild the final artifacts from the tag
+
+The package step proved the procedure at the pre-release commit. The version bump and changelog changed the tree
+after that, so rebuild, do not reuse the earlier directory:
+
+```bash
+OUT="${TMPDIR:-/tmp}/kanbanzai-release-<ID>-<version>"
+mkdir -p "$OUT"
+git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
+  -o "$OUT/kanbanzai-<version>.tar.gz" "kanbanzai--v<version>" \
+  .claude-plugin bin kanbanzai defaults templates skills hooks opencode board-view README.md
+python3 -I board-view/install.py --vsix-only "$OUT/kanbanzai-board-<extension-version>.vsix"
+(cd "$OUT" && sha256sum * > SHA256SUMS)
+```
+
+Run this from a clean checkout at the tagged commit. Verify the archive listing and the `.vsix` manifest version
+before publishing; the package step's checks apply again to these files.
+
 ### GitHub release
 
-Attach the package artifacts and the checksums:
+Attach the rebuilt artifacts and the checksums:
 
 ```bash
 gh release create "kanbanzai--v<version>" \
