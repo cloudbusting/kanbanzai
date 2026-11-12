@@ -1,10 +1,6 @@
-# Kanbanzai's own board. The flow below is written out in full (`kanbanzai workflow export` wrote it; change it with
-# `kanbanzai workflow validate|plan|apply`, not by hand-editing the columns). It is the shipped flow plus gates:
-#   Todo      a card gate, until Designed: a card waits there until every card in its `Needs:` line is designed
-#             (a card is designed after the cards it depends on are)
-#   Designed  a card gate, until Done: a designed card is not built until every card it needs is Done
-#   QA-approved  the owner gate: nothing ships until the owner's approval is recorded (`kanbanzai gate pass`)
-# A card with no `Needs:` line is never held by the first two. `kanbanzai gate status` lists every card at a gate.
+# Kanbanzai's own board. Only what differs from Kanbanzai's shipped defaults belongs here: the columns, the cap of
+# five started cards, the two-hour lease and the pull order are the defaults. `kanbanzai config` prints the settings
+# in force. Tables merge key by key; a list (such as [[columns]]) replaces the default one whole.
 #
 # This repository develops Kanbanzai itself: the Python core, the editor extension in board-view/, and the Claude
 # Code and OpenCode adapters. The project skills in .claude/skills/ are local development rules; they are not
@@ -31,198 +27,19 @@ worktree = "../worktrees/kanbanzai/{id}"
 #   [flow]     wip_limit, pull_order
 #   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
 
-# The flow of this project, as `kanbanzai workflow export` wrote it.
-# Edit it, then `kanbanzai workflow validate --file FILE` and `kanbanzai workflow plan --file FILE`.
-# A flow file replaces the project's [flow], [[columns]] and [steps.*] tables.
-
-[flow]
-wip_limit = 5
-stale_days = 7
-move_grace_minutes = 10.0
-pull_order = ["checked", "built", "designed", "todo"]
-
-[[columns]]
-key = "todo"
-label = "Todo"
-words = ["todo"]
-folder = "1-open"
-kind = "open"
-started = "claimed"
-next = "design"
-settled_next = "build"
-title = "DESIGNING"
-settled_title = "BUILDING"
-gate = "card"
-gate_until = "designed"
-
-[[columns]]
-key = "designing"
-label = "Designing"
-words = ["designing"]
-folder = "1-open"
-kind = "open"
-started = true
-title = "DESIGNING"
-lane = "Design"
-doing = "design"
-
-[[columns]]
-key = "designed"
-label = "Designed"
-words = ["designed"]
-folder = "1-open"
-kind = "open"
-started = true
-next = "build"
-title = "BUILDING"
-worktree = true
-lane = "Design"
-gate = "card"
-gate_until = "done"
-
-[[columns]]
-key = "building"
-label = "Building"
-words = ["building"]
-folder = "1-open"
-kind = "open"
-started = true
-title = "BUILDING"
-worktree = true
-lane = "Build"
-doing = "build"
-
-[[columns]]
-key = "built"
-label = "Built"
-words = ["built"]
-folder = "1-open"
-kind = "open"
-started = true
-next = "check"
-title = "CHECKING"
-worktree = true
-lane = "Build"
-
-[[columns]]
-key = "checking"
-label = "Checking"
-words = ["checking"]
-folder = "1-open"
-kind = "open"
-started = true
-title = "CHECKING"
-worktree = true
-lane = "Check"
-doing = "check"
-
-[[columns]]
-key = "checked"
-label = "Checked"
-words = ["checked"]
-folder = "1-open"
-kind = "open"
-started = true
-next = "deploy-qa"
-title = "IN QA"
-worktree = true
-lane = "Check"
-
-[[columns]]
-key = "in-qa"
-label = "In QA"
-words = ["in-qa"]
-folder = "1-open"
-kind = "open"
-started = true
-title = "IN QA"
-worktree = true
-lane = "QA"
-doing = "deploy-qa"
-
-[[columns]]
-key = "qa-approved"
-label = "QA-approved"
-words = ["qa-approved"]
-folder = "1-open"
-kind = "open"
-started = false
-next = "ship"
-title = "SHIPPING"
-worktree = true
-lane = "QA"
-gate = "owner"
-
-[[columns]]
-key = "shipping"
-label = "Shipping"
-words = ["shipping"]
-folder = "1-open"
-kind = "open"
-started = false
-title = "SHIPPING"
-worktree = true
-lane = "Ship"
-doing = "ship"
-
-[[columns]]
-key = "paused"
-label = "Paused"
-words = ["paused"]
-folder = "x-paused"
-kind = "parked"
-started = false
-title = "PAUSED"
-
-[[columns]]
-key = "done"
-label = "Done"
-words = ["done"]
-folder = "10-done"
-kind = "done"
-started = false
-title = "DONE"
+[steps.design]
+extend = ["kanbanzai-design"]      # the architecture, the public contracts and the owner's decisions
+context = []
 
 [steps.build]
-into = "built"
-during = "building"
-skill = "kanbanzai:build"
-extend = ["kanbanzai-build"]
-context = []
-checks = []
+extend = ["kanbanzai-build"]       # standard library only, plain JavaScript, tests first, defensive adapters
 
 [steps.check]
-into = "checked"
-during = "checking"
-skill = "kanbanzai:check"
+checks = ["kanbanzai-qa"]          # the core, extension and adapter suites, then the rules review
 extend = []
-context = []
-checks = ["kanbanzai-qa"]
 
 [steps.deploy-qa]
-into = "qa-approved"
-during = "in-qa"
-skill = "kanbanzai-package"
-extend = []
-context = []
-checks = []
-skip_field = "Deploy"
-skip_values = ["None"]
-
-[steps.design]
-into = "designed"
-during = "designing"
-skill = "kanbanzai:design"
-extend = ["kanbanzai-design"]
-context = []
-checks = []
+skill = "kanbanzai-package"        # build and prove the .vsix and the plugin bundles; never publish
 
 [steps.ship]
-into = "done"
-during = "shipping"
-skill = "kanbanzai-release"
-extend = []
-context = []
-checks = []
-skip_field = "Deploy"
-skip_values = ["None"]
+skill = "kanbanzai-release"        # version, tag, push to the public remote, publish and verify
