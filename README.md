@@ -401,6 +401,10 @@ their words), `gate status` says where it stands, and `step --for ID` says what 
 [docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
 release, dependent work) and says what the flow cannot express.
 
+A skipped step cannot be started, including by a claim's automatic start. The claim remains recorded and reports
+the explicit skip or close route; gates and normal move requirements still apply. `--force --reason` remains an
+audited override, and an already-running step can still be resumed or finished.
+
 **A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
 of its next step, the way `move ID start` does, unless the card is held, the step's column needs a workspace (the output
 then says to make it and run `move ID start --where "<the record>"`; under `isolation = "shared"` there is none), or the claim is made with `--no-move` (a claim
