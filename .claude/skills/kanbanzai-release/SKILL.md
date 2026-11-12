@@ -88,7 +88,11 @@ Then validate before committing:
 
 ```bash
 claude plugin validate .
+go run ./tools/release -check
 ```
+
+`-check` fails when the manifests and `CHANGELOG.md` disagree on the version; the workflow runs it again against the
+tag (`-check -version v<version>`), so a mismatch you push is a failed release.
 
 A warning about missing author or icon is a release finding, not noise. Fix what the card owns; ask the owner for
 an identity or an icon they must supply.
@@ -98,9 +102,31 @@ worktree on a short release branch from main, commit it with the card id, and me
 does. Stage only the release's files by path. The tree must be clean before tagging, and the tag goes on that
 release commit.
 
-## 4. Tag and push
+## 4. Push main alone and wait for CI
 
-Tag the plugin through its validator, so the tag and the metadata cannot disagree:
+Push the main branch **before** any tag exists on the remote, and wait for CI to pass on all three systems:
+
+```bash
+git push origin main
+gh run list --repo cloudbusting/kanbanzai --workflow CI --commit "$(git rev-parse HEAD)"
+gh run watch <run-id> --repo cloudbusting/kanbanzai --exit-status
+```
+
+Every job of the `CI` run must be green for this commit: `Go (ubuntu-latest)`, `Go (macos-latest)` and
+`Go (windows-latest)`, plus the adapters and plugin jobs. The reason is 0.7.0: its first attempt tagged a commit whose
+CI had never run (42 commits were unpushed), the first CI run failed, and the tags could not be moved. A first CI run
+of long-unpushed work is the risk this step removes. Run it even when everything is green locally; the local machine
+is one operating system.
+
+If CI is red, fix forward: a new commit on main, push main alone again, and wait again. Do not tag until the commit
+you will tag has a green run on all three. If the fix changed the release's files, the tag goes on the fixed commit.
+
+If the push is rejected, stop. Never force-push `main`.
+
+## 5. Tag and push the tags
+
+Only now, with the tagged commit green on Ubuntu, macOS and Windows, tag the plugin through its validator, so the tag
+and the metadata cannot disagree:
 
 ```bash
 claude plugin tag . --dry-run
@@ -115,47 +141,73 @@ resolves the release:
 git tag "v<version>" "$(git rev-parse "kanbanzai--v<version>^{commit}")"
 ```
 
-Push the main branch and both tags only after the tests and the package report are green:
+Push the tags only after the tests, the package report and the green CI of step 4 are in hand:
 
 ```bash
-git push origin main "v<version>" "kanbanzai--v<version>"
+git push origin "v<version>" "kanbanzai--v<version>"
 ```
 
 The `v<version>` tag starts `.github/workflows/release.yml`: it runs the Go tests on Ubuntu, macOS and Windows,
-builds the five archives and `SHA256SUMS`, and attaches them to the `v<version>` release. The
-`kanbanzai--v<version>` tag is the marketplace tag. Never tag a different commit.
+validates the plugin, checks the manifests against the tag, builds the five archives and `SHA256SUMS`, builds the
+`.vsix` with the command for all five platforms, and attaches them to the `v<version>` release. The
+`kanbanzai--v<version>` tag is the marketplace tag and starts nothing. Never tag a different commit.
 
-If the push is rejected, stop. Never force-push `main` or move a published tag.
+Expect one Release run and one CI run, not four (W-29). The `ci.yml` workflow runs on a push of `main` and on pull
+requests, never on a tag; the `release.yml` workflow runs on a `v*` tag, never on `main`. A single
+`git push origin main "v<version>" "kanbanzai--v<version>"` would start the Release workflow once and CI once; with
+the order above they start from two pushes, still once each.
 
-## 5. Publish
+**A pushed tag is never moved or deleted.** If the Release workflow fails, or the release turns out to be wrong,
+fix forward: a new commit, a new patch version and new tags. Do not force-push a tag, and do not re-run the workflow
+against a moved one.
 
-### Rebuild the final artifacts from the tag
+If a push is rejected, stop. Never force-push `main` or move a published tag.
+
+## 6. Publish
+
+### Collect the final artifacts from the tag
 
 The package step proved the procedure at the pre-release commit. The version bump and changelog changed the tree
-after that, so rebuild, do not reuse the earlier directory:
+after that, so do not reuse the earlier directory. Wait for the Release workflow to finish
+(`gh run watch --exit-status` on its run), then collect what it built and add the source bundle:
 
 ```bash
 OUT="${TMPDIR:-/tmp}/kanbanzai-release-<ID>-<version>"
 mkdir -p "$OUT"
+gh release download "v<version>" --repo cloudbusting/kanbanzai --dir "$OUT" \
+  --pattern '*.tar.gz' --pattern '*.zip' --pattern '*.vsix'
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
   -o "$OUT/kanbanzai-<version>.tar.gz" "v<version>" \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md LICENSE CHANGELOG.md
-go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
-(cd "$OUT" && sha256sum * > SHA256SUMS)
+  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
+(cd "$OUT" && sha256sum *.tar.gz *.zip *.vsix > SHA256SUMS && wc -l SHA256SUMS)
 ```
 
-Once `LICENSE` and `CHANGELOG.md` exist, add them to the archive path list; `git archive` fails on a path that is
-not in the tag, so keep the list to files that are present. Run this from a clean checkout at the tagged commit. Verify the archive listing and the `.vsix` manifest version
-before publishing; the package step's checks apply again to these files.
+The `.vsix` is the workflow's, built with the command for five platforms. **Never upload a command-less `.vsix`**: a
+`go run ./tools/vsix -o …` build without `-bin` is a dev build with no command, and uploading one with `--clobber`
+would replace the real one. If you need your own copy of the `.vsix` (to compare it, or because the workflow did not
+attach one), build it the way the workflow does, from the tagged commit and into a directory other than `$OUT`:
+
+```bash
+BINS="$OUT-bins" CHECK="$OUT-check"
+go run ./tools/release -version "v<version>" -out "$CHECK" -bins "$BINS"
+go run ./tools/vsix -bin "$BINS" -o "$CHECK/kanbanzai-board-<extension-version>.vsix"
+```
+
+`SHA256SUMS` must list seven files: the five archives, the `.vsix` and the source bundle. The workflow's
+`SHA256SUMS` covers only the five archives, so this one replaces it. `git archive` fails on a path that is not in
+the tag, so keep the path list to files that are present (`docs` is there because the README links `docs/setup.md`).
+Run this from a clean checkout at the tagged commit. Verify the archive listing, and the `.vsix` listing and manifest
+version (`extension/bin/<os>-<arch>/kanbanzai[.exe]` for all five platforms, no `extension/bin.json`), before
+publishing; the package step's checks apply again to these files.
 
 ### GitHub release
 
-The tag workflow creates the `v<version>` release with the five binary archives and their `SHA256SUMS`. Attach the
-source bundle and the `.vsix`, and write the notes:
+The tag workflow creates the `v<version>` release with the five binary archives, the `.vsix` and a `SHA256SUMS` over
+the archives only. Attach the source bundle, re-upload the regenerated `SHA256SUMS` over the workflow's, and write
+the notes. The `.vsix` is already there; do not upload it again unless it is the one the workflow built:
 
 ```bash
-gh release upload "v<version>" "$OUT/kanbanzai-<version>.tar.gz" \
-  "$OUT/kanbanzai-board-<extension-version>.vsix" --clobber
+gh release upload "v<version>" "$OUT/kanbanzai-<version>.tar.gz" "$OUT/SHA256SUMS" --clobber
 gh release edit "v<version>" --notes-file <the release notes>
 ```
 
@@ -180,19 +232,19 @@ and `tools/`, and that no path points at this checkout. The `kanbanzai` command 
 
 ### The editor extension
 
-The `.vsix` runs `kanbanzai` from the `kanbanzai.command` setting or PATH and carries no machine path, so it is a
-portable artifact. Say in the notes that the command must be installed and on PATH first.
+The `.vsix` carries the `kanbanzai` command for five platforms and no machine path, so it is a portable artifact;
+the `kanbanzai.command` setting still overrides the bundled command. Say in the notes which platforms it covers.
 
-Publish to a marketplace only when `board-view/package.json` has a real publisher, licence, a portable command
-resolution and the owner's publishing token in the environment:
+Publish to a marketplace only when `board-view/package.json` has a real publisher and licence and the owner's
+publishing token is in the environment. Publish the workflow's `.vsix` (the one with the command), never a build
+without `-bin`:
 
 ```bash
 npx @vscode/vsce publish --packagePath "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
-Never put a token in the repository or a command that is logged. If there is no publisher, token or portable
-command, attach the `.vsix` to the GitHub release or leave it out, and record that the owner must install it
-manually. Do not describe an unpublished extension as available in a marketplace.
+Never put a token in the repository or a command that is logged. If there is no publisher or token, leave
+the workflow's `.vsix` on the GitHub release, and record that the owner must install it manually. Do not describe an unpublished extension as available in a marketplace.
 
 ### OpenCode
 
@@ -200,7 +252,7 @@ When `opencode/package.json` exists, publish the package the OpenCode project do
 bundle on the GitHub release is the distribution: a user loads `opencode/` from the extracted bundle. Say which
 one was published; never claim an npm package that does not exist.
 
-## 6. Verify
+## 7. Verify
 
 From a clean machine state, not the build tree:
 
@@ -208,6 +260,7 @@ From a clean machine state, not the build tree:
 V="$(mktemp -d)" && cd "$V"
 gh release download "v<version>" --repo cloudbusting/kanbanzai
 sha256sum -c SHA256SUMS
+unzip -l kanbanzai-board-<extension-version>.vsix | grep "extension/bin/"
 tar -xzf "kanbanzai_<version>_linux_amd64.tar.gz"
 ./kanbanzai --version
 ./kanbanzai init
@@ -220,12 +273,12 @@ GOBIN="$(mktemp -d)" go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@
 For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, the owner's
 install into a clean editor profile and a look at a fixture board is the remaining manual check; name it.
 
-## 7. Record and close
+## 8. Record and close
 
 - The release notes and `CHANGELOG.md` name the version, the card, the artifacts and the commit.
 - `README.md` has the published install command if the listing is live.
-- Both tags point at the release commit; the `v<version>` release carries the five binaries, `SHA256SUMS`, the
-  source bundle and the `.vsix`.
+- Both tags point at the release commit; the `v<version>` release carries the five binaries, the `.vsix` with its
+  command, the source bundle and a `SHA256SUMS` over all seven (`sha256sum -c` passes on a fresh download).
 - The card moves to Done:
   `kanbanzai move <ID> done --done "YYYY-MM-DD — v<version>, <sha>, <release URL>"`.
 - Release the claim, merge the card's branch, remove the worktree and branch, and report to the owner: what was
@@ -236,7 +289,10 @@ install into a clean editor profile and a look at a fixture board is the remaini
 A published tag and a marketplace version are effectively permanent. Never force-push or delete a published tag.
 If the release is broken:
 
-- before any push: delete the local tag and fix the commit;
+- before the tags are pushed: delete the local tags and fix the commit (a red CI run on main is fixed with a new
+  commit, and main is pushed alone again);
+- after the tags are pushed: fix forward with a new commit, a new patch version and new tags; the pushed tag stays
+  where it is;
 - after the GitHub release: mark it as a pre-release or edit its notes to say withdrawn, and keep the artifacts
   for diagnosis;
 - after a marketplace listing: publish the next patch; do not try to rewrite the old version;
@@ -244,6 +300,7 @@ If the release is broken:
 
 ## You never
 
-Publish without the package report and the owner's approval, tag a dirty tree, push a different commit than the
+Publish without the package report and the owner's approval, tag a commit whose CI has not passed on Ubuntu,
+macOS and Windows, move a pushed tag, upload a command-less `.vsix`, tag a dirty tree, push a different commit than the
 one that was packaged, put a token or private path in the repository, or describe an unpublished artifact as
 available.
