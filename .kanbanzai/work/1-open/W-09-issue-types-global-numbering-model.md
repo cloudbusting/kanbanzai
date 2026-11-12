@@ -1,11 +1,12 @@
 # W-09: Issue types and global numbering: the model and migration policy
 
-- **Stage:** todo
-- **Updated:** 2026-11-11
+- **Stage:** designing
+- **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** design: decide the ID format, the default type and the retype policy
+- **Next action:** Resume design after owner decides ID format, retyping and legacy collision policy
 - **Where:** —
+- **Held:** waiting: owner, decide ID format, retyping and legacy collisions
 
 ## Goal
 
@@ -42,6 +43,7 @@ Type-prefixed IDs make a retype expensive because the stable key changes. If tha
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-12: Reviewed current per-prefix numbering and identified owner decisions for the compatibility and migration policy.
 
 ## Comments
 
