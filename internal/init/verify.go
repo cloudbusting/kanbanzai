@@ -107,11 +107,12 @@ func Verify(start string, plan *Plan) *Verification {
 	return v
 }
 
-// uncommitted lists the files init wrote or changed that git does not yet have committed.
+// uncommitted lists the files of the plan, written now or kept from an earlier run, that git does not yet have
+// committed, so a re-run of init still says what is left to commit.
 func uncommitted(plan *Plan) []string {
 	touched := map[string]bool{}
 	for _, action := range plan.Actions {
-		if action.Op != OpKeep && action.Op != OpMkdir {
+		if action.Op != OpMkdir {
 			touched[action.Path] = true
 		}
 	}
