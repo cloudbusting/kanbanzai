@@ -152,9 +152,16 @@ func TestPluginSourceUsesALocalDirectoryAndTheLocalSettingsFile(t *testing.T) {
 		t.Error("a machine path must not go into the committed .claude/settings.json")
 	}
 	local := actionAt(plan, ".claude/settings.local.json")
-	if local == nil || !strings.Contains(local.Content, `"directory"`) || !strings.Contains(local.Content, filepath.ToSlash(source)) &&
-		!strings.Contains(local.Content, source) {
+	if local == nil || !strings.Contains(local.Content, `"directory"`) {
 		t.Fatalf("local settings = %+v", local)
+	}
+	var fragment struct {
+		Extra map[string]struct {
+			Source struct{ Path string }
+		} `json:"extraKnownMarketplaces"`
+	}
+	if err := json.Unmarshal([]byte(local.Content), &fragment); err != nil || fragment.Extra["kanbanzai"].Source.Path != source {
+		t.Fatalf("the directory source is not the checkout (%q): %v\n%s", source, err, local.Content)
 	}
 	opencode := actionAt(plan, ".opencode/opencode.json")
 	if opencode == nil || !strings.Contains(opencode.Content, "plugins") {
