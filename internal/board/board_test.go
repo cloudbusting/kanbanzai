@@ -356,7 +356,7 @@ func TestJSONAndText(t *testing.T) {
 	if len(parsed) != 3 {
 		t.Fatalf("top-level keys = %#v", parsed)
 	}
-	if types, ok := parsed["types"].([]any); !ok || len(types) != 0 {
+	if types, ok := parsed["types"].([]any); !ok || len(types) != 5 {
 		t.Fatalf("types = %#v", parsed["types"])
 	}
 	columns := parsed["columns"].([]any)

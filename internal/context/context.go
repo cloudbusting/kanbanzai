@@ -32,7 +32,11 @@ func Build(project *config.Project) string {
 	}
 	ids := project.IDsExample()
 	if project.TypeSet != nil {
-		ids += " (typed ids: " + strings.Join(project.CardPrefixes(), ", ") + "; one global number sequence)"
+		ids += " (typed ids: " + strings.Join(project.TypePrefixes(), ", ")
+		if legacy := project.LegacyExample(); legacy != "" {
+			ids += "; legacy " + legacy
+		}
+		ids += "; one global number sequence)"
 	}
 	lines := []string{
 		"Kanbanzai: this project's work is a board of cards, one brief per card (command: `kanbanzai`).",

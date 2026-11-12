@@ -12,7 +12,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
-const checkConfig = "[project]\nowner = \"Sam\"\ntemplate = \"template.md\"\n"
+const checkConfig = "types = []\n[project]\nowner = \"Sam\"\ntemplate = \"template.md\"\n"
 
 const goodTemplate = `# W-NN: <the work>
 

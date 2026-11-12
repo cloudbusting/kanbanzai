@@ -33,6 +33,7 @@ func TestTypedCardsAndBoardExposeTheirTypes(t *testing.T) {
 	project := testProject(t, typedConfig)
 	putCard(t, project, "TASK-03", "A task", "designed", cardOptions{})
 	putCard(t, project, "BUG-04", "A bug", "designed", cardOptions{})
+	putCard(t, project, "W-06", "An old card", "designed", cardOptions{})
 	result := Load(project, map[string]string{}, nil)
 	if len(result.Problems) != 0 {
 		t.Fatalf("problems = %v", result.Problems)
@@ -45,8 +46,8 @@ func TestTypedCardsAndBoardExposeTheirTypes(t *testing.T) {
 		card.Type.Colour != "#C43B3B" {
 		t.Fatalf("card type = %+v", card)
 	}
-	if _, legacy := Find(result, "W-01"); legacy != nil {
-		t.Fatal("a legacy id was found on a typed board")
+	if _, legacy := Find(result, "W-06"); legacy == nil || legacy.Type != nil {
+		t.Fatalf("legacy card = %+v, want no type", legacy)
 	}
 
 	data, err := fsutil.MarshalIndent(result)

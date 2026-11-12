@@ -11,6 +11,7 @@ import (
 )
 
 const contextConfig = `
+types = []
 [project]
 owner = "Sam"
 context = ["RULES.md", "docs/where-things-stand.md"]

@@ -444,7 +444,11 @@ func ConfigText(owner, mainBranch, template, prefix string, context []string) st
 # replaces the default one whole.
 
 config_version = 1
-
+`)
+	if prefix != "" {
+		b.WriteString("types = []      # opt out of typed ids: keep the single-prefix shape\n")
+	}
+	b.WriteString(`
 [project]
 `)
 	fmt.Fprintf(&b, "owner = %s      # the person the skills address and whose decisions they ask for\n", tomlString(owner))
@@ -456,8 +460,9 @@ config_version = 1
 			tomlString(template))
 	}
 	if prefix != "" {
-		fmt.Fprintf(&b, "prefix = %s      # card ids are <prefix>-<number>\n", tomlString(prefix))
+		fmt.Fprintf(&b, "prefix = %s      # single-prefix card ids are <prefix>-<number>\n", tomlString(prefix))
 	} else {
+		b.WriteString("prefix = \"\"      # no legacy card id prefix; typed ids are the default\n")
 		b.WriteString("default_type = \"task\"      # the type used when `kanbanzai number` names none\n")
 	}
 	if len(context) > 0 {
@@ -472,7 +477,8 @@ config_version = 1
 	}
 	b.WriteString(`
 # More you can set (see Kanbanzai's defaults/config.toml for every key):
-#   [project]  default_type, project_key, prefix (legacy only), work, claims, numbers, worktree, context
+#   [project]  default_type, project_key, prefix (the legacy card id prefix), work, claims, numbers, worktree, context
+#   types = []  opt out of typed ids and keep the single-prefix shape
 #   [flow]     wip_limit, pull_order, isolation = "worktree" / "branch" / "shared" / "external"
 #   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
 #   [[types]]  key, label, prefix and the optional template, colour, icon, description; one global number sequence
