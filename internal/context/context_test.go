@@ -170,3 +170,28 @@ func TestContextSaysWhatEachGateWaitsFor(t *testing.T) {
 		t.Errorf("a flow with no gate mentions one, or has a blank line:\n%s", text)
 	}
 }
+
+func TestContextSaysHowEachIsolationModeKeepsWorkApart(t *testing.T) {
+	cases := map[string][]string{
+		"":         {"Every change to a card is made in its worktree (", "the main checkout holds only the board."},
+		"worktree": {"Every change to a card is made in its worktree ("},
+		"branch":   {"Every change to a card is made on its own branch", "one card at a time", "kanbanzai workspace ID"},
+		"shared":   {"Every change is made in the one shared checkout", "no workspace record", "worktree mode"},
+		"external": {"made in the workspace the host owns", "Where: external <ref>", "holds only the board"},
+	}
+	for mode, wants := range cases {
+		text := contextConfig
+		if mode != "" {
+			text += "\n[flow]\nisolation = \"" + mode + "\"\n"
+		}
+		got := Build(testProject(t, text))
+		for _, want := range wants {
+			if !strings.Contains(got, want) {
+				t.Errorf("%q: context lacks %q:\n%s", mode, want, got)
+			}
+		}
+		if mode == "shared" && strings.Contains(got, "worktree (") {
+			t.Errorf("shared context names a worktree path:\n%s", got)
+		}
+	}
+}

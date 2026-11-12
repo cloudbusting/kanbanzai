@@ -52,11 +52,11 @@ A check that looks wrong is a bug in the check: say so, leave it failing, and fi
 ## 2. Anything the checks asked for
 
 A check may require something of the change before it is green: an inventory entry, a diagram, a guide page. Do it
-in the card's worktree; the change is not Checked until it is there.
+in the card's workspace; the change is not Checked until it is there.
 
 ## 3. The review
 
-Review the whole diff yourself (`git diff main...<the card's branch>` in the card's worktree). Subagents are a second
+Review the whole diff yourself (`git diff main...<the card's branch>` in the card's workspace). Subagents are a second
 pair of eyes, not the review. Read it as a reviewer would:
 
 - Does it do what the brief's Goal and acceptance checks say, and nothing else?
@@ -72,7 +72,7 @@ Fix what's real and re-run the checks the fixes touch. A finding outside the car
 
 When the checks are green and the review is done:
 
-1. Commit the change in the card's **worktree** on its branch, as `<ID>: <what changed and why>`, with a body naming
+1. Commit the change in the card's **workspace** on its branch, as `<ID>: <what changed and why>`, with a body naming
    the checks run and anything the owner should know. A turn that stopped earlier already committed what it had as
    `<ID> wip: …`; this is the finished change's commit. Stage only the change's own files by path
    (`git add <files>`, never `-A`); never stage another session's files. If the index is not clean, use

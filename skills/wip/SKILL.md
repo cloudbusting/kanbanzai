@@ -23,8 +23,11 @@ with its branch, commit, dirty files and the card it belongs to. Then it flags t
   stale: a queue, an approval, an interruption, a hold);
 - **expired claim** — a claim past its lease: free to release, or to take over with a reason (the claim is the card's
   only owner record);
-- **out of place** — an open card whose Where is `main`, or a claimed card in a column that needs a worktree with
-  none: the main checkout holds the board, and every change is made in the card's worktree;
+- **out of place** — an open card whose Where is `main`, or a claimed card in a column that needs a workspace with
+  none: under `worktree` (the default) the main checkout holds the board and every change is made in the card's
+  worktree; under `branch` the checkout must be on the claimed card's branch; under `external` the card must record
+  `external <ref>`; under `shared` there is no workspace to be out of (the report's `Isolation:` line says which mode
+  applies, and what it gives up);
 - **a dirty main checkout** — uncommitted files where only the board should be edited, or the main checkout on a
   branch other than the main branch.
 
@@ -63,10 +66,9 @@ Never list every card's detail; the board is the briefs (`kanbanzai board`, or t
 - **An expired claim:** on a card nobody is working, it can be released; if work is wanted, claim it with
   `kanbanzai claim claim <ID> --takeover "<reason>"` so the hand-over is logged.
 - **A card out of place:** an open card whose Where is `main`, or a claimed card with no worktree where it needs one,
-  is made to work in its worktree: `git worktree add <path> -b <branch> main` (or without `-b` when the branch
-  exists; `kanbanzai config` names the patterns), set Where to `worktree <ID>`, and move the uncommitted change
-  there. The brief stays on main. A dirty main checkout is likewise committed (board) or moved (change) before the
+  is made to work in its workspace: run `kanbanzai workspace <ID>`, do its `make` steps (the second line when the
+  branch exists), set Where to the record it prints, and move the uncommitted change there. The brief stays on main. A dirty main checkout is likewise committed (board) or moved (change) before the
   audit can pass.
 - **An orphan claim:** a claim for a card that is not on the board is dead bookkeeping; release it.
 
-Subagents never reconcile; the main session owns the board, its claims and the worktrees.
+Subagents never reconcile; the main session owns the board, its claims and the workspaces.

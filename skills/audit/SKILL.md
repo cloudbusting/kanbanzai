@@ -20,8 +20,12 @@ kanbanzai claim status                   # who holds each card, and until when
 
 `--audit` exits 1 on a **hard** finding: an orphan worktree, a card with work in two places, a worktree holding a
 card the board doesn't claim, a card claiming a worktree that isn't there, unclaimed work in a worktree, a claim for
-a card that has no brief, an open card whose **Where** is `main`, a claimed card in a column that needs a worktree
-with none, the main checkout off its main branch, or uncommitted files in the main checkout. `--card <ID>` scopes
+a card that has no brief, an open card whose **Where** is `main`, a claimed card in a column that needs a workspace
+with none, the main checkout off its main branch, or uncommitted files in the main checkout. These are the default
+`worktree` mode's rules; `[flow] isolation` changes them (the report's `Isolation:` line names the mode): under `branch`
+the one checkout must be on the claimed card's branch, with a hard finding for two live claims; under `external` a
+claimed card must record `external <ref>`, which the audit trusts; under `shared` there is no layout finding, only a
+warning when sessions share the one tree. `kanbanzai workspace <ID>` says what a card's mode asks. `--card <ID>` scopes
 it to one card, so another session's work does not hold that card — including the main checkout, which the card
 scope leaves to the whole-board run. A card in the first column, or in a column that waits for the owner, with no
 claim is at rest, not drift; a card in a Done column with no claim is finished with its step and waiting to be
@@ -35,7 +39,7 @@ how to check it. Run those checks too.
 
 Then read the briefs of the in-flight cards: does each **Stage**, **Where** and last **Progress** line agree with its
 folder and its worktree's last commit? For a batch, do its cards and workspaces still exist? **Done** cards are
-closed: no claim, no worktree, Where `main`, Next action `—`, their brief in the done column's folder with a dated
+closed: no claim, no workspace, Where `main`, Next action `—`, their brief in the done column's folder with a dated
 **Done** line — anything else on a Done card is drift to report.
 
 ## 2. What it can fix

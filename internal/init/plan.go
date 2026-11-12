@@ -460,7 +460,7 @@ config_version = 1
 	b.WriteString(`
 # More you can set (see Kanbanzai's defaults/config.toml for every key):
 #   [project]  prefix, work, claims, numbers, worktree, context = ["rules file", ...]
-#   [flow]     wip_limit, pull_order
+#   [flow]     wip_limit, pull_order, isolation = "worktree" / "branch" / "shared" / "external"
 #   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
 `)
 	return b.String()

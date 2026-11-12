@@ -130,6 +130,7 @@
   "config_allow_unknown": [],
   "config_version": 1,
   "flow": {
+    "isolation": "worktree",
     "move_grace_minutes": 10,
     "pull_order": [
       "checked",

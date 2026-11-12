@@ -1,11 +1,11 @@
 ---
 name: cleanup
-description: Remove finished worktrees and merged branches, close finished batches and release expired claims, after proving no uncommitted or unpushed work would be lost. Use after a batch or a card closes, or when the audit shows clutter. It never removes work without the owner's word.
+description: Remove finished workspaces (worktrees or merged card branches), close finished batches and release expired claims, after proving no uncommitted or unpushed work would be lost. Use after a batch or a card closes, or when the audit shows clutter. It never removes work without the owner's word.
 ---
 
 # Cleanup
 
-Worktrees and branches are safe to remove only when their work is somewhere else. This skill proves that, then
+Workspaces (worktrees and card branches) are safe to remove only when their work is somewhere else. This skill proves that, then
 tidies. It never touches code, a stash, or another session's live claim. The owner is `project.owner` in
 `kanbanzai config`.
 
@@ -16,29 +16,30 @@ kanbanzai wip --cleanup
 kanbanzai claim status
 ```
 
-The **Cleanup** list is worktrees that are clean and have no commits the main branch doesn't already have. The
-**Keep** list is work that still lives only there.
+The **Cleanup** list is worktrees (or, under `isolation = "branch"`, card branches) that are clean and have no commits
+the main branch doesn't already have. The **Keep** list is work that still lives only there. Under `shared` and
+`external` there is nothing to list: the audit does not own those workspaces, so skip to the batches and claims.
 
 ## 2. Remove, one at a time
 
-For each cleanup candidate:
+For each cleanup candidate, prove it, then remove it with the steps the project's mode prints:
 
 ```bash
-git -C <path> status --porcelain                  # must be empty
+git -C <path> status --porcelain                  # must be empty (for a branch: the checkout must not be on it)
 git branch --merged main | grep -w <branch>       # must print the branch (or the worktree is detached)
-git worktree remove <path>
-git branch -d <branch>                            # never -D
+kanbanzai workspace <ID>                          # its "remove" steps: the commands that take the workspace away
 ```
 
-(Use the project's main branch where it is not `main`.) `git branch -d` refuses an unmerged branch; that refusal is
-the rule working, so stop and report it. A detached worktree has no branch to delete. Never remove the main checkout.
+Run the `remove` steps it prints, in order; they never force (`git branch -d`, never `-D`). (Use the project's main
+branch where it is not `main`.) `git branch -d` refuses an unmerged branch; that refusal is the rule working, so stop
+and report it. A detached worktree has no branch to delete. Never remove the main checkout.
 
 ## 3. Keep, and say why
 
 - **Dirty** — uncommitted work: never remove. Say what the files are; the owner decides.
 - **Ahead** — commits the main branch doesn't have: never remove or delete the branch. Say how many and ask whether
   to merge, push or drop.
-- **A card still open** — its worktree stays until the card is done or dropped, even if the branch looks merged.
+- **A card still open** — its workspace stays until the card is done or dropped, even if the branch looks merged.
 
 ## 4. Batches
 
@@ -46,7 +47,7 @@ the rule working, so stop and report it. A detached worktree has no branch to de
 - A batch marked **running** with no live agent is a dead session: say so, and ask the owner before closing it; a
   worktree it holds is kept or removed by the rules above.
 - When a batch closes, its cards are moved to Done by the step that closes them, not here; the briefs stay.
-- A **done** card should already have no worktree; one that does is drift — report it, then remove it once clean and
+- A **done** card should already have no workspace; one that does is drift — report it, then remove it once clean and
   merged, as above.
 
 ## 5. Claims

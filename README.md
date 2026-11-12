@@ -11,7 +11,9 @@ by side in the same project.
   column; a cap on started cards keeps work reaching Done.
 - **Leases, not locks.** A session claims a card before it works on it; the claim is a lease a hook renews while the
   session works, so parallel sessions (in either tool) never take the same card, and a crashed one frees its card.
-- **One worktree per card.** The main checkout holds only the board; each card's change is made on its own branch.
+- **One worktree per card, by default.** The main checkout holds only the board; each card's change is made on its own
+  branch. A small project can choose a branch per card in one checkout, a shared checkout, or a workspace its host
+  owns (`[flow] isolation`; [docs/isolation.md](docs/isolation.md) says what each gives up).
 - **The workflow is yours.** The shipped columns and skills are a default. A project renames, adds or drops columns,
   and decides which skill runs each step, in one settings file.
 
@@ -163,6 +165,13 @@ By default everything is in the project's `.kanbanzai/`, in the **main checkout*
 Each path can be moved in the settings (`[project] work`, `state`, `claims`, `numbers`).
 
 ## The settings
+
+**Isolation.** `[flow] isolation` says how a card's change is kept apart from the board: `worktree` (the default: a git
+worktree and a branch per card), `branch` (a branch per card in the one checkout), `shared` (the one checkout, no
+workspace record) or `external` (a workspace the host owns, recorded as `Where: external <ref>`). A config with no
+`isolation` key behaves as `worktree`. `kanbanzai workspace ID` prints what the mode asks of a card; `wip --audit`
+applies the mode's rules. [docs/isolation.md](docs/isolation.md) has the trade-offs: `branch` and `shared` give up the
+safety that lets sessions work in parallel.
 
 `.kanbanzai/config.toml` overrides [defaults/config.toml](defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
@@ -363,6 +372,7 @@ kanbanzai config upgrade [--apply]       preview/apply a non-destructive config 
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai workflow show|validate|plan|apply|export
                                          show, check, plan, apply and export the flow (columns and steps)
+kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
@@ -377,7 +387,8 @@ kanbanzai --version                      the command's version
 column of the step it is in). One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
 **Where**, **Held**, a dated **Progress** line, **Done**), in one atomic rewrite of the brief, moving its folder for
 Paused and Done. It refuses (exit 2) an unknown column or card, a skipped step, a move into a Doing column without
-your claim, a Held card (add `--clear-held`), a column that needs a worktree the card has not got, leaving Paused
+your claim, a Held card (add `--clear-held`), a column that needs a workspace the card has not got (a worktree, a branch or an external record, as the isolation
+mode says), leaving Paused
 (only the owner un-parks a card) and Done without `--done`; and (exit 3) a card another live session holds.
 `--force --reason "<why>"` overrides every refusal but an unknown column or card, another session's live claim and a
 missing `--done`. Each move is a line in `<state>/moves.jsonl`.
@@ -391,8 +402,8 @@ their words), `gate status` says where it stands, and `step --for ID` says what 
 release, dependent work) and says what the flow cannot express.
 
 **A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
-of its next step, the way `move ID start` does, unless the card is held, the step's column needs a worktree (the output
-then says to make it and run `move ID start --where "worktree ID"`), or the claim is made with `--no-move` (a claim
+of its next step, the way `move ID start` does, unless the card is held, the step's column needs a workspace (the output
+then says to make it and run `move ID start --where "<the record>"`; under `isolation = "shared"` there is none), or the claim is made with `--no-move` (a claim
 that is not a step: it is recorded as `step: false`). A live step claim that has sat for `flow.move_grace_minutes`
 (default 10, counted from the claim or the card's last move) on a card still in Todo or a Done column is **claimed, not
 started**: `⚑` on the board (text, and a glyph and hover text in the board tab; `claimed_not_started` in
