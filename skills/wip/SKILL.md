@@ -5,7 +5,7 @@ description: Show what is in flight across the board, the running batches and ev
 
 # WIP
 
-Run it from the checkout:
+Read `kanbanzai context` and `kanbanzai workflow show` for the project's rules and route, then run it from the checkout:
 
 ```bash
 kanbanzai wip
@@ -16,20 +16,16 @@ with its branch, commit, dirty files and the card it belongs to. Then it flags t
 
 - **orphan** — a worktree or a claim with no card: someone left work there and the board does not know;
 - **split** — one card with work in more than one worktree;
-- **interrupted** — a card in a Doing column (Designing, Building, Checking, In QA, Shipping) with no live claim and
+- **interrupted** — a card in a configured in-progress column with no live claim and
   no `Held:` line: a session left it mid-step. Marked `⚠` on the board and offered first by `--next`; a soft flag;
 - **stale** — a card in a started Done column with no worktree, no live claim and no update for `flow.stale_days`
   (nobody pulled it; the first column, any column that waits for the owner, a Doing column and a held card are not
   stale: a queue, an approval, an interruption, a hold);
 - **expired claim** — a claim past its lease: free to release, or to take over with a reason (the claim is the card's
   only owner record);
-- **out of place** — an open card whose Where is `main`, or a claimed card in a column that needs a workspace with
-  none: under `worktree` (the default) the main checkout holds the board and every change is made in the card's
-  worktree; under `branch` the checkout must be on the claimed card's branch; under `external` the card must record
-  `external <ref>`; under `shared` there is no workspace to be out of (the report's `Isolation:` line says which mode
-  applies, and what it gives up);
-- **a dirty main checkout** — uncommitted files where only the board should be edited, or the main checkout on a
-  branch other than the main branch.
+- **out of place** — a workspace or record inconsistent with the configured isolation and column requirements;
+  the report's `Isolation:` line and `kanbanzai workspace <ID>` say what applies;
+- **checkout drift** — uncommitted files or a branch that conflict with the configured isolation rules.
 
 `kanbanzai wip --audit` makes it a gate: it exits 1 on a hard finding, so `/next` does not spawn and a batch does not
 ship until the board is true. `/audit` runs that and reads the briefs. `--cleanup` lists the worktrees and branches
@@ -53,9 +49,9 @@ Never list every card's detail; the board is the briefs (`kanbanzai board`, or t
 ## Reconcile (main session only)
 
 - **An orphan worktree:** find out what it holds (`git -C <path> status`, `git -C <path> diff`). If it is a piece
-  of work, give it a card (`/triage` makes it in Todo) and name the card in the worktree's branch; if it
-  is finished, merge or drop it and remove the worktree. Never delete a worktree with uncommitted changes without the
-  owner's word (`project.owner` in `kanbanzai config`).
+  of work, give it a card (`/triage` uses the configured initial column) and follow its workspace instructions; if it
+  is finished, verify it is merged and clean before removal. Never drop work or delete uncommitted changes without
+  the owner's explicit word (`project.owner` in `kanbanzai config`).
 - **A split card:** keep the worktree with the real work, and move anything wanted from the other into it. A card has
   one workspace.
 - **A stale card:** read its Next action and its last Comments. If it is waiting on nothing, it belongs in `/next`;
@@ -65,10 +61,9 @@ Never list every card's detail; the board is the briefs (`kanbanzai board`, or t
   is waiting on something, add the `Held:` line so the board tells the truth.
 - **An expired claim:** on a card nobody is working, it can be released; if work is wanted, claim it with
   `kanbanzai claim claim <ID> --takeover "<reason>"` so the hand-over is logged.
-- **A card out of place:** an open card whose Where is `main`, or a claimed card with no worktree where it needs one,
-  is made to work in its workspace: run `kanbanzai workspace <ID>`, do its `make` steps (the second line when the
-  branch exists), set Where to the record it prints, and move the uncommitted change there. The brief stays on main. A dirty main checkout is likewise committed (board) or moved (change) before the
-  audit can pass.
+- **A card out of place:** inspect `kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`; follow the applicable
+  workspace and record instructions. Preserve uncommitted work, and coordinate with its owner before moving it. Never
+  discard changes or assume every isolation mode separates the board and code.
 - **An orphan claim:** a claim for a card that is not on the board is dead bookkeeping; release it.
 
 Subagents never reconcile; the main session owns the board, its claims and the workspaces.

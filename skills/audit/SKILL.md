@@ -8,6 +8,8 @@ argument-hint: "[a card, a batch, or an area]"
 
 The board says what is in flight and where. This checks that claim against the filesystem and the worktrees. It
 reports; the only things it changes are the board's own records. The owner is `project.owner` in `kanbanzai config`.
+Read `kanbanzai context` and `kanbanzai workflow show`; for a card use `kanbanzai step --for <ID>` and
+`kanbanzai workspace <ID>` to interpret its route and workspace instead of assuming a layout.
 
 ## 1. Run the checks
 
@@ -38,15 +40,15 @@ Anything else the project keeps that can drift (a deploy queue, leases): its con
 how to check it. Run those checks too.
 
 Then read the briefs of the in-flight cards: does each **Stage**, **Where** and last **Progress** line agree with its
-folder and its worktree's last commit? For a batch, do its cards and workspaces still exist? **Done** cards are
-closed: no claim, no workspace, Where `main`, Next action `—`, their brief in the done column's folder with a dated
-**Done** line — anything else on a Done card is drift to report.
+folder and its workspace's last commit? For a batch, do its cards and workspaces still exist? For closed cards compare
+the claim, workspace, Where, Next action, folder and dated Done line against the configured close and workspace
+instructions; report discrepancies without discarding work.
 
 ## 2. What it can fix
 
 Bookkeeping only, in the main session:
 
-- a brief's **Where**, **Stage** (and its folder, when it is parked or done), **Updated**, or a dated Progress line;
+- a brief's **Where**, **Updated**, or a dated Progress line; use `kanbanzai move` for any permitted column or folder change;
 - a batch's **State** or a row in its agent map;
 - a stale card's **Next action**, when it is waiting on nothing;
 - an expired claim with no work behind it (release it: `kanbanzai claim release <ID>`).
