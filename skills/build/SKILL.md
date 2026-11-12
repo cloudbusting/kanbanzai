@@ -33,8 +33,9 @@ to the main session, which `/triage`s it; don't fix it in passing.
   one yourself, report to the main session instead.
 - If the brief's goal or acceptance check is unclear, or it needs a decision it doesn't make, stop and report the
   question; don't guess.
-- Work in the card's worktree (the brief's **Where** line names it). Never change files in the main checkout: it
-  holds the board.
+- Work in the card's workspace (the brief's **Where** line records it; `kanbanzai workspace <ID>` says where). Where
+  the project keeps the board apart from the change (`worktree`, `external`), never change files in the main
+  checkout: it holds the board.
 - Read the files you'll change, their tests, and the code that calls them. Match what's there: names, layout, error
   handling, the plain style of comments.
 - Change only the files the brief names. If another file has to change, change the least you can and say so in the
@@ -64,5 +65,5 @@ project's own configuration or rule files, unless the brief names them.
 - Anything not done, anything outside the brief, any doubt about the result.
 
 The main session reads the diff before it moves the card: a subagent's "done" is a claim, not a fact. The card is
-**Building** while the build runs (the do skill moves it there once its worktree exists); when the code and its tests
+**Building** while the build runs (the do skill moves it there once its workspace exists); when the code and its tests
 are written and the main session has checked the diff, it is **Built** (the do skill moves it).

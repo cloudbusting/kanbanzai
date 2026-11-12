@@ -254,3 +254,39 @@ func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
 		}
 	}
 }
+
+// W-12: where a card's change is made depends on [flow] isolation, so the shipped skills carry no command that makes
+// or removes a workspace; they say to run `kanbanzai workspace <ID>` and follow it.
+func TestTheSkillsCarryNoWorkspaceCommands(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbidden := regexp.MustCompile("git worktree (add|remove)|git switch|git checkout -b|make the worktree")
+	entries, err := os.ReadDir(filepath.Join(root, "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		data, err := os.ReadFile(filepath.Join(root, "skills", entry.Name(), "SKILL.md"))
+		if err != nil {
+			continue
+		}
+		if found := forbidden.FindString(string(data)); found != "" {
+			t.Errorf("skills/%s carries %q: quote `kanbanzai workspace <ID>` instead", entry.Name(), found)
+		}
+	}
+	for _, name := range []string{"do", "next", "cleanup", "wip"} {
+		data, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "kanbanzai workspace") {
+			t.Errorf("skills/%s does not send the session to `kanbanzai workspace <ID>`", name)
+		}
+	}
+	next, _ := os.ReadFile(filepath.Join(root, "skills", "next", "SKILL.md"))
+	if !strings.Contains(string(next), "parallel: no") {
+		t.Error("skills/next does not stop a batch in a mode that cannot run cards in parallel")
+	}
+}

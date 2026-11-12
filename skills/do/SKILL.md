@@ -73,8 +73,8 @@ gate pass <ID>` (the owner gate needs `--note "<their words>"`; `gate fail <ID> 
 card gates open by themselves. Never record an owner's approval they have not given.
 
 **A step moves the card twice: into its Doing column when it starts, into its Done column when it ends.** The session
-moves the card with `kanbanzai move <ID> start` first (right after the claim, and after the worktree exists for
-Building and later), then `kanbanzai move <ID> finish` with the new Next action (the update below). **A session never
+moves the card with `kanbanzai move <ID> start` first (right after the claim, and after the card's workspace exists
+for Building and later), then `kanbanzai move <ID> finish` with the new Next action (the update below). **A session never
 edits a brief's Stage line by hand**: the command sets Stage, Updated and the rest in one write, and refuses a skipped
 step. It keeps its claim while it carries
 straight on to the next step, and releases it only at a stop, so another session can never take a card between two of
@@ -93,7 +93,7 @@ Read the project's standing context: `kanbanzai context`, and the files `project
 - **A design question:** `/triage` writes it in Todo, flagged "design it"; the session that pulls it designs it (the
   card moves to Designing when it is claimed, then to Designed when the design is done).
 
-## 0a. Claim, worktree and the brief
+## 0a. Claim, workspace and the brief
 
 Read the board (`kanbanzai wip`; the card briefs are the board, there is no board file) and find the card. If the
 request has no card, stop and run `/triage`: it issues the id and writes the card; never add a card by hand. Say the
@@ -108,9 +108,9 @@ kanbanzai claim claim <ID> --note "<one line on what this session will do>"
 - **exit 0:** the card is this session's. The claim is a lease that a hook (`kanbanzai claim heartbeat`) renews
   whenever the session works; it is the card's only owner record (the board shows it as `●`). **The claim moves the
   card:** a Todo or Done-column card goes into the Doing column of its next step (the output says `moved W-12: Todo ->
-  Designing`), so a card being worked never sits in Todo. For a step whose column needs a worktree (Building and
-  later) it does not move the card: it prints `now: make the worktree ..., then run: kanbanzai move <ID> start --where
-  ...`; do that. A claim that is not a step (editing a brief, a docs-only change) is made with `--no-move`. A claim
+  Designing`), so a card being worked never sits in Todo. For a step whose column needs a workspace (Building and
+  later) it does not move the card: it prints `now: ... then run: kanbanzai move <ID> start --where ...`; do that
+  (under `isolation = "shared"` there is nothing to make and the claim moves the card itself). A claim that is not a step (editing a brief, a docs-only change) is made with `--no-move`. A claim
   that is live for `flow.move_grace_minutes` on a card still in Todo or a Done column is flagged `⚑` ("claimed, not
   started") and fails `kanbanzai wip --audit`.
 - **exit 3:** another live session holds it. Stop and tell the owner which session holds it and until when; do not
@@ -124,20 +124,21 @@ kanbanzai claim claim <ID> --note "<one line on what this session will do>"
 done, blocked or waiting on the owner, run `kanbanzai claim release <ID>` before the turn ends; claim again when work
 resumes. Only the main session claims; in a batch, `/next` claims each card before it spawns.
 
-**The card's change is made in its worktree.** `kanbanzai config` names the worktree and branch patterns (`worktree`,
-`branch`, `batch_branch`). Before the first change, give the card one; the main checkout is the board's home only:
+**The card's change is made in its workspace, as the project's isolation mode says.** Run `kanbanzai workspace <ID>`
+(`--json` for a script): it prints the mode (`[flow] isolation`: `worktree` by default, or `branch`, `shared`,
+`external`), whether the card needs a workspace, the commands that make it, the **Where** value to record, the folder
+to work in, and the commands that remove it. Do what it says, and nothing it does not say: under `worktree` that is
+a git worktree and a branch per card (the main checkout is the board's home only); under `branch`, a branch in the one
+checkout; under `shared`, nothing; under `external`, a record of the workspace the host made.
 
-```bash
-git worktree add <the card's worktree path> -b <the card's branch> main    # a new card
-git worktree add <the card's worktree path> <the card's branch>            # its branch already exists
-```
-
-Set **Where** to `worktree <ID>` (the path and branch the patterns give; the batch branch in a batch). A Todo
-or Designing card, whose next action is only its brief, may stay `—` until the building starts; a column the config
-marks `worktree = true` means a claimed card there must have one, and a claimed card without it is a hard audit
-finding. **The brief and the claim are edited in the main checkout so the board stays visible**; every other file —
-code, tests, docs, skills — is edited and committed in the worktree. Keep the main checkout clean, and leave another
-session's uncommitted files alone.
+Set **Where** to the record it prints (the batch branch in a batch). A Todo or Designing card, whose next action is
+only its brief, may stay `—` until the building starts; a column the config marks `worktree = true` means a claimed
+card there must have its workspace recorded (a shared checkout records none), and a claimed card without it is a hard
+audit finding. **The brief and the claim are edited in the main checkout so the board stays visible** (in `branch`
+mode the one checkout is on the card's branch, so the brief is committed on that branch); every other file — code,
+tests, docs, skills — is edited and committed in the card's workspace. Under `worktree` and `external`, keep the main
+checkout clean; leave another session's uncommitted files alone. Under `branch` and `shared` there is one tree and
+one HEAD: work one card at a time, because parallel work needs `worktree` mode.
 
 Read the brief's **Comments** before starting: they are the previous session's hand-over. Append one only when the
 next session must know something the ordinary record does not say — a discovery, a changed file or commit, a
@@ -149,8 +150,9 @@ The brief is the card's only record and what a new session resumes from. An open
 from the first column to the last open one; only a card that is paused or done moves, to that
 column's folder (`kanbanzai move` does it; `kanbanzai config` lists the folders). Update it twice per step.
 
-**First, when the step starts** (right after the claim; for Building and later, after the worktree exists and
-**Where** is set): `kanbanzai move <ID> start` (add `--where "worktree <ID>"` for Building and later). It puts the
+**First, when the step starts** (right after the claim; for Building and later, after the workspace exists and
+**Where** is set): `kanbanzai move <ID> start` (add `--where "<the record>"` for Building and later, as
+`kanbanzai workspace <ID>` prints it under `then:`). It puts the
 card in the Doing column `kanbanzai step --for <ID>` prints ("start: Stage `building`") and sets **Updated**. A
 settled Todo card goes straight to `building`. A card already in the Doing column (resumed) needs no move.
 
@@ -194,7 +196,7 @@ design. The board is the only source of the stage.
 - Run `kanbanzai wip --audit --card <ID>`. A hard finding stops the work until it is fixed.
 - Check the claim (`kanbanzai claim status <ID>`). Another session's live claim stops the work (exit 3). An expired
   one is taken over only with `--takeover "<reason>"`.
-- Claim the card if this session does not hold it, set the title (0b), and make sure its worktree exists.
+- Claim the card if this session does not hold it, set the title (0b), and make sure its workspace exists (`kanbanzai workspace <ID>`).
 - Run `kanbanzai step --for <ID>` to see the next step and what it runs. It says `start` (the card is in a Done
   column or Todo: move it into the step's Doing column, as 0a says), `resume` (the card is already in the step's Doing
   column: it was interrupted, take it over and carry on from its Next action). Another session's live claim stops
@@ -207,7 +209,7 @@ design. The board is the only source of the stage.
 | a Done column or Todo (Todo, Designed, Built, Checked…), no live claim | claim it, then `kanbanzai step --for <ID>`: Todo starts design (or build, for a card flagged "settled"), Designed starts build, Built starts check, and so on down the config's columns; move it into the step's Doing column first |
 | a Done column with a live claim | a session carrying straight on to the next step: stop, unless the claim is this session's |
 | a Doing column (Designing, Building, Checking, In QA, Shipping), another session's live claim | it is being worked: stop, and say who holds it and until when |
-| a Doing column, no live claim, no `Held:` line | interrupted (`⚠`): read the brief's Next action and last Comment, take it over with `kanbanzai claim claim <ID> --takeover "<why>"`, check the worktree (`git status`, last commit) and resume inside the step; no move needed, it is in the Doing column already |
+| a Doing column, no live claim, no `Held:` line | interrupted (`⚠`): read the brief's Next action and last Comment, take it over with `kanbanzai claim claim <ID> --takeover "<why>"`, check the workspace (`git status`, last commit) and resume inside the step; no move needed, it is in the Doing column already |
 | a Doing column with a live claim of this session | resume inside the step from the Next action |
 | Shipping, no live claim | interrupted, but it was only ever pulled with the owner's approval: ask them again before resuming the production deploy |
 | a card behind a gate (`step --for` prints `gate: …`) | a closed gate stops the card: say what opens it (`kanbanzai gate status <ID>`) and stop, unless the gate is the owner's and the owner has just given the approval: record it with `kanbanzai gate pass <ID> --note "<their words>"`, then claim the card, move it into the step's Doing column and run its step |
@@ -235,17 +237,17 @@ Never say "done" unless the card is in Done, and never skip a gate.
 
 Every stop ends the same way, in the main session, after the card and the brief are current:
 
-- **The work is committed.** Commit the card's change on its branch in the worktree before the turn ends — mid-step
+- **The work is committed.** Commit the card's change on its branch in its workspace before the turn ends — mid-step
   too, as `<ID> wip: <what is done, what is left>` — and its brief in the main checkout, in its own commit. The main
-  checkout never holds code; a worktree is never left dirty, half-staged or unclaimed while work is under way (at a
+  checkout never holds code; a workspace is never left dirty, half-staged or unclaimed while work is under way (at a
   stop that is blocked, waiting on the owner or done, release the claim). Stage only your own files by path, never
   `-A`: other sessions work in the same checkout. Subagents never commit.
-- **The card is true.** Where names the card's worktree and branch (`main` only on a Done card); the claim is this
+- **The card is true.** Where names the card's workspace record (`main` only on a Done card, or in a shared checkout); the claim is this
   session's, or released because the work is done, blocked or waiting on the owner (a card stopped in a Doing column
   for a reason gets a `Held:` line, so it does not read as interrupted); Next action is the one step that
   resumes; Progress has the dated line; Comments hold anything the next session must know, and nothing else. Then
   `kanbanzai wip --audit --card <ID>` must exit 0: an orphan, a split card, a Where that disagrees with the tree, a
-  claim for a card with no brief, a card working in `main`, or a claimed card with no worktree stops the turn until it
+  claim for a card with no brief, a card working in `main`, or a claimed card with no workspace record stops the turn until it
   is fixed.
 - **The claim is current.** Renew it at every stop (`kanbanzai claim renew <ID>`); a stop that is blocked, waiting
   on the owner or done then releases it. A stop at the limit, with a card unfinished, also releases it once its
@@ -253,14 +255,14 @@ Every stop ends the same way, in the main session, after the card and the brief 
   the next session to pull. A stop mid-step leaves it in the step's Doing column with its Next action saying where
   to resume: with the claim released and no `Held:` line it shows `⚠` interrupted and is pulled first, which is the
   intent, so say it in the close.
-- **A finished worktree goes.** Once its work is merged and the card is closed, remove the worktree and its branch
-  in the same turn (`/cleanup`) and say so. A worktree that is still live stays, clean and committed, named on the
+- **A finished workspace goes.** Once its work is merged and the card is closed, remove its workspace (the `remove:` steps
+  of `kanbanzai workspace <ID>`) in the same turn (`/cleanup`) and say so. A workspace that is still live stays, clean and committed, named on the
   card.
 
 The close is one fixed block, in plain language, the last thing the turn says:
 
 ```
-**W-12 — <stage>** · Where: worktree <path> (branch <branch>) | main (Done only)
+**W-12 — <stage>** · Where: <the card's workspace record: worktree <path> (branch <branch>) | branch <branch> | external <ref>> | main (Done, or a shared checkout)
 Owner: <claim label> · claim until <YYYY-MM-DD HH:MM UTC> | released
 Committed: none | <sha> "W-12: …" (pushed: no) · Shipped: none | <what, where, which sha>
 Tree: clean | <n> uncommitted files (named below)
@@ -283,7 +285,7 @@ design ends it is **Designed**.
 
 ## 2. Build
 
-Once the card's worktree exists and **Where** is set, move the card to **Building** (a Designed card, or a settled
+Once the card's workspace exists and **Where** is set, move the card to **Building** (a Designed card, or a settled
 Todo one). Run `/build`. When the code and its tests are written, the card is **Built** (the update), and the claim
 stays for the check.
 
@@ -346,12 +348,12 @@ A card is closed once all its work is done, committed and, when it ships, shippe
   what went live, or no deploy>"`, which sets **Stage** `done`, the **Done** line, Next action `—` and Where `main`
   in one step. Nothing is deleted: a
   finished card keeps its brief. Do not change its decision record: its card line already names the card.
-- **Release the claim** (`kanbanzai claim release <ID>`), and remove the worktree and branch.
+- **Release the claim** (`kanbanzai claim release <ID>`), and remove the workspace (`/cleanup`).
 - **Report to the owner** in a few lines: what changed, why, any risk, and how to try it. Plain language, no code
   walkthrough. Anything they need to decide goes through the question tool, not the report.
 - Finish with 0c's close block, now reading `Committed: <sha> (pushed: yes|no)`, `Owner: … released`, and what was
-  shipped where (`Shipped: none` for a card that ships nothing); say the worktree and branch are gone. A finished
-  card never leaves a worktree or a live claim behind.
+  shipped where (`Shipped: none` for a card that ships nothing); say the workspace is gone. A finished
+  card never leaves a workspace or a live claim behind.
 
 ## What subagents never do
 

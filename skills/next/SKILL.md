@@ -24,8 +24,11 @@ agents follow that skill; if it names `extend` skills, they follow those too. Pu
 ## 1. Candidates
 
 Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile its hard findings first (the
-`/audit` skill): a worktree with no card is not allowed to sit there while a batch runs, and a hard finding means
-`/next` does not spawn. A card can join a batch only when all of these hold:
+`/audit` skill): a workspace with no card is not allowed to sit there while a batch runs, and a hard finding means
+`/next` does not spawn. A batch needs a mode that lets cards run in parallel: `kanbanzai workspace <ID>` says `parallel: yes` under
+`isolation = "worktree"` and `"external"`, and `parallel: no` under `"branch"` and `"shared"`, where there is one
+checkout and one HEAD. In those two modes `/next` does not spawn: it says so and hands the cards to `/do`, one at a
+time. A card can join a batch only when all of these hold:
 
 - its column is the Done column before the build step (Designed in the shipped workflow) with nobody on it, or the
   first column (Todo) with the brief flagged "settled" by `/triage`; a card in a Doing column (Designing, Building,
@@ -34,7 +37,7 @@ Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile
 - no other session holds a live claim on it: `kanbanzai wip --next` lists the cards a session can pull, furthest
   along first, and offers no Todo card while the cap `flow.wip_limit` of started cards is reached; an interrupted
   card (in a Doing column with no live claim and no `Held:` line, shown `⚠`, or with an expired claim) is not batch
-  work: it is half-done in a worktree, so `/do` takes it over and resumes it, one at a time, with the logged reason
+  work: it is half-done in its workspace, so `/do` takes it over and resumes it, one at a time, with the logged reason
   (`kanbanzai claim claim <ID> --takeover "<why>"`);
 - its brief has no open decision for the owner;
 - it is not held (a `Held:` line) or `paused`, and not already past the build — those are pulled by `/do` after the
@@ -43,7 +46,7 @@ Read the board (`kanbanzai wip`), then run `kanbanzai wip --audit` and reconcile
   documents).
 
 Cards that need a design cannot be delegated: design needs the question tool. If the only candidates are flagged
-"design it" in Todo, say so and stop. A card the batch takes is moved to **Building** once its claim and worktree exist
+"design it" in Todo, say so and stop. A card the batch takes is moved to **Building** once its claim and workspace exist
 (before the agent spawns); the main session moves it to **Built** when the agent's work is verified. If
 `$ARGUMENTS` names an area, keep the candidates in it; if it names a count, use that, up to 4.
 
@@ -82,8 +85,8 @@ start at B-01) and write `B-NN.md`:
 
 | Card | Owns | Agent | Workspace | Stage | Last result |
 |---|---|---|---|---|---|
-| W-07 | src/engine/… | build / ses_… | worktree <path> | spawned | — |
-| W-10 | src/ui/day.js, src/api/trips.py | build / ses_… | worktree <path> | spawned | — |
+| W-07 | src/engine/… | build / ses_… | <the card's workspace> | spawned | — |
+| W-10 | src/ui/day.js, src/api/trips.py | build / ses_… | <the card's workspace> | spawned | — |
 ```
 
 **The agent map is two things**, and the batch keeps both true:
@@ -93,17 +96,16 @@ start at B-01) and write `B-NN.md`:
 
 Update the map when an agent starts, returns or is stopped. If it is not in the map, it did not happen.
 
-**Workspaces.** The main checkout holds the board; every card's change is made in its own git worktree, so parallel
-agents cannot collide and `git worktree list` names exactly what is in flight. `kanbanzai config` names the worktree
-and branch patterns, with `batch_branch` for a card in a batch:
+**Workspaces.** The main checkout holds the board; every card's change is made in its own workspace, so parallel
+agents cannot collide. Run `kanbanzai workspace <ID>` for each card: it prints the commands that make the workspace
+(under `worktree`, a git worktree and a branch, so `git worktree list` names exactly what is in flight; in a batch,
+use the card's `batch_branch` from `kanbanzai config` in place of its branch), the **Where** value to record and the
+commands that remove it. Do what it prints.
 
-```bash
-git worktree add <the card's worktree path> -b <the card's batch branch> main
-```
-
-Put the path and branch in the map, move the card with `kanbanzai move <ID> start --where "worktree <ID>"` (the do skill's
-first move: it sets **Where**, **Stage** `building` and **Updated** together). The brief stays in the main checkout. A worktree with no card is a bug, and `kanbanzai wip` will say so. Remove the worktree when the card's
-commit is merged; a clean worktree that is behind main is only clutter.
+Put the workspace in the map, then move the card with the `then:` line it prints (`kanbanzai move <ID> start --where
+"<the record>"`: the do skill's first move, which sets **Where**, **Stage** `building` and **Updated** together). The
+brief stays in the main checkout. A workspace with no card is a bug, and `kanbanzai wip` will say so. Remove the
+workspace (its `remove:` steps) when the card's commit is merged; a clean one that is behind main is only clutter.
 
 **Claims.** The main session claims every card in the batch before it spawns; the claim is the card's only owner
 record:
@@ -171,7 +173,7 @@ selection mistake, not something to untangle later.
 
 When every card is done or dropped:
 
-- remove the worktrees, with `/cleanup`;
+- remove the workspaces, with `/cleanup`;
 - release each card's claim (`kanbanzai claim release <ID>`) once the card is closed or dropped;
 - write the outcome in the batch file: one line per card — its commits, what it did — then the batch's merge commit
   and what shipped, if anything;
@@ -185,7 +187,7 @@ file; the batch does not wait for it.
 ## Hard rules
 
 - Never put two cards in a batch that touch the same files, the same live surface, or the same shared document.
-- Every worktree names a card (its batch branch, its directory from the config pattern) and is in the batch map; the
+- Every workspace names a card (its batch branch, its directory from the config pattern) and is in the batch map; the
   main checkout holds only the board. `kanbanzai wip` must show no orphan before a batch spawns.
 - One card, one claim: the main session claims before it spawns, renews at every hand-off and releases when the card
   is closed or dropped. Two agents never hold the same card, and a live claim by another session keeps a card out of
