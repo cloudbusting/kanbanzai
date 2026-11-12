@@ -105,14 +105,11 @@ func CardRoute(p *config.Project, key string, card *board.Card, name, blocked st
 		} else if words.Start != "" {
 			r.Action, r.Target = "step", words.Start
 		} else {
-			r.Action = "step"
+			r.Action = "stop"
 			if r.Reason == "" {
 				r.Reason = "no Doing column; claim is the doing, but there is no normal forward finish move"
 			}
 		}
-	}
-	if r.Action == "step" && r.Target == "" {
-		r.WorkspaceRequired = col.Worktree && workspace.Needs(p)
 	}
 	if target, ok := p.ByKey[r.Target]; ok {
 		r.CloseRequiresDone = target.Kind == "done"
