@@ -3,6 +3,18 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## Unreleased
+
+- W-06: `kanbanzai workflow` changes the flow (the columns, steps and pull order) safely. `show [--json]` prints the
+  resolved flow as one model (columns, steps, transitions, gates, WIP rules, isolation, pull order);
+  `validate --file FILE` reports every schema, graph, reachability and skill problem and writes nothing;
+  `plan --file FILE [--map OLD=NEW] [--out PLAN]` lists the config, folder and per-card changes the flow implies (a
+  stage word the new flow does not know is a blocker until mapped); `apply --plan PLAN` backs up, migrates the
+  briefs, writes the config last, runs `check` and `doctor` and rolls back on any failure (`apply --rollback`
+  undoes one that was killed); `export [--format toml|json|mermaid]` writes the flow for review. A flow file
+  replaces the `[flow]`, `[[columns]]` and `[steps.*]` tables and leaves the rest of the config alone. Nothing is
+  committed, no network request, no new dependency.
+
 ## [0.7.1] — 2026-11-12
 
 - Release note: 0.7.0 was tagged but never published, because its CI run failed. 0.7.1 carries the same changes
