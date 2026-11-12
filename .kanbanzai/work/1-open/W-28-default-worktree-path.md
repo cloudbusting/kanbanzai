@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** close: nothing ships by deploy (check the Deploy line); merge W-28 and close the card
+- **Next action:** deploy-qa: merge W-28 into main, then run kanbanzai-package; the version and the release are the owner's call (Deploy is package and release)
 - **Where:** worktree W-28
 
 ## Goal
