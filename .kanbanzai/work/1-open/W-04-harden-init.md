@@ -1,6 +1,6 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
