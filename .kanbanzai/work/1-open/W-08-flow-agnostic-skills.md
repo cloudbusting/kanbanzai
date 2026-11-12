@@ -1,10 +1,10 @@
 # W-08: Make the shipped skills flow-agnostic and remove hardcoded workflow words
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Check: run the project's checks and review the W-08 diff against main
+- **Next action:** Package: run kanbanzai-package on the merged main checkout; the ship step then waits for the owner's approval
 - **Where:** worktree W-08
 - **Needs:** W-12, W-38
 
@@ -69,5 +69,6 @@ Over-generalising can make a skill vague enough to be unsafe. Each skill still n
 - 2026-11-12: Build started after W-12; initial route contract committed with focused tests. W-37 tracks existing move limitations for flows without a Doing column and no-skill intermediate steps; the route reports stop rather than recommending an illegal move.
 - 2026-11-12: Draft skills, guard and fixture committed; `go test ./...` is red only at `TestW08SkippedReviewClosesWithoutRunningIt` because `move start` enters a skipped review step. W-38 tracks the fix. Skills and full diff still need review; docs and acceptance checks remain unfinished.
 - 2026-11-12: Merged main (W-38 fix); full tests, vet and kanbanzai check green; restored do's close block and subagent brief; documented how skills follow the flow.
+- 2026-11-12: Checked: go test/vet, node suites, hooks, plugin validate, kanbanzai check and card audit green; QA found no must-fix; skills keep claim, gate, takeover and close safeguards.
 
 ## Comments
