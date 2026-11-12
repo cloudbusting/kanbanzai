@@ -18,6 +18,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -45,8 +46,11 @@ type Card struct {
 	Session           *sessions.Record `json:"session"`
 	ClaimedNotStarted bool             `json:"claimed_not_started"`
 	Path              string           `json:"path"`
+	Gate              *gate.Status     `json:"gate"`
 
-	column string
+	column   string
+	gateLine string
+	needs    []string
 }
 
 // Column is one board column and its cards.
@@ -164,6 +168,24 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			sort.SliceStable(cards, func(i, j int) bool { return number(cards[i].ID) < number(cards[j].ID) })
 		}
 	}
+	where := func(id string) (string, bool) {
+		for key, cards := range byColumn {
+			for _, card := range cards {
+				if card.ID == id {
+					return key, true
+				}
+			}
+		}
+		return "", false
+	}
+	for _, column := range project.Columns {
+		if !column.Gate.Set() {
+			continue
+		}
+		for _, card := range byColumn[column.Key] {
+			card.Gate = gate.Eval(project, column, card.gateLine, card.needs, where, now)
+		}
+	}
 	for _, column := range project.Columns {
 		result.Columns = append(result.Columns, Column{
 			Key: column.Key, Name: column.Label, Lane: column.Lane, Doing: column.Doing,
@@ -220,6 +242,7 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 		ID: cardID, Title: title, Stage: stage, Next: fields["Next action"], Updated: fields["Updated"],
 		Where: fields["Where"], Done: done, Owner: nil, Held: held, Mark: brief.MarkOf(project, stage, held),
 		Interrupted: false, Session: nil, ClaimedNotStarted: false, Path: rel, column: key,
+		gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
 	return card, problems
 }
