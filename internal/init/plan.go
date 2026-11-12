@@ -294,15 +294,38 @@ func createOrKeep(root, rel, what, content string) Action {
 	return action
 }
 
-// insideRoot is path relative to root with forward slashes, or a refusal naming what when it is not inside.
+// insideRoot is path relative to root with forward slashes, or a refusal naming what when it is not inside. The same
+// folder reached by another spelling (a symlinked temp folder, a Windows short name) is inside: only when the plain
+// comparison says outside are both sides resolved through their symlinks and compared again.
 func insideRoot(root, path, what string) (string, error) {
+	outside := func(rel string, err error) bool {
+		return err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) ||
+			filepath.IsAbs(rel)
+	}
 	rel, err := filepath.Rel(root, path)
-	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) ||
-		filepath.IsAbs(rel) {
-		return "", refuse("%s resolves outside the main checkout (%s): init only creates files inside it; "+
-			"correct the setting or make the folder yourself", what, path)
+	if outside(rel, err) {
+		rel, err = filepath.Rel(resolvedPath(root), resolvedPath(path))
+		if outside(rel, err) {
+			return "", refuse("%s resolves outside the main checkout (%s): init only creates files inside it; "+
+				"correct the setting or make the folder yourself", what, path)
+		}
 	}
 	return filepath.ToSlash(rel), nil
+}
+
+// resolvedPath is path with the symlinks of its longest existing part resolved; the rest is kept as written.
+func resolvedPath(path string) string {
+	rest, current := "", filepath.Clean(path)
+	for {
+		if resolved, err := filepath.EvalSymlinks(current); err == nil {
+			return filepath.Join(resolved, rest)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return filepath.Clean(path)
+		}
+		rest, current = filepath.Join(filepath.Base(current), rest), parent
+	}
 }
 
 func backupName(root string, now time.Time) string {
