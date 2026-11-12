@@ -3,8 +3,14 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
-## [0.7.0] — 2026-11-12
+## [0.7.1] — 2026-11-12
 
+- Release note: 0.7.0 was tagged but never published, because its CI run failed. 0.7.1 carries the same changes
+  (W-04, W-05, W-17 below) and the fixes for that run.
+- `kanbanzai init` no longer refuses a project reached through a symlink or a Windows short name as "outside the main
+  checkout" (a macOS `/var` temp folder, `KANBANZAI_PROJECT` given through a link). Found by the first CI run of the
+  W-04 code.
+- The init and setup tests no longer need a `kanbanzai` on `PATH`.
 - W-17: one editor install sets a project up. The `.vsix` carries the `kanbanzai` command for the five supported
   platforms, and a status-bar **Kanbanzai: Init** item (in a git project with no board) saves and shows the plan in
   a scrollable tab, turns into **Kanbanzai: Apply** and waits (across reloads) until you click it or run **Kanbanzai:
