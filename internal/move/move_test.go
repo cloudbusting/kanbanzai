@@ -12,6 +12,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -661,5 +662,199 @@ func TestNoDeployLineCannotSkipTheDeployStepsEither(t *testing.T) {
 		options.Done = str("shipped")
 	}); code != 2 {
 		t.Fatalf("no deploy line skipped = %d", code)
+	}
+}
+
+const typeSkipConfig = `[project]
+owner = "Sam"
+[steps.deploy-qa]
+skill = "proj:deploy"
+skip_field = "Type"
+skip_values = ["docs", "note"]
+[steps.ship]
+skill = "proj:deploy"
+skip_field = "Type"
+skip_values = ["docs"]
+`
+
+func TestACardSkipsTheDeployStepsByAnyNamedField(t *testing.T) {
+	project := testProject(t, typeSkipConfig)
+	putCard(t, project, "W-01", "the docs", "checked", cardOptions{Where: "worktree W-01", Extra: "- **Type:** Docs\n"})
+	putCard(t, project, "W-02", "the code", "checked", cardOptions{Where: "worktree W-02", Extra: "- **Type:** feature\n"})
+	for _, id := range []string{"W-01", "W-02"} {
+		claimCard(t, project, id, "tester:me")
+		makeWorktree(t, project, id)
+	}
+	if code, _, errOut := runMove(t, project, "W-01", "done", func(options *Options) {
+		options.Done = str("docs only")
+	}); code != 0 {
+		t.Fatalf("a docs card did not close: %d %q", code, errOut)
+	}
+	if code, _, errOut := runMove(t, project, "W-02", "done", func(options *Options) {
+		options.Done = str("code")
+	}); code != 2 || !strings.Contains(errOut, "skips a step") {
+		t.Fatalf("a feature card skipped the deploy: %d %q", code, errOut)
+	}
+}
+
+func TestASkippedStepLandsOnTheNextStepTheCardDoesNotSkip(t *testing.T) {
+	project := testProject(t, typeSkipConfig)
+	skipped := func(brief string) func(string) bool {
+		return func(name string) bool { return step.SkippedFor(project, brief, name) }
+	}
+	card := &board.Card{}
+	cases := []struct {
+		brief, want, why string
+	}{
+		{"# W-01: x\n\n- **Type:** docs\n", "done", "close"},
+		{"# W-01: x\n\n- **Type:** note\n", "qa-approved", "skip"},
+		{"# W-01: x\n\n- **Type:** feature\n", "", ""},
+		{"# W-01: x\n\n- **Type:** Documentation\n", "", ""},
+	}
+	for _, c := range cases {
+		targets := LegalTargets(project, "checked", card, skipped(c.brief))
+		if c.want == "" {
+			if _, ok := targets["done"]; ok {
+				t.Errorf("%q: done is legal: %v", c.brief, targets)
+			}
+			if _, ok := targets["qa-approved"]; ok {
+				t.Errorf("%q: qa-approved is legal: %v", c.brief, targets)
+			}
+			continue
+		}
+		if targets[c.want] != c.why {
+			t.Errorf("%q: targets = %v, want %s: %s", c.brief, targets, c.want, c.why)
+		}
+	}
+}
+
+func TestCaseAndTrailingWordsDoNotChangeTheShippedDeployNone(t *testing.T) {
+	project := testProject(t, deployConfig)
+	for text, closes := range map[string]bool{
+		"## Deploy\n\nNone\n":                           true,
+		"## Deploy\n\nnone: the board\n":                true,
+		"- **Deploy:** None (tooling)\n":                true,
+		"## Deploy\n\nNonexistent until QA\n":           false,
+		"## Deploy\n\nThe QA stack, then production.\n": false,
+		"": false,
+	} {
+		skipped := func(name string) bool { return step.SkippedFor(project, "# W-01: x\n\n"+text, name) }
+		_, ok := LegalTargets(project, "checked", &board.Card{}, skipped)["done"]
+		if ok != closes {
+			t.Errorf("%q: done legal = %v, want %v", text, ok, closes)
+		}
+	}
+}
+
+func TestAClosedGateRefusesTheMoveOutOfItsColumn(t *testing.T) {
+	project := testProject(t, deployConfig)
+	path := putCard(t, project, "W-01", "the work", "qa-approved", cardOptions{Where: "worktree W-01"})
+	claimCard(t, project, "W-01", "tester:me")
+	makeWorktree(t, project, "W-01")
+	code, _, errOut := runMove(t, project, "W-01", "shipping", nil)
+	if code != 2 {
+		t.Fatalf("a closed owner gate let the card go: %d %q", code, errOut)
+	}
+	for _, want := range []string{"W-01 is held by the QA-approved gate (owner)", "Sam's approval is recorded",
+		"kanbanzai gate pass W-01 --note"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("message %q misses %q", errOut, want)
+		}
+	}
+	if got := columnOf(t, project, "W-01"); got != "qa-approved" {
+		t.Fatalf("column = %q", got)
+	}
+	if strings.Contains(readText(t, path), "Gate:") {
+		t.Fatal("a refused move wrote a Gate line")
+	}
+}
+
+func TestARecordedPassOpensTheGateAndTheMoveClearsTheRecord(t *testing.T) {
+	project := testProject(t, deployConfig)
+	path := putCard(t, project, "W-01", "the work", "qa-approved", cardOptions{Where: "worktree W-01",
+		Extra: "- **Gate:** passed by tester:me, 2026-11-12 — yes\n"})
+	claimCard(t, project, "W-01", "tester:me")
+	makeWorktree(t, project, "W-01")
+	if code, _, errOut := runMove(t, project, "W-01", "shipping", nil); code != 0 {
+		t.Fatalf("an open gate refused: %d %q", code, errOut)
+	}
+	if got := columnOf(t, project, "W-01"); got != "shipping" {
+		t.Fatalf("column = %q", got)
+	}
+	if strings.Contains(readText(t, path), "Gate:") {
+		t.Fatalf("the Gate line survived the move:\n%s", readText(t, path))
+	}
+}
+
+func TestAFailedGateRefusesToo(t *testing.T) {
+	project := testProject(t, deployConfig)
+	putCard(t, project, "W-01", "the work", "qa-approved", cardOptions{Where: "worktree W-01",
+		Extra: "- **Gate:** failed by tester:me, 2026-11-12 — owner said no\n"})
+	claimCard(t, project, "W-01", "tester:me")
+	makeWorktree(t, project, "W-01")
+	code, _, errOut := runMove(t, project, "W-01", "shipping", nil)
+	if code != 2 || !strings.Contains(errOut, "owner said no") {
+		t.Fatalf("a failed gate: %d %q", code, errOut)
+	}
+}
+
+func TestForceWithAReasonOverridesAClosedGateAndIsLogged(t *testing.T) {
+	project := testProject(t, deployConfig)
+	putCard(t, project, "W-01", "the work", "qa-approved", cardOptions{Where: "worktree W-01"})
+	claimCard(t, project, "W-01", "tester:me")
+	makeWorktree(t, project, "W-01")
+	if code, _, errOut := runMove(t, project, "W-01", "shipping", func(options *Options) {
+		options.Force = true
+	}); code != 2 || !strings.Contains(errOut, "--reason") {
+		t.Fatalf("force without a reason: %d %q", code, errOut)
+	}
+	code, out, errOut := runMove(t, project, "W-01", "shipping", func(options *Options) {
+		options.Force, options.Reason = true, str("the owner approved in chat")
+	})
+	if code != 0 || !strings.Contains(out, "(forced)") {
+		t.Fatalf("forced move: %d %q %q", code, out, errOut)
+	}
+	log := readText(t, filepath.Join(project.State, "moves.jsonl"))
+	if !strings.Contains(log, `"forced":true`) || !strings.Contains(log, "the owner approved in chat") {
+		t.Fatalf("the override is not logged:\n%s", log)
+	}
+}
+
+func TestAClosedGateNeverHoldsACardBackFromGoingBackOrPausing(t *testing.T) {
+	project := testProject(t, deployConfig)
+	putCard(t, project, "W-01", "the work", "qa-approved", cardOptions{Where: "worktree W-01"})
+	putCard(t, project, "W-02", "the other", "qa-approved", cardOptions{Where: "worktree W-02"})
+	for _, id := range []string{"W-01", "W-02"} {
+		claimCard(t, project, id, "tester:me")
+		makeWorktree(t, project, id)
+	}
+	if code, _, errOut := runMove(t, project, "W-01", "building", func(options *Options) {
+		options.Where = str("worktree W-01")
+	}); code != 0 {
+		t.Fatalf("back out of a gate: %d %q", code, errOut)
+	}
+	if code, _, errOut := runMove(t, project, "W-02", "paused", nil); code != 0 {
+		t.Fatalf("pause out of a gate: %d %q", code, errOut)
+	}
+}
+
+func TestADateGateHoldsUntilItsDate(t *testing.T) {
+	config := "config_version = 1\n[project]\nowner = \"Sam\"\n" +
+		"[flow]\npull_order = [\"todo\"]\n" +
+		"[[columns]]\nkey = \"todo\"\nfolder = \"1-open\"\nstarted = \"claimed\"\nnext = \"finish\"\ngate = \"date\"\ngate_after = \"%s\"\n" +
+		"[[columns]]\nkey = \"finishing\"\nfolder = \"1-open\"\ndoing = \"finish\"\n" +
+		"[[columns]]\nkey = \"done\"\nfolder = \"10-done\"\nkind = \"done\"\n" +
+		"[steps.finish]\ninto = \"done\"\nduring = \"finishing\"\nskill = \"y\"\n"
+	for date, want := range map[string]int{"2999-01-01": 2, "2000-01-01": 0} {
+		project := testProject(t, strings.Replace(config, "%s", date, 1))
+		putCard(t, project, "W-01", "the work", "todo", cardOptions{})
+		claimCard(t, project, "W-01", "tester:me")
+		code, _, errOut := runMove(t, project, "W-01", "finishing", nil)
+		if code != want {
+			t.Errorf("gate_after %s: exit %d (%q), want %d", date, code, errOut, want)
+		}
+		if want == 2 && !strings.Contains(errOut, "the date is 2999-01-01 or later") {
+			t.Errorf("message = %q", errOut)
+		}
 	}
 }

@@ -83,7 +83,7 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 					if settled {
 						card.Next = "settled"
 					}
-					for to, why := range move.LegalTargets(p, c.Key, card, nothing) {
+					for to, why := range move.LegalTargets(p, c.Key, card, skipFor(p, nothing)) {
 						if why != "stay" {
 							want[Transition{From: c.Key, To: to, Kind: why}] = true
 						}
@@ -112,10 +112,19 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 }
 
 func TestExportRoundTripsThroughValidateAndResolve(t *testing.T) {
-	for name, text := range map[string]string{"defaults": "", "own": ownConfig} {
+	gated := "config_version = 1\n" + strings.Replace(strings.Replace(base, `next = "finish"`,
+		"next = \"finish\"\ngate = \"external\"\ngate_name = \"train\"", 1), `skill = "kanbanzai:check"`,
+		"skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\", \"note\"]", 1)
+	for name, text := range map[string]string{"defaults": "", "own": ownConfig, "gated": gated} {
 		p := project(t, text)
 		before := Build(p)
 		doc := FromProject(p)
+		if name == "gated" && !strings.Contains(doc.Text, `gate_name = "train"`) || name == "gated" && !strings.Contains(doc.Text, `skip_values = ["docs", "note"]`) {
+			t.Fatalf("the export dropped the gate or the skip rule:\n%s", doc.Text)
+		}
+		if name == "defaults" && (!strings.Contains(doc.Text, `gate = "owner"`) || strings.Contains(doc.Text, "waits_for_owner")) {
+			t.Fatalf("the shipped owner gate is not exported as gate = \"owner\":\n%s", doc.Text)
+		}
 
 		again, err := Parse([]byte(doc.Text), false)
 		if err != nil {
@@ -230,5 +239,52 @@ func TestSpliceRefusesWhatItCannotDoExactly(t *testing.T) {
 	// a root-level dotted key is a flow key the line scanner cannot remove
 	if _, err := Splice("config_version = 1\nflow.wip_limit = 7\n[project]\nowner = \"x\"\n", doc); err == nil {
 		t.Fatal("spliced a config with a root-level flow.* key")
+	}
+}
+
+// skipFor is the skip function for "this card skips every step that has a skip rule" or none.
+func skipFor(p *config.Project, all bool) func(string) bool {
+	if !all {
+		return nil
+	}
+	return func(name string) bool { return p.Steps[name].SkipField != "" }
+}
+
+func TestShowListsEveryGateAndSkipRule(t *testing.T) {
+	text := "config_version = 1\n" + strings.Replace(strings.Replace(base, `next = "finish"`,
+		"next = \"finish\"\ngate = \"date\"\ngate_after = \"2030-06-01\"", 1), `skill = "kanbanzai:check"`,
+		"skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\"]", 1)
+	m := Build(project(t, text))
+	if len(m.Gates) != 1 || m.Gates[0].Column != "ready" || m.Gates[0].Kind != "date" || m.Gates[0].Type != "date" ||
+		m.Gates[0].After != "2030-06-01" || m.Gates[0].Step != "finish" {
+		t.Fatalf("gates = %+v", m.Gates)
+	}
+	for _, c := range m.Columns {
+		if (c.Key == "ready") != (c.Gate == "date") {
+			t.Errorf("column %s gate = %q", c.Key, c.Gate)
+		}
+	}
+	for _, s := range m.Steps {
+		if (s.Name == "finish") != (s.SkipField == "Type") {
+			t.Errorf("step %s skip = %q", s.Name, s.SkipField)
+		}
+	}
+	shipped := Build(project(t, ""))
+	if len(shipped.Gates) != 1 || shipped.Gates[0].Kind != "owner-approval" || shipped.Gates[0].Type != "owner" ||
+		shipped.Gates[0].Column != "qa-approved" || shipped.Gates[0].Step != "ship" {
+		t.Fatalf("the shipped gate = %+v", shipped.Gates)
+	}
+}
+
+func TestAnOldWaitsForOwnerOnAColumnNoGateCanSitOnSurvivesShowAndExport(t *testing.T) {
+	text := "config_version = 1\n" + strings.Replace(base, `doing = "work"`, "doing = \"work\"\nwaits_for_owner = true", 1)
+	p := project(t, text)
+	m := Build(p)
+	if len(m.Gates) != 1 || m.Gates[0].Column != "working" || m.Gates[0].Kind != "owner-approval" {
+		t.Fatalf("gates = %+v", m.Gates)
+	}
+	doc := FromProject(p)
+	if !strings.Contains(doc.Text, "waits_for_owner = true") || strings.Contains(doc.Text, "gate = ") {
+		t.Fatalf("export:\n%s", doc.Text)
 	}
 }

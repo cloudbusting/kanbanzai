@@ -29,8 +29,8 @@ Designed, Built or Checked card) is **resumed** at the next step, not started ag
 is a pull system: **each step has a Doing column (the step in progress) and a Done column (the last step finished),
 and the card's column says which.** `/do` takes the furthest-along card nobody is on (interrupted cards first: a card
 in a Doing column with no live claim and no `Held:` line, marked `⚠` on the board; then the Done columns in the
-config's `flow.pull_order`, the first column last and only below the cap `flow.wip_limit`; a column marked
-`waits_for_owner` is never pulled) and does the next step to it. A card in a Doing column with a live claim, or in a
+config's `flow.pull_order`, the first column last and only below the cap `flow.wip_limit`; a card waiting at a
+gate that is not open is never pulled) and does the next step to it. A card in a Doing column with a live claim, or in a
 Done column with a live claim (a session carrying straight on), is never pulled. It says which card it pulled and why,
 in its first line.
 
@@ -59,9 +59,18 @@ Run the step by running its skill. **If the step's `skill` is a project skill, r
 if it names `extend` skills, the step's skill follows them too.** Each step skill does this itself (it starts with
 `kanbanzai step <name>`), so `/do` only has to start the right one.
 
-A card whose **Deploy** line is `None` (docs, the board, tooling, skill text) ships nothing: it skips deploy-qa and
-ship, is never QA-approved, and is closed from Checked straight to Done (step 5). The same happens when the project
-has no deploy skill: `kanbanzai step deploy-qa` has none, so a Checked card closes.
+**The flow decides what a card skips and what holds it; ask it, do not assume it.** `kanbanzai step --for <ID>` says,
+for this card, the next step, the steps its brief makes it skip (a step's `skip_field` and `skip_values`: in the
+shipped flow a **Deploy** line of `None`, for docs, the board, tooling and skill text) and where that leaves it, which
+may be Done (`skip: … and closes`), and the **gate** that holds it, if its column has one (`gate: …`). A step with no
+skill in the project is skipped for every card. Follow that answer: a card that skips every remaining step is closed
+from where it stands (step 5).
+
+**A gate is a column where a card waits until a condition holds** (`kanbanzai gate status <ID>` and `step --for` say
+which: the owner's approval, a CI result, an outside event, a date, or another card). `kanbanzai move` refuses to take
+a card out of it while it is closed. Owner, CI and external gates are opened by recording the result with `kanbanzai
+gate pass <ID>` (the owner gate needs `--note "<their words>"`; `gate fail <ID> --reason` records a failure); date and
+card gates open by themselves. Never record an owner's approval they have not given.
 
 **A step moves the card twice: into its Doing column when it starts, into its Done column when it ends.** The session
 moves the card with `kanbanzai move <ID> start` first (right after the claim, and after the worktree exists for
@@ -201,7 +210,7 @@ design. The board is the only source of the stage.
 | a Doing column, no live claim, no `Held:` line | interrupted (`⚠`): read the brief's Next action and last Comment, take it over with `kanbanzai claim claim <ID> --takeover "<why>"`, check the worktree (`git status`, last commit) and resume inside the step; no move needed, it is in the Doing column already |
 | a Doing column with a live claim of this session | resume inside the step from the Next action |
 | Shipping, no live claim | interrupted, but it was only ever pulled with the owner's approval: ask them again before resuming the production deploy |
-| a column marked `waits_for_owner` | it waits for the owner's approval; with it, claim the card, move it into the step's Doing column (Shipping) and run its step |
+| a card behind a gate (`step --for` prints `gate: …`) | a closed gate stops the card: say what opens it (`kanbanzai gate status <ID>`) and stop, unless the gate is the owner's and the owner has just given the approval: record it with `kanbanzai gate pass <ID> --note "<their words>"`, then claim the card, move it into the step's Doing column and run its step |
 | a held card (a `Held:` line, in any column, Doing included) | test whether the blocker is gone; if so and the next step is Claude's, delete the `Held:` line and carry on at the column's next step, otherwise report the one thing that must happen and stop |
 | Paused | ask the owner whether to resume; never unpause on your own |
 | Done | nothing: say what shipped and stop |
@@ -210,13 +219,13 @@ A step the work does not need is skipped, in the brief and in the title; say why
 work.
 
 **The loop.** When a step is done, do the update (the card moves to that step's Done column) and go straight on to the
-next, keeping the claim; the next step's first move puts the card into its Doing column. Keep going while the next step is Claude's own and no gate is open. Stop at the first of:
+next, keeping the claim; the next step's first move puts the card into its Doing column. Keep going while the next step is Claude's own and no closed gate holds the card. Stop at the first of:
 
 - a decision for the owner, or an approval only they give: ask it with the question tool, the recommended option
   first, and do not start work that depends on the answer;
 - a red check or a failed step: name it, fix it in scope (or `/triage` it as its own card), then resume; never move
   a card on red;
-- a card that is blocked, waiting on an outside party, paused, or in a column that waits for the owner;
+- a card that is blocked, waiting on an outside party, paused, or behind a gate that is not open;
 - Done;
 - the turn's limit: commit the work (0c) and say exactly where it stopped.
 
@@ -322,8 +331,9 @@ release the claim and stop, naming what waits for the owner. Then `kanbanzai ste
 move the card to **Shipping** and run its skill; the card goes to **Done** (step 5). A project with different columns
 follows `kanbanzai step --for <ID>` in the same way.
 
-When `kanbanzai step deploy-qa` has **no skill** (the shipped default), or the card's **Deploy** line is `None`,
-there is nothing to ship: a Checked card is closed at step 5, straight to Done with no In QA or Shipping move.
+When `kanbanzai step --for <ID>` says the card skips the deploy steps (`skip: … and closes`), or the project has **no
+skill** for them (the shipped default), there is nothing to ship: a Checked card is closed at step 5, straight to Done
+with no In QA or Shipping move.
 
 ## 5. Close
 

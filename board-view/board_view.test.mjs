@@ -411,3 +411,27 @@ test("the asking toast's edge is the asking card's own colour, a --vscode variab
   const css = renderHtml(board, { nonce: NONCE, toasts: [askingView] }).match(/<style[^>]*>(.*?)<\/style>/s)[1];
   assert.match(css, /\.toast\.level-asking\s*\{[^}]*border-left-color:\s*var\(--vscode-button-background\)/s);
 });
+
+test("a card waiting at a gate shows a pause glyph and says what opens it; an open gate says who passed it", () => {
+  const card = (gate) => ({ id: "W-90", title: "Gated", stage: "built", path: "docs/work/1-open/W-90-g.md", gate });
+  const render = (gate) => renderHtml({ columns: [{ key: "built", name: "Built", cards: [card(gate)] }], problems: [] }, { nonce: NONCE });
+  const closed = render({ type: "ci", name: "", state: "closed", opens_when: "a CI result is recorded as passed", why: "waiting" });
+  assert.match(closed, /class="card gated"/);
+  assert.match(closed, /<span class="glyph glyph-gate" title="Waiting at a ci gate: closed">🔒<\/span>/);
+  assert.match(closed, /Gate: ci closed\nOpens when a CI result is recorded as passed/);
+  const open = render({ type: "ci", state: "open", why: "passed by x, 2026-11-12" });
+  assert.doesNotMatch(open, /class="card gated|class="glyph glyph-gate"/);
+  assert.match(open, /Gate: ci open \(passed by x, 2026-11-12\)/);
+  const named = render({ type: "external", name: "train", state: "failed", opens_when: "train is recorded" });
+  assert.match(named, /Gate: external \(train\) failed/);
+});
+
+test("a missing, null or odd gate is no gate, and its text is escaped", () => {
+  const render = (gate) => renderHtml({ columns: [{ key: "built", name: "Built", cards: [{ id: "W-91", title: "T", stage: "built", gate }] }], problems: [] }, { nonce: NONCE });
+  for (const gate of [undefined, null, 5, "closed", {}, { type: "ci" }, { state: "closed" }]) {
+    assert.doesNotMatch(render(gate), /class="glyph glyph-gate"|title="[^"]*Gate:/);
+  }
+  const evil = render({ type: "<img src=x>", state: "closed", opens_when: "<b>now</b>" });
+  assert.doesNotMatch(evil, /<img|<b>now/);
+  assert.match(evil, /&lt;img src=x&gt; closed/);
+});

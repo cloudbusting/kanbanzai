@@ -18,6 +18,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -27,6 +28,7 @@ var glyphs = map[string]string{"blocked": " ⛔", "waiting": " ⏳", "waiting-ow
 const (
 	interruptedMark = " ⚠"
 	unstartedMark   = " ⚑"
+	gateMark        = " 🔒"
 )
 
 // Card is one brief on the board. JSON is the `board --json` contract the extension reads.
@@ -45,8 +47,16 @@ type Card struct {
 	Session           *sessions.Record `json:"session"`
 	ClaimedNotStarted bool             `json:"claimed_not_started"`
 	Path              string           `json:"path"`
+	Gate              *gate.Status     `json:"gate"`
 
-	column string
+	column   string
+	gateLine string
+	needs    []string
+}
+
+// WaitsAtGate is true for a card whose column has a gate that is closed or failed: it cannot move forward yet.
+func (c *Card) WaitsAtGate() bool {
+	return c.Gate != nil && c.Gate.State != gate.Open
 }
 
 // Column is one board column and its cards.
@@ -164,6 +174,27 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			sort.SliceStable(cards, func(i, j int) bool { return number(cards[i].ID) < number(cards[j].ID) })
 		}
 	}
+	where := func(id string) (string, bool) {
+		for key, cards := range byColumn {
+			for _, card := range cards {
+				if card.ID == id {
+					return key, true
+				}
+			}
+		}
+		return "", false
+	}
+	for _, column := range project.Columns {
+		if !column.Gate.Set() {
+			continue
+		}
+		for _, card := range byColumn[column.Key] {
+			card.Gate = gate.Eval(project, column, card.ID, card.gateLine, card.needs, where, now)
+			if card.WaitsAtGate() {
+				card.ClaimedNotStarted = false // waiting at a gate is a reason to sit, like a Held line
+			}
+		}
+	}
 	for _, column := range project.Columns {
 		result.Columns = append(result.Columns, Column{
 			Key: column.Key, Name: column.Label, Lane: column.Lane, Doing: column.Doing,
@@ -220,6 +251,7 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 		ID: cardID, Title: title, Stage: stage, Next: fields["Next action"], Updated: fields["Updated"],
 		Where: fields["Where"], Done: done, Owner: nil, Held: held, Mark: brief.MarkOf(project, stage, held),
 		Interrupted: false, Session: nil, ClaimedNotStarted: false, Path: rel, column: key,
+		gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
 	return card, problems
 }
@@ -344,6 +376,9 @@ func MarkText(card *Card, unstarted bool) string {
 	if unstarted {
 		builder.WriteString(unstartedMark)
 	}
+	if card.WaitsAtGate() {
+		builder.WriteString(gateMark)
+	}
 	return builder.String()
 }
 
@@ -358,6 +393,9 @@ func cardText(card *Card) string {
 	}
 	if card.ClaimedNotStarted {
 		builder.WriteString(unstartedMark)
+	}
+	if card.WaitsAtGate() {
+		builder.WriteString(gateMark)
 	}
 	if card.Owner != nil {
 		builder.WriteString(" ●")

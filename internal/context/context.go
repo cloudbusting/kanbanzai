@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 )
 
 // Limit is the soft cut; the shipped context stays well under it.
@@ -77,10 +78,7 @@ func Build(project *config.Project) string {
 			via = fmt.Sprintf("step in progress: %s (a live claim means a session is on it; none: interrupted)",
 				column.Doing)
 		}
-		extra := ""
-		if column.WaitsForOwner {
-			extra = fmt.Sprintf("; waits for %s's approval", project.Owner)
-		}
+		extra := gateNote(project, column)
 		lane := ""
 		if column.Lane != "" {
 			lane = ", lane " + column.Lane
@@ -92,22 +90,28 @@ func Build(project *config.Project) string {
 	if err != nil {
 		worktree = project.WorktreePattern
 	}
-	lines = append(lines,
-		"",
+	rules := []string{
 		fmt.Sprintf("Pull rule: pull the furthest-along card first (%s), interrupted cards (in a Doing column "+
 			"with no live claim, or an expired claim) before all.", strings.Join(project.PullOrder, ", ")),
 		fmt.Sprintf("At most %d cards are started at once: past that, no new card is pulled from the first "+
 			"column; finish cards instead.", project.WIPLimit),
-		"A card that is blocked or waiting stays in its column; its Held line says so, and it is not pulled until "+
+		"A card that is blocked or waiting stays in its column; its Held line says so, and it is not pulled until " +
 			"the line is deleted.",
-		"Claim a card before working on it (`kanbanzai claim claim ID`), move it into the step's Doing column (the "+
-			"Stage word `kanbanzai step --for ID` prints), then into its Done column when the step ends, release the "+
+		gateLine(project),
+		"Claim a card before working on it (`kanbanzai claim claim ID`), move it into the step's Doing column (the " +
+			"Stage word `kanbanzai step --for ID` prints), then into its Done column when the step ends, release the " +
 			"claim when work stops.",
 		fmt.Sprintf("Every change to a card is made in its worktree (%s); the main checkout holds only the board.",
 			worktree),
 		"Each skill starts with `kanbanzai step <name>`; `kanbanzai step --for ID` says what to do next to a card.",
 		fmt.Sprintf("The owner is %s: decisions that are theirs go to them.", project.Owner),
-	)
+	}
+	lines = append(lines, "")
+	for _, rule := range rules {
+		if rule != "" {
+			lines = append(lines, rule)
+		}
+	}
 	files := project.ContextFiles()
 	if len(files) > 0 {
 		lines = append(lines, "", "Read first:")
@@ -147,4 +151,33 @@ func Mismatch(command, adapter string) string {
 	return fmt.Sprintf("Kanbanzai: the command is v%s but this plugin is v%s. Keep them on one release: update the editor "+
 		"extension (it brings the matching command) or run `kanbanzai install` from the new release if the command is older; "+
 		"update the plugin if the plugin is older.", command, adapter)
+}
+
+// gateNote is what a column's gate adds to its line, or "".
+func gateNote(project *config.Project, column config.Column) string {
+	if !column.Gate.Set() {
+		return ""
+	}
+	if column.Gate.Type == "owner" {
+		return fmt.Sprintf("; waits for %s's approval (a gate: record it with kanbanzai gate pass ID --note "+
+			"\"<their words>\")", project.Owner)
+	}
+	name := column.Gate.Type
+	if column.Gate.Name != "" {
+		name += ": " + column.Gate.Name
+	}
+	return fmt.Sprintf("; gate (%s): a card leaves only when %s", name,
+		strings.ReplaceAll(gate.OpensWhen(project, column, ""), "<ID>", "ID"))
+}
+
+// gateLine is the standing rule for gates, or "" (dropped) when no column has one.
+func gateLine(project *config.Project) string {
+	for _, column := range project.Columns {
+		if column.Gate.Set() {
+			return "A column with a gate holds a card until the gate opens: `kanbanzai move` refuses to take it on " +
+				"and `wip --next` does not offer it; `kanbanzai gate status ID` and `kanbanzai step --for ID` say " +
+				"what opens it."
+		}
+	}
+	return ""
 }

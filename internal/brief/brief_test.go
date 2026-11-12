@@ -163,3 +163,34 @@ func TestFirstDateMatches(t *testing.T) {
 }
 
 func ptr(value string) *string { return &value }
+
+func TestFieldValueReadsAHeadLineOrASection(t *testing.T) {
+	text := "# W-01: x\n\n- **Stage:** todo\n- **Type:** Docs\n\n## Deploy\n\nNone: the board\n\n## Risk\n\nLow.\n"
+	for name, want := range map[string]string{"type": "Docs", "Stage": "todo", "deploy": "None: the board", "Risk": "Low."} {
+		if got, ok := FieldValue(text, name); !ok || got != want {
+			t.Errorf("%s = %q, %v; want %q", name, got, ok, want)
+		}
+	}
+	for _, name := range []string{"Gate", "Tasks", ""} {
+		if got, ok := FieldValue(text, name); ok {
+			t.Errorf("%s = %q, want nothing", name, got)
+		}
+	}
+	if got, ok := FieldValue("# W-01: x\n\n## Deploy\n\n## Risk\n\nLow.\n", "Deploy"); ok {
+		t.Errorf("an empty section = %q, want nothing", got)
+	}
+}
+
+func TestStartsWithWordIsWholeWordAndCaseInsensitive(t *testing.T) {
+	for value, want := range map[string]bool{
+		"None": true, "none": true, "None (tooling)": true, "NONE: the board": true, "None.": true,
+		"Nonexistent": false, "Not none": false, "": false, "None_of_it": false,
+	} {
+		if got := StartsWithWord(value, []string{"None"}); got != want {
+			t.Errorf("%q = %v, want %v", value, got, want)
+		}
+	}
+	if StartsWithWord("anything", nil) || StartsWithWord("anything", []string{""}) {
+		t.Error("no words matched something")
+	}
+}

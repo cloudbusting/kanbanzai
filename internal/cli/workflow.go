@@ -267,8 +267,20 @@ func showText(m *flow.Model) string {
 		if c.Worktree {
 			extra = append(extra, "worktree")
 		}
-		if c.WaitsForOwner {
-			extra = append(extra, "waits for owner")
+		if c.Gate != "" {
+			text := "gate " + c.Gate
+			switch {
+			case c.GateName != "":
+				text += " (" + c.GateName + ")"
+			case c.GateAfter != "":
+				text += " (after " + c.GateAfter + ")"
+			case c.GateUntil != "":
+				text += " (until " + c.GateUntil + ")"
+			}
+			if c.Gate == "owner" {
+				text += ", waits for owner"
+			}
+			extra = append(extra, text)
 		}
 		fmt.Fprintf(&b, "  %-14s %-14s %-9s %-8s %s\n", c.Key, c.Label, c.Folder, c.Kind, strings.Join(extra, ", "))
 	}
@@ -284,6 +296,9 @@ func showText(m *flow.Model) string {
 		}
 		if len(s.Checks) > 0 {
 			line += "  checks " + strings.Join(s.Checks, ", ")
+		}
+		if s.SkipField != "" {
+			line += fmt.Sprintf("  skipped when %s starts with %s", s.SkipField, strings.Join(s.SkipValues, " or "))
 		}
 		fmt.Fprintln(&b, line)
 	}

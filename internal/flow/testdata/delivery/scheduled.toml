@@ -1,0 +1,59 @@
+# A scheduled release: a card built before the date waits for it. @DATE@ is replaced by the test.
+[flow]
+pull_order = ["built", "todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+folder = "1-open"
+kind = "open"
+started = true
+gate = "date"
+gate_after = "@DATE@"
+next = "ship"
+
+[[columns]]
+key = "shipping"
+label = "Shipping"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "ship"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+
+[steps.ship]
+into = "done"
+during = "shipping"
+skill = "ship-on-the-day"

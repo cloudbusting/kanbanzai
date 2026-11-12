@@ -23,6 +23,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -33,11 +34,7 @@ const (
 	HeldCode    = 3
 )
 
-var (
-	dateRE        = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
-	deployField   = regexp.MustCompile(`(?m)^- \*\*Deploy:\*\*\s*None\b`)
-	deploySection = regexp.MustCompile(`(?m)^## Deploy\s*\n\s*None\b`)
-)
+var dateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
 
 // Refused is a move that is not made; Code is the command's exit code.
 type Refused struct {
@@ -140,7 +137,10 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		return "", err
 	}
 	problems := []string{}
-	allowed := LegalTargets(project, key, &look, ShipsNothing(string(original)))
+	briefText := string(original)
+	allowed := LegalTargets(project, key, &look, func(name string) bool {
+		return step.SkippedFor(project, briefText, name)
+	})
 	if _, ok := allowed[destination]; !ok {
 		switch {
 		case column.Kind == "parked":
@@ -150,6 +150,14 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		default:
 			problems = append(problems, fmt.Sprintf("%s to %s skips a step; from %s a card goes to %s",
 				column.Label, goal.Label, column.Label, strings.Join(labelList(project, allowed, key), ", ")))
+		}
+	}
+	if destination != key && card.Gate != nil {
+		// A closed gate holds a card back from going forward; going back or pausing is always free.
+		if kind := allowed[destination]; kind != "back" && kind != "pause" {
+			if refusal := gate.Blocks(project, card.Gate, cardID); refusal != "" {
+				problems = append(problems, refusal)
+			}
 		}
 	}
 	if destination != key && (goal.Doing != "" || word == "finish") && !mine {
@@ -205,6 +213,9 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		}
 	} else if column.Kind == "done" {
 		fields["Done"] = nil
+	}
+	if destination != key {
+		fields["Gate"] = nil // a gate's record belongs to the visit to its column
 	}
 	if goal.Kind != "open" {
 		fields["Held"] = nil
@@ -275,13 +286,11 @@ func Resolve(project *config.Project, target string) string {
 	return ""
 }
 
-// ShipsNothing is true when the brief's Deploy is None: the card skips the deploy steps.
-func ShipsNothing(text string) bool {
-	return deployField.MatchString(text) || deploySection.MatchString(text)
-}
-
-// LegalTargets is {column key: why} for the columns a card may move to without --force.
-func LegalTargets(project *config.Project, key string, card *board.Card, nothingToShip bool) map[string]string {
+// LegalTargets is {column key: why} for the columns a card may move to without --force. skipped says whether the
+// card skips a step (a step's skip rule matched its brief); nil means it skips none. A card that skips the steps
+// ahead of it may move on past them: to the first column whose step it does not skip ("skip"), or to Done when it
+// skips every remaining step ("close").
+func LegalTargets(project *config.Project, key string, card *board.Card, skipped func(step string) bool) map[string]string {
 	column, ok := project.ByKey[key]
 	if !ok {
 		return map[string]string{}
@@ -297,25 +306,10 @@ func LegalTargets(project *config.Project, key string, card *board.Card, nothing
 			found[words.Start] = "start"
 		}
 		description := step.Describe(project, name)
-		if description != nil && description.Instead != nil {
-			if description.Instead.Action == "close" {
-				found[description.Instead.Column] = "close"
-			} else if nothingToShip && (name == "deploy-qa" || name == "ship") {
-				for _, other := range project.Columns {
-					if other.Kind == "done" {
-						found[other.Key] = "close"
-						break
-					}
-				}
-			}
-		} else if nothingToShip && (name == "deploy-qa" || name == "ship") {
-			for _, other := range project.Columns {
-				if other.Kind == "done" {
-					found[other.Key] = "close"
-					break
-				}
-			}
+		if description != nil && description.Instead != nil && description.Instead.Action == "close" {
+			found[description.Instead.Column] = "close"
 		}
+		skipAhead(project, name, skipped, found)
 	}
 	if column.Doing != "" {
 		if into, ok := project.ByKey[project.Steps[column.Doing].Into]; ok {
@@ -340,6 +334,17 @@ func LegalTargets(project *config.Project, key string, card *board.Card, nothing
 		}
 	}
 	return found
+}
+
+// skipAhead records where a card that skips steps, starting at its next step, may land.
+func skipAhead(project *config.Project, name string, skipped func(string) bool, found map[string]string) {
+	path := step.SkipPath(project, name, skipped)
+	if path == nil {
+		return
+	}
+	if _, taken := found[path.Column]; path.Kind == "close" || !taken {
+		found[path.Column] = path.Kind
+	}
 }
 
 // Options is one move command.
