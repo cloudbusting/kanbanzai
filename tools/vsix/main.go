@@ -4,6 +4,10 @@
 // so the archive carries no machine path and no bin.json. Run from the repository root:
 //
 //	go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
+//
+// With -bin DIR (the layout tools/release -bins leaves: DIR/<os>-<arch>/kanbanzai[.exe] for linux/amd64,
+// linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64) the archive also carries the command at
+// extension/bin/<os>-<arch>/kanbanzai[.exe], executable. Without it the .vsix is a dev build with no command.
 package main
 
 import (
@@ -38,12 +42,61 @@ const contentTypes = `<?xml version="1.0" encoding="utf-8"?>
 	`<Default Extension=".md" ContentType="text/markdown"/>` +
 	`<Default Extension=".png" ContentType="image/png"/>` +
 	`<Default Extension=".vsixmanifest" ContentType="text/xml"/>` +
-	`<Default Extension=".xml" ContentType="text/xml"/>` +
-	`</Types>`
+	`<Default Extension=".xml" ContentType="text/xml"/>`
 
-// BuildVSIX packs dir into dest and returns the extension's metadata.
-func BuildVSIX(dir, dest string) (Package, error) {
+// The command is an extensionless file (and .exe on Windows), so each binary gets an Override on its own path.
+const binaryContentType = "application/octet-stream"
+
+// bundledTargets are the platforms the .vsix carries, as tools/release builds them.
+var bundledTargets = []struct{ dir, name string }{
+	{"linux-amd64", "kanbanzai"},
+	{"linux-arm64", "kanbanzai"},
+	{"darwin-amd64", "kanbanzai"},
+	{"darwin-arm64", "kanbanzai"},
+	{"windows-amd64", "kanbanzai.exe"},
+}
+
+type binary struct {
+	entry string // the path in the archive
+	path  string // the file to read
+}
+
+// findBinaries checks that bins holds all five targets as regular files (not links, not folders).
+func findBinaries(bins string) ([]binary, error) {
+	var found []binary
+	for _, target := range bundledTargets {
+		path := filepath.Join(bins, target.dir, target.name)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, fmt.Errorf("-bin %s lacks the %s command (%s/%s): %w", bins, target.dir, target.dir, target.name, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("-bin: %s/%s is not a regular file (%v)", target.dir, target.name, info.Mode().Type())
+		}
+		found = append(found, binary{entry: "extension/bin/" + target.dir + "/" + target.name, path: path})
+	}
+	return found, nil
+}
+
+func typesXML(binaries []binary) string {
+	var overrides strings.Builder
+	for _, bin := range binaries {
+		overrides.WriteString(`<Override PartName="/` + html.EscapeString(bin.entry) + `" ContentType="` + binaryContentType + `"/>`)
+	}
+	return contentTypes + overrides.String() + `</Types>`
+}
+
+// BuildVSIX packs dir into dest and returns the extension's metadata. When bins is not empty it also packs the
+// command for the five platforms from bins/<os>-<arch>/kanbanzai[.exe], with the executable bit set.
+func BuildVSIX(dir, dest, bins string) (Package, error) {
 	var pkg Package
+	var binaries []binary
+	if bins != "" {
+		var err error
+		if binaries, err = findBinaries(bins); err != nil {
+			return pkg, err
+		}
+	}
 	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
 	if err != nil {
 		return pkg, err
@@ -78,7 +131,7 @@ func BuildVSIX(dir, dest string) (Package, error) {
 	if err := writeString(writer, "extension.vsixmanifest", manifest(pkg)); err != nil {
 		return fail(err)
 	}
-	if err := writeString(writer, "[Content_Types].xml", contentTypes); err != nil {
+	if err := writeString(writer, "[Content_Types].xml", typesXML(binaries)); err != nil {
 		return fail(err)
 	}
 	for _, name := range names {
@@ -87,6 +140,15 @@ func BuildVSIX(dir, dest string) (Package, error) {
 			return fail(err)
 		}
 		if err := writeBytes(writer, "extension/"+name, source); err != nil {
+			return fail(err)
+		}
+	}
+	for _, bin := range binaries {
+		source, err := os.ReadFile(bin.path)
+		if err != nil {
+			return fail(err)
+		}
+		if err := writeExecutable(writer, bin.entry, source); err != nil {
 			return fail(err)
 		}
 	}
@@ -162,18 +224,45 @@ func writeBytes(writer *zip.Writer, name string, data []byte) error {
 	return err
 }
 
+// writeExecutable adds a file with Unix mode 0755 in the high 16 bits of the external attributes, so an extractor
+// that honours them leaves the command runnable.
+func writeExecutable(writer *zip.Writer, name string, data []byte) error {
+	header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+	header.SetMode(0o755)
+	entry, err := writer.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+	_, err = entry.Write(data)
+	return err
+}
+
+// describe is the one line the packer prints.
+func describe(dest string, pkg Package, binaries int) string {
+	contents := "no command: a dev build, the extension uses kanbanzai.command or PATH"
+	if binaries > 0 {
+		contents = fmt.Sprintf("with the command for %d platforms", binaries)
+	}
+	return fmt.Sprintf("wrote %s (%s.%s %s); %s; not installed", dest, pkg.Publisher, pkg.Name, pkg.Version, contents)
+}
+
 func main() {
 	dir := flag.String("dir", "board-view", "the board-view folder to pack")
+	bins := flag.String("bin", "", "the folder of commands, DIR/<os>-<arch>/kanbanzai[.exe] (tools/release -bins); empty packs a dev .vsix with no command")
 	dest := flag.String("o", "", "the .vsix path to write")
 	flag.Parse()
 	if *dest == "" {
 		fmt.Fprintln(os.Stderr, "vsix: -o <path> is needed")
 		os.Exit(2)
 	}
-	pkg, err := BuildVSIX(*dir, *dest)
+	pkg, err := BuildVSIX(*dir, *dest, *bins)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "vsix: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("wrote %s (%s.%s %s); not installed\n", *dest, pkg.Publisher, pkg.Name, pkg.Version)
+	count := 0
+	if *bins != "" {
+		count = len(bundledTargets)
+	}
+	fmt.Println(describe(*dest, pkg, count))
 }

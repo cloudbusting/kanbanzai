@@ -5,6 +5,14 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-17: one editor install sets a project up. The `.vsix` carries the `kanbanzai` command for the five supported
+  platforms, and a status-bar **Kanbanzai: Init** item (in a git project with no board) shows the plan, waits for
+  Apply, then copies the command to a per-user folder, enables the Claude Code and OpenCode plugins for the project
+  and creates the board. New in the command: `kanbanzai install` (copy the running command to
+  `$XDG_DATA_HOME/kanbanzai/bin`, `~/.local/share/kanbanzai/bin` or `%LOCALAPPDATA%\kanbanzai\bin`) and
+  `kanbanzai init --plugins claude,opencode [--plugin-source DIR]`, whose plan merges the plugin settings without
+  overwriting anything (a new `merge` action). The hooks and the OpenCode adapter now look in that folder after
+  `PATH`. The release workflow builds and attaches the `.vsix`. The board tab itself stays read-only.
 - W-05: `/kanbanzai:setup` (and `/setup`) sets a project up with an agent: it inspects the repository and reports
   what it found with the evidence, asks only the owner's open decisions, shows the `init` plan and waits for
   approval, applies exactly that plan and proves it with `check`, `wip --audit` and `doctor`. It never commits and

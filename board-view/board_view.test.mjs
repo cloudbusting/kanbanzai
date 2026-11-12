@@ -202,7 +202,7 @@ test("package.json has no dependencies and the expected shape", () => {
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.main, "./extension.js");
   assert.deepEqual(pkg.extensionKind, ["workspace"]);
-  assert.deepEqual(pkg.activationEvents, ["workspaceContains:.kanbanzai/config.toml"]);
+  assert.deepEqual(pkg.activationEvents, ["workspaceContains:.kanbanzai/config.toml", "onStartupFinished"]);
   assert.equal(pkg.contributes.commands[0].command, "kanbanzai.showBoard");
 });
 

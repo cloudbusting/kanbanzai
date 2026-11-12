@@ -23,7 +23,7 @@ func TestTheReleaseBuildsTheFiveArchivesAndChecksums(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := t.TempDir()
-	names, err := Build(root, "v0.0.0-test", out)
+	names, err := Build(root, "v0.0.0-test", out, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +71,59 @@ func TestTheReleaseBuildsTheFiveArchivesAndChecksums(t *testing.T) {
 		if strings.TrimSpace(string(version)) != "kanbanzai v0.0.0-test" {
 			t.Fatalf("--version = %q", version)
 		}
+	}
+}
+
+func TestTheReleaseLeavesRawBinariesWhenAskedTo(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "dist")
+	bins := filepath.Join(t.TempDir(), "bins")
+	if _, err := Build(root, "v0.0.0-bins", out, bins); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(bins)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found []string
+	for _, entry := range entries {
+		found = append(found, entry.Name())
+	}
+	wantDirs := []string{"darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64"}
+	if strings.Join(found, " ") != strings.Join(wantDirs, " ") {
+		t.Fatalf("bins holds %v, want %v", found, wantDirs)
+	}
+	for _, dir := range wantDirs {
+		name := "kanbanzai"
+		if strings.HasPrefix(dir, "windows") {
+			name += ".exe"
+		}
+		info, err := os.Lstat(filepath.Join(bins, dir, name))
+		if err != nil {
+			t.Fatalf("%s: %v", dir, err)
+		}
+		if !info.Mode().IsRegular() || info.Size() == 0 {
+			t.Fatalf("%s: mode %v, size %d", dir, info.Mode(), info.Size())
+		}
+		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
+			t.Fatalf("%s: permissions %v, want 0755", dir, info.Mode().Perm())
+		}
+		inner, err := os.ReadDir(filepath.Join(bins, dir))
+		if err != nil || len(inner) != 1 {
+			t.Fatalf("%s holds %v, %v; want only the binary", dir, inner, err)
+		}
+	}
+	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
+		version, err := exec.Command(filepath.Join(bins, "linux-amd64", "kanbanzai"), "--version").CombinedOutput()
+		if err != nil || strings.TrimSpace(string(version)) != "kanbanzai v0.0.0-bins" {
+			t.Fatalf("--version = %q, %v", version, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(out, "SHA256SUMS")); err != nil {
+		t.Fatalf("the archives are still built: %v", err)
 	}
 }
 

@@ -5,6 +5,7 @@
 //
 //	go run ./tools/release -check -version v0.5.0
 //	go run ./tools/release -version v0.5.0 -out dist
+//	go run ./tools/release -version v0.5.0 -out dist -bins bins
 //
 // It cross-compiles with CGO_ENABLED=0 and -trimpath; every binary is self-contained. A release is built from a tag
 // by .github/workflows/release.yml, which runs the same tool.
@@ -40,8 +41,9 @@ var targets = []target{
 	{"windows", "amd64"},
 }
 
-// Build compiles every target and writes its archive and SHA256SUMS into out.
-func Build(root, version, out string) ([]string, error) {
+// Build compiles every target and writes its archive and SHA256SUMS into out. When bins is not empty it also
+// leaves each raw binary at bins/<os>-<arch>/kanbanzai (kanbanzai.exe for windows), mode 0755, for tools/vsix.
+func Build(root, version, out, bins string) ([]string, error) {
 	artifactVersion := strings.TrimPrefix(version, "v")
 	if artifactVersion == "" {
 		artifactVersion = version
@@ -71,6 +73,12 @@ func Build(root, version, out string) ([]string, error) {
 			os.RemoveAll(temporary)
 			return nil, fmt.Errorf("%s/%s: %v: %s", platform.OS, platform.Arch, err, stderr.String())
 		}
+		if bins != "" {
+			if err := keepBinary(binary, filepath.Join(bins, platform.OS+"-"+platform.Arch, name)); err != nil {
+				os.RemoveAll(temporary)
+				return nil, err
+			}
+		}
 		archive := fmt.Sprintf("kanbanzai_%s_%s_%s", artifactVersion, platform.OS, platform.Arch)
 		if platform.OS == "windows" {
 			archive += ".zip"
@@ -99,6 +107,20 @@ func Build(root, version, out string) ([]string, error) {
 		fmt.Fprintf(sums, "%x  %s\n", sha256.Sum256(data), name)
 	}
 	return names, nil
+}
+
+func keepBinary(binary, destination string) error {
+	data, err := os.ReadFile(binary)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(destination, data, 0o755); err != nil {
+		return err
+	}
+	return os.Chmod(destination, 0o755)
 }
 
 func writeTarGz(destination, binary, name string) error {
@@ -181,6 +203,7 @@ func main() {
 	version := flag.String("version", "", "the release tag, like v1.2.3")
 	out := flag.String("out", "dist", "the directory for the archives and SHA256SUMS")
 	root := flag.String("root", "", "the repository root (default: found from the current directory)")
+	bins := flag.String("bins", "", "also leave the raw binaries in this directory as <os>-<arch>/kanbanzai[.exe], for tools/vsix -bin")
 	check := flag.Bool("check", false, "check that the manifests, CHANGELOG.md and -version agree, then exit")
 	flag.Parse()
 	directory := *root
@@ -209,7 +232,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "release: -version <tag> is needed")
 		os.Exit(2)
 	}
-	names, err := Build(directory, *version, *out)
+	names, err := Build(directory, *version, *out, *bins)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "release: %v\n", err)
 		os.Exit(1)

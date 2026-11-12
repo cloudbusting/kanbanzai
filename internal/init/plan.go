@@ -29,6 +29,7 @@ const (
 	OpAppend  = "append"
 	OpBackup  = "backup"
 	OpReplace = "replace"
+	OpMerge   = "merge"
 
 	WhatFolder    = "folder"
 	WhatBatches   = "batches"
@@ -37,6 +38,7 @@ const (
 	WhatTemplate  = "template"
 	WhatConfig    = "config"
 	WhatBackup    = "backup"
+	WhatPlugin    = "plugin-settings"
 )
 
 // ConfigRel and TemplateRel are where init puts the config (the only place the loader reads) and a project
@@ -257,6 +259,19 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	} else if opts.WithTemplate {
 		return nil, refuse("--with-template: the existing config sets no project.template; add one, or use " +
 			"--force to replace the config")
+	}
+
+	agents, source, err := checkPlugins(opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(agents) > 0 {
+		actions, warnings, err := pluginActions(root, agents, source)
+		if err != nil {
+			return nil, err
+		}
+		plan.Actions = append(plan.Actions, actions...)
+		plan.Warnings = append(plan.Warnings, warnings...)
 	}
 
 	plan.Actions = append(plan.Actions, configActions...)
