@@ -1,11 +1,11 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.7.1, 18a5884, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.7.1 (0.7.0 was tagged but not published)
 - **ADR:** none
-- **Next action:** release: version chosen by the owner (manifests are 0.6.4, CHANGELOG has [Unreleased]) after the owner approves; kanbanzai-release
-- **Where:** worktree W-04
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
