@@ -1,10 +1,10 @@
 # W-08: Make the shipped skills flow-agnostic and remove hardcoded workflow words
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Package: run kanbanzai-package on the merged main checkout; the ship step then waits for the owner's approval
+- **Next action:** release: ship after the owner approves — next version (0.10.0 is already released; metadata still 0.10.0), CHANGELOG [Unreleased] holds the W-08 entry
 - **Where:** worktree W-08
 - **Needs:** W-12, W-38
 
@@ -70,5 +70,6 @@ Over-generalising can make a skill vague enough to be unsafe. Each skill still n
 - 2026-11-12: Draft skills, guard and fixture committed; `go test ./...` is red only at `TestW08SkippedReviewClosesWithoutRunningIt` because `move start` enters a skipped review step. W-38 tracks the fix. Skills and full diff still need review; docs and acceptance checks remain unfinished.
 - 2026-11-12: Merged main (W-38 fix); full tests, vet and kanbanzai check green; restored do's close block and subagent brief; documented how skills follow the flow.
 - 2026-11-12: Checked: go test/vet, node suites, hooks, plugin validate, kanbanzai check and card audit green; QA found no must-fix; skills keep claim, gate, takeover and close safeguards.
+- 2026-11-12: Packaged at d9a6084: source bundle, five binary archives, .vsix with five commands, SHA256SUMS; fresh-project init/check/board, claude validate and throwaway install, opencode syntax, vsix listing all pass. Manual: editor install of the .vsix.
 
 ## Comments
