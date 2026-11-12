@@ -20,8 +20,8 @@ func schemaKeys() map[string]map[string]string {
 		},
 		"claims":  {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":    {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings"},
-		"columns": {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string"},
-		"step":    {"into": "string", "during": "string", "skill": "string", "extend": "strings", "context": "strings", "checks": "strings"},
+		"columns": {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string", "gate": "string", "gate_name": "string", "gate_after": "string", "gate_until": "string"},
+		"step":    {"into": "string", "during": "string", "skill": "string", "extend": "strings", "context": "strings", "checks": "strings", "skip_field": "string", "skip_values": "strings"},
 	}
 }
 

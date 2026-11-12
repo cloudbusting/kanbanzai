@@ -55,6 +55,17 @@ pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; 
 #   title    the session-title state while a session does that step
 #   worktree true: a claimed card here must have a worktree (its next step changes files)
 #   lane     the step's name on the board, over its Doing and Done columns (empty: a column of its own)
+#   gate     a gate holds a card at rest in this column until its condition holds; `move` will not take it
+#            out while the gate is closed (`--force --reason` overrides). One of:
+#              owner     the owner's approval is recorded (`kanbanzai gate pass ID --note "<their words>"`)
+#              ci        a CI result is recorded as passed (`gate pass ID`); gate_name is an optional label
+#              external  a named outside event is recorded (`gate pass ID`); gate_name is required (a store
+#                        review, a release train)
+#              date      the clock is on or past gate_after = "YYYY-MM-DD" (UTC); computed, never recorded
+#              card      every card in the brief's `Needs:` line is in column gate_until or later (default: a done
+#                        column); computed, never recorded
+#            A gate goes on an open column that is not a Doing column. `waits_for_owner = true` is the older
+#            spelling of `gate = "owner"`. Each type takes only its own keys: gate_name, gate_after, gate_until.
 #   doing    a Doing column: the step in progress while a card is here (the step's `during` names the column back).
 #            A card here with a live claim is being worked; with none (and no Held line) it is interrupted. A
 #            project whose columns name no Doing column keeps the old reading: a claim on a Done column is the doing
@@ -155,7 +166,7 @@ kind = "open"
 next = "ship"
 title = "SHIPPING"
 worktree = true
-waits_for_owner = true            # never pulled: it waits for the owner's approval
+gate = "owner"                    # never moved on until the owner's approval is recorded (`kanbanzai gate pass`)
 
 [[columns]]
 key = "shipping"
@@ -188,6 +199,10 @@ title = "DONE"
 #   context  project files the step reads before it starts
 #   checks   (the check step) the project skills that make up the checks, run in order; empty: the project's
 #            own tests, as its README or CLAUDE.md says, and the diff review
+#   skip_field, skip_values   a card skips the step when its brief's skip_field (a head line such as
+#            `- **Deploy:** None`, or a `## Deploy` section) starts with one of skip_values, case-insensitively.
+#            Both or neither. A card that skips every remaining step closes. A step whose `into` is a done column
+#            also closes the card
 
 [steps.design]
 into = "designed"
@@ -217,6 +232,8 @@ during = "in-qa"
 skill = ""                        # no deploy by default: a checked card closes (kanbanzai:do, the close)
 extend = []
 context = []
+skip_field = "Deploy"            # a card whose Deploy is None ships nothing: it skips this step
+skip_values = ["None"]
 
 [steps.ship]
 into = "done"
@@ -224,3 +241,5 @@ during = "shipping"
 skill = ""
 extend = []
 context = []
+skip_field = "Deploy"            # a card whose Deploy is None ships nothing: it skips this step
+skip_values = ["None"]

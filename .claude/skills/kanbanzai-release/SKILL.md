@@ -16,11 +16,14 @@ step; a subagent never pushes, tags or publishes.
 ## Board first
 
 The card must be **QA-approved** with the owner's approval recorded for this version and this publication. If the
-approval is not in the conversation, ask with the question tool, recommended option first. Move the card into
-**Shipping** (`kanbanzai move <ID> start`) before the first push, and to **Done** only after the published
-artifact has been verified.
+approval is not in the conversation, ask with the question tool, recommended option first. QA-approved is an owner
+gate: record the approval with `kanbanzai gate pass <ID> --note "<the owner's words>"` (`kanbanzai gate status <ID>`
+shows where it stands); `kanbanzai move` will not leave the column without it. Then move the card into **Shipping**
+(`kanbanzai move <ID> start`) before the first push, and to **Done** only after the published artifact has been
+verified.
 
-A card whose **Deploy** line is `None` never reaches this step; it closes from Checked.
+A card whose brief makes it skip the deploy steps (`kanbanzai step --for <ID>` says `skip: … and closes`, in the shipped
+flow a **Deploy** line of `None`) never reaches this step; it closes from Checked.
 
 ## 1. The public remote
 

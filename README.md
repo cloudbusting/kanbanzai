@@ -353,6 +353,7 @@ kanbanzai board [--json]                 the board
 kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
+kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
 kanbanzai number [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
@@ -380,6 +381,14 @@ your claim, a Held card (add `--clear-held`), a column that needs a worktree the
 (only the owner un-parks a card) and Done without `--done`; and (exit 3) a card another live session holds.
 `--force --reason "<why>"` overrides every refusal but an unknown column or card, another session's live claim and a
 missing `--done`. Each move is a line in `<state>/moves.jsonl`.
+
+**Delivery is data.** A step can declare who skips it (`skip_field`, `skip_values`: in the shipped flow a **Deploy** of
+`None` skips the deploy steps and the card closes from Checked), and a column can declare a **gate** a card waits at
+until it is open: `owner`, `ci`, `external`, `date` or `card` (`gate = "ci"`). `move` refuses to take a card out of a
+closed gate and `wip --next` does not offer it; `gate pass ID` records the result (the owner gate needs `--note` with
+their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it.
+[docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
+release, dependent work) and says what the flow cannot express.
 
 **A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
 of its next step, the way `move ID start` does, unless the card is held, the step's column needs a worktree (the output

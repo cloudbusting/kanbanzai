@@ -311,3 +311,41 @@ func TestACRLFTemplateAndBriefAreRead(t *testing.T) {
 		t.Fatalf("a CRLF brief: %v", problems)
 	}
 }
+
+// withHead puts extra head lines (a Gate or Needs line) after Where in a good brief.
+func withHead(card, stage, head string) string {
+	return strings.Replace(goodBrief(card, stage, "", ""), "- **Where:** —\n", "- **Where:** —\n"+head, 1)
+}
+
+func TestAGateLineBelongsOnAGatedCardAndReadsPassedOrFailed(t *testing.T) {
+	project := soundProject(t)
+	put(t, project, "1-open", "W-02-work.md", withHead("W-02", "qa-approved", "- **Gate:** passed by claude:1, 2026-11-12 — yes\n"))
+	put(t, project, "1-open", "W-06-x.md", withHead("W-06", "qa-approved", "- **Gate:** failed by Sam, 2026-11-12\n"))
+	if problems := Gates(project); len(problems) != 0 {
+		t.Fatalf("valid Gate lines were reported: %v", problems)
+	}
+	put(t, project, "1-open", "W-07-x.md", withHead("W-07", "built", "- **Gate:** passed by Sam, 2026-11-12\n"))
+	fails(t, Gates, project, "W-07-x.md: a Gate line belongs on a card in a column with an owner, ci or external gate")
+	for _, line := range []string{"passed", "approved by Sam, 2026-11-12", "passed by Sam", "passed by Sam, yesterday"} {
+		put(t, project, "1-open", "W-09-x.md", withHead("W-09", "qa-approved", "- **Gate:** "+line+"\n"))
+		fails(t, Gates, project, "W-09-x.md: a Gate line reads 'passed|failed by <who>, YYYY-MM-DD")
+	}
+}
+
+func TestANeedsLineNamesCardsThatExistAndNeverCircles(t *testing.T) {
+	project := soundProject(t)
+	put(t, project, "1-open", "W-06-x.md", withHead("W-06", "built", "- **Needs:** W-01, W-05\n"))
+	if problems := Gates(project); len(problems) != 0 {
+		t.Fatalf("a valid Needs line was reported: %v", problems)
+	}
+	put(t, project, "1-open", "W-06-x.md", withHead("W-06", "built", "- **Needs:** W-06\n"))
+	fails(t, Gates, project, "W-06-x.md: a card cannot need itself")
+	put(t, project, "1-open", "W-06-x.md", withHead("W-06", "built", "- **Needs:** W-77\n"))
+	fails(t, Gates, project, "W-06-x.md: Needs names W-77, which is not on the board")
+	put(t, project, "1-open", "W-06-x.md", withHead("W-06", "built", "- **Needs:** W-07\n"))
+	put(t, project, "1-open", "W-07-x.md", withHead("W-07", "built", "- **Needs:** W-06\n"))
+	fails(t, Gates, project, "the cards wait on each other: W-06 -> W-07 -> W-06")
+	put(t, project, "1-open", "W-07-x.md", withHead("W-07", "built", "- **Needs:** W-08\n"))
+	put(t, project, "1-open", "W-08-work.md", withHead("W-08", "todo", "- **Needs:** W-06\n"))
+	fails(t, Gates, project, "the cards wait on each other")
+}

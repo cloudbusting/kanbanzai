@@ -141,3 +141,32 @@ func TestMismatchIsSilentWhenTheReleasesAgreeOrAreUnknown(t *testing.T) {
 		}
 	}
 }
+
+func TestContextSaysWhatEachGateWaitsFor(t *testing.T) {
+	project := testProject(t, contextConfig)
+	text := Build(project)
+	for _, want := range []string{
+		"waits for Sam's approval (a gate: record it with kanbanzai gate pass ID --note \"<their words>\")",
+		"A column with a gate holds a card until the gate opens: `kanbanzai move` refuses to take it on",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("context misses %q", want)
+		}
+	}
+	gated := testProject(t, "config_version = 1\n[flow]\npull_order = [\"todo\"]\n"+
+		"[[columns]]\nkey = \"todo\"\nfolder = \"1-open\"\nstarted = \"claimed\"\nnext = \"finish\"\ngate = \"external\"\ngate_name = \"store review\"\n"+
+		"[[columns]]\nkey = \"finishing\"\nfolder = \"1-open\"\ndoing = \"finish\"\n"+
+		"[[columns]]\nkey = \"done\"\nfolder = \"10-done\"\nkind = \"done\"\n"+
+		"[steps.finish]\ninto = \"done\"\nduring = \"finishing\"\nskill = \"y\"\n")
+	if text := Build(gated); !strings.Contains(text, "gate (external: store review): a card leaves only when store review is recorded: kanbanzai gate pass ID") {
+		t.Errorf("an external gate's line:\n%s", text)
+	}
+	plain := testProject(t, "config_version = 1\n[flow]\npull_order = [\"todo\"]\n"+
+		"[[columns]]\nkey = \"todo\"\nfolder = \"1-open\"\nstarted = \"claimed\"\nnext = \"finish\"\n"+
+		"[[columns]]\nkey = \"finishing\"\nfolder = \"1-open\"\ndoing = \"finish\"\n"+
+		"[[columns]]\nkey = \"done\"\nfolder = \"10-done\"\nkind = \"done\"\n"+
+		"[steps.finish]\ninto = \"done\"\nduring = \"finishing\"\nskill = \"y\"\n")
+	if text := Build(plain); strings.Contains(text, "gate") || strings.Contains(text, "\n\n\n") {
+		t.Errorf("a flow with no gate mentions one, or has a blank line:\n%s", text)
+	}
+}

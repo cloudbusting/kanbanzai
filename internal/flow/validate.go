@@ -50,12 +50,15 @@ func (r *Report) add(severity, id, format string, args ...any) {
 type col struct {
 	key, folder, kind, next, settled, doing string
 	words                                   []string
+	raw                                     map[string]any
 }
 
 type stp struct {
 	name, into, during, skill string
 	refs                      []string // extend and checks
 	inFile                    bool
+	skipField                 string
+	skipValues                []string
 }
 
 // Validate reports every problem with a proposed flow, in the order a person would fix them, without writing
@@ -71,6 +74,8 @@ func Validate(p *config.Project, doc *Doc, oldConfigText string) *Report {
 	columns, steps, pull := effective(defaults, doc.Raw)
 	checkColumns(r, columns)
 	checkSteps(r, columns, steps)
+	checkGates(r, columns)
+	checkSkips(r, steps)
 	checkPull(r, columns, pull)
 	checkGraph(r, columns, steps)
 	checkSkills(r, p.Root, steps)
@@ -118,7 +123,7 @@ func effective(defaults, file map[string]any) ([]col, []stp, []string) {
 	for _, item := range items {
 		m, _ := item.(map[string]any)
 		c := col{key: str(m, "key"), folder: str(m, "folder"), kind: str(m, "kind"), next: str(m, "next"),
-			settled: str(m, "settled_next"), doing: str(m, "doing"), words: strList(m, "words")}
+			settled: str(m, "settled_next"), doing: str(m, "doing"), words: strList(m, "words"), raw: m}
 		if c.kind == "" {
 			c.kind = "open"
 		}
@@ -153,7 +158,8 @@ func effective(defaults, file map[string]any) ([]col, []stp, []string) {
 	var steps []stp
 	for _, name := range names {
 		m := merged[name]
-		s := stp{name: name, into: str(m, "into"), during: str(m, "during"), skill: str(m, "skill"), inFile: inFile[name]}
+		s := stp{name: name, into: str(m, "into"), during: str(m, "during"), skill: str(m, "skill"), inFile: inFile[name],
+			skipField: str(m, "skip_field"), skipValues: strList(m, "skip_values")}
 		s.refs = append(append(s.refs, strList(m, "extend")...), strList(m, "checks")...)
 		steps = append(steps, s)
 	}
@@ -491,4 +497,29 @@ func contains(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+// checkGates reports each column's gate problems, one message per column, with the wording the config loader uses.
+func checkGates(r *Report, columns []col) {
+	keys := make([]string, 0, len(columns))
+	for _, c := range columns {
+		keys = append(keys, c.key)
+	}
+	for _, c := range columns {
+		if c.raw == nil || c.key == "" {
+			continue
+		}
+		if _, err := config.ParseGate(c.raw, c.key, c.kind, c.doing, keys); err != nil {
+			r.add(Error, "column.gate", "%v", err)
+		}
+	}
+}
+
+// checkSkips reports a step whose skip rule is half given.
+func checkSkips(r *Report, steps []stp) {
+	for _, s := range steps {
+		if (s.skipField == "") != (len(s.skipValues) == 0) {
+			r.add(Error, "step.skip", "step '%s': skip_field and skip_values go together: set both or neither", s.name)
+		}
+	}
 }

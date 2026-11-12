@@ -1,6 +1,4 @@
 {
-  "config_version": 1,
-  "config_allow_unknown": [],
   "claims": {
     "lease_minutes": 120,
     "owner_env": "KANBANZAI_OWNER"
@@ -95,13 +93,13 @@
     },
     {
       "folder": "1-open",
+      "gate": "owner",
       "key": "qa-approved",
       "kind": "open",
       "label": "QA-approved",
       "lane": "QA",
       "next": "ship",
       "title": "SHIPPING",
-      "waits_for_owner": true,
       "worktree": true
     },
     {
@@ -129,6 +127,8 @@
       "title": "DONE"
     }
   ],
+  "config_allow_unknown": [],
+  "config_version": 1,
   "flow": {
     "move_grace_minutes": 10,
     "pull_order": [
@@ -178,7 +178,11 @@
       "during": "in-qa",
       "extend": [],
       "into": "qa-approved",
-      "skill": ""
+      "skill": "",
+      "skip_field": "Deploy",
+      "skip_values": [
+        "None"
+      ]
     },
     "design": {
       "context": [],
@@ -192,7 +196,11 @@
       "during": "shipping",
       "extend": [],
       "into": "done",
-      "skill": ""
+      "skill": "",
+      "skip_field": "Deploy",
+      "skip_values": [
+        "None"
+      ]
     }
   }
 }

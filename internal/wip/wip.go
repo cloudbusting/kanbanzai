@@ -294,12 +294,13 @@ func CardOf(project *config.Project, worktree Worktree, spaces []string) string 
 	return ""
 }
 
-// OnHold is the ids of the cards with a Held line: never pulled, never stale, still counted toward the cap.
+// OnHold is the ids of the cards with a Held line, or waiting at a gate that is not open: never pulled, never
+// stale, still counted toward the cap.
 func OnHold(project *config.Project) map[string]bool {
 	loaded := board.Load(project, map[string]string{}, nil)
 	held := map[string]bool{}
 	for _, item := range board.Cards(loaded) {
-		if item.Card.Held != nil {
+		if item.Card.Held != nil || item.Card.WaitsAtGate() {
 			held[item.Card.ID] = true
 		}
 	}

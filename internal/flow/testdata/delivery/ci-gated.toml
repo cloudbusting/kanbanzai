@@ -1,0 +1,59 @@
+# A library: build, then wait for CI. Nobody approves; a recorded CI result releases the card.
+[flow]
+pull_order = ["built", "todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+folder = "1-open"
+kind = "open"
+started = true
+gate = "ci"
+gate_name = "GitHub Actions"
+next = "release"
+
+[[columns]]
+key = "releasing"
+label = "Releasing"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "release"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+
+[steps.release]
+into = "done"
+during = "releasing"
+skill = "ship-the-library"

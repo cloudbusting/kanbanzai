@@ -3,6 +3,7 @@ package wip
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -556,4 +557,86 @@ func has(values []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+const ciGatedConfig = `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["ready", "todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+started = "claimed"
+next = "finish"
+[[columns]]
+key = "ready"
+folder = "1-open"
+started = true
+gate = "ci"
+next = "finish"
+[[columns]]
+key = "finishing"
+folder = "1-open"
+doing = "finish"
+[[columns]]
+key = "done"
+folder = "10-done"
+kind = "done"
+[steps.finish]
+into = "done"
+during = "finishing"
+skill = "y"
+`
+
+func TestACardAtAClosedGateIsNotPulledAndIsMarked(t *testing.T) {
+	project := testProject(t, ciGatedConfig)
+	path := putCard(t, project, cardSpec{ID: "W-01", Title: "Waits for CI", Stage: "ready"})
+	putCard(t, project, cardSpec{ID: "W-02", Title: "CI passed", Stage: "ready"})
+	putCard(t, project, cardSpec{ID: "W-03", Title: "Failed", Stage: "ready"})
+	putCard(t, project, cardSpec{ID: "W-04", Title: "Queued", Stage: "todo"})
+	for id, record := range map[string]string{"W-02": "passed by ci, 2026-11-12", "W-03": "failed by ci, 2026-11-12 — red"} {
+		file := filepath.Join(project.Work, "1-open", id+"-x.md")
+		text := readFile(t, file)
+		testutil.Write(t, file, strings.Replace(text, "- **Where:** —\n", "- **Where:** —\n- **Gate:** "+record+"\n", 1))
+	}
+	_ = path
+
+	code, out, errOut := runWip(t, project, Options{Next: true})
+	if code != 0 {
+		t.Fatalf("next: %d %q", code, errOut)
+	}
+	if got := offered(out); !reflect.DeepEqual(got, []string{"W-02", "W-04"}) {
+		t.Fatalf("next = %v, want only the open gate's card and the queued one\n%s", got, out)
+	}
+
+	_, report, _ := runWip(t, project, Options{})
+	if !strings.Contains(report, "W-01 🔒") || !strings.Contains(report, "W-03 🔒") || strings.Contains(report, "W-02 🔒") {
+		t.Fatalf("the board marks:\n%s", report)
+	}
+}
+
+func TestACardAtAClosedGateIsNeverStale(t *testing.T) {
+	project := testProject(t, ciGatedConfig)
+	putCard(t, project, cardSpec{ID: "W-01", Title: "Waits for CI", Stage: "ready", Updated: "2020-01-01"})
+	_, report, _ := runWip(t, project, Options{})
+	if strings.Contains(report, "not updated for") {
+		t.Fatalf("a card waiting at a gate was called stale:\n%s", report)
+	}
+	file := filepath.Join(project.Work, "1-open", "W-01-x.md")
+	testutil.Write(t, file, strings.Replace(readFile(t, file), "- **Where:** —\n",
+		"- **Where:** —\n- **Gate:** passed by ci, 2026-11-12\n", 1))
+	_, report, _ = runWip(t, project, Options{})
+	if !strings.Contains(report, "not updated for") {
+		t.Fatalf("an open gate's idle card should be stale again:\n%s", report)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }
