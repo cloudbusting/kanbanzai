@@ -1,11 +1,11 @@
 # W-28: Default worktree path `../worktrees/<project-dir-name>/{id}`
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.10.0, aac11de, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.10.0
 - **ADR:** none
-- **Next action:** Ship with W-38 in v0.10.0 after combined CI and release verification
-- **Where:** worktree W-28
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -93,6 +93,7 @@ unchanged.
 - 2026-11-12: build: default changed in config, defaults file, defaults.json and tests; wip reads batch workspaces under the new folder; proved in a throwaway repo
 - 2026-11-12: check: kanbanzai-qa green (go vet, go test, node 233 and 8, hooks, plugin validate, audit); review fixed the batch-workspace matcher for absolute paths
 - 2026-11-12: Combined candidate bb50e5b: go test -p 1 and vet passed; five binaries, VSIX, source bundle, checksums and isolated install proofs passed
+- 2026-11-12: 2026-11-12: ship: tagged and published v0.10.0 at aac11de with W-38 and W-35; artifacts, checksums and install proofs verified
 
 ## Out of scope
 
