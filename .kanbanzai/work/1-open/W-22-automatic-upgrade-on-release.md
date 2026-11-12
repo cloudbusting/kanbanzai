@@ -1,6 +1,6 @@
 # W-22: The installed command follows the release (slice 1 of automatic upgrade)
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none (the Decisions below are the record)
