@@ -1,6 +1,6 @@
 # W-38: Refuse starting a step the card skips
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
