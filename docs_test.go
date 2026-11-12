@@ -22,7 +22,7 @@ func TestTheExtensionReadmeStatesWhatItExecutesReadsAndWrites(t *testing.T) {
 	}
 	flat := strings.Join(strings.Fields(string(data)), " ")
 	for _, words := range []string{"What it executes, reads and writes", "**Executes:**", "**Reads:**", "**Writes:**",
-		"nothing, until you click Apply", "**Network, telemetry:** none", "execFile", "trusted workspace", "install",
+		"until you click Apply, only the pending plan", "setup-plan.json", "**Network, telemetry:** none", "execFile", "trusted workspace", "install",
 		"init --plan", "per-user folder", "not signed"} {
 		if !strings.Contains(flat, words) {
 			t.Errorf("board-view/README.md lacks %q", words)
@@ -32,7 +32,8 @@ func TestTheExtensionReadmeStatesWhatItExecutesReadsAndWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(guide), "Kanbanzai: Init") || !strings.Contains(string(guide), "claude plugin marketplace add") {
+	if !strings.Contains(string(guide), "Kanbanzai: Apply") || !strings.Contains(string(guide), "Cancel Setup") ||
+		!strings.Contains(string(guide), "Kanbanzai: Init") || !strings.Contains(string(guide), "claude plugin marketplace add") {
 		t.Error("docs/setup.md must lead with the editor install and give the command-line route")
 	}
 }
