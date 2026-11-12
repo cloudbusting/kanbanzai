@@ -1,0 +1,64 @@
+# A release train: approved cards wait in Approved until the train opens, then ship together.
+config_version = 1
+
+[project]
+owner = "Sam"
+
+[flow]
+pull_order = ["approved", "todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "build"
+
+[[columns]]
+key = "approved"
+label = "Approved"
+folder = "1-open"
+kind = "open"
+started = true
+gate = "external"
+gate_name = "train"
+next = "ship"
+
+[[columns]]
+key = "shipping"
+label = "Shipping"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "ship"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.build]
+into = "approved"
+during = "building"
+skill = "kanbanzai:build"
+
+[steps.ship]
+into = "done"
+during = "shipping"
+skill = "ship-the-train"

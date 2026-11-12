@@ -74,8 +74,17 @@ func line(word, by, note string, now time.Time) string {
 	return text
 }
 
-// OpensWhen is the one sentence that says what opens a gate, for the project's owner.
-func OpensWhen(project *config.Project, column config.Column) string {
+// OpensWhen is the one sentence that says what opens a gate, for the project's owner; <ID> in it is the card's id
+// when cardID is given.
+func OpensWhen(project *config.Project, column config.Column, cardID string) string {
+	text := opensWhen(project, column)
+	if cardID != "" {
+		text = strings.ReplaceAll(text, "<ID>", cardID)
+	}
+	return text
+}
+
+func opensWhen(project *config.Project, column config.Column) string {
 	g := column.Gate
 	switch g.Type {
 	case "owner":
@@ -107,16 +116,16 @@ func untilLabel(project *config.Project, g config.Gate) string {
 // Where says which column a card is in: its key, and whether the card exists at all.
 type Where func(card string) (column string, found bool)
 
-// Eval is the gate of a card sitting in column, or nil when the column has none. record is the brief's Gate line
+// Eval is the gate of card cardID sitting in column, or nil when the column has none. record is the brief's Gate line
 // ("" when it has none), needs the ids of its Needs line, where says where another card sits, and now is the clock.
-func Eval(project *config.Project, column config.Column, record string, needs []string, where Where,
+func Eval(project *config.Project, column config.Column, cardID, record string, needs []string, where Where,
 	now time.Time) *Status {
 	g := column.Gate
 	if !g.Set() {
 		return nil
 	}
 	status := &Status{Column: column.Key, Type: g.Type, Name: g.Name, Record: record,
-		OpensWhen: OpensWhen(project, column)}
+		OpensWhen: OpensWhen(project, column, cardID)}
 	switch g.Type {
 	case "owner", "ci", "external":
 		switch Word(record) {
@@ -182,7 +191,11 @@ func Blocks(project *config.Project, status *Status, cardID string) string {
 		return text + status.Record + "; record a pass with: kanbanzai gate pass " + cardID +
 			" (or move it back to fix it)"
 	}
-	return text + "it opens when " + strings.ReplaceAll(status.OpensWhen, "<ID>", cardID)
+	text += "it opens when " + strings.ReplaceAll(status.OpensWhen, "<ID>", cardID)
+	if status.Type == "card" || status.Type == "date" {
+		text += "; now: " + status.Why
+	}
+	return text
 }
 
 func gateWord(status *Status) string {

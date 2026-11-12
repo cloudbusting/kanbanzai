@@ -1,0 +1,85 @@
+# A mobile app: after it is submitted a card waits for the store's review, which only the store can give.
+config_version = 1
+
+[project]
+owner = "Sam"
+
+[flow]
+pull_order = ["in-review", "built", "todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+folder = "1-open"
+kind = "open"
+started = true
+next = "submit"
+
+[[columns]]
+key = "submitting"
+label = "Submitting"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "submit"
+
+[[columns]]
+key = "in-review"
+label = "In store review"
+folder = "1-open"
+kind = "open"
+started = true
+gate = "external"
+gate_name = "store review"
+next = "publish"
+
+[[columns]]
+key = "publishing"
+label = "Publishing"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "publish"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+
+[steps.submit]
+into = "in-review"
+during = "submitting"
+skill = "submit-to-the-store"
+
+[steps.publish]
+into = "done"
+during = "publishing"
+skill = "publish-to-the-store"

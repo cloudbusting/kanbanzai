@@ -129,7 +129,7 @@ func record(project *config.Project, opts Options, out, errOut io.Writer) int {
 		}
 		if !column.Gate.Recorded() {
 			fmt.Fprintf(errOut, "gate: %s: the %s gate on %s is computed (%s); nothing is recorded for it\n", id,
-				column.Gate.Type, column.Label, gate.OpensWhen(project, column))
+				column.Gate.Type, column.Label, gate.OpensWhen(project, column, id))
 			return RefusedCode
 		}
 		if record, ok := store.Load(id); ok && claim.Live(record, now) {
@@ -272,7 +272,7 @@ func Describe(project *config.Project, item CardGate) string {
 	}
 	lines := []string{fmt.Sprintf("%s is in %s behind a gate (%s): %s", item.Card, label, name, item.Gate.State)}
 	if item.Gate.State != gate.Open {
-		lines = append(lines, "  opens when "+strings.ReplaceAll(item.Gate.OpensWhen, "<ID>", item.Card))
+		lines = append(lines, "  opens when "+item.Gate.OpensWhen)
 	}
 	if item.Gate.Why != "" {
 		lines = append(lines, "  "+item.Gate.Why)
