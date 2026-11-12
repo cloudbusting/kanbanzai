@@ -3,8 +3,9 @@
 - **Stage:** in-qa
 - **Updated:** 2026-11-12
 - **ADR:** none
-- **Next action:** Package and install-test the checked artifacts
+- **Next action:** Owner checks the packaged VSIX in the Board tab, then finish QA
 - **Where:** worktree W-35
+- **Held:** waiting: owner, verify the packaged close-all control in the editor
 
 ## Goal
 
@@ -48,6 +49,7 @@ Transient notifications may be missed when dismissed; no user data is deleted. R
 ## Progress
 
 - 2026-11-12: Reviewed the existing stack, timers and close handling; specified the close-all interaction and tests.
+- 2026-11-12: Package rehearsal from main commit `2879742` at version 0.9.0: source archive, five platform archives and full five-platform VSIX in `/tmp/kanbanzai-package-W-35-0.9.0/`; sizes and SHA-256s are recorded in that directory's `SHA256SUMS` (VSIX 8,769,104 bytes, SHA-256 `7317cb41e571f777077ecdad025e1fabad1fbc41f32fd08c6503e99a13bd7750`). Checksums, fresh-project command, isolated Claude plugin install, OpenCode syntax and VSIX listing pass. Waiting for the owner's editor check before QA approval; nothing published.
 - 2026-11-12: Designed the close-all control, dismissal semantics and acceptance checks
 - 2026-11-12: Built the close-all control and instance-safe dismissal; 246 Node tests pass
 - 2026-11-12: QA passed: Go tests and vet, 246 Node tests, hooks and JS syntax, plugin validation, board audit and VSIX dry run; editor check remains manual
