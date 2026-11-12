@@ -79,9 +79,9 @@ Every card is **in Todo**; what triage decides is what its brief says comes next
 Start from the card template (`template` in `kanbanzai config`). A small settled card keeps only what a builder
 needs: **Goal**, **Stage** `todo`, **Next action**, **Acceptance checks**, **Deploy**, **Where** `—`, **Out of
 scope** and **Comments**; design fills the rest when there is a design step. A card to design gets the Goal and the
-decision to settle; `/design` writes the full brief and, when the work needs one, the decision record. The worktree
-is made when the work starts (`/do`): only the brief and the claim live in the main checkout, and every change is
-made in the card's worktree.
+decision to settle; `/design` writes the full brief and, when the work needs one, the decision record. The workspace
+is made when the work starts (`/do`, from `kanbanzai workspace <ID>`): the brief and the claim live in the main
+checkout, and every change is made in the card's workspace.
 
 Write the card's brief — it is the card; there is no board file — in its column's folder under the card folder
 (`kanbanzai config` lists them). Its head carries the title `# <ID>: <the work>` (the card's summary on the board),

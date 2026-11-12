@@ -74,7 +74,8 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
 ## Special cases
 
 - **A monorepo** gets one board, at the repository root. Several boards in one workspace are not supported yet.
-- **A worktree:** setup run from a linked worktree works on the main checkout, where the board lives.
+- **A worktree:** setup run from a linked worktree works on the main checkout, where the board lives. A project that
+  cannot give each card a worktree sets `[flow] isolation` afterwards (see [isolation.md](isolation.md)); setup does not ask.
 - **A main branch that is not `main`:** `origin/HEAD`, or the only `main`, `master` or `trunk`, is used and shown; if
   it cannot be told, setup asks and passes `--main-branch`.
 - **An existing `.kanbanzai/config.toml`** is never changed. One that cannot load is reported with the command that

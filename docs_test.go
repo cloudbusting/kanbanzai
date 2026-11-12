@@ -70,3 +70,22 @@ func TestTheDeliveryCookbookNamesEveryGateAndFixture(t *testing.T) {
 		}
 	}
 }
+
+// W-12: the isolation guide names every mode, says what each gives up, and states the rule for parallel work.
+func TestTheIsolationGuideNamesEveryMode(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "docs", "isolation.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(string(data)), " ")
+	for _, words := range []string{"### worktree", "### branch", "### shared", "### external", "kanbanzai workspace <ID>",
+		"Parallel sessions collide", "use `worktree` mode for parallel work", "Changing mode", "any mode's word"} {
+		if !strings.Contains(flat, words) {
+			t.Errorf("docs/isolation.md lacks %q", words)
+		}
+	}
+}
