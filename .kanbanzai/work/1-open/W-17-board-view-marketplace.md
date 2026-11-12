@@ -1,10 +1,10 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
-- **Next action:** deploy-qa: re-package from the merged commit
+- **Next action:** release: owner approves; release W-04, W-05 and W-17 together, version the owner's call
 - **Where:** worktree W-17
 
 ## Goal
@@ -94,8 +94,10 @@ Publishing to the Visual Studio Marketplace or Open VSX (a release-step action t
 - 2026-11-12: re-packaged from 0fc6451 after the editor-test fix: .vsix 7.9 MB, five binaries with exec bit, v0.6.4, no machine path, sha256 verified; plugin bundle validates. The owner's first editor run (clean profile, Apply on vscodium-sandbox) worked once the stale kanbanzai.command setting was cleared. QA-approved, waits for the owner
 - 2026-11-12: owner's no-modal change built: pending plan in .kanbanzai/state/setup-plan.json, Kanbanzai: Apply status item, plan banner lines, Show Setup Plan and Cancel Setup; node 233, go, vet, validate green
 - 2026-11-12: re-checked: all green, diff reviewed (init.js pending-file handling refuses links, no modal, no network); real-binary run of init --plan from .kanbanzai/state and of a stale plan
+- 2026-11-12: re-packaged from f364e66 with the no-modal change: .vsix 7.9 MB, five binaries with exec bit, v0.6.4, no machine path, sha256 verified; plugin bundle validates. QA-approved, waits for the owner
 
 ## Comments
 
 - 2026-11-12 claude:d01da6dc: not run, owner to try in a real editor (VSCodium/VS Code, a clean profile): the Init item, quick pick, plan tab, Apply modal, onStartupFinished activation, the executable bit after extraction, Gatekeeper/SmartScreen. Pre-release, set kanbanzai.pluginSource to a Kanbanzai checkout. Follow-ups for the release step: add `docs` to the git-archive path lists of kanbanzai-package and kanbanzai-release (also noted on W-05); W-05's skill and docs do not yet mention `init --plugins`. Artifacts: /tmp/kanbanzai-package-W-17-0.6.4.
 - 2026-11-12 claude:d01da6dc: the owner's editor test passed (Init, plan tab, Apply, board made, .claude/settings.json merged). Remaining manual: macOS/Windows (Gatekeeper, SmartScreen) and the exec bit on those; OpenCode path via kanbanzai.pluginSource. The first run failed only because a leftover machine setting kanbanzai.command (v0.6.0 build) beat the bundled command; fixed by naming it in the error and logging the command in use.
+- 2026-11-12 claude:d01da6dc: the owner asked for no modal: Init now saves the plan to .kanbanzai/state/setup-plan.json and the status item reads Kanbanzai: Apply until applied or cancelled (Show Setup Plan, Cancel Setup). Editor-only checks still open: the warning colour of the Apply item, that the plan tab scrolls, a reload with a plan pending. Before Apply the plan file shows as untracked in git (init adds the state/ ignore on apply).
