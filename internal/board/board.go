@@ -21,6 +21,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
+	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
 
 var glyphs = map[string]string{"blocked": " ⛔", "waiting": " ⏳", "waiting-owner": " ⏳"}
@@ -35,6 +36,7 @@ const (
 type Card struct {
 	ID                string           `json:"id"`
 	Title             string           `json:"title"`
+	Type              *typeid.TypeInfo `json:"type,omitempty"`
 	Stage             string           `json:"stage"`
 	Next              string           `json:"next"`
 	Updated           string           `json:"updated"`
@@ -70,8 +72,9 @@ type Column struct {
 
 // Board is the whole board, in column order, with every brief that could not be placed.
 type Board struct {
-	Columns  []Column `json:"columns"`
-	Problems []string `json:"problems"`
+	Columns  []Column          `json:"columns"`
+	Problems []string          `json:"problems"`
+	Types    []typeid.TypeInfo `json:"types"`
 }
 
 // CardAt is one card and the column it sits in.
@@ -103,7 +106,7 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 		sessionMap = sessions.ForClaims(owners, project)
 	}
 	now := timeutil.Now()
-	result := &Board{Problems: []string{}}
+	result := &Board{Problems: []string{}, Types: project.TypeInfoList()}
 	byColumn := map[string][]*Card{}
 	for _, column := range project.Columns {
 		byColumn[column.Key] = []*Card{}
@@ -147,9 +150,12 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			if contains(project.Folders, entry.Name()) || filepath.Clean(path) == filepath.Clean(project.Batches) {
 				continue
 			}
-			paths, _ := filepath.Glob(filepath.Join(path, project.Prefix+"-*.md"))
+			paths, _ := filepath.Glob(filepath.Join(path, "*.md"))
 			sort.Strings(paths)
 			for _, briefPath := range paths {
+				if !project.CardFileRe.MatchString(filepath.Base(briefPath)) {
+					continue
+				}
 				result.Problems = append(result.Problems, fmt.Sprintf("%s: not in a board folder (%s)",
 					project.Rel(briefPath), strings.Join(project.Folders, ", ")))
 			}
@@ -216,7 +222,7 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 	named := project.CardFileRe.FindStringSubmatch(filepath.Base(path))
 	found := project.TitleRe.FindStringSubmatch(titleLine)
 	if found == nil {
-		return nil, []string{fmt.Sprintf("%s: the first line must be '# %s-NN: <the work>'", rel, project.Prefix)}
+		return nil, []string{fmt.Sprintf("%s: the first line must be '# %s: <the work>'", rel, project.IDsExample())}
 	}
 	cardID := found[1]
 	title := strings.TrimSpace(found[2])
@@ -248,10 +254,10 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 	done := optionalField(fields["Done"])
 	held := brief.HeldOf(fields["Held"])
 	card := &Card{
-		ID: cardID, Title: title, Stage: stage, Next: fields["Next action"], Updated: fields["Updated"],
-		Where: fields["Where"], Done: done, Owner: nil, Held: held, Mark: brief.MarkOf(project, stage, held),
-		Interrupted: false, Session: nil, ClaimedNotStarted: false, Path: rel, column: key,
-		gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
+		ID: cardID, Title: title, Type: project.CardTypeInfo(cardID), Stage: stage, Next: fields["Next action"],
+		Updated: fields["Updated"], Where: fields["Where"], Done: done, Owner: nil, Held: held,
+		Mark: brief.MarkOf(project, stage, held), Interrupted: false, Session: nil, ClaimedNotStarted: false,
+		Path: rel, column: key, gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
 	return card, problems
 }
@@ -260,9 +266,13 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 func Briefs(project *config.Project) []string {
 	var paths []string
 	for _, folder := range project.Folders {
-		found, _ := filepath.Glob(filepath.Join(project.Work, folder, project.Prefix+"-*.md"))
+		found, _ := filepath.Glob(filepath.Join(project.Work, folder, "*.md"))
 		sort.Strings(found)
-		paths = append(paths, found...)
+		for _, path := range found {
+			if project.CardFileRe.MatchString(filepath.Base(path)) {
+				paths = append(paths, path)
+			}
+		}
 	}
 	return paths
 }

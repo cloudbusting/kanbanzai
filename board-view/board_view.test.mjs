@@ -495,3 +495,21 @@ test("a missing, null or odd gate is no gate, and its text is escaped", () => {
   assert.doesNotMatch(evil, /<img|<b>now/);
   assert.match(evil, /&lt;img src=x&gt; closed/);
 });
+
+test("a typed card and the board's types render without a legacy prefix", () => {
+  const typed = {
+    types: [{ key: "bug", label: "Bug", prefix: "BUG", colour: "#C43B3B" }],
+    problems: [],
+    columns: [{ key: "todo", name: "Todo", cards: [{
+      id: "BUG-07",
+      title: "A typed bug",
+      type: { key: "bug", label: "Bug", prefix: "BUG" },
+      stage: "todo",
+      path: "docs/work/1-open/BUG-07-x.md",
+    }] }],
+  };
+  const out = renderHtml(typed, { nonce: NONCE, cspSource: "vscode-webview://x", owner: "Sam" });
+  assert.match(out, /<span class="id">BUG-07<\/span>/);
+  assert.match(out, /A typed bug/);
+  assert.match(out, /data-path="docs\/work\/1-open\/BUG-07-x.md"/);
+});
