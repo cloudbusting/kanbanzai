@@ -227,3 +227,13 @@ func TestTheAuditReportNamesTheMode(t *testing.T) {
 		t.Fatalf("the default report changed:\n%s", out)
 	}
 }
+
+func TestTheDefaultModesCheckoutMessagesAreUnchanged(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	testutil.Write(t, filepath.Join(project.Root, "src.go"), "package x\n")
+	hard, _, _ := audit(t, project)
+	requireHas(t, "dirty main", hard, "the main checkout has 1 uncommitted file(s); the board is edited there and the change in a worktree — src.go")
+	testutil.Git(t, project.Root, "switch", "-q", "-c", "feature")
+	hard, _, _ = audit(t, project)
+	requireHas(t, "off main", hard, "the main checkout is on 'feature', not main; a card's change goes in its worktree")
+}

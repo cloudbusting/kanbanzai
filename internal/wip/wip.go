@@ -481,9 +481,9 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		}
 	}
 	if only == "" && (perWorktree || mode == workspace.External) {
-		where := "its worktree"
+		where, dirtyWhere := "its worktree", "a worktree"
 		if !perWorktree {
-			where = "the host's workspace"
+			where, dirtyWhere = "the host's workspace", "the host's workspace"
 		}
 		for _, wt := range wts {
 			if !samePath(wt.Path, project.Root) {
@@ -495,7 +495,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			}
 			if wt.Dirty > 0 {
 				hard = append(hard, fmt.Sprintf("the main checkout has %d uncommitted file(s); the board is "+
-					"edited there and the change in %s — %s", wt.Dirty, strings.TrimPrefix(where, "its "),
+					"edited there and the change in %s — %s", wt.Dirty, dirtyWhere,
 					strings.Join(wt.DirtyFiles, ", ")))
 			}
 		}
