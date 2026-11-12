@@ -7,6 +7,9 @@ and the editor extension carry the same version.
 
 ## [0.10.0] — 2026-11-12
 
+- W-28: the default worktree path is now `../worktrees/{repo}/{id}`. Existing boards that omit `worktree` and have
+  in-flight worktrees at the old sibling paths must move those worktrees or set `worktree = "../{repo}-{id}"` in
+  `.kanbanzai/config.toml` to retain the old layout; there is no automatic fallback.
 - W-38: a card cannot start a skipped workflow step, including through claim auto-start. The claim remains recorded
   and reports the explicit skip or close route; gates and audited force overrides continue to apply.
 - W-35: the board's toast stack offers Close all when multiple notifications are visible. A manual check in the
