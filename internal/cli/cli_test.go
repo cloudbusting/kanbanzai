@@ -268,3 +268,35 @@ func TestPerCommandHelp(t *testing.T) {
 		t.Fatalf("board help = %d %q", code, out)
 	}
 }
+
+func TestInitTakesPrefixAndContextAndNotWithAPlan(t *testing.T) {
+	project := newProject(t, "")
+	if err := os.WriteFile(filepath.Join(project.Root, "RULES.md"), []byte("# rules\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, _ := runCLI(t, "--help"); code != 0 || !strings.Contains(out, "--prefix KEY") ||
+		!strings.Contains(out, "--context FILE[,FILE]") {
+		t.Fatalf("the usage does not list --prefix and --context:\n%s", out)
+	}
+	plan := filepath.Join(t.TempDir(), "plan.json")
+	code, out, errOut := runCLI(t, "init", "--dry-run", "--json", "--prefix", "ACME", "--context", "RULES.md,README.md")
+	if code != 0 {
+		t.Fatalf("dry run = %d %q", code, errOut)
+	}
+	if err := os.WriteFile(plan, []byte(out), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, flags := range [][]string{{"--prefix", "ACME"}, {"--context", "RULES.md"}} {
+		args := append([]string{"init", "--plan", plan}, flags...)
+		if code, _, errOut := runCLI(t, args...); code != 2 || !strings.Contains(errOut, "--plan") {
+			t.Errorf("init %v = %d %q, want 2 naming --plan", args, code, errOut)
+		}
+	}
+	if code, _, errOut := runCLI(t, "init", "--plan", plan); code != 0 {
+		t.Fatalf("init --plan = %d %q", code, errOut)
+	}
+	reloaded, err := config.Find(project.Root)
+	if err != nil || reloaded.Prefix != "ACME" || len(reloaded.Context) != 2 {
+		t.Fatalf("the plan did not carry the prefix and context: %+v %v", reloaded, err)
+	}
+}

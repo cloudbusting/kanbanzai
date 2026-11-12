@@ -797,3 +797,77 @@ func TestARerunStillListsTheFilesNobodyHasCommittedYet(t *testing.T) {
 		t.Errorf("after the commit nothing is left to commit:\n%s", out)
 	}
 }
+
+func TestPrefixAndContextAreWrittenToANewConfigAndRoundTrip(t *testing.T) {
+	root := repo(t, "main")
+	testutil.Write(t, filepath.Join(root, "AGENTS.md"), "# rules\n")
+	opts := Options{Prefix: "ACME", Context: []string{"AGENTS.md", "README.md"}}
+	code, dry, errOut := initRun(root, Options{DryRun: true, JSON: true, Prefix: opts.Prefix, Context: opts.Context})
+	if code != 0 {
+		t.Fatalf("dry run = %d %s", code, errOut)
+	}
+	var report Report
+	if err := json.Unmarshal([]byte(dry), &report); err != nil {
+		t.Fatal(err)
+	}
+	text := ""
+	for _, action := range report.Plan.Actions {
+		if action.What == WhatConfig {
+			text = action.Content
+		}
+	}
+	if !strings.Contains(text, `prefix = "ACME"`) || !strings.Contains(text, `context = ["AGENTS.md", "README.md"]`) {
+		t.Fatalf("the plan's config lacks the prefix or the context:\n%s", text)
+	}
+	if code, out, errOut := initRun(root, opts); code != 0 {
+		t.Fatalf("init = %d\n%s%s", code, out, errOut)
+	}
+	project, err := config.Find(root)
+	if err != nil || project.Prefix != "ACME" || !reflect.DeepEqual(project.Context, []string{"AGENTS.md", "README.md"}) {
+		t.Fatalf("did not round-trip: %+v, %v", project, err)
+	}
+}
+
+func TestPrefixAndContextAreRefusedWithNothingWritten(t *testing.T) {
+	root := repo(t, "main")
+	testutil.Write(t, filepath.Join(root, "docs", "rules.md"), "# rules\n")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "nowhere"), filepath.Join(root, "dangling.md")); err != nil {
+		t.Skip("no symlinks here")
+	}
+	commitAll(t, root)
+	outside := filepath.Join(t.TempDir(), "outside.md")
+	testutil.Write(t, outside, "x")
+	before := tree(t, root)
+	for _, opts := range []Options{
+		{Prefix: "A-B"}, {Prefix: "1"}, {Prefix: "has space"}, {Prefix: "A\"B"},
+		{Context: []string{"missing.md"}}, {Context: []string{"docs"}}, {Context: []string{"../outside.md"}},
+		{Context: []string{outside}}, {Context: []string{"dangling.md"}}, {Context: []string{""}},
+	} {
+		if code, _, errOut := initRun(root, opts); code != 2 {
+			t.Errorf("init %+v = %d (%q), want 2", opts, code, errOut)
+		}
+	}
+	if !reflect.DeepEqual(before, tree(t, root)) {
+		t.Fatal("a refused init changed the tree")
+	}
+}
+
+func TestPrefixAndContextNeedForceOnAnExistingConfig(t *testing.T) {
+	root := repo(t, "main")
+	mine := "config_version = 1\n[project]\nowner = \"Me\"\n"
+	testutil.Write(t, filepath.Join(root, ".kanbanzai", "config.toml"), mine)
+	for _, opts := range []Options{{Prefix: "ACME"}, {Context: []string{"README.md"}}} {
+		if code, _, errOut := initRun(root, opts); code != 2 || !strings.Contains(errOut, "--force") {
+			t.Errorf("init %+v = %d %q, want 2 naming --force", opts, code, errOut)
+		}
+	}
+	if tree(t, root)[ConfigRel] != mine {
+		t.Fatal("the config was changed")
+	}
+	if code, _, errOut := initRun(root, Options{Prefix: "ACME", Force: true}); code != 0 {
+		t.Fatalf("--force with --prefix = %d %s", code, errOut)
+	}
+	if p, _ := config.Find(root); p == nil || p.Prefix != "ACME" {
+		t.Fatalf("--force --prefix did not apply: %+v", p)
+	}
+}
