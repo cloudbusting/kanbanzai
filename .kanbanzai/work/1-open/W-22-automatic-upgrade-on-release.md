@@ -1,12 +1,11 @@
 # W-22: Automatic upgrade and migration when a new release reaches the marketplaces
 
 - **Stage:** todo
-- **Updated:** 2026-11-11
+- **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** needed — the upgrade and migration contract (design writes it)
 - **Next action:** design: define how a new marketplace release is detected, how the installed command is pinned to that release and moves with the extension, and how the host's config, cards and tooling are migrated and updated
 - **Where:** —
-- **Held:** blocked: W-03 (it must migrate a versioned config)
 
 ## Goal
 
@@ -24,6 +23,16 @@ installs must name one exact release, not float on `@latest`, and it must be the
 came from: a host that takes a new extension takes that release's command, and a binary and extension from
 different releases are not left running together.
 
+The owner added, 2026-11-12, after a real failure: "We need the binary to always match the extension and plugins it
+should overwrite on an update". Found in moto-tours: the editor showed "root key config_version is missing" because
+the board ran a v0.6.x command against a v0.7.1 world, and the hooks, the OpenCode adapter and the editor's fallback
+all use the per-user copy at `~/.local/share/kanbanzai/bin/kanbanzai`, which was still v0.6.4. `kanbanzai install`
+copies the running command there and, by design (W-17), never overwrites an existing file, so a new extension or
+plugin leaves the old command in place. The copy must follow the release it came with: replaced when the version
+differs (never downgraded without a word), still atomic, and safe while another session is running the old file.
+A PATH `kanbanzai` from a developer build (`bin/`, `dev`) is a third copy that also drifts; design says whether
+the editor and plugins detect and report a command older than they need (the extension already says so for PATH).
+
 Related but distinct: W-01 (release pipeline), W-02 (packaged core), W-03 (versioned config and doctor), W-18
 (upgrade docs) and W-19 (one host's hand-run migration). This card is the mechanism those rely on, not a repeat of
 them.
@@ -33,6 +42,8 @@ them.
 - [ ] A host on the previous release takes the next published release and, with no hand edits, ends on the new
       tooling with its config, cards, folders, numbers, claims and worktrees intact; a migration that fails leaves
       the host on the old version and names the failure.
+- [ ] After a new extension or plugin version is installed, the command every adapter and the editor resolve reports
+      that same version, with the old per-user copy replaced and no hand step.
 - [ ] Design adds the detailed checks once the upgrade contract is settled.
 
 ## Deploy
@@ -75,6 +86,10 @@ Open for design and the owner:
 - 2026-11-11: folded the owner's one-install follow-up in (with W-17, W-05, W-15): the `.vsix` carrying the pinned
   binary is now one of the carriers design must weigh against a download or PATH; W-17 owns the extension side.
   W-20 is done (v0.6.0), so it is gone from the `Held` line; only W-03 remains.
+
+- 2026-11-12: folded in the owner's "binary must always match the extension and plugins; overwrite on update", with
+  the moto-tours evidence (per-user copy v0.6.4 under a v0.7.1 extension; `install` never overwrites). W-03 is Done,
+  so the `Held` line is removed; the card is ready for design.
 
 ## Out of scope
 
