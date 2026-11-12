@@ -1,10 +1,10 @@
 # W-13: Configurable delivery and gates: deploy-less close, approvals and release trains
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Check: run the project's tests and review the whole diff of branch W-13 against the brief's acceptance checks
+- **Next action:** Close: Deploy is None, so merge branch W-13 into main and move the card to Done
 - **Where:** worktree W-13
 
 ## Goal
@@ -128,6 +128,7 @@ A recorded approval is trust, not proof: any session can run `gate pass`. The `-
 - 2026-11-12: design drafted; the owner decided the gate record (a Gate line in the brief) and enforcement (every gate, owner included).
 - 2026-11-12: design done: skip_field/skip_values on steps, five gate types on columns, a Gate line in the brief written by kanbanzai gate, every gate enforced by move; 7 tasks
 - 2026-11-12: build done: skip rules, gates, kanbanzai gate, move enforcement, pull rule, step/context explanations, the Gates check, seven delivery fixtures with scenario tests, the extension mark, skills and docs/delivery.md; six wip commits on W-13
+- 2026-11-12: check done: kanbanzai-qa battery green (vet, go test -p 1, 233 extension and 8 OpenCode tests, hooks, plugin validate, vsix dry run, cross-builds); review found and fixed one regression (legacy waits_for_owner on a Doing/parked column); commit b1b9207
 
 ## Comments
 
