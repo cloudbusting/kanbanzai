@@ -139,15 +139,18 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 	}
 	problems := []string{}
 	briefText := string(original)
-	allowed := LegalTargets(project, key, &look, func(name string) bool {
+	skipped := func(name string) bool {
 		return step.SkippedFor(project, briefText, name)
-	})
+	}
+	allowed := LegalTargets(project, key, &look, skipped)
 	if _, ok := allowed[destination]; !ok {
 		switch {
 		case column.Kind == "parked":
 			problems = append(problems, fmt.Sprintf("%s is Paused: only %s un-parks it", cardID, project.Owner))
 		case column.Kind == "done":
 			problems = append(problems, fmt.Sprintf("%s is Done and stays done", cardID))
+		case column.Doing == "" && goal.Doing != "" && goal.Doing == step.NextStep(project, &look, key) && skipped(goal.Doing):
+			problems = append(problems, skipStartMessage(project, cardID, goal.Doing, skipped))
 		default:
 			problems = append(problems, fmt.Sprintf("%s to %s skips a step; from %s a card goes to %s",
 				column.Label, goal.Label, column.Label, strings.Join(labelList(project, allowed, key), ", ")))
@@ -302,14 +305,16 @@ func LegalTargets(project *config.Project, key string, card *board.Card, skipped
 	name := step.NextStep(project, card, key)
 	if name != "" {
 		words := step.Moves(project, key, name)
-		if words.Start != "" {
+		if words.Start != "" && (skipped == nil || !skipped(name)) {
 			found[words.Start] = "start"
 		}
 		description := step.Describe(project, name)
 		if description != nil && description.Instead != nil && description.Instead.Action == "close" {
 			found[description.Instead.Column] = "close"
 		}
-		skipAhead(project, name, skipped, found)
+		if column.Doing == "" {
+			skipAhead(project, name, skipped, found)
+		}
 	}
 	if column.Doing != "" {
 		if into, ok := project.ByKey[project.Steps[column.Doing].Into]; ok {
@@ -345,6 +350,18 @@ func skipAhead(project *config.Project, name string, skipped func(string) bool, 
 	if _, taken := found[path.Column]; path.Kind == "close" || !taken {
 		found[path.Column] = path.Kind
 	}
+}
+
+func skipStartMessage(project *config.Project, cardID, name string, skipped func(string) bool) string {
+	path := step.SkipPath(project, name, skipped)
+	if path == nil {
+		return fmt.Sprintf("%s skips %s; see kanbanzai step --for %s", cardID, name, cardID)
+	}
+	route := fmt.Sprintf("kanbanzai move %s %s", cardID, path.Column)
+	if path.Kind == "close" {
+		route += " --done \"<what shipped>\""
+	}
+	return fmt.Sprintf("%s skips %s; use %s", cardID, strings.Join(path.Steps, ", "), route)
 }
 
 // Options is one move command.
@@ -439,6 +456,20 @@ func StartStep(project *config.Project, cardID, owner string) (string, error) {
 	words := step.Moves(project, key, name)
 	if words.Start == "" {
 		return "", nil
+	}
+	data, err := os.ReadFile(filepath.Join(project.Root, filepath.FromSlash(card.Path)))
+	if err != nil {
+		return "", err
+	}
+	skipped := func(name string) bool { return step.SkippedFor(project, string(data), name) }
+	if skipped(name) {
+		message := "not moved: " + skipStartMessage(project, cardID, name, skipped)
+		if card.Gate != nil {
+			if refusal := gate.Blocks(project, card.Gate, cardID); refusal != "" {
+				message += "; " + refusal
+			}
+		}
+		return message, nil
 	}
 	if project.ByKey[words.Start].Worktree && workspace.Needs(project) {
 		return workspace.StartHint(project, cardID), nil
