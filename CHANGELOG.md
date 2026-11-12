@@ -5,6 +5,9 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
+  columns and branch. `step --for <ID> --json` adds a `route` object for the immediate action, blockers, workspace and
+  close requirements; its text output also reports the route. Unsupported routes stop rather than forcing a move.
 - W-10: issue types and one global number ledger. A project that configures `[[types]]` gets typed ids (`TASK-7`,
   `BUG-42`, or `KANZ-BUG-43` with a project key), and `kanbanzai number --type KEY` allocates from one global
   sequence shared by every type. `kanbanzai init` now writes a typed starter config (task, bug, change, spike,

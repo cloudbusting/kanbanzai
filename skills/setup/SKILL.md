@@ -130,6 +130,8 @@ any other flag with it, and applies exactly the plan the owner saw).
 Run `kanbanzai check`, `kanbanzai wip --audit` and `kanbanzai doctor`, then `kanbanzai board`, and report each result
 as it came, not as init summarised it. Anything flagged goes in the report with its fix; a warning about a missing
 adapter is expected when only one harness is in use.
+Once a board exists, use `kanbanzai context` and `kanbanzai workflow show` to describe its configured route; use
+`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>` for a card, not a fixed shipped-flow route.
 
 Then tell the owner, in plain language:
 

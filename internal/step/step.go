@@ -15,6 +15,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 // Instead is what happens to a card whose next step has no skill: the card skips ahead to a step, a close or a stop.
@@ -49,6 +50,79 @@ type StageMoves struct {
 	Start  string
 	Finish string
 	Resume bool
+}
+
+// Route describes the immediate configured action, not permission to bypass a claim or a gate.
+type Route struct {
+	Action             string `json:"action"`
+	Step               string `json:"step"`
+	Target             string `json:"target"`
+	Blocked            bool   `json:"blocked"`
+	Reason             string `json:"reason"`
+	WorkspaceRequired  bool   `json:"workspace_required"`
+	WorkspaceRecorded  bool   `json:"workspace_recorded"`
+	WorkspaceExists    bool   `json:"workspace_exists"`
+	CloseRequiresDone  bool   `json:"close_requires_done"`
+	FinishRequiresDone bool   `json:"finish_requires_done"`
+}
+
+// CardRoute reports the next action without treating a configured step as permission to run it.
+func CardRoute(p *config.Project, key string, card *board.Card, name, blocked string, skips *Skipped) Route {
+	r := Route{Action: "stop", Blocked: blocked != "", Reason: blocked}
+	col := p.ByKey[key]
+	switch {
+	case card.Held != nil:
+		r.Action, r.Blocked, r.Reason = "held", true, WaitingNote(p, key, card)
+	case col.Kind == "parked":
+		r.Action, r.Blocked, r.Reason = "parked", true, WaitingNote(p, key, card)
+	case col.Kind == "done":
+		r.Action, r.Reason = "finished", WaitingNote(p, key, card)
+	case name == "":
+		if r.Reason == "" {
+			r.Reason = WaitingNote(p, key, card)
+		}
+	case skips != nil:
+		r.Action, r.Target = skips.Kind, skips.Column
+		if skips.Kind == "skip" {
+			next := p.ByKey[skips.Column].Next
+			if s := p.Steps[next]; s.Active && s.Skill != "" {
+				r.Step = next
+			}
+		}
+	case p.Steps[name].Skill == "":
+		instead := InsteadOf(p, p.Steps[name])
+		if instead.Action == "close" {
+			r.Action, r.Target = "close", instead.Column
+		} else if r.Reason == "" {
+			r.Reason = "no skill and no direct close; inspect the configured workflow before moving"
+		}
+	default:
+		words := Moves(p, key, name)
+		r.Step = name
+		r.FinishRequiresDone = p.ByKey[words.Finish].Kind == "done"
+		if words.Resume {
+			r.Action, r.Target = "resume", words.Finish
+		} else if words.Start != "" {
+			r.Action, r.Target = "step", words.Start
+		} else {
+			r.Action = "stop"
+			if r.Reason == "" {
+				r.Reason = "no Doing column; claim is the doing, but there is no normal forward finish move"
+			}
+		}
+	}
+	if target, ok := p.ByKey[r.Target]; ok {
+		r.CloseRequiresDone = target.Kind == "done"
+		r.WorkspaceRequired = target.Worktree && workspace.Needs(p)
+	}
+	if r.Action == "resume" {
+		r.WorkspaceRequired = col.Worktree && workspace.Needs(p)
+	}
+	if r.WorkspaceRequired {
+		r.WorkspaceRecorded = workspace.Recorded(p, card.Where)
+		r.WorkspaceExists = workspace.Exists(p, card.Where)
+	}
+	return r
 }
 
 // InsteadOf is what happens to a card whose next step is this one and the project has no skill for it.
@@ -306,6 +380,8 @@ func Run(project *config.Project, opts Options) int {
 			blocked = gate.Blocks(project, card.Gate, opts.For)
 		}
 		if name == "" {
+			route := CardRoute(project, key, card, name, blocked, nil)
+			result["route"] = route
 			note := WaitingNote(project, key, card)
 			result["note"] = note
 			if opts.JSON {
@@ -316,6 +392,7 @@ func Run(project *config.Project, opts Options) int {
 				if blocked != "" {
 					fmt.Fprintf(out, "gate: %s\n", blocked)
 				}
+				printRoute(out, opts.For, route)
 			}
 			return 0
 		}
@@ -329,6 +406,8 @@ func Run(project *config.Project, opts Options) int {
 			result["lands_in"] = skips.Column
 			result["lands_kind"] = skips.Kind
 		}
+		route := CardRoute(project, key, card, name, blocked, skips)
+		result["route"] = route
 		result["next"] = name
 		words := Moves(project, key, name)
 		if words.Start != "" {
@@ -361,6 +440,7 @@ func Run(project *config.Project, opts Options) int {
 		}
 		fmt.Fprintln(out, AsText(found))
 		explain(out, project, opts.For, card, blocked, skips, briefText)
+		printRoute(out, opts.For, route)
 		return 0
 	}
 	if opts.Name == "" {
@@ -379,6 +459,32 @@ func Run(project *config.Project, opts Options) int {
 		fmt.Fprintln(out, AsText(found))
 	}
 	return 0
+}
+
+func printRoute(out io.Writer, id string, r Route) {
+	fmt.Fprintf(out, "route: %s", r.Action)
+	if r.Step != "" {
+		fmt.Fprintf(out, "; step: %s", r.Step)
+	}
+	if r.Target != "" {
+		fmt.Fprintf(out, "; target: %s", r.Target)
+	}
+	if r.Blocked {
+		fmt.Fprint(out, "; blocked")
+	}
+	if r.Reason != "" {
+		fmt.Fprintf(out, "; %s", r.Reason)
+	}
+	fmt.Fprintln(out)
+	if r.WorkspaceRequired {
+		fmt.Fprintf(out, "workspace: required for this route (recorded: %t, exists: %t); kanbanzai workspace %s\n", r.WorkspaceRecorded, r.WorkspaceExists, id)
+	}
+	if r.CloseRequiresDone {
+		fmt.Fprintln(out, "close: move requires --done \"<date, commit, what shipped>\"")
+	}
+	if r.FinishRequiresDone && !r.CloseRequiresDone {
+		fmt.Fprintln(out, "finish: moving into the done column requires --done \"<date, commit, what shipped>\"")
+	}
 }
 
 func descriptionMap(found *Description) map[string]any {
