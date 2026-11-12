@@ -180,7 +180,7 @@ func TestSetupFlowInAMonorepoMakesOneBoardAtTheRoot(t *testing.T) {
 	commitAll(t, root)
 	start := filepath.Join(root, "services", "web")
 	plan, file := planTo(t, root, start, Options{})
-	if filepath.Clean(plan.Root) != filepath.Clean(root) {
+	if !samePath(plan.Root, root) {
 		t.Fatalf("the plan's root = %s, want the repository root %s", plan.Root, root)
 	}
 	for _, action := range plan.Actions {
@@ -199,7 +199,7 @@ func TestSetupFlowFromALinkedWorktreeActsOnTheMainCheckout(t *testing.T) {
 	linked := filepath.Join(t.TempDir(), "wt")
 	testutil.Git(t, root, "worktree", "add", "-q", "-b", "side", linked)
 	plan, file := planTo(t, root, linked, Options{})
-	if !plan.Detected.RanFromWorktree || filepath.Clean(plan.Root) != filepath.Clean(root) {
+	if !plan.Detected.RanFromWorktree || !samePath(plan.Root, root) {
 		t.Fatalf("detected = %+v, root = %s", plan.Detected, plan.Root)
 	}
 	applyPlan(t, linked, file)
