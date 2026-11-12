@@ -158,6 +158,9 @@ never dropped), and a burst of more than 4 short moves shows the first 3 and `+N
 the tab is hidden wait and show, with their time starting, when it is visible again. The timings are `PROGRESS_MS` and
 `DONE_MS` in `toasts.js`.
 
+When more than one toast is visible, the `✕` beside the stack (tooltip `close all`) dismisses the displayed toasts,
+including blocked and asking notifications. It does not change the cards or their claims; later events can raise new toasts.
+
 An asking toast has a key of its own (`ask:W-12`), so a move or a hold on the same card neither replaces it nor is
 replaced by it. It is sticky like a blocked one (never dropped, never part of a burst), and closing it with `✕` while the
 session still asks does not bring it back; a new ask does. A session already asking at the first draw or after a reload

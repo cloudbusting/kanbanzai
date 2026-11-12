@@ -284,6 +284,12 @@ function showBoard(context, log) {
       toastState = toasts.close(toastState, msg.key); // the page has already removed it
       return;
     }
+    if (msg && msg.type === 'toast-close-all' && Array.isArray(msg.instances)) {
+      const instances = msg.instances.filter((t) => t && typeof t.key === 'string' && SAFE_TOAST_KEY.test(t.key) &&
+        Number.isSafeInteger(t.seq) && t.seq > 0);
+      toastState = toasts.closeInstances(toastState, instances);
+      return;
+    }
     if (!msg || msg.type !== 'open') return;
     if (typeof msg.path !== 'string' || !msg.path) return;
     const full = safeBriefPath(root, msg.path, work);
