@@ -78,8 +78,10 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    option; the others are the candidates. (`--owner NAME`)
 2. **Main branch**, only when init refused it with exit 2. The options are the branches init listed, none
    recommended unless one is `origin/HEAD`. (`--main-branch NAME`)
-3. **Project key**, the prefix of the card ids (`W` gives `W-01`). Recommend `W`, the default, unless the repository
-   already uses another; letters only. (`--prefix KEY`)
+3. **Issue types, or one prefix.** A fresh config starts typed (task, bug, change, spike and chore, one global
+   number sequence), which is the recommended shape and needs no flag. The alternative is the older single-prefix
+   card ids, whose prefix the owner names (`W` gives `W-01`); letters only, passed as `--prefix KEY`. Ask this only
+   when the owner asks for a single prefix.
 4. **Context files**: a multi-select of the rule files found (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
    `README.md`), all pre-recommended; the skills read the chosen ones first. (`--context FILE[,FILE]`)
 
@@ -95,7 +97,8 @@ the command does not offer it yet.
 
 Make a private folder outside the repository, so it cannot change the tree the plan is checked against:
 `PLAN_DIR=$(mktemp -d)`. Run `kanbanzai init --dry-run --json` with the chosen flags (`--owner`, `--main-branch`,
-`--prefix`, `--context`, and `--force` only after its own approval) and keep the output in `$PLAN_DIR/plan.json`.
+`--prefix` only for the single-prefix shape, `--context`, and `--force` only after its own approval) and keep the
+output in `$PLAN_DIR/plan.json`.
 Show the owner:
 
 - the root, and the settings with their sources (`plan.settings`);

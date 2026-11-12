@@ -162,7 +162,7 @@ func Vocabulary(p *config.Project) []string {
 	out := []string{"—", "main"}
 	switch Of(p) {
 	case Worktree, Branch:
-		out = append(out, Of(p)+" "+p.Prefix+"-NN")
+		out = append(out, Of(p)+" "+p.IDsExample())
 	case External:
 		out = append(out, "external <ref>")
 	}

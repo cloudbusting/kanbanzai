@@ -133,6 +133,7 @@ function toastHtml(view) {
   const classes = `toast level-${level}${kind}${v.shown ? ' shown' : ''}`;
   let attrs = level === 'blocked' || level === 'asking' ? ' role="alert"' : '';
   attrs += ` data-key="${esc(key)}"`;
+  if (Number.isSafeInteger(v.seq) && v.seq > 0) attrs += ` data-seq="${v.seq}"`;
   if (typeof v.remainingMs === 'number') attrs += ` data-remaining="${Math.round(v.remainingMs)}"`;
   if (path) attrs += ` data-path="${esc(path)}" tabindex="0"`;
   const close = v.closable
@@ -147,7 +148,8 @@ function toastHtml(view) {
 function toastsHtml(views) {
   const list = arr(views);
   if (!list.length) return '';
-  return `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${list.map(toastHtml).join('')}</div>`;
+  const closeAll = list.length > 1 ? '<button class="toast-close-all" type="button" aria-label="close all" title="close all">✕</button>' : '';
+  return `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${list.map(toastHtml).join('')}</div>${closeAll}`;
 }
 
 function columnHtml(key, name, cardsHtml, count, collapsed) {
@@ -293,8 +295,8 @@ const STYLE = `
   @keyframes asking-glow { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 8px 2px var(--vscode-focusBorder); } }
   @media (prefers-reduced-motion: no-preference) { .card.asking { animation: asking-glow 2.4s ease-in-out infinite; } }
   .toasts {
-    position: fixed; left: 8px; bottom: 24px; z-index: 10; width: 280px; max-width: calc(100% - 16px);
-    max-height: calc(100% - 16px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    position: fixed; left: 8px; bottom: 24px; z-index: 10; width: 280px; max-width: calc(100% - 48px);
+    max-height: calc(100% - 32px); overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
     pointer-events: none;
   }
   .toast {
@@ -319,6 +321,14 @@ const STYLE = `
   }
   .toast-close:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground); }
   .toast-close:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+  .toast-close-all {
+    position: fixed; left: min(288px, calc(100% - 40px)); bottom: 24px; z-index: 11;
+    width: 32px; height: 32px; cursor: pointer; border: 1px solid var(--vscode-notifications-border, var(--vscode-widget-border, transparent));
+    border-radius: 3px; background: var(--vscode-notifications-background, var(--vscode-editorWidget-background));
+    color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+  }
+  .toast-close-all:hover { background: var(--vscode-toolbar-hoverBackground); }
+  .toast-close-all:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
   .toast-headline { font-weight: 700; overflow-wrap: anywhere; }
   .toast-detail { overflow-wrap: anywhere; line-height: 1.3; }
   @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -351,18 +361,34 @@ const SCRIPT = `
   }
   if (board) board.addEventListener('scroll', saveState);
   document.querySelectorAll('.col .cards').forEach((el) => el.addEventListener('scroll', saveState));
+  function updateCloseAll() {
+    const button = document.querySelector('.toast-close-all');
+    if (button && document.querySelectorAll('.toast').length < 2) button.remove();
+  }
   document.querySelectorAll('.toast[data-remaining]').forEach((el) => {
-    setTimeout(() => el.remove(), Number(el.dataset.remaining) || 0);
+    setTimeout(() => { el.remove(); updateCloseAll(); }, Number(el.dataset.remaining) || 0);
   });
   function open(el) {
     const p = el.getAttribute('data-path');
     if (p) vscode.postMessage({ type: 'open', path: p });
   }
   document.addEventListener('click', (e) => {
+    const all = e.target.closest ? e.target.closest('.toast-close-all') : null;
+    if (all) {
+      const instances = [];
+      document.querySelectorAll('.toast').forEach((toast) => {
+        instances.push({ key: toast.dataset.key, seq: Number(toast.dataset.seq) });
+        toast.remove();
+      });
+      all.remove();
+      vscode.postMessage({ type: 'toast-close-all', instances });
+      return;
+    }
     const shut = e.target.closest ? e.target.closest('[data-close]') : null;
     if (shut) {
       const toast = shut.closest('.toast');
       if (toast) toast.remove();
+      updateCloseAll();
       vscode.postMessage({ type: 'toast-close', key: shut.getAttribute('data-close') });
       return;
     }

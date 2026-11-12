@@ -898,3 +898,36 @@ func TestAProjectGivenThroughASymlinkIsStillInsideItsCheckout(t *testing.T) {
 		t.Errorf("the plan is empty:\n%s", out.String())
 	}
 }
+
+func TestAFreshProjectStartsTypedAndPrefixKeepsTheLegacyShape(t *testing.T) {
+	root := repo(t, "main")
+	code, dry, errOut := initRun(root, Options{DryRun: true})
+	if code != 0 {
+		t.Fatalf("dry run: %d %q", code, errOut)
+	}
+	if !strings.Contains(dry, "issue types: task, bug, change, spike, chore") {
+		t.Fatalf("dry run does not show the types:\n%s", dry)
+	}
+	if code, _, errOut := initRun(root, Options{}); code != 0 {
+		t.Fatalf("init: %d %q", code, errOut)
+	}
+	project, err := config.Find(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 5 {
+		t.Fatalf("typed = %v, default = %q, types = %d", project.Typed, project.DefaultType, len(project.Types))
+	}
+
+	legacyRoot := repo(t, "main")
+	if code, _, errOut := initRun(legacyRoot, Options{Prefix: "W"}); code != 0 {
+		t.Fatalf("legacy init: %d %q", code, errOut)
+	}
+	legacy, err := config.Find(legacyRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Typed || legacy.Prefix != "W" {
+		t.Fatalf("--prefix wrote a typed project: typed = %v, prefix = %q", legacy.Typed, legacy.Prefix)
+	}
+}

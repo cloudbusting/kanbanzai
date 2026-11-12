@@ -161,6 +161,21 @@ func Batches(project *config.Project) []Batch {
 	var spacesRE *regexp.Regexp
 	if stem != "" {
 		spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(stem) + `[^| ]+) \|`)
+	} else if leaf == "{id}" {
+		// A pattern whose last segment is only the id (the default, ../worktrees/{repo}/{id}) gives every worktree its
+		// own folder under one parent; a batch workspace written under that parent is the batch's.
+		if folder := strings.TrimSuffix(strings.TrimSuffix(strings.ReplaceAll(project.WorktreePattern, "\\", "/"), leaf), "/"); folder != "" &&
+			!strings.Contains(folder, "{id}") {
+			if expanded, err := project.Expand(folder, ""); err == nil {
+				// The map may write the path relative or absolute, so match from the first segment that is not "." or "..".
+				for strings.HasPrefix(expanded, "./") || strings.HasPrefix(expanded, "../") {
+					expanded = expanded[strings.Index(expanded, "/")+1:]
+				}
+				if expanded != "" && expanded != ".." && expanded != "." {
+					spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(expanded) + `/[^| /]+) \|`)
+				}
+			}
+		}
 	}
 	out := []Batch{}
 	entries, err := os.ReadDir(project.Batches)
@@ -265,13 +280,11 @@ func Worktrees(project *config.Project) []Worktree {
 
 // CardOf is the card a worktree belongs to: its branch, its folder name, or a batch map ("batch").
 func CardOf(project *config.Project, worktree Worktree, spaces []string) string {
-	pattern := regexp.MustCompile(regexp.QuoteMeta(project.Prefix) + `-(\d{` + strconv.Itoa(project.Digits) + `,})`)
-	match := pattern.FindStringSubmatch(worktree.Branch)
-	if match == nil {
-		match = pattern.FindStringSubmatch(filepath.Base(worktree.Path))
+	if card, ok := project.CardIDIn(worktree.Branch); ok {
+		return card
 	}
-	if match != nil {
-		return project.Prefix + "-" + match[1]
+	if card, ok := project.CardIDIn(filepath.Base(worktree.Path)); ok {
+		return card
 	}
 	if spaces == nil {
 		for _, batch := range Batches(project) {
@@ -458,7 +471,6 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		}
 	}
 	mapped := map[string][]string{}
-	prefix := project.Prefix + "-"
 	mode := workspace.Of(project)
 	perWorktree := mode == workspace.Worktree
 	for key, rows := range cards {
@@ -512,7 +524,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		if only != "" && card != only {
 			continue
 		}
-		if card != "" && strings.HasPrefix(card, prefix) {
+		if card != "" && project.IsCardID(card) {
 			mapped[card] = append(mapped[card], wt.Path)
 			if where[card] != "worktree "+card {
 				hard = append(hard, fmt.Sprintf("%s holds %s, but the board's Where says '%s'", wt.Path, card,
@@ -544,7 +556,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 	}
 	for _, wt := range wts {
 		card := wt.Card
-		if samePath(wt.Path, project.Root) || card == "" || !strings.HasPrefix(card, prefix) {
+		if samePath(wt.Path, project.Root) || card == "" || !project.IsCardID(card) {
 			continue
 		}
 		if only != "" && card != only {

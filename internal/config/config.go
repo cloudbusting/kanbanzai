@@ -22,6 +22,7 @@ import (
 
 	"github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
 
 var kinds = []string{"open", "parked", "done"}
@@ -107,6 +108,11 @@ type Project struct {
 
 	Prefix             string
 	Digits             int
+	Typed              bool // true when [[types]] configures typed ids; Prefix is then unused
+	Types              []typeid.Type
+	TypeSet            *typeid.Set
+	DefaultType        string
+	ProjectKey         string
 	Owner              string
 	MainBranch         string
 	Isolation          string // worktree, branch, shared or external: how a card's change is kept apart
@@ -145,6 +151,8 @@ type Project struct {
 	CardRe     *regexp.Regexp
 	TitleRe    *regexp.Regexp
 	CardFileRe *regexp.Regexp
+	ParseRe    *regexp.Regexp
+	IDInRe     *regexp.Regexp
 
 	cfg map[string]any
 }
@@ -331,17 +339,41 @@ func (p *Project) build() error {
 		return err
 	}
 
-	p.Prefix = strings.TrimSpace(asString(project["prefix"], ""))
-	if !regexp.MustCompile(`^[A-Za-z]+$`).MatchString(p.Prefix) {
-		return errf("project.prefix must be letters only, not '%s'", p.Prefix)
-	}
 	p.Digits = asInt(project["digits"], 2)
 	if p.Digits == 0 {
 		p.Digits = 2
 	}
+	types, err := p.types()
+	if err != nil {
+		return err
+	}
+	if len(types) == 0 {
+		if strings.TrimSpace(asString(project["default_type"], "")) != "" ||
+			strings.TrimSpace(asString(project["project_key"], "")) != "" {
+			return errf("project.default_type and project.project_key need [[types]]: add a [[types]] table, or " +
+				"remove them")
+		}
+		p.Typed = false
+		p.Prefix = strings.TrimSpace(asString(project["prefix"], ""))
+		if !regexp.MustCompile(`^[A-Za-z]+$`).MatchString(p.Prefix) {
+			return errf("project.prefix must be letters only, not '%s'", p.Prefix)
+		}
+	} else {
+		p.Typed = true
+		p.Prefix = ""
+		set, err := typeid.Validate(types, asString(project["default_type"], ""),
+			asString(project["project_key"], ""), p.Digits)
+		if err != nil {
+			return errf("[[types]]: %v", err)
+		}
+		p.TypeSet = set
+		p.Types = set.Types
+		p.DefaultType = set.Default
+		p.ProjectKey = set.ProjectKey
+	}
 	p.Owner = asString(project["owner"], "the user")
 	p.MainBranch = asString(project["main_branch"], "main")
-	p.WorktreePattern = asString(project["worktree"], "../{repo}-{id}")
+	p.WorktreePattern = asString(project["worktree"], "../worktrees/{repo}/{id}")
 	p.BranchPattern = asString(project["branch"], "{id}")
 	p.BatchBranchPattern = asString(project["batch_branch"], "batch/{id}")
 
@@ -429,11 +461,58 @@ func (p *Project) build() error {
 	}
 	p.PullOrder = pullOrder
 
-	p.IDPattern = regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`
+	if p.Typed {
+		p.IDPattern = p.TypeSet.IDPattern()
+	} else {
+		p.IDPattern = regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`
+	}
 	p.CardRe = regexp.MustCompile(`^` + p.IDPattern + `$`)
 	p.TitleRe = regexp.MustCompile(`^# (` + p.IDPattern + `): (.+)$`)
 	p.CardFileRe = regexp.MustCompile(`^(` + p.IDPattern + `)-.+\.md$`)
+	if p.Typed {
+		p.ParseRe = p.CardRe
+		p.IDInRe = regexp.MustCompile(`(?i)` + p.IDPattern)
+	} else {
+		p.ParseRe = regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(p.Prefix) + `-(\d+)$`)
+		p.IDInRe = regexp.MustCompile(`(?i)` + regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`)
+	}
 	return nil
+}
+
+// types reads the project's [[types]] list. An empty list keeps the legacy single-prefix ids.
+func (p *Project) types() ([]typeid.Type, error) {
+	raw, ok := p.cfg["types"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		return nil, errf("types must be a list of [[types]] tables")
+	}
+	out := make([]typeid.Type, 0, len(items))
+	for index, item := range items {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, errf("[[types]] #%d must be a table", index+1)
+		}
+		value := typeid.Type{
+			Key:         asString(entry["key"], ""),
+			Label:       asString(entry["label"], ""),
+			Prefix:      asString(entry["prefix"], ""),
+			Colour:      asString(entry["colour"], ""),
+			Icon:        asString(entry["icon"], ""),
+			Description: asString(entry["description"], ""),
+		}
+		if template := strings.TrimSpace(asString(entry["template"], "")); template != "" {
+			path, err := p.path(template)
+			if err != nil {
+				return nil, err
+			}
+			value.Template = path
+		}
+		out = append(out, value)
+	}
+	return out, nil
 }
 
 func (p *Project) section(name string) (map[string]any, error) {
@@ -740,9 +819,130 @@ func (p *Project) Branch(card string, batch bool) string {
 	return branch
 }
 
-// FormatID is a number as a card id.
+// FormatID is a number as a card id. In a typed project it uses the default type; callers that know the type use
+// TypeSet.Format instead.
 func (p *Project) FormatID(number int) string {
+	if p.TypeSet != nil {
+		if item, ok := p.TypeSet.DefaultType(); ok {
+			return p.TypeSet.Format(item, number)
+		}
+	}
 	return fmt.Sprintf("%s-%0*d", p.Prefix, p.Digits, number)
+}
+
+// IDsExample is an id shape for a message: TASK-NN in a typed project, W-NN in a legacy one.
+func (p *Project) IDsExample() string {
+	if p.TypeSet != nil {
+		return p.TypeSet.Example()
+	}
+	return p.Prefix + "-NN"
+}
+
+// IsCardID reports whether value is a canonical card id.
+func (p *Project) IsCardID(value string) bool {
+	return p.CardRe.MatchString(value)
+}
+
+// CanonicalCardID returns value as a canonical card id, or false. Input is case-insensitive; in a typed project the
+// number is padded to the configured digits.
+func (p *Project) CanonicalCardID(value string) (string, bool) {
+	if p.TypeSet != nil {
+		return p.TypeSet.Canonical(value)
+	}
+	match := p.ParseRe.FindStringSubmatch(value)
+	if match == nil {
+		return "", false
+	}
+	number, err := strconv.Atoi(match[1])
+	if err != nil || number <= 0 {
+		return "", false
+	}
+	return p.FormatID(number), true
+}
+
+// CardIDIn is the first card id inside a branch name or a path, such as batch/W-07 or /x/proj-W-10.
+func (p *Project) CardIDIn(value string) (string, bool) {
+	match := p.IDInRe.FindString(value)
+	if match == "" {
+		return "", false
+	}
+	return p.CanonicalCardID(match)
+}
+
+// CardNumber is the numeric part of a card id.
+func (p *Project) CardNumber(value string) (int, bool) {
+	if p.TypeSet != nil {
+		_, number, ok := p.TypeSet.Parse(value)
+		return number, ok
+	}
+	match := p.ParseRe.FindStringSubmatch(strings.TrimSpace(value))
+	if match == nil {
+		return 0, false
+	}
+	number, err := strconv.Atoi(match[1])
+	if err != nil || number <= 0 {
+		return 0, false
+	}
+	return number, true
+}
+
+// TypeOf is the type of a card id, in a typed project.
+func (p *Project) TypeOf(value string) (typeid.Type, bool) {
+	if p.TypeSet == nil {
+		return typeid.Type{}, false
+	}
+	item, _, ok := p.TypeSet.Parse(value)
+	return item, ok
+}
+
+// CardTypeInfo is the card's type for JSON, or nil in a legacy project.
+func (p *Project) CardTypeInfo(value string) *typeid.TypeInfo {
+	item, ok := p.TypeOf(value)
+	if !ok {
+		return nil
+	}
+	info := item.Info()
+	return &info
+}
+
+// CardPrefixes are the configured type prefixes, or the legacy prefix.
+func (p *Project) CardPrefixes() []string {
+	if p.TypeSet != nil {
+		return p.TypeSet.Prefixes()
+	}
+	return []string{p.Prefix}
+}
+
+// TypeInfos are the configured types in their JSON shape.
+func (p *Project) TypeInfos() []any {
+	out := make([]any, 0, len(p.Types))
+	for _, item := range p.Types {
+		info := item.Info()
+		entry := map[string]any{"key": info.Key, "label": info.Label, "prefix": info.Prefix}
+		if info.Template != "" {
+			entry["template"] = info.Template
+		}
+		if info.Colour != "" {
+			entry["colour"] = info.Colour
+		}
+		if info.Icon != "" {
+			entry["icon"] = info.Icon
+		}
+		if info.Description != "" {
+			entry["description"] = info.Description
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// TypeInfoList are the configured types in the board's JSON shape.
+func (p *Project) TypeInfoList() []typeid.TypeInfo {
+	out := make([]typeid.TypeInfo, 0, len(p.Types))
+	for _, item := range p.Types {
+		out = append(out, item.Info())
+	}
+	return out
 }
 
 // TemplateText is the shipped card template, or the project's own when it names one. Line endings are Unix: a
@@ -791,6 +991,8 @@ func (p *Project) AsDict() map[string]any {
 		"home": p.Home, "work": p.Work, "state": p.State, "claims": p.Claims, "numbers": p.Numbers,
 		"batches": p.Batches, "template": p.Template, "worktree": p.WorktreePattern,
 		"branch": p.BranchPattern, "batch_branch": p.BatchBranchPattern, "context": p.ContextFiles(),
+		"typed": p.Typed, "default_type": p.DefaultType, "project_key": p.ProjectKey,
+		"types": p.TypeInfos(),
 	}
 	columns := make([]any, 0, len(p.Columns))
 	for _, column := range p.Columns {

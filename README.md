@@ -87,9 +87,9 @@ kanbanzai init             # .kanbanzai/: config.toml, work/ (cards, batches), s
 ```
 
 Or let the agent do it: with the plugin enabled, `/kanbanzai:setup` (`/setup` where the harness allows) inspects the
-repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, card id
-prefix, context files), shows the plan and waits for approval, applies exactly that plan with `init --plan`, and
-proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
+repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, whether to
+keep the typed starter or use a single prefix, context files), shows the plan and waits for approval, applies
+exactly that plan with `init --plan`, and proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
 clone to board.
 
 `init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
@@ -98,7 +98,8 @@ or `--owner NAME`), an existing config and board, and the rule files you already
 …, listed, never edited). It then builds one plan, the same JSON for `--dry-run --json`, for the real run and for
 `--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
 folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
-template; `--prefix KEY` sets the card id prefix and `--context FILE[,FILE]` the files every skill reads first (both only for a config
+template; `--prefix KEY` writes the older single-prefix card ids instead of the typed starter, and
+`--context FILE[,FILE]` the files every skill reads first (both only for a config
 `init` writes; an existing one is edited by hand, or replaced with `--force`); `--plugins claude,opencode` adds the project's plugin settings to the plan: `.claude/settings.json` gets the
 marketplace and `enabledPlugins` entries (a GitHub source, or with `--plugin-source <a Kanbanzai checkout>` a local
 directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets the plugin path (OpenCode needs
@@ -160,7 +161,7 @@ By default everything is in the project's `.kanbanzai/`, in the **main checkout*
 | The settings | `.kanbanzai/config.toml` | yes |
 | The cards | `.kanbanzai/work/<folder>/<ID>-<slug>.md` | yes |
 | The leases | `.kanbanzai/state/claims/` | no |
-| The number ledger | `.kanbanzai/state/numbers/` | no |
+| The number ledger | `.kanbanzai/state/numbers/` (one `_ledger.json` in a typed project; one `<prefix>.json` in legacy mode) | no |
 
 Each path can be moved in the settings (`[project] work`, `state`, `claims`, `numbers`).
 
@@ -180,6 +181,38 @@ config discovery. `init` writes the config only there (never a second one in a r
 used only when the main checkout has no config. Changing `home` does not implicitly change `work` or `state`;
 set those paths explicitly (paths remain relative to the main checkout).
 
+### Issue types and numbering
+
+A project may give its work item types. Each type has a key (`task`), a label (`Task`) and an upper-case prefix
+(`TASK`); a card's id is `<PREFIX>-<number>`, or `<PROJECT_KEY>-<PREFIX>-<number>` when `project_key` is set. Every
+type allocates from **one global number sequence**, so `BUG-7` is the seventh item overall, not the seventh bug.
+
+```toml
+[project]
+default_type = "task"
+project_key = ""          # optional, e.g. KANZ for KANZ-BUG-7
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+```
+
+`kanbanzai number --type bug` allocates the next number for that type; `kanbanzai number` uses `default_type`. The
+ledger is one file, `.kanbanzai/state/numbers/_ledger.json`, holding every issued number and each live reservation's
+item, type, owner and time; `kanbanzai number --status` prints it. Type keys are lower-case; prefixes and the project
+key are upper-case letters and digits. The optional `template`, `colour`, `icon` and `description` on a type are
+metadata for the board and the brief schema.
+
+`[[types]]` is optional. With none, a project keeps the older single-prefix ids (`prefix = "W"`, `W-01`) and its
+`<prefix>.json` ledger, exactly as before. `kanbanzai init` writes a typed config for a fresh project (task, bug,
+change, spike, chore; `default_type = "task"`); `init --prefix W` writes the legacy shape instead.
+
+The type is the id's prefix and nothing else: there is no separate Type field to disagree with it, and changing a
+card's type in place is not supported. Typed mode does not migrate a legacy per-prefix ledger; if one is present it
+refuses to allocate rather than reuse a number, and a project that wants types starts a fresh typed board (or stays
+in legacy mode). [docs/types.md](docs/types.md) has the model, the grammar and the migration boundary.
+
 ### Config contract and upgrades
 
 New configs start with the root key `config_version = 1`. A project with no file uses the embedded version-1
@@ -198,7 +231,7 @@ and a repeated apply on version 1 changes nothing. Keep the backup until you hav
 can contain private project settings. Do not edit the source concurrently with an upgrade. A newer version is
 always refused: install a compatible newer binary, never lower the file's version to bypass validation.
 
-Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, and each
+Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, each `[[types]]`, and each
 `[steps.<name>]` (step names remain user-defined). Errors identify the source file and key and suggest a repair or
 the nearest valid key. Values are not coerced: strings, booleans, integers and lists of strings must have their
 declared types. `digits` is an integer from 1 through 18; `wip_limit` and `stale_days` are positive integers;
@@ -363,7 +396,7 @@ kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
-kanbanzai number [--status|--release ID|--mark ID]
+kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
 kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
@@ -407,6 +440,10 @@ cannot yet be executed safely by the move command, including steps without Doing
 why instead of suggesting a forced move.
 [docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
 release, dependent work) and says what the flow cannot express.
+
+A skipped step cannot be started, including by a claim's automatic start. The claim remains recorded and reports
+the explicit skip or close route; gates and normal move requirements still apply. `--force --reason` remains an
+audited override, and an already-running step can still be resumed or finished.
 
 **A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
 of its next step, the way `move ID start` does, unless the card is held, the step's column needs a workspace (the output
