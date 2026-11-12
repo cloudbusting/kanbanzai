@@ -213,7 +213,12 @@ func TestABatchWorkspaceIsNotAnOrphan(t *testing.T) {
 		"# B-01: the best three\n\n- **State:** running\n- **Cards:** W-07\n\n"+
 			"| Card | Owns | Agent | Workspace | Stage | Last result |\n|---|---|---|---|---|---|\n"+
 			"| W-07 | engine | dev | worktree ../worktrees/"+filepath.Base(project.Root)+"/style | spawned | — |\n"+
+			"| W-09 | api | dev | worktree /home/me/worktrees/"+filepath.Base(project.Root)+"/absolute | spawned | — |\n"+
 			"| W-08 | docs | dev | worktree ../elsewhere/loose | spawned | — |\n")
+	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/worktrees/" + filepath.Base(project.Root) + "/absolute"},
+		nil); got != "batch" {
+		t.Fatalf("an absolute workspace path = %q, want batch", got)
+	}
 	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/worktrees/" + filepath.Base(project.Root) + "/style"},
 		nil); got != "batch" {
 		t.Fatalf("batch = %q", got)
