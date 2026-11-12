@@ -3,7 +3,7 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
-## Unreleased
+## [0.8.0] — 2026-11-12
 
 - W-06: `kanbanzai workflow` changes the flow (the columns, steps and pull order) safely. `show [--json]` prints the
   resolved flow as one model (columns, steps, transitions, gates, WIP rules, isolation, pull order);
