@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudbusting/kanbanzai/internal/config"
-	initcmd "github.com/cloudbusting/kanbanzai/internal/init"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
@@ -31,12 +29,10 @@ func initialized(t *testing.T, text string) string {
 	t.Helper()
 	environment(t)
 	root := testutil.Repo(t, text)
-	p, err := config.Find(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if code := initcmd.Run(p, &bytes.Buffer{}); code != 0 {
-		t.Fatalf("init: %d", code)
+	// The built command, not the package: init verifies with doctor, so this package cannot import init.
+	if result := testutil.Run(t, root, nil, "init"); result.Code > 1 {
+		// 1 is a red `check` after init: some fixtures are deliberately broken, and that is the test's business.
+		t.Fatalf("init: %d\n%s%s", result.Code, result.Stdout, result.Stderr)
 	}
 	return root
 }

@@ -3,6 +3,17 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [Unreleased]
+
+- W-04: `kanbanzai init` is a plan-and-verify engine. It detects the main branch (and records it, so `wip --audit`
+  no longer fails on a `master` or `trunk` repository; an unclear one is exit 2 asking for `--main-branch`), the
+  owner (`git config user.name`) and the existing board; `--dry-run [--json]` shows the plan and `--plan FILE`
+  applies exactly a plan; it also creates the batches folder and ignore entries for every state path, honours a
+  relocated path or refuses it with the reason, can create a project card template (`--with-template`), backs
+  up a config before `--force` replaces it, and finishes by reporting `check`, `wip --audit`, `doctor` and the
+  files to commit. It never overwrites or commits. A new `config.ValidateText` proves a config loads before it
+  is written.
+
 ## [0.6.4] — 2026-11-12
 
 - W-03: Windows-only release check fix: the 0.6.3 release check failed; the 0.6.2 changes are included in this release. The config and doctor tests now compare the stable path suffix.
