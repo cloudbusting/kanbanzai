@@ -1,10 +1,10 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
-- **Next action:** deploy-qa: package the .vsix with the bundled binaries and the plugin bundle, prove them; QA-approved waits for the owner; release with or after W-04 and W-05
+- **Next action:** release: owner's clean-profile check first; release W-04, W-05 and W-17 together, version the owner's call
 - **Where:** worktree W-17
 
 ## Goal
@@ -86,6 +86,8 @@ Publishing to the Visual Studio Marketplace or Open VSX (a release-step action t
 - 2026-11-12: design done: tasks T1-T7, acceptance checks, trust model
 - 2026-11-12: build done: kanbanzai install, init --plugins (merge action), packer -bin and release -bins, hooks and OpenCode look in the per-user folder, extension Init item and guided setup, docs; go/node/validate/cross-builds green; end-to-end run with the built binary passed; editor behaviour not run
 - 2026-11-12: checked: kanbanzai-qa checks green, diff reviewed, no findings
+- 2026-11-12: packaged from 4a20704: source bundle, five archives, .vsix 7.9 MB with the five binaries (exec bit set, v0.6.4, no machine path); sha256 verified; from the extracted bundle: the .vsix binary ran install, init --dry-run --plugins, init --plan; the bundled hook found the installed command; claude validate and throwaway install pass (10 skills). QA-approved, waits for the owner
 
 ## Comments
 
+- 2026-11-12 claude:d01da6dc: not run, owner to try in a real editor (VSCodium/VS Code, a clean profile): the Init item, quick pick, plan tab, Apply modal, onStartupFinished activation, the executable bit after extraction, Gatekeeper/SmartScreen. Pre-release, set kanbanzai.pluginSource to a Kanbanzai checkout. Follow-ups for the release step: add `docs` to the git-archive path lists of kanbanzai-package and kanbanzai-release (also noted on W-05); W-05's skill and docs do not yet mention `init --plugins`. Artifacts: /tmp/kanbanzai-package-W-17-0.6.4.
