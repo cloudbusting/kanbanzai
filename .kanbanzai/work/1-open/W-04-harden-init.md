@@ -1,10 +1,10 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: re-run kanbanzai-package on the merged W-04
+- **Next action:** release: version chosen by the owner (manifests are 0.6.4, CHANGELOG has [Unreleased]) after the owner approves; kanbanzai-release
 - **Where:** worktree W-04
 
 ## Goal
@@ -94,6 +94,8 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 - 2026-11-12: check: kanbanzai-qa green — go test ./... (294 tests, 20 packages), go vet, node 132, hooks, js syntax, claude plugin validate, step resolution, kanbanzai check, card audit; diff reviewed, no must-fix
 - 2026-11-12: build: packaging found that a no-op init re-run claimed a committed board; kept files are now listed too (test first, red then green); go test, vet and node green
 - 2026-11-12: check: kanbanzai-qa green again on bf49c43 (go 20 packages, vet, node 132, plugin validate, board and audit); diff of the fix reviewed
+- 2026-11-12: deploy-qa: packaged main c27fada — source bundle, 5 binary archives, .vsix, SHA256SUMS; fresh-project init/check/board, plugin validate+install in a throwaway config, opencode check, no state/.git/path in any archive; one bug found and fixed (re-run commit list)
 
 ## Comments
 
+- 2026-11-12 claude:b15a8cb7: packaged at main c27fada (rehearsal, manifests still 0.6.4, CHANGELOG has `## [Unreleased]`): artifacts in /tmp/kanbanzai-package-W-04-0.6.4 (tmp, may be gone; rebuild from the tag). The release must choose the version, bump the three manifests and rename the Unreleased heading. Packaging found and fixed one bug (re-run listed no files to commit).
