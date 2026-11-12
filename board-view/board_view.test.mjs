@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -316,6 +317,65 @@ const toastViews = [
   { key: "W-2", level: "blocked", glyph: "⛔", word: "Blocked", headline: "W-2 blocked", detail: "two", path: ".kanbanzai/work/1-open/W-2-x.md", remainingMs: null, closable: true, shown: true },
   { key: "burst", level: "progress", glyph: "▸", word: "Progress", headline: "+3 more cards moved", detail: "", path: "", remainingMs: 5000, closable: false, shown: false },
 ];
+
+function toastPage(views) {
+  const out = renderHtml(board, { nonce: NONCE, toasts: views });
+  const listeners = {}, timers = [], messages = [];
+  const elements = views.map((v) => ({
+    dataset: { key: v.key, seq: String(v.seq), remaining: String(v.remainingMs) },
+    removed: false,
+    remove() { this.removed = true; },
+    getAttribute(name) { return this.dataset[name.slice(5)]; },
+  }));
+  const button = out.includes('class="toast-close-all"') ? { removed: false, remove() { this.removed = true; } } : null;
+  const document = {
+    querySelector(selector) { return selector === '.toast-close-all' && button && !button.removed ? button : null; },
+    querySelectorAll(selector) {
+      if (selector === '.toast') return elements.filter((el) => !el.removed);
+      if (selector === '.toast[data-remaining]') return elements.filter((el, i) => !el.removed && typeof views[i].remainingMs === 'number');
+      return [];
+    },
+    addEventListener(type, fn) { listeners[type] = fn; },
+  };
+  runInNewContext(out.match(/<script[^>]*>(.*?)<\/script>/s)[1], {
+    document, acquireVsCodeApi: () => ({ getState: () => null, postMessage: (msg) => messages.push(JSON.parse(JSON.stringify(msg))) }),
+    setInterval() {}, setTimeout(fn) { timers.push(fn); },
+  });
+  return { out, elements, button, timers, messages, click(target) { listeners.click({ target }); } };
+}
+
+test("close all appears only for multiple toasts, with instance identity and responsive placement", () => {
+  assert.doesNotMatch(renderHtml(board, { toasts: [] }), /class="toast-close-all"/);
+  assert.doesNotMatch(renderHtml(board, { toasts: [toastViews[0]] }), /class="toast-close-all"/);
+  const out = renderHtml(board, { toasts: toastViews.map((v, i) => ({ ...v, seq: i + 1 })) });
+  assert.match(out, /<button class="toast-close-all" type="button"[^>]*title="close all"[^>]*>✕<\/button>/);
+  assert.match(out, /data-key="W-1" data-seq="1"/);
+  assert.match(out, /\.toast-close-all\s*\{[^}]*position:\s*fixed[^}]*bottom:\s*24px/s);
+  assert.match(out, /max-width:\s*calc\(100% - 48px\)/);
+});
+
+test("close all dismisses only live rendered instances without opening a card", () => {
+  const page = toastPage(toastViews.map((v, i) => ({ ...v, seq: i + 10 })));
+  assert.ok(page.button);
+  page.timers[0]();
+  page.click({ closest(selector) { return selector === '.toast-close-all' ? page.button : null; } });
+  assert.deepEqual(page.messages, [{ type: 'toast-close-all', instances: [{ key: 'W-2', seq: 11 }, { key: 'burst', seq: 12 }] }]);
+  assert.ok(page.elements.every((el) => el.removed));
+  assert.ok(page.button.removed);
+});
+
+test("timer and individual close remove close all immediately below the threshold", () => {
+  const views = toastViews.slice(0, 2).map((v, i) => ({ ...v, seq: i + 1 }));
+  const timed = toastPage(views);
+  assert.ok(timed.button);
+  timed.timers[0]();
+  assert.ok(timed.button.removed);
+  const closed = toastPage(views);
+  const shut = { closest(selector) { return selector === '.toast' ? closed.elements[1] : null; }, getAttribute() { return 'W-2'; } };
+  closed.click({ closest(selector) { return selector === '[data-close]' ? shut : null; } });
+  assert.ok(closed.button.removed);
+  assert.deepEqual(closed.messages, [{ type: 'toast-close', key: 'W-2' }]);
+});
 
 test("no toast layer when there are no toasts", () => {
   assert.doesNotMatch(html, /class="toasts"/);

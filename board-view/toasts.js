@@ -176,6 +176,11 @@ function close(state, key) {
   return { ...state, stack: arr(state && state.stack).filter((t) => t.key !== key) };
 }
 
+function closeInstances(state, instances) {
+  const selected = new Map(arr(instances).map((t) => [t.key, t.seq]));
+  return { ...state, stack: arr(state && state.stack).filter((t) => selected.get(t.key) !== t.seq) };
+}
+
 const WORDS = { progress: 'Progress', done: 'Done', blocked: 'Blocked', asking: 'Asking' };
 const GLYPHS = { asking: '❓', blocked: '⛔', 'waiting-owner': '⏳', interrupted: '⚠' };
 
@@ -184,6 +189,7 @@ function toViews(state, now, seen) {
   const shown = seen instanceof Set ? seen : new Set();
   return arr(state && state.stack).map((t) => ({
     key: t.key,
+    seq: t.seq,
     level: t.level,
     kind: t.kind,
     glyph: GLYPHS[t.kind] || (t.level === 'done' ? '✓' : '▸'),
@@ -198,5 +204,5 @@ function toViews(state, now, seen) {
 }
 
 module.exports = {
-  PROGRESS_MS, DONE_MS, MAX_SHOWN, BURST_OVER, diffBoards, applyEvents, prune, close, toViews,
+  PROGRESS_MS, DONE_MS, MAX_SHOWN, BURST_OVER, diffBoards, applyEvents, prune, close, closeInstances, toViews,
 };
