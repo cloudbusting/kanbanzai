@@ -1,11 +1,11 @@
 # W-41: Typed IDs by default, with legacy W cards and a seeded global counter
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12: merged 824f26e (21edaf3); no deploy (Deploy: None)
 - **ADR:** none
-- **Next action:** Close: merge the branch and mark the card done (Deploy is None)
-- **Where:** worktree W-41
+- **Next action:** —
+- **Where:** main
 - **Needs:** W-10
 
 ## Goal
