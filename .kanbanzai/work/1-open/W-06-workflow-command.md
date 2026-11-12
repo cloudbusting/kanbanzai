@@ -1,6 +1,6 @@
 # W-06: Workflow command: show, validate, plan, apply and export a step flow
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
