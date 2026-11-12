@@ -1,17 +1,16 @@
 # W-10: Typed IDs and one global ledger across the core
 
-- **Stage:** done
+- **Stage:** checked
 - **Updated:** 2026-11-12
-- **Done:** 2026-11-12: merged 6772e93 (a78c1f0, 90df545); no deploy (Deploy: None)
 - **ADR:** none
-- **Next action:** —
-- **Where:** main
+- **Next action:** Close: merge the branch and mark the card done (Deploy is None)
+- **Where:** worktree W-10
 - **Needs:** W-09
 
 ## Goal
 
 Implement the issue-type model W-09 settled across the Go core. A project that configures `[[types]]` gets typed IDs
-(`TASK-7`, `BUG-42`, `KANZ-BUG-43`): `kanbanzai number --type KEY` allocates from **one global sequence** and prints the
+(`TASK-07`, `BUG-42`, `KANZ-BUG-43`): `kanbanzai number --type KEY` allocates from **one global sequence** and prints the
 type's ID, and board, check, claim, move, gate, wip, sessions, context, workspace and the JSON contracts accept every
 configured prefix. A project with no `[[types]]` keeps today's single-prefix IDs and per-prefix ledger unchanged.
 Fresh projects made by `kanbanzai init` start typed, with task, bug, change, spike and chore.
@@ -22,33 +21,33 @@ mode.
 
 ## Acceptance checks
 
-- [ ] A typed project (`[[types]]` for task, bug, change, spike, chore and one project type, `default_type = "task"`)
+- [x] A typed project (`[[types]]` for task, bug, change, spike, chore and one project type, `default_type = "task"`)
       loads; `kanbanzai number --type bug` prints `BUG-<n>` and `kanbanzai number` prints `TASK-<n>`; both draw from one
       ascending sequence with no number repeated across types, including two concurrent allocations and one from each
       of two worktrees.
-- [ ] `kanbanzai number --status` prints the one ledger (`<numbers>/_ledger.json`); every reservation carries its item,
+- [x] `kanbanzai number --status` prints the one ledger (`<numbers>/_ledger.json`); every reservation carries its item,
       type, owner and time; the next number is above every issued, reserved and discovered typed brief number; a
       corrupt or unreadable ledger, an unknown type and an exhausted sequence exit non-zero and write nothing.
-- [ ] A project with no `[[types]]` behaves exactly as today (`W-01`, `<numbers>/W.json`, `kanbanzai number`); the
+- [x] A project with no `[[types]]` behaves exactly as today (`W-01`, `<numbers>/W.json`, `kanbanzai number`); the
       existing suite passes unchanged. Enabling types leaves any legacy `*.json` ledger untouched, and
       `kanbanzai number` fails closed (exit 1) with a message naming it while one is present.
-- [ ] `kanbanzai check` passes a typed board and fails: a filename prefix that is not configured, a title ID that
-      differs from the filename, two cards sharing one global number (`TASK-7` and `BUG-7`), and an invalid `[[types]]`
+- [x] `kanbanzai check` passes a typed board and fails: a filename prefix that is not configured, a title ID that
+      differs from the filename, two cards sharing one global number (`TASK-07` and `BUG-07`), and an invalid `[[types]]`
       (duplicate key or prefix ignoring case, bad grammar, unknown `default_type`, invalid `project_key` or `colour`).
-- [ ] `kanbanzai board --json` exposes each card's type additively and a top-level `types` list; `kanbanzai config
+- [x] `kanbanzai board --json` exposes each card's type additively and a top-level `types` list; `kanbanzai config
       --json` exposes `project.types`, `project.default_type` and `project.project_key`; no existing JSON field changes
       and `board-view`'s fixtures and tests still pass.
-- [ ] Claims, moves, gates, sessions, wip, context and workspace accept typed IDs: `claim TASK-7` writes
-      `cards/TASK-7.json`, `move TASK-7 …` works, a worktree on branch `TASK-7` is counted as taken by `wip`, and
-      `workspace TASK-7` prints the typed vocabulary.
-- [ ] With `project_key = "KANZ"`, `kanbanzai number --type bug` prints `KANZ-BUG-<n>`; the keyed ID parses; an unknown
+- [x] Claims, moves, gates, sessions, wip, context and workspace accept typed IDs: `claim TASK-07` writes
+      `cards/TASK-07.json`, `move TASK-07 …` works, a worktree on branch `TASK-07` is counted as taken by `wip`, and
+      `workspace TASK-07` prints the typed vocabulary.
+- [x] With `project_key = "KANZ"`, `kanbanzai number --type bug` prints `KANZ-BUG-<n>`; the keyed ID parses; an unknown
       project key or type prefix is rejected with the valid list.
-- [ ] `kanbanzai init` in a fresh git project writes a typed starter config (task, bug, change, spike, chore;
+- [x] `kanbanzai init` in a fresh git project writes a typed starter config (task, bug, change, spike, chore;
       `default_type = "task"`) and `init --dry-run` shows the types; `init --prefix W` still writes a legacy
       single-prefix config.
-- [ ] Tests cover task, bug, change, spike, chore, a project-specific type, a legacy project, a hand-retyped card, a
+- [x] Tests cover task, bug, change, spike, chore, a project-specific type, a legacy project, a hand-retyped card, a
       duplicate number across prefixes, invalid config, a corrupt ledger and two worktrees.
-- [ ] `go test ./...`, `go vet ./...` and `node --test board-view/*.test.mjs opencode/*.test.mjs` pass, and
+- [x] `go test ./...`, `go vet ./...` and `node --test board-view/*.test.mjs opencode/*.test.mjs` pass, and
       `kanbanzai check` passes on this repository's legacy `W` board.
 
 ## Deploy
@@ -118,7 +117,7 @@ Ordered. `→` marks a task that can run in parallel with the one before it beca
   owns the brief schema and, if it adds one, validates it against the ID rather than treating it as independent.
 - 2026-11-12, engineering: `kanbanzai number --type KEY` selects the type (key, case-insensitive); the default type is
   used when omitted; the positional prefix stays as the legacy-mode guard and is an error in typed mode.
-- 2026-11-12, engineering: implement the optional `project_key` from W-09 now (`KANZ-BUG-7`); the grammar is cheap
+- 2026-11-12, engineering: implement the optional `project_key` from W-09 now (`KANZ-BUG-07`); the grammar is cheap
   today and a second parser change later.
 - 2026-11-12, engineering: canonical IDs are uppercase and zero-padded; command input is case-insensitive and
   canonicalised, and file names must be canonical.
@@ -130,6 +129,8 @@ Ordered. `→` marks a task that can run in parallel with the one before it beca
 - 2026-11-12: Design reconciled W-10's legacy wording with W-09's owner decision (no migration or aliases); owner chose typed IDs for fresh projects; tasks, checks, docs and risks written; no implementation started.
 - 2026-11-12: Built the type model (internal/typeid), typed config and validation, the single _ledger.json allocator, typed ids across board/check/claim/move/wip/sessions/context/workspace/cli, board and config JSON, the typed init starter config, docs/types.md and an end-to-end typed CLI test; all Go and Node suites pass.
 - 2026-11-12: Checked: go test ./... and go vet ./... green; node --test board-view and opencode 247 tests green; hooks and JS syntax, claude plugin validate, tools/release -check and the vsix dry run green; kanbanzai check and the card audit pass; reviewed the whole diff.
+- 2026-11-12: Reopened for the exhaustion acceptance check: the allocator now reads ledger numbers exactly and fails closed when the next number would overflow; go test ./..., go vet ./... and the 247 Node tests pass.
+- 2026-11-12: Checked again: go test ./... and go vet ./... green; 247 Node tests green; hooks and JS syntax, claude plugin validate, tools/release -check and the vsix dry run green; kanbanzai check and the card audit pass.
 
 ## Out of scope
 
@@ -142,7 +143,7 @@ Ordered. `→` marks a task that can run in parallel with the one before it beca
 
 ## Risk
 
-- A global sequence with type prefixes is easy to misread: `BUG-7` is the seventh item overall, not the seventh bug.
+- A global sequence with type prefixes is easy to misread: `BUG-07` is the seventh item overall, not the seventh bug.
   `number --status`, the context and the docs must say so plainly.
 - Enabling types on an existing board is deliberately refused while a legacy ledger exists; the message must say how
   to proceed (keep legacy, or start a fresh typed board), not only fail.
