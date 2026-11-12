@@ -23,6 +23,8 @@ type Options struct {
 	PlanFile     string
 	MainBranch   string
 	Owner        string
+	Prefix       string
+	Context      []string
 	Out, Err     io.Writer
 
 	// Test hooks.
