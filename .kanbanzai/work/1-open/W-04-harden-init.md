@@ -1,10 +1,10 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run the project's checks and review the diff of branch W-04 (commit 9027f32); note the doctor_test.go change (init now runs the built command there)
+- **Next action:** deploy-qa: run kanbanzai-package on the merged W-04 (build and prove the .vsix and plugin bundles); then the owner approves the release
 - **Where:** worktree W-04
 
 ## Goal
@@ -91,6 +91,7 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 - 2026-11-12: design: one detect→plan→apply→verify pipeline; plan JSON; main-branch rule; owner from git user.name (owner's choice); Deploy corrected to package and release
 - 2026-11-12: build: init as detect/plan/apply/verify in internal/init; config.ValidateText; CLI flags; README and CHANGELOG; go vet and go test ./... green, Node suites green, windows/darwin cross-builds compile
+- 2026-11-12: check: kanbanzai-qa green — go test ./... (294 tests, 20 packages), go vet, node 132, hooks, js syntax, claude plugin validate, step resolution, kanbanzai check, card audit; diff reviewed, no must-fix
 
 ## Comments
 
