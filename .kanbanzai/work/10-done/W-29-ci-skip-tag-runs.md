@@ -1,11 +1,11 @@
 # W-29: CI runs on branch pushes and pull requests only, not on every tag
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — merged cd1eb01, no deploy (CI configuration)
 - **ADR:** none
-- **Next action:** close: Deploy is None
-- **Where:** worktree W-29
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
