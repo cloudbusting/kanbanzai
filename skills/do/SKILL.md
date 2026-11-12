@@ -56,8 +56,20 @@ safeguards; run configured release actions in the main session, not a subagent.
 ## Delegation
 
 Delegate only contained tasks with named, non-overlapping files, a clear acceptance check, no open decision and
-sufficient context. Supply the card, brief and Comments handover, workspace, rules, exact scope and checks. A
-subagent never claims, edits a card or board, comments, commits, pushes, ships, asks the owner or adds dependencies.
+sufficient context. Keep sensitive work (authorisation, secrets, money, data deletion), work spanning most of the
+brief, and a task that has already failed once in a subagent in the main session. The subagent's brief is all it
+knows:
+
+```
+Card: <ID> — it never claims or edits the card.
+Goal: <one sentence>
+Owns: <files it may change>. Read first: <files, brief sections, the Comments handover, the workspace>
+Do: <the change, specific>
+Done when: <the acceptance check: a test name, a command and its expected output>
+Not: <out of scope>
+```
+
+A subagent never claims, edits a card or board, comments, commits, pushes, ships, asks the owner or adds dependencies.
 The main session reviews each diff and test result; a subagent's completion report is not proof. Sensitive work and
 decisions remain in the main session. Parallel tasks must not share files.
 
@@ -77,6 +89,17 @@ another session's work. Renew then release the claim when stopping, including at
 work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. If unfinished
 work cannot safely be committed or a workspace removed, preserve it and say so. Do not delete another session's work.
 
-Report the card and actual column, workspace and claim, commits and push status, checks and delivery outcome, the
-one next action and any decision the owner must make. Say interrupted when an unfinished step is left without a
-claim; never call the card finished until the configured close has actually occurred.
+Every stop ends with the same block, last, in plain language. The stage word is the card's actual column
+(`interrupted` for a Doing-column card left without a claim; say a Held line out loud; name a red check):
+
+```
+**<ID> — <actual column>** · Where: <the card's workspace record, or the configured trunk when closed>
+Owner: <claim label> · claim until <YYYY-MM-DD HH:MM UTC> | released
+Committed: none | <sha> "<ID>: …" (pushed: no|yes) · Shipped: none | <what, where, which sha>
+Tree: clean | <n> uncommitted files (named below)
+Next: <the one step the next turn starts with>
+Yours: nothing | decide <the question> | approve <the step that waits on the owner>
+```
+
+When something is the owner's, follow it with a question-tool call, the recommended option first. Never call the
+card finished until the configured close has actually occurred.
