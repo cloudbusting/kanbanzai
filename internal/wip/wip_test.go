@@ -207,7 +207,24 @@ func TestWorktreeMapsToItsCard(t *testing.T) {
 }
 
 func TestABatchWorkspaceIsNotAnOrphan(t *testing.T) {
+	// The default puts every worktree in ../worktrees/<project>/, so a workspace there is the batch's.
 	project := testProject(t, defaultConfig)
+	testutil.Write(t, filepath.Join(project.Batches, "B-01.md"),
+		"# B-01: the best three\n\n- **State:** running\n- **Cards:** W-07\n\n"+
+			"| Card | Owns | Agent | Workspace | Stage | Last result |\n|---|---|---|---|---|---|\n"+
+			"| W-07 | engine | dev | worktree ../worktrees/"+filepath.Base(project.Root)+"/style | spawned | — |\n"+
+			"| W-08 | docs | dev | worktree ../elsewhere/loose | spawned | — |\n")
+	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/worktrees/" + filepath.Base(project.Root) + "/style"},
+		nil); got != "batch" {
+		t.Fatalf("batch = %q", got)
+	}
+	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/loose"}, nil); got != "" {
+		t.Fatalf("a path outside the worktrees folder = %q, want an orphan", got)
+	}
+}
+
+func TestABatchWorkspaceUnderAnExplicitSiblingPattern(t *testing.T) {
+	project := testProject(t, "[project]\nowner = \"Sam\"\nworktree = \"../{repo}-{id}\"\n")
 	testutil.Write(t, filepath.Join(project.Batches, "B-01.md"),
 		"# B-01: the best three\n\n- **State:** running\n- **Cards:** W-07\n\n"+
 			"| Card | Owns | Agent | Workspace | Stage | Last result |\n|---|---|---|---|---|---|\n"+

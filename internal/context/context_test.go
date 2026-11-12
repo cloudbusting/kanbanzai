@@ -57,7 +57,7 @@ func TestContextNamesTheBoardColumnsRuleAndFiles(t *testing.T) {
 		"Pull rule: pull the furthest-along card first (checked, built, designed, todo)",
 		"At most 5 cards are started at once",
 		"The owner is Sam",
-		"(../" + filepath.Base(project.Root) + "-{id})",
+		"(../worktrees/" + filepath.Base(project.Root) + "/{id})",
 		"Read first:\n  RULES.md\n  docs/where-things-stand.md",
 	}
 	for _, want := range checks {
