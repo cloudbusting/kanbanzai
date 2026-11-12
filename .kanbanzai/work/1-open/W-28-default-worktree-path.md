@@ -1,6 +1,6 @@
 # W-28: Default worktree path `../worktrees/<project-dir-name>/{id}`
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
