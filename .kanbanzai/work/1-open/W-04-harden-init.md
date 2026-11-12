@@ -1,10 +1,10 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 1 (detection): add internal/init/detect.go with its tests first, per the brief's Design
+- **Next action:** check: run the project's checks and review the diff of branch W-04 (commit 9027f32); note the doctor_test.go change (init now runs the built command there)
 - **Where:** worktree W-04
 
 ## Goal
@@ -42,7 +42,7 @@ One pipeline, one plan: **detect → build plan → (show it | apply it) → ver
 ## Acceptance checks
 
 - [ ] In a temp repo with default branch `master` (and another with `trunk`), `kanbanzai init` writes `main_branch = "master"`; `kanbanzai check` exits 0; `kanbanzai wip --audit` has no `main branch` finding and its only finding is the uncommitted `.kanbanzai/` files, which the init report names as the files to commit. Test fails on the old init.
-- [ ] A repo with several candidate branches, a detached HEAD or a feature branch checked out: `init` exits 2, writes nothing, and the message names `--main-branch`; `init --main-branch trunk` then works.
+- [ ] A repo with no single candidate main branch (main and master both present; only non-standard branches with a feature branch or a detached HEAD): `init` exits 2, writes nothing, and the message names `--main-branch`; `init --main-branch develop` then works. (Built: with exactly one of main/master/trunk present, that one is the answer even if another branch is checked out.)
 - [ ] `init --dry-run --json` exits 0, writes nothing (the tree is byte-identical before and after), and lists every `mkdir`, `create`, `keep`, `append`, `backup` and `replace` it would do; running `init --json` for real gives the same `plan` value; `init --plan FILE` on the dry-run output produces the same tree as a direct `init`.
 - [ ] `--plan` rejects, with exit 2 and nothing written: a path with `..`, an absolute path, a path through a symlink, an unknown field, a wrong `schema_version` or `root`, a `sha256` that does not match `content`, a config the loader rejects, and a tree that changed since the plan (stale).
 - [ ] An existing config with `home`, `work`, `state`, `claims`, `numbers` or `batches` relocated inside the checkout: init creates the card folders and batches folder at the new places and the ignore entries cover the new state paths (`git check-ignore` is true for a claim file under each); a path that resolves outside the checkout (work, batches, template) is refused with exit 2 naming the key. In every case the only config file in the tree is `.kanbanzai/config.toml`.
@@ -61,12 +61,12 @@ package and release: the Go command is a shipped artifact, so this is not the to
 
 Order: 1 → 2 → 3 → 5; task 4 touches different files from 1–3 and can run in parallel with them; 6 is last. Tests are written first in each task.
 
-- [ ] 1. Detection — owns `internal/init/detect.go`, `internal/init/detect_test.go`, `internal/gitutil/git.go` (only if a helper is needed). The `Detected` struct and the main-branch rule. Proves: table tests over fixtures from `testutil.Repo` (fresh, `master`, `trunk`, ambiguous, detached, unborn, existing valid/invalid config, linked worktree, relocated paths, host rule files).
-- [ ] 2. Plan and dry run — owns `internal/config/config.go` or a new `internal/config/validate.go` (add `ValidateText` only, with a test that a text the loader rejects is rejected and a good one builds), `internal/init/plan.go`, `internal/init/plan_test.go`. `Build(detected, options) (Plan, refusals)`, human and JSON rendering, relocated-path and ignore rules. Proves: golden JSON for fresh/`master`/relocated/existing, refusals, and that every generated config passes `ValidateText`.
-- [ ] 3. Safe apply and plan intake — owns `internal/init/apply.go`, `internal/init/apply_test.go`, `internal/init/planfile.go`, `internal/init/planfile_test.go`. Validation of a loaded plan, stale detection, atomic writes, backup, force, the interruption test hook. Proves: the rejection list, idempotence, partial-failure and backup checks above.
-- [ ] 4. Verification (parallel with 1–3) — owns `internal/init/verify.go`, `internal/init/verify_test.go`, and in `internal/wip/wip.go` only an exported helper that returns the audit's flag lines if needed (the printed output unchanged; `wip_test.go` proves it). Proves: pass/fail/exit mapping, commit-file list, next actions.
-- [ ] 5. Command wiring — owns `internal/init/init.go` (replaces `Run`; keeps the package doc accurate), `internal/init/init_test.go` (the existing tests move to the new report), `internal/cli/cli.go` (flags, usage text, handling before `config.Find`), `internal/cli/cli_test.go`. Proves: the end-to-end acceptance checks via the binary entry point, exit codes 0/1/2.
-- [ ] 6. Docs — owns `README.md` (the `init` mentions near lines 50, 73, 127 and 302), `CHANGELOG.md` (Unreleased entry). Proves: `skills_wording_test.go` and `release_test.go` still pass.
+- [x] 1. Detection — owns `internal/init/detect.go`, `internal/init/detect_test.go`, `internal/gitutil/git.go` (only if a helper is needed). The `Detected` struct and the main-branch rule. Proves: table tests over fixtures from `testutil.Repo` (fresh, `master`, `trunk`, ambiguous, detached, unborn, existing valid/invalid config, linked worktree, relocated paths, host rule files).
+- [x] 2. Plan and dry run — owns `internal/config/config.go` or a new `internal/config/validate.go` (add `ValidateText` only, with a test that a text the loader rejects is rejected and a good one builds), `internal/init/plan.go`, `internal/init/plan_test.go`. `Build(detected, options) (Plan, refusals)`, human and JSON rendering, relocated-path and ignore rules. Proves: golden JSON for fresh/`master`/relocated/existing, refusals, and that every generated config passes `ValidateText`.
+- [x] 3. Safe apply and plan intake — owns `internal/init/apply.go`, `internal/init/apply_test.go`, `internal/init/planfile.go`, `internal/init/planfile_test.go`. Validation of a loaded plan, stale detection, atomic writes, backup, force, the interruption test hook. Proves: the rejection list, idempotence, partial-failure and backup checks above.
+- [x] 4. Verification (parallel with 1–3) — owns `internal/init/verify.go`, `internal/init/verify_test.go`, and in `internal/wip/wip.go` only an exported helper that returns the audit's flag lines if needed (the printed output unchanged; `wip_test.go` proves it). Proves: pass/fail/exit mapping, commit-file list, next actions.
+- [x] 5. Command wiring — owns `internal/init/init.go` (replaces `Run`; keeps the package doc accurate), `internal/init/init_test.go` (the existing tests move to the new report), `internal/cli/cli.go` (flags, usage text, handling before `config.Find`), `internal/cli/cli_test.go`. Proves: the end-to-end acceptance checks via the binary entry point, exit codes 0/1/2.
+- [x] 6. Docs — owns `README.md` (the `init` mentions near lines 50, 73, 127 and 302), `CHANGELOG.md` (Unreleased entry). Proves: `skills_wording_test.go` and `release_test.go` still pass.
 
 ## Docs
 
@@ -90,6 +90,7 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 - 2026-11-12: design: one detect→plan→apply→verify pipeline; plan JSON; main-branch rule; owner from git user.name (owner's choice); Deploy corrected to package and release
+- 2026-11-12: build: init as detect/plan/apply/verify in internal/init; config.ValidateText; CLI flags; README and CHANGELOG; go vet and go test ./... green, Node suites green, windows/darwin cross-builds compile
 
 ## Comments
 
