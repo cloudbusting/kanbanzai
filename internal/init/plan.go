@@ -389,7 +389,7 @@ func within(dir, path string) bool {
 func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x00") == string(data) }
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
-// template are written only when they differ from the defaults.
+// template are written only when they differ from the defaults; prefix and context only when asked for.
 func ConfigText(owner, mainBranch, template, prefix string, context []string) string {
 	var b strings.Builder
 	b.WriteString(`# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:

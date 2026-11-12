@@ -831,9 +831,7 @@ func TestPrefixAndContextAreWrittenToANewConfigAndRoundTrip(t *testing.T) {
 func TestPrefixAndContextAreRefusedWithNothingWritten(t *testing.T) {
 	root := repo(t, "main")
 	testutil.Write(t, filepath.Join(root, "docs", "rules.md"), "# rules\n")
-	if err := os.Symlink(filepath.Join(t.TempDir(), "nowhere"), filepath.Join(root, "dangling.md")); err != nil {
-		t.Skip("no symlinks here")
-	}
+	dangling := os.Symlink(filepath.Join(t.TempDir(), "nowhere"), filepath.Join(root, "dangling.md")) == nil
 	commitAll(t, root)
 	outside := filepath.Join(t.TempDir(), "outside.md")
 	testutil.Write(t, outside, "x")
@@ -841,10 +839,15 @@ func TestPrefixAndContextAreRefusedWithNothingWritten(t *testing.T) {
 	for _, opts := range []Options{
 		{Prefix: "A-B"}, {Prefix: "1"}, {Prefix: "has space"}, {Prefix: "A\"B"},
 		{Context: []string{"missing.md"}}, {Context: []string{"docs"}}, {Context: []string{"../outside.md"}},
-		{Context: []string{outside}}, {Context: []string{"dangling.md"}}, {Context: []string{""}},
+		{Context: []string{outside}}, {Context: []string{""}},
 	} {
 		if code, _, errOut := initRun(root, opts); code != 2 {
 			t.Errorf("init %+v = %d (%q), want 2", opts, code, errOut)
+		}
+	}
+	if dangling { // a symlink to nowhere is not a file (skipped where symlinks cannot be made)
+		if code, _, errOut := initRun(root, Options{Context: []string{"dangling.md"}}); code != 2 {
+			t.Errorf("a dangling --context = %d (%q), want 2", code, errOut)
 		}
 	}
 	if !reflect.DeepEqual(before, tree(t, root)) {
