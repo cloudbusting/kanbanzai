@@ -24,6 +24,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 // CardRow is one card as the wip report needs it.
@@ -68,16 +69,7 @@ type Candidate struct {
 }
 
 // WhereOf is a brief's Where line without its note: "worktree W-07 (branch ...)" is "worktree W-07".
-func WhereOf(value string) string {
-	words := strings.Fields(strings.ReplaceAll(value, "`", ""))
-	if len(words) >= 2 && words[0] == "worktree" {
-		return "worktree " + words[1]
-	}
-	if len(words) == 0 {
-		return "—"
-	}
-	return words[0]
-}
+func WhereOf(value string) string { return workspace.Normal(value) }
 
 // Cards is the board by column with the brief's Where, owner and Updated.
 func Cards(project *config.Project, held map[string]map[string]any) CardsByColumn {
@@ -467,18 +459,20 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 	}
 	mapped := map[string][]string{}
 	prefix := project.Prefix + "-"
+	mode := workspace.Of(project)
+	perWorktree := mode == workspace.Worktree
 	for key, rows := range cards {
 		column, ok := project.ByKey[key]
 		if !ok || column.Kind == "done" {
 			continue
 		}
 		for _, row := range rows {
-			if row.Where == "main" {
+			if perWorktree && row.Where == "main" {
 				hard = append(hard, fmt.Sprintf("%s (%s): Where says main — the change is made in %s; main "+
 					"holds only the board", row.Item, column.Label, project.WorktreeHint(row.Item)))
 			}
 			record, hasRecord := held[row.Item]
-			if column.Worktree && hasRecord && isLive(record) && !strings.HasPrefix(row.Where, "worktree ") {
+			if perWorktree && column.Worktree && hasRecord && isLive(record) && !strings.HasPrefix(row.Where, "worktree ") {
 				_, _, owner := ClaimState(record)
 				hard = append(hard, fmt.Sprintf("%s (%s): claimed by %s but no worktree; create %s and set "+
 					"Where to 'worktree %s'", row.Item, column.Label, owner,
@@ -486,21 +480,29 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			}
 		}
 	}
-	if only == "" {
+	if only == "" && (perWorktree || mode == workspace.External) {
+		where, dirtyWhere := "its worktree", "a worktree"
+		if !perWorktree {
+			where, dirtyWhere = "the host's workspace", "the host's workspace"
+		}
 		for _, wt := range wts {
 			if !samePath(wt.Path, project.Root) {
 				continue
 			}
 			if wt.Branch != project.MainBranch {
 				hard = append(hard, fmt.Sprintf("the main checkout is on '%s', not %s; a card's change goes in "+
-					"its worktree", wt.Branch, project.MainBranch))
+					"%s", wt.Branch, project.MainBranch, where))
 			}
 			if wt.Dirty > 0 {
 				hard = append(hard, fmt.Sprintf("the main checkout has %d uncommitted file(s); the board is "+
-					"edited there and the change in a worktree — %s", wt.Dirty,
+					"edited there and the change in %s — %s", wt.Dirty, dirtyWhere,
 					strings.Join(wt.DirtyFiles, ", ")))
 			}
 		}
+	}
+	allTrees := wts
+	if !perWorktree {
+		wts = nil
 	}
 	for _, wt := range wts {
 		if samePath(wt.Path, project.Root) {
@@ -566,7 +568,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 	sort.Strings(items)
 	for _, item := range items {
 		cardWhere := where[item]
-		if !strings.HasPrefix(cardWhere, "worktree ") {
+		if !perWorktree || !strings.HasPrefix(cardWhere, "worktree ") {
 			continue
 		}
 		fields := strings.Fields(cardWhere)
@@ -638,6 +640,10 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 					column.Label, row.Item))
 			}
 		}
+	}
+	if !perWorktree {
+		h, sf, c := isolationFindings(project, cards, allTrees, held, only)
+		hard, soft, cleanup = append(hard, h...), append(soft, sf...), append(cleanup, c...)
 	}
 	return hard, soft, cleanup
 }
@@ -726,6 +732,9 @@ func Report(project *config.Project, opts Options, out, errOut io.Writer) int {
 	worktrees := Worktrees(project)
 	hard, soft, cleanup := Reconcile(project, cards, worktrees, held, only, OnHold(project))
 	fmt.Fprintf(out, "WIP — %s\n", time.Now().Format("2006-01-02"))
+	if line := IsolationLine(project); line != "" {
+		fmt.Fprintln(out, line)
+	}
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Board")
 	loaded := board.Load(project, liveAll, nil)

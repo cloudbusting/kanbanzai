@@ -43,6 +43,12 @@ wip_limit = 5                     # positive integer; started cards (a claimed T
 stale_days = 7                    # positive integer; unclaimed started card with no news this long is stale
 move_grace_minutes = 10           # positive finite minutes, <=153722867; live claim still in Todo/Done this long is "claimed, not started"
 pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; interrupted cards before all
+# How a card's change is kept apart from the board (`kanbanzai workspace <ID>` says what each mode asks of a card):
+#   worktree  a git worktree and a branch per card (project.worktree, project.branch); parallel sessions are safe
+#   branch    a branch per card in the one checkout; one card at a time (one HEAD); the card's brief rides its branch
+#   shared    the one checkout, whatever branch it is on; no workspace record; parallel sessions share one tree
+#   external  a workspace the host owns; a card records it as `Where: external <ref>`, which the audit trusts
+isolation = "worktree"
 
 # The columns, in the board's order. Keys:
 #   key      the column's id, and the Stage word that puts a card in it (unless `words` says more)
@@ -53,7 +59,8 @@ pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; 
 #   started  true: counts against wip_limit; "claimed": counts only with a live claim (the first column)
 #   next     the step a session does to a card in this column (absent: nothing; the card waits)
 #   title    the session-title state while a session does that step
-#   worktree true: a claimed card here must have a worktree (its next step changes files)
+#   worktree true: a claimed card here must have a workspace record in the flow's isolation mode (its next step
+#            changes files); under `shared` nothing is recorded, under `worktree` it is a worktree
 #   lane     the step's name on the board, over its Doing and Done columns (empty: a column of its own)
 #   gate     a gate holds a card at rest in this column until its condition holds; `move` will not take it
 #            out while the gate is closed (`--force --reason` overrides). One of:

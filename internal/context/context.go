@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 // Limit is the soft cut; the shipped context stays well under it.
@@ -86,10 +87,6 @@ func Build(project *config.Project) string {
 		lines = append(lines, fmt.Sprintf("  %s (%s%s, folder %s): %s%s", column.Key, column.Label, lane,
 			column.Folder, via, extra))
 	}
-	worktree, err := project.Expand(project.WorktreePattern, "")
-	if err != nil {
-		worktree = project.WorktreePattern
-	}
 	rules := []string{
 		fmt.Sprintf("Pull rule: pull the furthest-along card first (%s), interrupted cards (in a Doing column "+
 			"with no live claim, or an expired claim) before all.", strings.Join(project.PullOrder, ", ")),
@@ -101,8 +98,7 @@ func Build(project *config.Project) string {
 		"Claim a card before working on it (`kanbanzai claim claim ID`), move it into the step's Doing column (the " +
 			"Stage word `kanbanzai step --for ID` prints), then into its Done column when the step ends, release the " +
 			"claim when work stops.",
-		fmt.Sprintf("Every change to a card is made in its worktree (%s); the main checkout holds only the board.",
-			worktree),
+		workspace.Rule(project),
 		"Each skill starts with `kanbanzai step <name>`; `kanbanzai step --for ID` says what to do next to a card.",
 		fmt.Sprintf("The owner is %s: decisions that are theirs go to them.", project.Owner),
 	}

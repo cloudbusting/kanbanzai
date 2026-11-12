@@ -10,7 +10,7 @@
 - **Done:** — (the date, and where it went live, when the card is finished)
 - **ADR:** <one or more links to decision records, or "none"; each record names this card>
 - **Next action:** <one concrete step; the next session starts here>
-- **Where:** — before work starts, then `worktree <ID>` (the card's worktree and branch); `main` only on a Done card
+- **Where:** — before work starts, then the card's workspace record (`kanbanzai workspace <ID>` prints it: `worktree <ID>` by default); `main` on a Done card, and while work is done in a shared checkout
 
 ## Goal
 

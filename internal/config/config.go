@@ -109,6 +109,7 @@ type Project struct {
 	Digits             int
 	Owner              string
 	MainBranch         string
+	Isolation          string // worktree, branch, shared or external: how a card's change is kept apart
 	WorktreePattern    string
 	BranchPattern      string
 	BatchBranchPattern string
@@ -393,6 +394,7 @@ func (p *Project) build() error {
 	if p.OwnerEnv == "" {
 		p.OwnerEnv = "KANBANZAI_OWNER"
 	}
+	p.Isolation = asString(flow["isolation"], "worktree")
 	p.WIPLimit = asInt(flow["wip_limit"], 5)
 	if p.WIPLimit == 0 {
 		p.WIPLimit = 5
@@ -818,7 +820,7 @@ func (p *Project) AsDict() map[string]any {
 		"project":     project,
 		"claims":      map[string]any{"lease_minutes": p.LeaseMinutes, "owner_env": p.OwnerEnv},
 		"flow": map[string]any{"wip_limit": p.WIPLimit, "stale_days": p.StaleDays,
-			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder},
+			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder, "isolation": p.Isolation},
 		"columns": columns,
 		"steps":   steps,
 	}

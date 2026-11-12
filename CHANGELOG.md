@@ -3,6 +3,19 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [Unreleased]
+
+- W-12: isolation is a setting. `[flow] isolation` is `worktree` (the default, exactly as before), `branch` (a branch
+  per card in the one checkout), `shared` (the one checkout, no workspace record) or `external` (a workspace the host
+  owns, recorded as `Where: external <ref>`). `wip --audit`, `move`, `claim`, `check` and `context` follow the mode:
+  a clean shared checkout is no longer a hard finding, a branch-mode card is audited on its branch, and an external
+  workspace is trusted through its record. New `kanbanzai workspace ID [--json]` prints what a card needs in the
+  mode (the `make`, `then` and `remove` steps), and the skills quote it instead of carrying git commands. A finished
+  card keeps any mode's `Where` word, so changing mode never invalidates the archive. Additive: `config --json` gains
+  `flow.isolation`, `workflow show --json` isolation gains `setting` and `where_vocabulary` (its `mode` value for the
+  default is unchanged). `branch` and `shared` cannot work cards in parallel; the audit and `docs/isolation.md` say
+  so. No network request, no new dependency.
+
 ## [0.9.0] — 2026-11-12
 
 - W-13: delivery is data. A step can declare `skip_field` and `skip_values`: a card whose brief matches skips the
