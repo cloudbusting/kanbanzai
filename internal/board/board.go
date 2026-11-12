@@ -28,6 +28,7 @@ var glyphs = map[string]string{"blocked": " ⛔", "waiting": " ⏳", "waiting-ow
 const (
 	interruptedMark = " ⚠"
 	unstartedMark   = " ⚑"
+	gateMark        = " ⏸"
 )
 
 // Card is one brief on the board. JSON is the `board --json` contract the extension reads.
@@ -51,6 +52,11 @@ type Card struct {
 	column   string
 	gateLine string
 	needs    []string
+}
+
+// WaitsAtGate is true for a card whose column has a gate that is closed or failed: it cannot move forward yet.
+func (c *Card) WaitsAtGate() bool {
+	return c.Gate != nil && c.Gate.State != gate.Open
 }
 
 // Column is one board column and its cards.
@@ -367,6 +373,9 @@ func MarkText(card *Card, unstarted bool) string {
 	if unstarted {
 		builder.WriteString(unstartedMark)
 	}
+	if card.WaitsAtGate() {
+		builder.WriteString(gateMark)
+	}
 	return builder.String()
 }
 
@@ -381,6 +390,9 @@ func cardText(card *Card) string {
 	}
 	if card.ClaimedNotStarted {
 		builder.WriteString(unstartedMark)
+	}
+	if card.WaitsAtGate() {
+		builder.WriteString(gateMark)
 	}
 	if card.Owner != nil {
 		builder.WriteString(" ●")

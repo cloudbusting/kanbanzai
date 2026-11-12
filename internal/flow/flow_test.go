@@ -249,3 +249,29 @@ func skipFor(p *config.Project, all bool) func(string) bool {
 	}
 	return func(name string) bool { return p.Steps[name].SkipField != "" }
 }
+
+func TestShowListsEveryGateAndSkipRule(t *testing.T) {
+	text := "config_version = 1\n" + strings.Replace(strings.Replace(base, `next = "finish"`,
+		"next = \"finish\"\ngate = \"date\"\ngate_after = \"2030-06-01\"", 1), `skill = "kanbanzai:check"`,
+		"skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\"]", 1)
+	m := Build(project(t, text))
+	if len(m.Gates) != 1 || m.Gates[0].Column != "ready" || m.Gates[0].Kind != "date" || m.Gates[0].Type != "date" ||
+		m.Gates[0].After != "2030-06-01" || m.Gates[0].Step != "finish" {
+		t.Fatalf("gates = %+v", m.Gates)
+	}
+	for _, c := range m.Columns {
+		if (c.Key == "ready") != (c.Gate == "date") {
+			t.Errorf("column %s gate = %q", c.Key, c.Gate)
+		}
+	}
+	for _, s := range m.Steps {
+		if (s.Name == "finish") != (s.SkipField == "Type") {
+			t.Errorf("step %s skip = %q", s.Name, s.SkipField)
+		}
+	}
+	shipped := Build(project(t, ""))
+	if len(shipped.Gates) != 1 || shipped.Gates[0].Kind != "owner-approval" || shipped.Gates[0].Type != "owner" ||
+		shipped.Gates[0].Column != "qa-approved" || shipped.Gates[0].Step != "ship" {
+		t.Fatalf("the shipped gate = %+v", shipped.Gates)
+	}
+}

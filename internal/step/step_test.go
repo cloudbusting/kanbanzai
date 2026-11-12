@@ -245,3 +245,59 @@ func TestForACardThatIsNotThere(t *testing.T) {
 		t.Fatalf("missing card: %d %q", code, errOut)
 	}
 }
+
+const deployStepConfig = "[project]\nowner = \"Sam\"\n[steps.deploy-qa]\nskill = \"release\"\n[steps.ship]\nskill = \"release\"\n"
+
+func TestStepForExplainsASkippedDeployAndHowTheCardCloses(t *testing.T) {
+	project := testProject(t, deployStepConfig)
+	putCard(t, project, "W-01", "tooling", "checked", "- **Deploy:** None (tooling)")
+	putCard(t, project, "W-02", "shipped", "checked", "- **Deploy:** the QA stack")
+	code, text, _ := runStep(t, project, Options{For: "W-01"})
+	if code != 0 || !strings.Contains(text, "skip: this card skips `deploy-qa`, `ship` (Deploy: None (tooling)) and closes: "+
+		`kanbanzai move W-01 done --done "<what shipped>"`) {
+		t.Fatalf("text = %q", text)
+	}
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found map[string]any
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(found["skipped_steps"], []any{"deploy-qa", "ship"}) || found["lands_in"] != "done" ||
+		found["lands_kind"] != "close" || found["gate"] != nil {
+		t.Fatalf("json = %#v", found)
+	}
+	_, text, _ = runStep(t, project, Options{For: "W-02"})
+	if strings.Contains(text, "skip:") {
+		t.Fatalf("a card that ships skips: %q", text)
+	}
+	_, out, _ = runStep(t, project, Options{For: "W-02", JSON: true})
+	found = nil
+	if err := json.Unmarshal([]byte(out), &found); err != nil || len(found["skipped_steps"].([]any)) != 0 ||
+		found["lands_in"] != nil {
+		t.Fatalf("json = %#v (%v)", found, err)
+	}
+}
+
+func TestStepForNamesTheGateThatHoldsACard(t *testing.T) {
+	project := testProject(t, deployStepConfig)
+	putCard(t, project, "W-01", "waiting", "qa-approved")
+	putCard(t, project, "W-02", "approved", "qa-approved", "- **Gate:** passed by Sam, 2026-11-12 — yes")
+	_, text, _ := runStep(t, project, Options{For: "W-01"})
+	for _, want := range []string{"the next step is `ship`", "gate: W-01 is held by the QA-approved gate (owner)",
+		"kanbanzai gate pass W-01 --note"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("closed gate text misses %q:\n%s", want, text)
+		}
+	}
+	_, text, _ = runStep(t, project, Options{For: "W-02"})
+	if !strings.Contains(text, "gate: open (passed by Sam, 2026-11-12 — yes)") || strings.Contains(text, "is held by") {
+		t.Errorf("open gate text:\n%s", text)
+	}
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found struct {
+		Gate struct{ Type, State string }
+	}
+	if err := json.Unmarshal([]byte(out), &found); err != nil || found.Gate.Type != "owner" || found.Gate.State != "closed" {
+		t.Fatalf("json %q: %+v (%v)", out, found, err)
+	}
+}

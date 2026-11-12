@@ -6,12 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 )
 
 // Instead is what happens to a card whose next step has no skill: the card skips ahead to a step, a close or a stop.
@@ -92,6 +95,40 @@ func SkippedFor(project *config.Project, briefText, name string) bool {
 	}
 	value, found := brief.FieldValue(briefText, step.SkipField)
 	return found && brief.StartsWithWord(value, step.SkipValues)
+}
+
+// Skipped is where a card goes when it skips steps: the steps it passes over, in order, and where it lands.
+type Skipped struct {
+	Steps  []string `json:"steps"`
+	Column string   `json:"column"` // the column it lands in: a done column (Kind "close") or the first column whose step it does not skip
+	Kind   string   `json:"kind"`   // "close" or "skip"
+}
+
+// SkipPath follows the steps a card skips, starting at name, and says where it lands. It is nil when the card
+// skips nothing. skipped says whether the card skips a step.
+func SkipPath(project *config.Project, name string, skipped func(string) bool) *Skipped {
+	if skipped == nil {
+		return nil
+	}
+	path := &Skipped{}
+	for count := 0; count <= len(project.Steps) && name != "" && skipped(name); count++ {
+		path.Steps = append(path.Steps, name)
+		into, ok := project.ByKey[project.Steps[name].Into]
+		if !ok {
+			return nil
+		}
+		path.Column = into.Key
+		if into.Kind == "done" {
+			path.Kind = "close"
+			return path
+		}
+		path.Kind = "skip"
+		name = into.Next
+	}
+	if len(path.Steps) == 0 {
+		return nil
+	}
+	return path
 }
 
 // SkipRule is the step's rule as plain data, or nil when it has none.
@@ -261,7 +298,13 @@ func Run(project *config.Project, opts Options) int {
 			return 1
 		}
 		name := NextStep(project, card, key)
-		result := map[string]any{"card": opts.For, "column": key, "column_label": project.Label(key), "next": nil}
+		result := map[string]any{"card": opts.For, "column": key, "column_label": project.Label(key), "next": nil,
+			"gate": nil, "skipped_steps": []string{}, "lands_in": nil, "lands_kind": nil}
+		blocked := ""
+		if card.Gate != nil {
+			result["gate"] = card.Gate
+			blocked = gate.Blocks(project, card.Gate, opts.For)
+		}
 		if name == "" {
 			note := WaitingNote(project, key, card)
 			result["note"] = note
@@ -270,8 +313,21 @@ func Run(project *config.Project, opts Options) int {
 			} else {
 				fmt.Fprintf(out, "%s is in `%s` (%s): no next step; %s.\n", opts.For, key,
 					project.Label(key), note)
+				if blocked != "" {
+					fmt.Fprintf(out, "gate: %s\n", blocked)
+				}
 			}
 			return 0
+		}
+		briefText := ""
+		if data, err := os.ReadFile(filepath.Join(project.Root, filepath.FromSlash(card.Path))); err == nil {
+			briefText = string(data)
+		}
+		skips := SkipPath(project, name, func(other string) bool { return SkippedFor(project, briefText, other) })
+		if skips != nil {
+			result["skipped_steps"] = skips.Steps
+			result["lands_in"] = skips.Column
+			result["lands_kind"] = skips.Kind
 		}
 		result["next"] = name
 		words := Moves(project, key, name)
@@ -304,6 +360,7 @@ func Run(project *config.Project, opts Options) int {
 			}
 		}
 		fmt.Fprintln(out, AsText(found))
+		explain(out, project, opts.For, key, card, blocked, skips, briefText)
 		return 0
 	}
 	if opts.Name == "" {
@@ -352,4 +409,32 @@ func writers(out, errOut io.Writer) (io.Writer, io.Writer) {
 		errOut = io.Discard
 	}
 	return out, errOut
+}
+
+// explain says, in plain lines, what holds a card back and where it goes next: the closed gate that blocks it, the
+// steps its brief makes it skip and where that leaves it.
+func explain(out io.Writer, project *config.Project, id, key string, card *board.Card, blocked string,
+	skips *Skipped, briefText string) {
+	if blocked != "" {
+		fmt.Fprintf(out, "gate: %s\n", blocked)
+	} else if card.Gate != nil {
+		fmt.Fprintf(out, "gate: open (%s)\n", card.Gate.Why)
+	}
+	if skips == nil {
+		return
+	}
+	names := make([]string, 0, len(skips.Steps))
+	for _, name := range skips.Steps {
+		names = append(names, "`"+name+"`")
+	}
+	step := project.Steps[skips.Steps[0]]
+	value, _ := brief.FieldValue(briefText, step.SkipField)
+	label := project.Label(skips.Column)
+	if skips.Kind == "close" {
+		fmt.Fprintf(out, "skip: this card skips %s (%s: %s) and closes: kanbanzai move %s %s --done \"<what shipped>\"\n",
+			strings.Join(names, ", "), step.SkipField, value, id, skips.Column)
+		return
+	}
+	fmt.Fprintf(out, "skip: this card skips %s (%s: %s) and goes on to %s: kanbanzai move %s %s\n",
+		strings.Join(names, ", "), step.SkipField, value, label, id, skips.Column)
 }
