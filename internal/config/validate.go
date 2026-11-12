@@ -20,3 +20,7 @@ func ValidateText(root, toplevel, gitCommon, text string) (*Project, error) {
 	}
 	return project, nil
 }
+
+// ParseTOML parses a document with the config's own TOML subset and reports the parser's error as it is. It lets
+// the workflow command read a flow file with the same grammar, and nothing else, as the config.
+func ParseTOML(src string) (map[string]any, error) { return parseTOML(src) }
