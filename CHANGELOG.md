@@ -6,8 +6,9 @@ and the editor extension carry the same version.
 ## [Unreleased]
 
 - W-17: one editor install sets a project up. The `.vsix` carries the `kanbanzai` command for the five supported
-  platforms, and a status-bar **Kanbanzai: Init** item (in a git project with no board) shows the plan, waits for
-  Apply, then copies the command to a per-user folder, enables the Claude Code and OpenCode plugins for the project
+  platforms, and a status-bar **Kanbanzai: Init** item (in a git project with no board) saves and shows the plan in
+  a scrollable tab, turns into **Kanbanzai: Apply** and waits (across reloads) until you click it or run **Kanbanzai:
+  Cancel Setup**, then copies the command to a per-user folder, enables the Claude Code and OpenCode plugins for the project
   and creates the board. New in the command: `kanbanzai install` (copy the running command to
   `$XDG_DATA_HOME/kanbanzai/bin`, `~/.local/share/kanbanzai/bin` or `%LOCALAPPDATA%\kanbanzai\bin`) and
   `kanbanzai init --plugins claude,opencode [--plugin-source DIR]`, whose plan merges the plugin settings without
