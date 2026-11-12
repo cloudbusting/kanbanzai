@@ -1,11 +1,11 @@
 # W-08: Make the shipped skills flow-agnostic and remove hardcoded workflow words
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.11.0, 362b6ac, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.11.0
 - **ADR:** none
-- **Next action:** release: ship after the owner approves — next version (0.10.0 is already released; metadata still 0.10.0), CHANGELOG [Unreleased] holds the W-08 entry
-- **Where:** worktree W-08
+- **Next action:** —
+- **Where:** main
 - **Needs:** W-12, W-38
 
 ## Goal
