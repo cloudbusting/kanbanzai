@@ -36,7 +36,7 @@ commands:
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   gate pass|fail|status [ID...]  record a card's gate result, or say where its gate stands
-  number [PREFIX] [options]      allocate the next card number
+  number [PREFIX] [--type KEY] [--peek|--status|--release ID|--mark ID]   allocate the next card number
   check                          validate every brief
   step NAME | --for ID           what runs a step
   sessions [--json]              the claimed cards with a live session
@@ -236,7 +236,7 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			Out: out, Err: errOut})
 	case "number":
 		positionals, flags, set, err := parse(args, map[string]bool{"peek": true, "status": true},
-			map[string]bool{"release": true, "mark": true, "note": true})
+			map[string]bool{"release": true, "mark": true, "note": true, "type": true})
 		if err != nil || len(positionals) > 1 {
 			return usageError(errOut, command, err)
 		}
@@ -244,8 +244,9 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		if len(positionals) == 1 {
 			prefix = positionals[0]
 		}
-		return number.Run(project, number.Options{Prefix: prefix, Peek: set["peek"], Status: set["status"],
-			Release: flags["release"], Mark: flags["mark"], Note: flags["note"], Out: out, Err: errOut})
+		return number.Run(project, number.Options{Prefix: prefix, Type: flags["type"], Peek: set["peek"],
+			Status: set["status"], Release: flags["release"], Mark: flags["mark"], Note: flags["note"], Out: out,
+			Err: errOut})
 	case "check":
 		positionals, _, _, err := parse(args, nil, nil)
 		if err != nil || len(positionals) != 0 {
@@ -424,10 +425,11 @@ func showConfig(project *config.Project, out io.Writer) {
 	fmt.Fprintf(out, "this worktree:  %s\n", project.Toplevel)
 	fmt.Fprintf(out, "config file:    %s\n", configFile)
 	fmt.Fprintf(out, "config_version: %d\n", project.ConfigVersion)
-	values := []struct {
+	type row struct {
 		name  string
 		value string
-	}{
+	}
+	values := []row{
 		{"prefix", project.Prefix},
 		{"digits", strconv.Itoa(project.Digits)},
 		{"owner", project.Owner},
@@ -443,6 +445,13 @@ func showConfig(project *config.Project, out io.Writer) {
 		{"branch", project.BranchPattern},
 		{"batch_branch", project.BatchBranchPattern},
 		{"context", strings.Join(project.ContextFiles(), ", ")},
+	}
+	if project.Typed {
+		values = append(values,
+			row{"default_type", project.DefaultType},
+			row{"project_key", project.ProjectKey},
+			row{"types", strings.Join(project.CardPrefixes(), ", ")},
+		)
 	}
 	for _, item := range values {
 		fmt.Fprintf(out, "  %-14s %s\n", item.name+":", item.value)

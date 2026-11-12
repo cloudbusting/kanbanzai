@@ -30,10 +30,14 @@ func Build(project *config.Project) string {
 	if configFile == "" {
 		configFile = "none (Kanbanzai defaults)"
 	}
+	ids := project.IDsExample()
+	if project.TypeSet != nil {
+		ids += " (typed ids: " + strings.Join(project.CardPrefixes(), ", ") + "; one global number sequence)"
+	}
 	lines := []string{
 		"Kanbanzai: this project's work is a board of cards, one brief per card (command: `kanbanzai`).",
 		"Project root (the main checkout): " + project.Root,
-		fmt.Sprintf("Cards: %s (ids %s-NN; the Stage line of a brief is its column).", project.Work, project.Prefix),
+		fmt.Sprintf("Cards: %s (ids %s; the Stage line of a brief is its column).", project.Work, ids),
 		fmt.Sprintf("Claims: %s (a card's lease, shared by every worktree; the lease is %g minutes and a tool "+
 			"call renews it).", project.Claims, project.LeaseMinutes),
 		"Config: " + configFile,

@@ -353,8 +353,11 @@ func TestJSONAndText(t *testing.T) {
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatal(err)
 	}
-	if len(parsed) != 2 {
+	if len(parsed) != 3 {
 		t.Fatalf("top-level keys = %#v", parsed)
+	}
+	if types, ok := parsed["types"].([]any); !ok || len(types) != 0 {
+		t.Fatalf("types = %#v", parsed["types"])
 	}
 	columns := parsed["columns"].([]any)
 	designed := columns[2].(map[string]any)

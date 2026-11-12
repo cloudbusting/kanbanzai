@@ -34,6 +34,23 @@ branch = "{id}"                   # a card's branch
 batch_branch = "batch/{id}"       # a card's branch inside a batch
 context = []                      # project files every Kanbanzai skill reads first (rules, where things stand)
 
+# Issue types (optional). With no [[types]] the project uses one prefix: project.prefix, W-01, W-02 …
+# With [[types]] every card id is <TYPE-PREFIX>-<number>, or <project_key>-<TYPE-PREFIX>-<number> when a project key
+# is set, and every type allocates from ONE global number sequence (BUG-07 is the seventh item overall, not the
+# seventh bug). Type keys are lower-case; prefixes are upper-case. A project's `.kanbanzai/config.toml` may set:
+#   default_type = "task"          # the type used when `kanbanzai number` names none
+#   project_key = ""               # optional upper-case component, e.g. KANZ for KANZ-BUG-07
+#   [[types]]
+#   key = "task"                   # required, lower-case identifier
+#   label = "Task"                 # required, shown by the board
+#   prefix = "TASK"                # required, upper-case, unique ignoring case
+#   template = ""                  # optional brief template (per-type templates are W-11)
+#   colour = "#4776B4"             # optional #rrggbb for the board view
+#   icon = "check"                 # optional local symbolic name, never a URL
+#   description = "A piece of work"  # optional
+# When [[types]] is set, project.prefix is not used. Legacy per-prefix ledgers are not migrated: typed mode refuses
+# to allocate while one is present. See docs/types.md.
+
 [claims]
 lease_minutes = 120               # positive finite minutes, <=153722867; heartbeat renews the lease
 owner_env = "KANBANZAI_OWNER"     # set it to override the detected session label (KANBANZAI_OWNER is always read)
