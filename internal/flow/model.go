@@ -52,7 +52,7 @@ type StepInfo struct {
 }
 
 // Transition is a move a card may make without --force: From and To are column keys, Kind says why it is legal
-// (start, finish, back, pause or close).
+// (start, finish, back, pause, close or skip).
 type Transition struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -138,6 +138,9 @@ func Build(p *config.Project) *Model {
 			}
 			m.Gates = append(m.Gates, Gate{Column: c.Key, Kind: kind, Step: c.Next, Type: c.Gate.Type,
 				Name: c.Gate.Name, After: c.Gate.After, Until: c.Gate.Until})
+		} else if c.WaitsForOwner {
+			// The old note on a column a gate cannot sit on: shown as before, enforced nowhere.
+			m.Gates = append(m.Gates, Gate{Column: c.Key, Kind: "owner-approval", Step: c.Next, Type: "owner"})
 		}
 		if c.StartedBool() {
 			m.WIP.Started = append(m.WIP.Started, c.Key)

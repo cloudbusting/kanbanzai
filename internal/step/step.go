@@ -360,7 +360,7 @@ func Run(project *config.Project, opts Options) int {
 			}
 		}
 		fmt.Fprintln(out, AsText(found))
-		explain(out, project, opts.For, key, card, blocked, skips, briefText)
+		explain(out, project, opts.For, card, blocked, skips, briefText)
 		return 0
 	}
 	if opts.Name == "" {
@@ -413,7 +413,7 @@ func writers(out, errOut io.Writer) (io.Writer, io.Writer) {
 
 // explain says, in plain lines, what holds a card back and where it goes next: the closed gate that blocks it, the
 // steps its brief makes it skip and where that leaves it.
-func explain(out io.Writer, project *config.Project, id, key string, card *board.Card, blocked string,
+func explain(out io.Writer, project *config.Project, id string, card *board.Card, blocked string,
 	skips *Skipped, briefText string) {
 	if blocked != "" {
 		fmt.Fprintf(out, "gate: %s\n", blocked)

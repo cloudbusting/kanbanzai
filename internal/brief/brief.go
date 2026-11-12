@@ -5,6 +5,7 @@ package brief
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -227,9 +228,17 @@ func orderedChanges(changes map[string]*string) []string {
 // case-insensitively.
 func FieldValue(text, name string) (string, bool) {
 	_, fields := Header(text)
-	for key, value := range fields {
+	if value, ok := fields[name]; ok {
+		return value, true
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		if strings.EqualFold(key, name) {
-			return value, true
+			return fields[key], true
 		}
 	}
 	inSection := false
