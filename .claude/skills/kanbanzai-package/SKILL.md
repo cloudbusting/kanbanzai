@@ -56,33 +56,41 @@ paths from the committed tree, never the working directory:
 
 ```bash
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" HEAD \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools README.md LICENSE CHANGELOG.md
+  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
 ```
 
-Do not include `.kanbanzai/`, `.claude/`, `.git/`, pycache or state. The extension's own test files travel in the
+`docs` is in the list because the README links `docs/setup.md` and the other guides; a bundle without it has dead
+links. `git archive` fails on a path that is not in the commit, so keep the list to paths that exist. Do not include `.kanbanzai/`, `.claude/`, `.git/`, pycache or state. The extension's own test files travel in the
 source bundle and that is fine for a source release. Verify the listing with `tar -tzf`; every runtime file must be
 there, and no state or secret may be.
 
 ### 2. The binary archives
 
-Rehearse the release builder from the main checkout:
+Rehearse the release builder from the main checkout, and keep the raw binaries for the extension:
 
 ```bash
-go run ./tools/release -version "v<version>" -out "$OUT"
+BINS="${TMPDIR:-/tmp}/kanbanzai-package-<ID>-<version>-bins"
+go run ./tools/release -version "v<version>" -out "$OUT" -bins "$BINS"
 ```
 
 It cross-compiles `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64` and `windows/amd64` with
-`CGO_ENABLED=0 -trimpath` and writes the five archives and a `SHA256SUMS`. The release workflow rebuilds the same
-set from the tag; this run proves the procedure.
+`CGO_ENABLED=0 -trimpath`, writes the five archives and a `SHA256SUMS` to `$OUT`, and leaves the raw commands in
+`$BINS/<os>-<arch>/kanbanzai[.exe]` for the next step. The release workflow rebuilds the same set from the tag; this
+run proves the procedure.
 
 ### 3. The editor extension
 
+The `.vsix` carries the `kanbanzai` command for the five platforms, so the editor works with nothing installed.
+Build it from the binaries of the step above, never without `-bin`:
+
 ```bash
-go run ./tools/vsix -o "$OUT/kanbanzai-board-<extension-version>.vsix"
+go run ./tools/vsix -bin "$BINS" -o "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
-The `.vsix` runs `kanbanzai` from the `kanbanzai.command` setting or PATH and carries no machine path, so it is a
-portable artifact.
+`go run ./tools/vsix -o …` with no `-bin` packs a dev build with no command. It is for working on the extension
+only: do not package it, record it as an artifact or hand it to the release step. The release workflow builds the
+real one the same way (`-bins`, then `-bin`) and attaches it to the release. The `.vsix` carries no machine path, so
+it is a portable artifact; the `kanbanzai.command` setting still overrides the bundled command.
 
 Verify the archive:
 
@@ -91,7 +99,9 @@ unzip -l "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
 `extension/package.json`, `extension/README.md`, every runtime `.js` module and `extension.vsixmanifest` must be
-present, and there must be no `extension/bin.json`. The manifest version must match `package.json`.
+present, with `extension/bin/<os>-<arch>/kanbanzai[.exe]` for all five platforms (`linux-amd64`, `linux-arm64`,
+`darwin-amd64`, `darwin-arm64`, `windows-amd64`). There must be no `extension/bin.json`. The manifest version must
+match `package.json`.
 
 ### 4. Checksums
 
@@ -99,8 +109,8 @@ present, and there must be no `extension/bin.json`. The manifest version must ma
 cd "$OUT" && sha256sum *.tar.gz *.zip *.vsix > SHA256SUMS
 ```
 
-The workflow's release carries a `SHA256SUMS` for the five binary archives; this one covers the source bundle and
-the `.vsix` as well.
+The workflow's release carries a `SHA256SUMS` for the five binary archives only; this one covers the source bundle
+and the `.vsix` as well. The release step regenerates the release's `SHA256SUMS` the same way, over every asset.
 
 ## Prove it
 
@@ -169,7 +179,7 @@ Report:
 Package: <ID> — <version> at <sha>
 Artifacts: <names, sizes, sha256 each, directory>
 Proof: command <pass> · claude validate <pass/warnings> · opencode <pass> · extension listing <pass>
-Known limits: <the .vsix command path, a manual editor check, a missing publisher/licence>
+Known limits: <a manual editor check, a missing publisher/licence>
 ```
 
 Then move the card to the step's Done column with the release as the next action, and release the claim because
