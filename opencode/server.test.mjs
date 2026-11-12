@@ -91,6 +91,14 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
     assert.deepEqual(added.map((skill) => skill.id).sort(), expected);
     const prefixed = expected.map((name) => `kanbanzai:${name}`);
     assert.deepEqual(commands.map((entry) => entry.name).sort(), [...expected, ...prefixed].sort());
+    const setupSkill = added.find((skill) => skill.id === "setup");
+    assert.ok(setupSkill, "the setup skill was not registered");
+    assert.match(setupSkill.description, /set.{0,12}up/i);
+    for (const name of ["setup", "kanbanzai:setup"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      assert.equal(command.description, setupSkill.description);
+    }
     const build = commands.find((entry) => entry.name === "build");
     assert.ok(build, "the build command was not registered");
     await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" });
