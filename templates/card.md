@@ -1,16 +1,14 @@
 # <ID>: <the work, in a few words>
 
-- **Stage:** todo (the first word is the card's column. Each step has a Doing word, set when a session starts it,
-  and a Done word, the last step finished, set when it ends: `todo`, `designing`, `designed`, `building`, `built`,
-  `checking`, `checked`, `in-qa`, `qa-approved`, `shipping`, `paused` or `done` in the shipped workflow, or the
-  project's own column keys; every card starts in the first column. A card that cannot move keeps its column and
+- **Stage:** todo (the shipped example initial column; replace it with the project's initial column key from `kanbanzai workflow show`; use
+  `kanbanzai step --for <ID>` and `kanbanzai move` for later transitions, never edit the Stage by hand. A card that cannot move keeps its column and
   gets a line `- **Held:** blocked: <another card, an account, a key>` or `- **Held:** waiting: <the owner, a
   service, a date>` after Where; delete the line when it clears)
 - **Updated:** YYYY-MM-DD
 - **Done:** — (the date, and where it went live, when the card is finished)
 - **ADR:** <one or more links to decision records, or "none"; each record names this card>
 - **Next action:** <one concrete step; the next session starts here>
-- **Where:** — before work starts, then the card's workspace record (`kanbanzai workspace <ID>` prints it: `worktree <ID>` by default); `main` on a Done card, and while work is done in a shared checkout
+- **Where:** — before work starts, then the record from `kanbanzai workspace <ID>` when required; follow the configured close instructions.
 
 ## Goal
 
@@ -24,8 +22,8 @@ Observable and specific: a test that passes, a command and its answer, a screen 
 
 ## Deploy
 
-The step that ships it, or `None` when the work changes nothing that ships (docs, the board, tooling, skill text). A
-`None` card closes from the last checked column straight to Done.
+Describe delivery or `None` when nothing ships. `kanbanzai step --for <ID>` reports the configured skip and close
+route for this card; it is not implied by this field alone.
 
 ## Tasks
 

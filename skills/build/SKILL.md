@@ -19,6 +19,10 @@ If `kanbanzai step build` says the project has no build step, a card skips it: g
 
 A subagent runs `kanbanzai step build` too; it only reads.
 
+The main session checks `kanbanzai step --for <ID>` and `kanbanzai workflow show`: run this skill only when the
+card's actionable route permits it, not when held, parked, gated or skipped. Follow start or resume and finish
+instructions, including a flow without a separate in-progress column; stop if the move is unsupported.
+
 ## Board first
 
 This skill changes things, so it runs under a card. Its brief names the Goal, the files it owns and the acceptance
@@ -64,6 +68,5 @@ project's own configuration or rule files, unless the brief names them.
 - Tests run, and the result (counts).
 - Anything not done, anything outside the brief, any doubt about the result.
 
-The main session reads the diff before it moves the card: a subagent's "done" is a claim, not a fact. The card is
-**Building** while the build runs (the do skill moves it there once its workspace exists); when the code and its tests
-are written and the main session has checked the diff, it is **Built** (the do skill moves it).
+The main session reads the diff before following the configured finish route: a subagent's "done" is a claim, not a
+fact. Keep the claim while work runs and do not advance on failing checks.

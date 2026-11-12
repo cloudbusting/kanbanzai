@@ -1,6 +1,7 @@
 package kanbanzai
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,6 +11,124 @@ import (
 
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
+
+const exampleStart = "<!-- shipped-flow example: start -->"
+const exampleEnd = "<!-- shipped-flow example: end -->"
+
+// Match instructions about stages and routes, not skill names or ordinary uses of build/check/design.
+var fixedFlowInstructions = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)\b(?:move|moves|moving|moved|put|puts|pull|pulls|goes|go|take|takes|close|closes|leave|leaves)\b[^.\n]{0,100}\b(?:todo|designing|designed|building|built|checking|checked|in qa|qa-approved|shipping)\b`),
+	regexp.MustCompile(`\b(?:Todo|Designing|Designed|Building|Built|Checking|Checked|In QA|QA-approved|Shipping)\b[^.\n]{0,100}\b(?i:column|stage|card|cards|step|next|first|then|before|after)\b`),
+	regexp.MustCompile(`(?i)\b(?:design|build|check)\s*(?:→|->|, then|then)\s*(?:design|build|check|deploy|ship)\b`),
+	regexp.MustCompile("(?i)kanbanzai move (?:<ID>|ID|[A-Z]+-[0-9]+) (?:todo|designing|designed|building|built|checking|checked|in-qa|qa-approved|shipping|done)\\b"),
+}
+
+func fixedFlowViolations(text string) []string {
+	var failures []string
+	inside := false
+	for i, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, exampleStart) || strings.Contains(line, exampleEnd) {
+			switch strings.TrimSpace(line) {
+			case exampleStart:
+				if inside {
+					failures = append(failures, fmt.Sprintf("line %d: nested example", i+1))
+				}
+				inside = true
+			case exampleEnd:
+				if !inside {
+					failures = append(failures, fmt.Sprintf("line %d: unmatched example end", i+1))
+				}
+				inside = false
+			default:
+				failures = append(failures, fmt.Sprintf("line %d: example delimiter must stand alone", i+1))
+			}
+			continue
+		}
+		if inside {
+			continue
+		}
+		for _, pattern := range fixedFlowInstructions {
+			if pattern.MatchString(line) {
+				failures = append(failures, fmt.Sprintf("line %d: %s", i+1, line))
+				break
+			}
+		}
+	}
+	if inside {
+		failures = append(failures, "unclosed example")
+	}
+	return failures
+}
+
+func TestFixedFlowWordingGuardSeeds(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		bad  bool
+	}{
+		{"Move the card into Building.", true},
+		{"A Checked card goes to the next step.", true},
+		{"Run design → build → check.", true},
+		{"kanbanzai move <ID> done", true},
+		{exampleStart + "\nMove the card into Building.\n" + exampleEnd, false},
+		{exampleStart + "\nMove the card into Building.", true},
+		{exampleEnd, true},
+		{exampleStart + "\n" + exampleStart + "\n" + exampleEnd, true},
+		{"Run `kanbanzai step build` and follow `kanbanzai:check`.", false},
+		{"The build skill reviews the code after tests.", false},
+	} {
+		if got := fixedFlowViolations(tc.text); (len(got) != 0) != tc.bad {
+			t.Errorf("%q: %v, bad=%v", tc.text, got, tc.bad)
+		}
+	}
+}
+
+func TestEveryShippedSkillAvoidsFixedFlowInstructions(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := filepath.Glob(filepath.Join(root, "skills", "*", "SKILL.md"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("shipped skills: %v", err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, violation := range fixedFlowViolations(string(data)) {
+			t.Errorf("%s: %s", filepath.ToSlash(path), violation)
+		}
+	}
+}
+
+// This checks text contracts, not execution of the natural-language skills.
+func TestEveryShippedSkillConsultsProjectFlow(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths, err := filepath.Glob(filepath.Join(root, "skills", "*", "SKILL.md"))
+	if err != nil || len(paths) == 0 {
+		t.Fatalf("shipped skills: %v", err)
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(data)
+		if filepath.Base(filepath.Dir(path)) == "setup" {
+			if !strings.Contains(text, "kanbanzai init --dry-run --json") {
+				t.Errorf("%s: setup must consult init's project plan", path)
+			}
+			continue
+		}
+		if !strings.Contains(text, "kanbanzai context") && !strings.Contains(text, "kanbanzai step") && !strings.Contains(text, "kanbanzai workflow show") {
+			t.Errorf("%s: does not consult context, step, or workflow show", path)
+		}
+	}
+}
 
 // W-106: the skills move a card with `kanbanzai move`, and never tell a session to edit a Stage line by hand.
 func TestTheSkillsNeverTellASessionToEditAStageLine(t *testing.T) {
@@ -44,15 +163,19 @@ func TestTheDoSkillMovesTheCardWithTheCommandAtEveryStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, words := range []string{"kanbanzai move <ID> start", "kanbanzai move <ID> finish",
-		"kanbanzai move <ID> done"} {
+	for _, words := range []string{"kanbanzai move <ID> start", "kanbanzai move <ID> finish"} {
 		if !strings.Contains(string(data), words) {
 			t.Fatalf("skills/do lacks %q", words)
 		}
 	}
 	flat := strings.Join(strings.Fields(string(data)), " ")
-	if !strings.Contains(flat, "--no-move") || !strings.Contains(flat, "The claim moves the card") {
+	if !strings.Contains(flat, "--no-move") || !strings.Contains(flat, "claim may move the card automatically") {
 		t.Fatal("skills/do does not describe the claim moving the card")
+	}
+	for _, words := range []string{"Close only when the card-specific route says it can close", "destination and close instructions from `kanbanzai step --for <ID>` and `kanbanzai workflow show`", "--done"} {
+		if !strings.Contains(flat, words) {
+			t.Errorf("skills/do lacks configured close instruction %q", words)
+		}
 	}
 }
 
@@ -222,12 +345,13 @@ func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
 	}
 	do := read("skills", "do", "SKILL.md")
 	for _, want := range []string{
-		"`kanbanzai step --for <ID>` says, for this card, the next step, the steps its brief makes it skip",
-		"`gate:", "`skip: … and closes`", "kanbanzai gate status <ID>", "kanbanzai gate pass <ID>",
-		"`kanbanzai move` refuses to take a card out of it while it is closed",
-		"the owner gate needs `--note", "Never record an owner's approval they have not given",
-		"a card waiting at a gate that is not open is never pulled",
-		"behind a gate that is not open",
+		"kanbanzai step --for <ID>", "kanbanzai gate status <ID>", "kanbanzai gate pass <ID> --note",
+		"Stop on a hard audit finding, another session's live claim, a held or parked card, or a closed gate",
+		"Record an owner gate only after the owner actually approves",
+		"Never invent approval or bypass a gate",
+		"Never treat a skipped, held, gated or parked step as runnable",
+		"if no skill or a skip is reported, follow the card-specific close or next-route instruction",
+		"A refusal is a stop, not permission to force",
 	} {
 		if !strings.Contains(do, want) {
 			t.Errorf("skills/do lacks %q", want)
@@ -239,7 +363,7 @@ func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
 		}
 	}
 	check := read("skills", "check", "SKILL.md")
-	for _, want := range []string{"Ask where the card goes next: `kanbanzai step --for <ID>`", "skips those steps and closes", "prints a `gate:`"} {
+	for _, want := range []string{"Ask where the card goes next: `kanbanzai step --for <ID>`", "Follow its skip, no-skill, close and gate instructions", "do not execute a closed gate or assume a particular delivery route"} {
 		if !strings.Contains(check, want) {
 			t.Errorf("skills/check lacks %q", want)
 		}

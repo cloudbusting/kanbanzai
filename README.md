@@ -276,7 +276,7 @@ Exit 0 means no blocking finding; exit 1 means an error; invalid arguments exit 
 `{ "schema_version": 1, "ok": true, "findings": [...] }`; each finding has `id`, `status`, `message`, `fix`, with
 status `pass`, `warning`, `error` or `skipped`. This report version is distinct from `config_version`.
 
-The shipped workflow:
+The following is an **example of the shipped workflow**, not a required workflow for every project:
 
 ```
 todo ─design→ designing │ designed ─build→ building │ built ─check→ checking │ checked
@@ -431,6 +431,13 @@ missing `--done`. Each move is a line in `<state>/moves.jsonl`.
 until it is open: `owner`, `ci`, `external`, `date` or `card` (`gate = "ci"`). `move` refuses to take a card out of a
 closed gate and `wip --next` does not offer it; `gate pass ID` records the result (the owner gate needs `--note` with
 their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it.
+
+`kanbanzai step --for <ID> --json` also includes a `route` object describing the immediate action, step, target,
+whether a gate or hold blocks it, workspace facts, and whether closing needs `--done`. Its text output includes the
+same route. A route does not grant a claim or override a gate: check its blocked flag and reason before acting.
+`workflow show` describes the whole project; `workspace <ID>` describes the selected isolation mode. Some routes
+cannot yet be executed safely by the move command, including steps without Doing columns: the route says `stop` and
+why instead of suggesting a forced move.
 [docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
 release, dependent work) and says what the flow cannot express.
 

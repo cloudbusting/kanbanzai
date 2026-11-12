@@ -1,6 +1,6 @@
 ---
 name: design
-description: Turn a card into a design the owner has agreed and a brief the build step works from. Runs on a work item /triage made, never on an ad-hoc request. Put the owner's decisions to them through the question tool, write a decision record when the change settles an architecture or outside-service question, and break the work into tasks with acceptance checks. Use as /do's first step, or when the owner asks how something should work.
+description: Turn a card into an agreed design and a brief with tasks and acceptance checks. Use when the configured route calls for design or the owner asks how carded work should work.
 argument-hint: "<the card id, or the question>"
 ---
 
@@ -23,9 +23,10 @@ If `kanbanzai step design` says the project has no design step, a card skips it:
 
 ## Board first
 
-This skill designs a card; it does not create one, and it does not triage. It starts from a card in **Todo** with a
-brief (made by `/triage`); the session that starts the design claims the card (the do skill) and moves it to
-**Designing**, and the card moves to **Designed** when the design ends. If there is no card, stop and run `/triage` first. A request that is really "how
+This skill designs a card; it does not create one, and it does not triage. Run `kanbanzai step --for <ID>` and
+`kanbanzai workflow show`; proceed only when the route permits this step, with the main session's claim. Follow its
+start or resume instructions, and `kanbanzai workspace <ID>` when a workspace is required. Stop at a hold, a closed
+gate or a parked card. If there is no card, stop and run `/triage` first. A request that is really "how
 should this work?" is still triaged: its Goal is the question, and this skill answers it.
 
 ## 1. Understand
@@ -38,7 +39,7 @@ Read what the work touches: the files the step's `context` names, the records an
 code. For a wide sweep ("where do we set the session cookie?"), send an `Explore` subagent (or the harness's
 general-purpose one) a bounded question and keep only its answer.
 
-Look at the other cards in Todo (`kanbanzai wip`) only for context: sizing, folding and closing them belongs to
+Look at the other cards in the initial column (`kanbanzai wip`) only for context: sizing, folding and closing them belongs to
 `/triage`. Don't fold or close another card here.
 
 ## 2. Check it against the project's rules
@@ -66,8 +67,8 @@ For each real choice, take two or three options with their trade-offs and recomm
   commits the design. The project's context says where records live and what they look like; with no such place, put
   the decision in the brief's **Decisions**. The record's card line names this card. A record starts as proposed and
   becomes accepted only with the owner's approval; build state is the card's, never the record's.
-- **The brief** (step 5) is written on the card `/triage` made, in its folder under the card folder. Its Stage is
-  `designing` while the design runs, with a live claim on the card, and becomes `designed` when it ends. Start from the
+- **The brief** (step 5) is written on the card `/triage` made, in its configured folder. Follow the route for its
+  current and completion columns, retaining the live claim. Start from the
   card template (`template` in `kanbanzai config`). Do not issue an id or add a card here: if there is no card, stop
   and run `/triage`. That file is the durable state a later session resumes from: tasks, acceptance checks, the
   owner's decisions and a **Next action**. The brief owns the task list from the start; the record is the design
@@ -79,7 +80,7 @@ For each real choice, take two or three options with their trade-offs and recomm
 
 ```
 Goal: what changes, and for whom, in a sentence.
-Stage: designed (set when the design ends; designing, with a live claim, while it runs)
+Stage: the configured column, changed only with kanbanzai move.
 Next action: the first task, so a new session can start here.
 Acceptance checks: observable and specific. A test that passes, a command and its answer, a screen step, a number
   (cost, time, size).
@@ -97,8 +98,8 @@ Progress: dated one-liners; /do appends after each step, with the new Next actio
 environment) and say what a task or an acceptance check must name. Put them in the brief, under the head they name
 or as a line of their own.
 
-Finish with `kanbanzai move <ID> finish --next "<the first task>"` (the do skill's update, when it ran this step; do
-it yourself when design runs alone). Run `kanbanzai check`; it must pass.
+On success follow the route's finish instruction with `kanbanzai move`, including a concrete Next action; if that
+transition is unavailable, stop and report it. Run `kanbanzai check`; it must pass.
 
 ## What it never does
 
