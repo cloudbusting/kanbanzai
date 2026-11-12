@@ -1,10 +1,10 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
-- **Next action:** check: run kanbanzai-qa, then review the diff of branch W-17; then package (deploy-qa) and the owner's clean-profile check
+- **Next action:** deploy-qa: package the .vsix with the bundled binaries and the plugin bundle, prove them; QA-approved waits for the owner; release with or after W-04 and W-05
 - **Where:** worktree W-17
 
 ## Goal
@@ -85,6 +85,7 @@ Publishing to the Visual Studio Marketplace or Open VSX (a release-step action t
 - 2026-11-12: design: the owner chose to bundle the command in the `.vsix`, a guided approve-then-write button, and a well-known user folder plus `init --plugins`; tasks T1-T7 written; the marketplace-metadata check is already met in `package.json` and only needs a test.
 - 2026-11-12: design done: tasks T1-T7, acceptance checks, trust model
 - 2026-11-12: build done: kanbanzai install, init --plugins (merge action), packer -bin and release -bins, hooks and OpenCode look in the per-user folder, extension Init item and guided setup, docs; go/node/validate/cross-builds green; end-to-end run with the built binary passed; editor behaviour not run
+- 2026-11-12: checked: kanbanzai-qa checks green, diff reviewed, no findings
 
 ## Comments
 
