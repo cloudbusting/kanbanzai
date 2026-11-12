@@ -9,13 +9,21 @@ the ones you do yourself in step 1 of the command-line route and, later, Claude 
 1. Install the **Kanbanzai Board** extension from its `.vsix` (**Extensions: Install from VSIX…**) and reload the
    window. The `.vsix` already contains the `kanbanzai` command for Linux, macOS and Windows.
 2. Open your project (a git checkout). With no board in it, the status bar shows **Kanbanzai: Init**.
-3. Click it. It asks which agents to set up (Claude Code, OpenCode), then opens **the whole plan** in a tab: every
-   file and folder it would make, the `config.toml`, the plugin settings it would merge, and one extra line, "copy the
-   command to `<folder>`". Nothing has been written yet.
-4. Read it, then click **Apply** (or Cancel, which changes nothing). The extension copies the command to your
-   per-user folder, applies exactly the plan you saw, and shows the files to commit.
-5. Commit them, and start a new Claude Code or OpenCode session in the project: the Kanbanzai skills are there.
+3. Click it. It asks which agents to set up (Claude Code, OpenCode), then opens **the whole plan** in a tab you can
+   scroll and search: every file and folder it would make, the `config.toml`, the plugin settings it would merge, and
+   one extra line, "copy the command to `<folder>`". The first and last lines of the plan remind you what to do next.
+   The plan is saved in the project (`.kanbanzai/state/setup-plan.json`); nothing else has been written yet, and the
+   status-bar item now reads **Kanbanzai: Apply**.
+4. Read it at your own pace. It stays pending as long as you like, even across a reload. **Kanbanzai: Show Setup
+   Plan** (command palette) opens it again; **Kanbanzai: Cancel Setup** throws it away.
+5. Click **Kanbanzai: Apply** in the status bar. The extension copies the command to your per-user folder, applies
+   exactly the plan you read, and shows the files to commit.
+6. Commit them, and start a new Claude Code or OpenCode session in the project: the Kanbanzai skills are there.
    `/kanbanzai:setup` runs the longer interview (owner, project key, context files) if you want it.
+
+If the extension reports that your `kanbanzai` command is too old, a `kanbanzai.command` setting is probably still
+pointing at an old build: it is a machine-wide setting that every profile shares, and it wins over the command inside
+the extension. Clear it. The extension's Output channel (**Kanbanzai**) says which command is in use.
 
 Before the repository is public and released, the plugins cannot come from GitHub. Set the extension's
 `kanbanzai.pluginSource` setting to a checkout of Kanbanzai on your machine and the plan will use it (in

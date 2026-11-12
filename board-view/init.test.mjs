@@ -1,9 +1,10 @@
-// init.js: the guided setup's rules as functions (command resolution, the item's state, the plan text, the apply
-// sequence, the flow), with the world (execFile, fs, the editor's UI) passed in as fakes.
+// init.js: the guided setup's rules as functions (command resolution, the item's state, the plan text, the pending plan
+// file, the Init / Apply / Show / Cancel flows). execFile and the editor's UI are fakes; the project folders are real.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { readFileSync, readdirSync } from "node:fs";
+import fs, { readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, statSync, symlinkSync, existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -72,12 +73,19 @@ test("resolveCommand: a setting that is not a string, a throwing exists and a pl
   assert.equal(init.resolveCommand({ ...base, home: "", env: {}, exists: having(KNOWN) }).source, "path");
 });
 
-test("itemState: board, init or none", () => {
+test("itemState: board, apply, init or none", () => {
   const folder = [{ uri: { fsPath: "/p" } }];
   const table = [
     [{ folders: folder, hasBoard: true, isGit: true, trusted: true }, "board"],
     [{ folders: folder, hasBoard: true, isGit: false, trusted: true }, "board"],
+    [{ folders: folder, hasBoard: true, isGit: true, trusted: true, pending: true }, "board"],
+    [{ folders: folder, hasBoard: true, isGit: false, trusted: false, pending: true }, "board"],
     [{ folders: folder, hasBoard: false, isGit: true, trusted: true }, "init"],
+    [{ folders: folder, hasBoard: false, isGit: true, trusted: true, pending: false }, "init"],
+    [{ folders: folder, hasBoard: false, isGit: true, trusted: true, pending: true }, "apply"],
+    [{ folders: folder, hasBoard: false, isGit: false, trusted: true, pending: true }, "none"],
+    [{ folders: folder, hasBoard: false, isGit: true, trusted: false, pending: true }, "none"],
+    [{ folders: [], hasBoard: false, isGit: true, trusted: true, pending: true }, "none"],
     [{ folders: folder, hasBoard: false, isGit: false, trusted: true }, "none"],
     [{ folders: folder, hasBoard: false, isGit: true, trusted: false }, "none"],
     [{ folders: [], hasBoard: false, isGit: false, trusted: true }, "none"],
@@ -151,7 +159,21 @@ test("planText prints the config text and each merge fragment, and the warnings"
 test("planText ends with the Also line naming the folder", () => {
   const text = init.planText(report, FOLDER);
   assert.ok(text.includes(`Also: copy the command to ${FOLDER} (kanbanzai install)`), text);
-  assert.match(text, /Nothing is written until you choose Apply/);
+  assert.ok(text.trimEnd().split("\n").slice(-7).join("\n").includes(`Also: copy the command to ${FOLDER}`), "the Also line is just above the closing block");
+});
+
+test("planText starts and ends with the same clear block saying what to click, and no longer claims nothing is written", () => {
+  for (const r of [report, {}, undefined]) {
+    const lines = init.planText(r, FOLDER).trimEnd().split("\n");
+    for (const part of [lines.slice(0, 6).join("\n"), lines.slice(-6).join("\n")]) {
+      assert.ok(part.includes("Kanbanzai: Apply"), part);
+      assert.ok(part.includes("Cancel Setup"), part);
+      assert.ok(part.includes("NOT APPLIED YET"), part);
+    }
+    assert.deepEqual(lines.slice(0, 5), lines.slice(-5), "the same block at both ends");
+    assert.match(lines[0], /^={20,}$/);
+  }
+  assert.doesNotMatch(init.planText(report, FOLDER), /Nothing is written/i);
 });
 
 test("planText survives a report with missing fields", () => {
@@ -189,329 +211,441 @@ function fakeExec(script) {
   return { execFile, calls, verbs: () => calls.map((c) => c.args.filter((x) => !x.startsWith("-"))[0] + (c.args.includes("--plan") ? " --plan" : "")) };
 }
 
-function fakeFs() {
-  const log = [];
-  const files = new Map();
-  return {
-    log,
-    files,
-    mkdtempSync: (prefix) => { const dir = prefix + "ABC123"; log.push(["mkdtemp", prefix]); return dir; },
-    writeFileSync: (file, data, opts) => { files.set(file, data); log.push(["write", file, opts]); },
-    rmSync: (target, opts) => { log.push(["rm", target, opts]); for (const f of [...files.keys()]) if (f === target || f.startsWith(target + "/")) files.delete(f); },
-  };
+// Real temporary project folders: the pending file is a real file.
+const made = [];
+function project() {
+  const d = mkdtempSync(path.join(os.tmpdir(), "kz-init-test-"));
+  made.push(d);
+  return d;
 }
+process.on("exit", () => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+const pending = (root) => init.pendingPath(root);
+const plantPending = (root, content = REPORT_TEXT) => {
+  mkdirSync(path.dirname(pending(root)), { recursive: true });
+  writeFileSync(pending(root), content);
+};
+const tree = (root) => JSON.stringify(readdirSync(root, { recursive: true }).sort());
 
 const OK_DRY = { stdout: REPORT_TEXT };
 const APPLY_OUT = "made .kanbanzai/config.toml\nfiles to commit:\n  .kanbanzai/config.toml\n  .claude/settings.json\nnext:\n  - /kanbanzai:setup\n";
 
-// ---- applySequence ----
-
-const applyDeps = (exec, fs) => ({
-  command: "/ext/bin/linux-amd64/kanbanzai",
-  installedCommand: "/home/u/.local/share/kanbanzai/bin/kanbanzai",
-  cwd: "/work/project",
-  planText: REPORT_TEXT,
-  execFile: exec.execFile,
-  fs,
-  tmpdir: "/tmp",
-});
-
-test("applySequence: install, then init --plan from a private file, then the file is gone", async () => {
-  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { stdout: APPLY_OUT } : { stdout: "installed\n" }));
-  const fs = fakeFs();
-  const result = await init.applySequence(applyDeps(exec, fs));
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.files, [".kanbanzai/config.toml", ".claude/settings.json"]);
-  assert.equal(exec.calls.length, 2);
-  assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
-  assert.deepEqual(exec.calls[0].args, ["install"]);
-  assert.equal(exec.calls[1].cmd, "/home/u/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
-  assert.equal(exec.calls[1].args[0], "init");
-  assert.equal(exec.calls[1].args[1], "--plan");
-  assert.equal(exec.calls[1].args.length, 3);
-  assert.equal(exec.calls[1].opts.cwd, "/work/project");
-  const planFile = exec.calls[1].args[2];
-  assert.ok(planFile.startsWith("/tmp/kanbanzai-plan-"), planFile);
-  assert.ok(!planFile.startsWith("/work/project"), "outside the project");
-  // order in the file system: mkdtemp, write (mode 0600), then removal, all after the install call
-  assert.deepEqual(fs.log.map((e) => e[0]), ["mkdtemp", "write", "rm"]);
-  const write = fs.log[1];
-  assert.equal(write[1], planFile);
-  assert.equal(write[2].mode, 0o600);
-  assert.equal(fs.log[2][1], path.posix.dirname(planFile), "the whole private folder is removed");
-  assert.equal(fs.files.size, 0, "nothing left behind");
-});
-
-test("applySequence writes the reviewed plan verbatim", async () => {
-  const exec = fakeExec(() => ({ stdout: APPLY_OUT }));
-  const fs = fakeFs();
-  let seen;
-  fs.writeFileSync = (file, data) => { seen = data; fs.log.push(["write", file]); };
-  await init.applySequence(applyDeps(exec, fs));
-  assert.equal(seen, REPORT_TEXT);
-});
-
-test("applySequence: an install failure shows its stderr and stops before init, with no plan file", async () => {
-  const exec = fakeExec(() => ({ code: 2, stderr: "install: refusing to replace a symlink\n" }));
-  const fs = fakeFs();
-  const result = await init.applySequence(applyDeps(exec, fs));
-  assert.equal(result.ok, false);
-  assert.equal(result.step, "install");
-  assert.match(result.error, /refusing to replace a symlink/);
-  assert.equal(exec.calls.length, 1, "init was not run");
-  assert.deepEqual(fs.log, [], "the plan file was never written");
-});
-
-test("applySequence: an init exit 1 surfaces its stderr, and the plan file is still removed", async () => {
-  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 1, stderr: "init: cannot write .kanbanzai: permission denied\n", stdout: "partial\n" } : {}));
-  const fs = fakeFs();
-  const result = await init.applySequence(applyDeps(exec, fs));
-  assert.equal(result.ok, false);
-  assert.equal(result.step, "init");
-  assert.equal(result.code, 1);
-  assert.match(result.error, /permission denied/);
-  assert.deepEqual(fs.log.map((e) => e[0]), ["mkdtemp", "write", "rm"]);
-});
-
-test("applySequence: an init refusal (exit 2) is reported like a failure", async () => {
-  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 2, stderr: "--plan: the plan is for /x, not this project\n" } : {}));
-  const result = await init.applySequence(applyDeps(exec, fakeFs()));
-  assert.equal(result.ok, false);
-  assert.equal(result.code, 2);
-  assert.match(result.error, /not this project/);
-});
-
-test("applySequence: a failed plan write still removes the private folder and reports it", async () => {
-  const exec = fakeExec(() => ({}));
-  const fs = fakeFs();
-  fs.writeFileSync = () => { throw new Error("disk full"); };
-  const result = await init.applySequence(applyDeps(exec, fs));
-  assert.equal(result.ok, false);
-  assert.match(result.error, /disk full/);
-  assert.equal(exec.calls.length, 1, "init was not run");
-  assert.deepEqual(fs.log.map((e) => e[0]), ["mkdtemp", "rm"]);
-});
-
-test("applySequence: a missing command is one actionable error, not a throw", async () => {
-  const exec = fakeExec(() => ({ enoent: true }));
-  const result = await init.applySequence({ ...applyDeps(exec, fakeFs()), missingText: "no kanbanzai here" });
-  assert.equal(result.ok, false);
-  assert.equal(result.error, "no kanbanzai here");
-});
-
-// ---- the flow ----
-
 function fakeUi(options = {}) {
-  const { branch, apply = true } = options;
+  const { branch } = options;
   const agents = "agents" in options ? options.agents : ["claude", "opencode"];
   const ui = {
     events: [],
     pickAgents: async () => { ui.events.push("pick"); return agents; },
     askBranch: async () => { ui.events.push("branch"); return branch; },
     showPlan: async (text) => { ui.events.push("plan"); ui.planShown = text; },
-    confirm: async (message) => { ui.events.push("confirm"); ui.confirmMessage = message; return apply ? "Apply" : undefined; },
     info: (m) => { ui.events.push("info"); ui.infos = (ui.infos || []).concat(m); },
     error: (m) => { ui.events.push("error"); ui.errors = (ui.errors || []).concat(m); },
   };
   return ui;
 }
 
-const flowDeps = (exec, fs, ui, extra = {}) => ({
-  root: "/work/project",
+const flowDeps = (exec, root, ui, extra = {}) => ({
+  root,
   command: "/ext/bin/linux-amd64/kanbanzai",
+  commandSource: "bundled",
   installedCommand: "/home/u/.local/share/kanbanzai/bin/kanbanzai",
   folder: FOLDER,
   pluginSource: "",
   execFile: exec.execFile,
   fs,
-  tmpdir: "/tmp",
   ui,
   log: { info() {}, warn() {}, error() {} },
-  onApplied: () => { (extra.applied = extra.applied || []).push(1); },
+  onChanged: () => { extra.changed = (extra.changed || 0) + 1; },
+  onApplied: () => { extra.applied = (extra.applied || 0) + 1; },
   ...extra,
 });
 const happy = (cmd, args) => (args.includes("--dry-run") ? OK_DRY : args[0] === "init" ? { stdout: APPLY_OUT } : { stdout: "ok\n" });
 
-test("Cancel at the quick pick: nothing runs at all", async () => {
-  const exec = fakeExec(happy); const fs = fakeFs();
-  const ui = fakeUi({ agents: undefined });
-  const out = await init.guidedSetup(flowDeps(exec, fs, ui));
+// ---- the pending file ----
+
+test("pendingPath is <root>/.kanbanzai/state/setup-plan.json", () => {
+  assert.equal(init.pendingPath("/p"), path.join("/p", ".kanbanzai", "state", "setup-plan.json"));
+});
+
+test("hasPending: only a regular file in real folders counts, and it never throws", () => {
+  const root = project();
+  assert.equal(init.hasPending(fs, root), false);
+  plantPending(root);
+  assert.equal(init.hasPending(fs, root), true);
+  assert.equal(init.hasPending(fs, path.join(root, "missing")), false);
+  assert.equal(init.hasPending({ lstatSync: () => { throw new Error("denied"); } }, root), false);
+  assert.equal(init.hasPending(fs, undefined), false);
+  const dirInstead = project();
+  mkdirSync(pending(dirInstead), { recursive: true });
+  assert.equal(init.hasPending(fs, dirInstead), false, "a folder is not a plan");
+});
+
+// ---- planSetup (Kanbanzai: Init) ----
+
+test("Init: cancel at the quick pick runs nothing and writes nothing", async () => {
+  const root = project(); const was = tree(root);
+  const exec = fakeExec(happy); const ui = fakeUi({ agents: undefined });
+  const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "cancelled");
   assert.equal(exec.calls.length, 0);
-  assert.deepEqual(fs.log, []);
+  assert.equal(tree(root), was);
 });
 
-test("Cancel at the plan: only a --dry-run call, no install, no --plan, no write", async () => {
-  const exec = fakeExec(happy); const fs = fakeFs();
-  const ui = fakeUi({ apply: false });
-  const applied = {};
-  const out = await init.guidedSetup(flowDeps(exec, fs, ui, applied));
-  assert.equal(out.status, "cancelled");
-  assert.ok(exec.calls.length >= 1);
-  for (const c of exec.calls) assert.ok(c.args.includes("--dry-run"), `a call without --dry-run: ${c.args}`);
-  assert.equal(exec.calls.filter((c) => c.args[0] === "install").length, 0);
-  assert.equal(exec.calls.filter((c) => c.args.includes("--plan")).length, 0);
-  assert.deepEqual(fs.log, [], "the fake file system saw no write");
-  assert.equal(applied.applied, undefined, "nothing to refresh");
-  assert.ok(ui.planShown.includes("Also: copy the command to"), "the plan was shown before the question");
-  assert.deepEqual(ui.events.slice(0, 3), ["pick", "plan", "confirm"]);
-  assert.equal(ui.errors, undefined);
+test("Init: the plan is saved byte for byte, shown, and only the dry run ran; nothing is installed or applied", async () => {
+  const root = project();
+  const exec = fakeExec(happy); const ui = fakeUi(); const extra = {};
+  const out = await init.planSetup(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "planned");
+  assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT, "exactly the dry run's stdout");
+  if (process.platform !== "win32") assert.equal(statSync(pending(root)).mode & 0o777, 0o600);
+  assert.deepEqual(exec.verbs(), ["init"]);
+  for (const c of exec.calls) assert.ok(c.args.includes("--dry-run"), c.args.join(" "));
+  assert.ok(ui.planShown.includes("Also: copy the command to"));
+  assert.deepEqual(ui.events, ["pick", "plan"], "no question after the plan");
+  assert.equal(extra.changed, 1, "the item is re-evaluated");
+  assert.equal(extra.applied, undefined, "nothing was applied");
+  assert.equal(init.hasPending(fs, root), true);
+  assert.deepEqual(readdirSync(path.dirname(pending(root))), ["setup-plan.json"], "no temporary file left");
 });
 
-test("the dry run asks for the picked agents as one argument and reads the plan from stdout", async () => {
+test("Init: a second Init replaces the pending plan", async () => {
+  const root = project();
+  plantPending(root, '{"plan":{"root":"/old"}}');
+  const newer = JSON.stringify({ ...report, marker: "newer" });
+  const exec = fakeExec(() => ({ stdout: newer }));
+  await init.planSetup(flowDeps(exec, root, fakeUi()));
+  assert.equal(readFileSync(pending(root), "utf8"), newer);
+});
+
+test("Init: the file is written only after a successful dry run", async () => {
+  for (const script of [
+    () => ({ code: 2, stderr: "init: not inside a git checkout\n" }),
+    () => ({ stdout: "not json" }),
+    () => ({ stdout: "{}" }),
+    () => ({ enoent: true }),
+    () => ({ code: 2, stderr: "kanbanzai: init: unknown flag --dry-run" }),
+  ]) {
+    const root = project(); const was = tree(root);
+    const ui = fakeUi();
+    const out = await init.planSetup(flowDeps(fakeExec(script), root, ui));
+    assert.equal(out.status, "failed");
+    assert.equal(tree(root), was, "nothing written");
+    assert.ok(!ui.events.includes("plan"));
+  }
+});
+
+test("Init: an unwritable place is refused with nothing written (a link or a plain file for .kanbanzai or state, or a link as the file)", async (t) => {
+  if (process.platform === "win32") return t.skip("symlinks need privileges on Windows");
+  const elsewhere = project();
+  const cases = {
+    "a symlinked .kanbanzai": (root) => symlinkSync(elsewhere, path.join(root, ".kanbanzai")),
+    "a symlinked state": (root) => { mkdirSync(path.join(root, ".kanbanzai")); symlinkSync(elsewhere, path.join(root, ".kanbanzai", "state")); },
+    "a symlinked file": (root) => { mkdirSync(path.join(root, ".kanbanzai", "state"), { recursive: true }); writeFileSync(path.join(elsewhere, "target"), "keep"); symlinkSync(path.join(elsewhere, "target"), pending(root)); },
+    ".kanbanzai a plain file": (root) => writeFileSync(path.join(root, ".kanbanzai"), "x"),
+    "state a plain file": (root) => { mkdirSync(path.join(root, ".kanbanzai")); writeFileSync(path.join(root, ".kanbanzai", "state"), "x"); },
+  };
+  for (const [name, arrange] of Object.entries(cases)) {
+    const root = project();
+    arrange(root);
+    const was = tree(root); const outside = tree(elsewhere);
+    const ui = fakeUi();
+    const out = await init.planSetup(flowDeps(fakeExec(happy), root, ui));
+    assert.equal(out.status, "failed", name);
+    assert.match(ui.errors.join("\n"), /cannot save the setup plan/, name);
+    assert.equal(tree(root), was, name);
+    assert.equal(tree(elsewhere), outside, `${name}: nothing written through the link`);
+    assert.ok(!ui.events.includes("plan"), name);
+  }
+  assert.equal(readFileSync(path.join(elsewhere, "target"), "utf8"), "keep");
+});
+
+test("Init: the dry run asks for the picked agents as one argument and reads the plan from stdout", async () => {
   const exec = fakeExec(happy);
-  await init.guidedSetup(flowDeps(exec, fakeFs(), fakeUi({ agents: ["opencode", "claude"], apply: false })));
+  await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["opencode", "claude"] })));
   assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude"]);
   assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
-  assert.equal(exec.calls[0].opts.cwd, "/work/project");
 });
 
-test("an agent that is not claude or opencode never reaches the command line", async () => {
+test("Init: the dry run runs in the project folder", async () => {
+  const root = project();
   const exec = fakeExec(happy);
-  await init.guidedSetup(flowDeps(exec, fakeFs(), fakeUi({ agents: ["claude", "--plan=/etc/passwd", "x y"], apply: false })));
+  await init.planSetup(flowDeps(exec, root, fakeUi()));
+  assert.equal(exec.calls[0].opts.cwd, root);
+});
+
+test("Init: an agent that is not claude or opencode never reaches the command line", async () => {
+  const exec = fakeExec(happy);
+  await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["claude", "--plan=/etc/passwd", "x y"] })));
   assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude"]);
   const exec2 = fakeExec(happy);
-  const ui = fakeUi({ agents: ["--evil"] });
-  const out = await init.guidedSetup(flowDeps(exec2, fakeFs(), ui));
+  const out = await init.planSetup(flowDeps(exec2, project(), fakeUi({ agents: ["--evil"] })));
   assert.equal(out.status, "cancelled", "nothing valid was picked");
   assert.equal(exec2.calls.length, 0);
 });
 
-test("a plugin source from the setting is passed as --plugin-source and one argument", async () => {
+test("Init: a plugin source from the setting is passed as --plugin-source and one argument", async () => {
   const exec = fakeExec(happy);
-  await init.guidedSetup(flowDeps(exec, fakeFs(), fakeUi({ apply: false }), { pluginSource: "/home/u/code/kanbanzai" }));
+  await init.planSetup(flowDeps(exec, project(), fakeUi(), { pluginSource: "/home/u/code/kanbanzai" }));
   assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/u/code/kanbanzai"]);
   const exec2 = fakeExec(happy);
-  await init.guidedSetup(flowDeps(exec2, fakeFs(), fakeUi({ apply: false }), { pluginSource: "   " }));
+  await init.planSetup(flowDeps(exec2, project(), fakeUi(), { pluginSource: "   " }));
   assert.ok(!exec2.calls[0].args.includes("--plugin-source"), "blank is unset");
 });
 
-test("a plugin source that looks like a flag is refused before any command runs", async () => {
+test("Init: a plugin source that looks like a flag is refused before any command runs", async () => {
   const exec = fakeExec(happy);
   const ui = fakeUi();
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { pluginSource: "--plan=/x" }));
+  const out = await init.planSetup(flowDeps(exec, project(), ui, { pluginSource: "--plan=/x" }));
   assert.equal(out.status, "failed");
   assert.equal(exec.calls.length, 0);
   assert.match(ui.errors[0], /kanbanzai\.pluginSource/);
 });
 
-test("Apply happy path: dry run, then install, then init --plan, then the file is removed, then the board refreshes", async () => {
-  const exec = fakeExec(happy); const fs = fakeFs();
-  const ui = fakeUi();
-  const extra = {};
-  const out = await init.guidedSetup(flowDeps(exec, fs, ui, extra));
-  assert.equal(out.status, "applied");
-  assert.deepEqual(exec.verbs(), ["init", "install", "init --plan"]);
-  assert.ok(exec.calls[0].args.includes("--dry-run"));
-  assert.deepEqual(fs.log.map((e) => e[0]), ["mkdtemp", "write", "rm"]);
-  assert.equal(extra.applied.length, 1, "the item is re-evaluated");
-  const message = ui.infos.join("\n");
-  assert.match(message, /\.kanbanzai\/config\.toml/);
-  assert.match(message, /\.claude\/settings\.json/);
-  assert.match(message, /\/kanbanzai:setup/);
-  assert.equal(ui.errors, undefined);
-  assert.deepEqual(ui.events.filter((e) => e !== "info"), ["pick", "plan", "confirm"]);
-});
-
-test("Apply: an install failure shows stderr, runs no init --plan and does not refresh", async () => {
-  const exec = fakeExec((cmd, args) => (args.includes("--dry-run") ? OK_DRY : { code: 2, stderr: "install: target is a symlink\n" }));
-  const fs = fakeFs(); const ui = fakeUi(); const extra = {};
-  const out = await init.guidedSetup(flowDeps(exec, fs, ui, extra));
-  assert.equal(out.status, "failed");
-  assert.deepEqual(exec.verbs(), ["init", "install"]);
-  assert.match(ui.errors.join("\n"), /target is a symlink/);
-  assert.deepEqual(fs.log, []);
-  assert.equal(ui.infos, undefined);
-});
-
-test("Apply: an init exit 1 surfaces its stderr and the file is removed", async () => {
-  const exec = fakeExec((cmd, args) => (args.includes("--dry-run") ? OK_DRY : args[0] === "init" ? { code: 1, stderr: "init: cannot create .kanbanzai\n" } : {}));
-  const fs = fakeFs(); const ui = fakeUi();
-  const out = await init.guidedSetup(flowDeps(exec, fs, ui));
-  assert.equal(out.status, "failed");
-  assert.match(ui.errors.join("\n"), /cannot create \.kanbanzai/);
-  assert.deepEqual(fs.log.map((e) => e[0]), ["mkdtemp", "write", "rm"]);
-});
-
-test("an unclear main branch (exit 2 naming --main-branch) opens the input box and plans again with the answer", async () => {
-  let n = 0;
-  const exec = fakeExec((cmd, args) => {
-    if (!args.includes("--dry-run")) return happy(cmd, args);
-    n += 1;
-    return args.includes("--main-branch") ? OK_DRY : { code: 2, stderr: "init: cannot tell the main branch; pass --main-branch NAME\n" };
-  });
-  const ui = fakeUi({ branch: "trunk", apply: false });
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
-  assert.equal(out.status, "cancelled");
-  assert.equal(n, 2);
+test("Init: an unclear main branch (exit 2 naming --main-branch) opens the input box and plans again with the answer", async () => {
+  const root = project();
+  const exec = fakeExec((cmd, args) => (args.includes("--main-branch") ? OK_DRY : { code: 2, stderr: "init: cannot tell the main branch; pass --main-branch NAME\n" }));
+  const ui = fakeUi({ branch: "trunk" });
+  const out = await init.planSetup(flowDeps(exec, root, ui));
+  assert.equal(out.status, "planned");
+  assert.equal(exec.calls.length, 2);
   assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--main-branch", "trunk"]);
-  assert.deepEqual(ui.events.slice(0, 4), ["pick", "branch", "plan", "confirm"]);
+  assert.deepEqual(ui.events, ["pick", "branch", "plan"]);
+  assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
 });
 
-test("the main-branch question dismissed is a cancel; nothing else runs", async () => {
-  const exec = fakeExec((cmd, args) => ({ code: 2, stderr: "pass --main-branch NAME\n" }));
+test("Init: the main-branch question dismissed is a cancel; nothing is written", async () => {
+  const root = project(); const was = tree(root);
+  const exec = fakeExec(() => ({ code: 2, stderr: "pass --main-branch NAME\n" }));
   const ui = fakeUi({ branch: undefined });
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
+  const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "cancelled");
   assert.equal(exec.calls.length, 1);
   assert.equal(ui.errors, undefined);
+  assert.equal(tree(root), was);
 });
 
-test("a rejected branch name is never passed to the command", async () => {
+test("Init: a rejected branch name is never passed to the command", async () => {
   for (const bad of ["-rf", "--main-branch=x", "has space", "tab\there", "new\nline"]) {
     const exec = fakeExec(() => ({ code: 2, stderr: "pass --main-branch NAME\n" }));
     const ui = fakeUi({ branch: bad });
-    const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
+    const out = await init.planSetup(flowDeps(exec, project(), ui));
     assert.equal(out.status, "failed", JSON.stringify(bad));
     assert.equal(exec.calls.length, 1, `no re-plan for ${JSON.stringify(bad)}`);
     assert.match(ui.errors.join("\n"), /branch/i);
   }
 });
 
-test("a second 'unclear main branch' after an answer is an error, not a loop", async () => {
+test("Init: a second 'unclear main branch' after an answer is an error, not a loop", async () => {
   const exec = fakeExec(() => ({ code: 2, stderr: "pass --main-branch NAME\n" }));
-  const ui = fakeUi({ branch: "trunk" });
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
+  const out = await init.planSetup(flowDeps(exec, project(), fakeUi({ branch: "trunk" })));
   assert.equal(out.status, "failed");
   assert.equal(exec.calls.length, 2);
 });
 
-test("a dry run that fails for another reason shows its stderr and stops", async () => {
+test("Init: a dry run that fails for another reason shows its stderr and stops", async () => {
   const exec = fakeExec(() => ({ code: 2, stderr: "init: not inside a git checkout\n" }));
   const ui = fakeUi();
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
+  const out = await init.planSetup(flowDeps(exec, project(), ui));
   assert.equal(out.status, "failed");
   assert.match(ui.errors.join("\n"), /not inside a git checkout/);
   assert.equal(exec.calls.length, 1);
-  assert.ok(!ui.events.includes("plan"));
 });
 
-test("a dry run that prints something that is not a plan is an error", async () => {
+test("Init: a dry run that prints something that is not a plan is an error", async () => {
   for (const stdout of ["not json", "[]", "{}", '{"plan": 3}']) {
-    const exec = fakeExec(() => ({ stdout }));
-    const ui = fakeUi();
-    const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui));
+    const root = project();
+    const out = await init.planSetup(flowDeps(fakeExec(() => ({ stdout })), root, fakeUi()));
     assert.equal(out.status, "failed", stdout);
-    assert.ok(!ui.events.includes("confirm"), stdout);
+    assert.equal(init.hasPending(fs, root), false, stdout);
   }
 });
 
-test("a missing command is one actionable message", async () => {
-  const exec = fakeExec(() => ({ enoent: true }));
+test("Init: a missing command is one actionable message", async () => {
   const ui = fakeUi();
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { missingText: "Install the kanbanzai command" }));
+  const out = await init.planSetup(flowDeps(fakeExec(() => ({ enoent: true })), project(), ui, { missingText: "Install the kanbanzai command" }));
   assert.equal(out.status, "failed");
   assert.deepEqual(ui.errors, ["Install the kanbanzai command"]);
 });
 
-test("a UI that throws never throws out of the flow", async () => {
+test("Init: a UI that throws never throws out of the flow", async () => {
   const ui = fakeUi();
   ui.pickAgents = async () => { throw new Error("quick pick broke"); };
   const messages = [];
   ui.error = (m) => messages.push(m);
-  const out = await init.guidedSetup(flowDeps(fakeExec(happy), fakeFs(), ui));
+  const out = await init.planSetup(flowDeps(fakeExec(happy), project(), ui));
   assert.equal(out.status, "failed");
   assert.match(messages.join(""), /quick pick broke/);
+});
+
+// ---- applyPending (Kanbanzai: Apply) ----
+
+test("Apply: exactly install, then init --plan <the pending file>, in that order, and never a --dry-run", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec(happy); const ui = fakeUi(); const extra = {};
+  const out = await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "applied");
+  assert.equal(exec.calls.length, 2);
+  assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
+  assert.deepEqual(exec.calls[0].args, ["install"]);
+  assert.equal(exec.calls[1].cmd, "/home/u/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
+  assert.deepEqual(exec.calls[1].args, ["init", "--plan", pending(root)]);
+  for (const c of exec.calls) { assert.equal(c.opts.cwd, root); assert.ok(!c.args.includes("--dry-run")); }
+});
+
+test("Apply: the plan file the command reads is the saved one, untouched until init has run", async () => {
+  const root = project(); plantPending(root);
+  let seen;
+  const exec = fakeExec((cmd, args) => { if (args[0] === "init") seen = readFileSync(args[2], "utf8"); return happy(cmd, args); });
+  await init.applyPending(flowDeps(exec, root, fakeUi()));
+  assert.equal(seen, REPORT_TEXT);
+});
+
+test("Apply: success deletes the file and the empty folders it made, re-evaluates, refreshes and lists the files, with no modal", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec(happy); const ui = fakeUi(); const extra = {};
+  await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(init.hasPending(fs, root), false);
+  assert.equal(existsSync(path.join(root, ".kanbanzai", "state")), false, "an empty state folder goes");
+  assert.equal(extra.changed, 1);
+  assert.equal(extra.applied, 1, "the open board refreshes");
+  const message = ui.infos.join("\n");
+  assert.match(message, /\.kanbanzai\/config\.toml/);
+  assert.match(message, /\.claude\/settings\.json/);
+  assert.match(message, /\/kanbanzai:setup/);
+  assert.equal(ui.errors, undefined);
+});
+
+test("Apply: a state folder that holds other files is kept", async () => {
+  const root = project(); plantPending(root);
+  writeFileSync(path.join(root, ".kanbanzai", "state", "other.json"), "{}");
+  await init.applyPending(flowDeps(fakeExec(happy), root, fakeUi()));
+  assert.equal(existsSync(path.join(root, ".kanbanzai", "state", "other.json")), true);
+  assert.equal(init.hasPending(fs, root), false);
+});
+
+test("Apply: an install failure shows install's stderr, runs no init --plan and keeps the plan", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec(() => ({ code: 2, stderr: "install: target is a symlink\n" }));
+  const ui = fakeUi(); const extra = {};
+  const out = await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "failed");
+  assert.deepEqual(exec.verbs(), ["install"]);
+  assert.match(ui.errors.join("\n"), /target is a symlink/);
+  assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
+  assert.equal(ui.infos, undefined);
+  assert.equal(extra.applied, undefined);
+});
+
+test("Apply: an init exit 1 shows its stderr and keeps the plan (it is resumable)", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 1, stderr: "init: cannot create .kanbanzai\n" } : {}));
+  const ui = fakeUi(); const extra = {};
+  const out = await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "failed");
+  assert.match(ui.errors.join("\n"), /cannot create \.kanbanzai/);
+  assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
+  assert.equal(extra.applied, undefined);
+});
+
+test("Apply: exit 2 'run init --dry-run again' removes the plan and says to plan again", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 2, stderr: ".gitignore changed since the plan was made: run init --dry-run again\n" } : {}));
+  const ui = fakeUi(); const extra = {};
+  const out = await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "failed");
+  assert.equal(init.hasPending(fs, root), false);
+  assert.equal(ui.errors.length, 1);
+  assert.equal(ui.errors[0], "The project changed since the plan was made, so the plan was removed. Click Kanbanzai: Init to plan again.");
+  assert.equal(extra.changed, 1, "the item goes back to Init");
+});
+
+test("Apply: another exit 2 refusal keeps the plan and shows the command's words", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 2, stderr: "--plan: the plan is for /x, not this project\n" } : {}));
+  const ui = fakeUi();
+  await init.applyPending(flowDeps(exec, root, ui));
+  assert.match(ui.errors.join("\n"), /not this project/);
+  assert.equal(init.hasPending(fs, root), true);
+});
+
+test("Apply: no pending file is the 'no pending plan' error and runs nothing", async () => {
+  const root = project();
+  const exec = fakeExec(happy); const ui = fakeUi(); const extra = {};
+  const out = await init.applyPending(flowDeps(exec, root, ui, extra));
+  assert.equal(out.status, "failed");
+  assert.equal(exec.calls.length, 0);
+  assert.deepEqual(ui.errors, ["There is no pending setup plan. Click Kanbanzai: Init to make one."]);
+  assert.equal(extra.changed, 1, "the item is re-evaluated");
+});
+
+test("Apply: a symlinked pending file is not a plan and runs nothing", async (t) => {
+  if (process.platform === "win32") return t.skip("symlinks need privileges on Windows");
+  const root = project(); const other = project();
+  writeFileSync(path.join(other, "plan.json"), REPORT_TEXT);
+  mkdirSync(path.dirname(pending(root)), { recursive: true });
+  symlinkSync(path.join(other, "plan.json"), pending(root));
+  const exec = fakeExec(happy);
+  const out = await init.applyPending(flowDeps(exec, root, fakeUi()));
+  assert.equal(out.status, "failed");
+  assert.equal(exec.calls.length, 0);
+});
+
+test("Apply: a missing command is one actionable error and the plan stays", async () => {
+  const root = project(); plantPending(root);
+  const ui = fakeUi();
+  await init.applyPending(flowDeps(fakeExec(() => ({ enoent: true })), root, ui, { missingText: "no kanbanzai here" }));
+  assert.deepEqual(ui.errors, ["no kanbanzai here"]);
+  assert.equal(init.hasPending(fs, root), true);
+});
+
+// ---- showPending and discardPending ----
+
+test("Show Setup Plan: renders the pending file as planText again", async () => {
+  const root = project(); plantPending(root);
+  const ui = fakeUi();
+  const out = await init.showPending({ root, fs, ui, folder: FOLDER, log: { info() {}, warn() {}, error() {} } });
+  assert.equal(out.status, "shown");
+  assert.equal(ui.planShown, init.planText(report, FOLDER));
+});
+
+test("Show Setup Plan: no pending plan is the same error; an unreadable one says what to do", async () => {
+  const deps = (root, ui) => ({ root, fs, ui, folder: FOLDER, log: { info() {}, warn() {}, error() {} } });
+  const ui = fakeUi();
+  await init.showPending(deps(project(), ui));
+  assert.deepEqual(ui.errors, [init.NO_PENDING]);
+  const root = project(); plantPending(root, "not json");
+  const ui2 = fakeUi();
+  const out = await init.showPending(deps(root, ui2));
+  assert.equal(out.status, "failed");
+  assert.match(ui2.errors[0], /Cancel Setup/);
+  assert.equal(ui2.planShown, undefined);
+});
+
+test("Cancel Setup: deletes the plan, removes the empty folders, re-evaluates and says so, non-modally", async () => {
+  const root = project(); plantPending(root);
+  const ui = fakeUi(); const extra = {};
+  const out = await init.discardPending({ root, fs, ui, onChanged: () => { extra.changed = 1; }, log: { info() {}, warn() {}, error() {} } });
+  assert.equal(out.status, "discarded");
+  assert.equal(init.hasPending(fs, root), false);
+  assert.equal(existsSync(path.join(root, ".kanbanzai")), false, "nothing of ours left behind");
+  assert.equal(extra.changed, 1);
+  assert.deepEqual(ui.infos, ["Setup plan discarded."]);
+  assert.equal(ui.errors, undefined);
+});
+
+test("Cancel Setup: with nothing pending it says so and is not an error", async () => {
+  const ui = fakeUi();
+  const out = await init.discardPending({ root: project(), fs, ui, log: { info() {}, warn() {}, error() {} } });
+  assert.equal(out.status, "nothing");
+  assert.match(ui.infos.join(""), /no pending setup plan/i);
+  assert.equal(ui.errors, undefined);
+});
+
+test("Cancel Setup keeps a .kanbanzai folder that holds anything else", async () => {
+  const root = project(); plantPending(root);
+  writeFileSync(path.join(root, ".kanbanzai", "keep.txt"), "x");
+  await init.discardPending({ root, fs, ui: fakeUi(), log: { info() {}, warn() {}, error() {} } });
+  assert.equal(existsSync(path.join(root, ".kanbanzai", "keep.txt")), true);
+  assert.equal(init.hasPending(fs, root), false);
 });
 
 // ---- the sources ----
@@ -538,12 +672,23 @@ test("the extension's sources make no network request and run commands only with
   }
 });
 
-test("the only file the extension writes is the plan file, in init.js", () => {
+test("the only file the extension writes is the pending plan, in init.js: one temporary write and one rename", () => {
   for (const name of readdirSync(here).filter((n) => n.endsWith(".js"))) {
     const src = readFileSync(path.join(here, name), "utf8");
-    const writes = (src.match(/writeFile|appendFile|createWriteStream|copyFile|renameSync|\.cpSync/g) || []).length;
-    if (name === "init.js") assert.equal(writes, 1, "init.js writes only the plan file");
-    else assert.equal(writes, 0, name);
+    const code = src.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+    const writes = (code.match(/writeFile|appendFile|createWriteStream|copyFile|renameSync|\.cpSync/g) || []).length;
+    if (name === "init.js") {
+      assert.equal(writes, 2, "init.js writes only the pending plan: writeFileSync to a temporary name, then renameSync");
+      assert.equal((code.match(/writeFileSync/g) || []).length, 1);
+      assert.equal((code.match(/renameSync/g) || []).length, 1);
+    } else assert.equal(writes, 0, name);
+  }
+});
+
+test("no source asks for a modal dialog", () => {
+  for (const name of readdirSync(here).filter((n) => n.endsWith(".js"))) {
+    const code = readFileSync(path.join(here, name), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+    assert.doesNotMatch(code, /modal/i, name);
   }
 });
 
@@ -565,34 +710,44 @@ for (const [source, command, wants] of [
   ["well-known", "/home/u/.local/share/kanbanzai/bin/kanbanzai", [/per-user folder/, /\/home\/u\/\.local\/share\/kanbanzai\/bin\/kanbanzai/, /newer/i]],
   ["path", "kanbanzai", [/PATH/, /newer/i, /unknown flag --dry-run/]],
 ]) {
-  test(`a command that is too old (${source}): the message names it, where it came from and what to do`, async () => {
+  test(`Init with a command that is too old (${source}): the message names it, where it came from and what to do`, async () => {
+    const root = project();
     const exec = fakeExec((cmd, args) => tooOld(args)); const ui = fakeUi();
-    const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { command, commandSource: source }));
+    const out = await init.planSetup(flowDeps(exec, root, ui, { command, commandSource: source }));
     assert.equal(out.status, "failed");
     assert.equal(ui.errors.length, 1);
     for (const want of wants) assert.match(ui.errors[0], want);
     assert.equal(exec.calls.filter((c) => !c.args.includes("--dry-run")).length, 0, "nothing but the dry run ran");
+    assert.equal(init.hasPending(fs, root), false);
   });
 }
 
 test("an ordinary init failure is not called 'too old'", async () => {
   const exec = fakeExec((cmd, args) => (args.includes("--dry-run") ? { code: 1, stderr: "disk on fire" } : undefined));
   const ui = fakeUi();
-  await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { commandSource: "setting" }));
+  await init.planSetup(flowDeps(exec, project(), ui, { commandSource: "setting" }));
   assert.match(ui.errors[0], /disk on fire/);
   assert.doesNotMatch(ui.errors[0], /older|too old/i);
 });
 
-test("an old command that does not know 'install' is reported the same way, and init --plan does not run", async () => {
-  const exec = fakeExec((cmd, args) => {
-    if (args.includes("--dry-run")) return OK_DRY;
-    if (args[0] === "install") return { code: 2, stderr: "kanbanzai: unknown command 'install'" };
-    return undefined;
-  });
+test("Apply with an old command that does not know 'install': reported the same way, init --plan does not run, the plan stays", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => (args[0] === "install" ? { code: 2, stderr: "kanbanzai: unknown command 'install'" } : undefined));
   const ui = fakeUi();
-  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { command: "/opt/old/kanbanzai", commandSource: "setting" }));
+  const out = await init.applyPending(flowDeps(exec, root, ui, { command: "/opt/old/kanbanzai", commandSource: "setting" }));
   assert.equal(out.status, "failed");
   assert.match(ui.errors[0], /kanbanzai\.command setting/);
   assert.match(ui.errors[0], /unknown command/);
   assert.equal(exec.calls.filter((c) => c.args.includes("--plan")).length, 0);
+  assert.equal(init.hasPending(fs, root), true);
+});
+
+test("Apply with an installed command that is too old for init --plan names the per-user folder, and the plan stays", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 2, stderr: "kanbanzai: init: unknown flag --plan" } : undefined));
+  const ui = fakeUi();
+  await init.applyPending(flowDeps(exec, root, ui));
+  assert.match(ui.errors[0], /per-user folder/);
+  assert.match(ui.errors[0], /\/home\/u\/\.local\/share\/kanbanzai\/bin\/kanbanzai/);
+  assert.equal(init.hasPending(fs, root), true);
 });

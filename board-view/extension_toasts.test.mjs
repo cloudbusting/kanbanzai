@@ -39,9 +39,9 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
     ThemeColor: class { constructor(id) { this.id = id; } },
     window: {
       createOutputChannel: () => ({ info() {}, warn() {}, error() {}, show() {}, dispose() {} }),
-      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
+      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showInformationMessage: (...args) => { vscode.infos.push(args); return Promise.resolve(undefined); }, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
     commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
-    warnings: [], executed: [], choose: undefined,
+    warnings: [], infos: [], executed: [], choose: undefined,
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const cp = {
@@ -74,6 +74,8 @@ const run = async (reads, body, answers) => {
     for (const d of t.context.subscriptions) if (d && d.dispose) d.dispose(); // the sessions poll
     if (t.panel.disposed) t.panel.disposed(); // and the 60 s refresh timer, once the tab was opened
   }
+  // The extension never asks a modal question: scan every information message the fake saw.
+  for (const call of t.vscode.infos) for (const arg of call) assert.ok(!(arg && typeof arg === "object" && arg.modal), `a modal message: ${JSON.stringify(call)}`);
 };
 
 test("no toast on the first draw; a move on the next read raises one; a blocked one has a close button", () => run([

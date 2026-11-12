@@ -71,7 +71,8 @@ promise about versions that were not tested; raising a pin is a change to this t
 The `.vsix` of the **Kanbanzai Board** extension carries the `kanbanzai` command for Linux and macOS (amd64, arm64)
 and Windows (amd64), so one install is enough on a machine that has nothing else. In a git project with no board
 the status bar shows **Kanbanzai: Init**. It asks which agents to set up (Claude Code, OpenCode), shows the whole
-plan in a tab, and does nothing until you click Apply; then it copies the command to a per-user folder, enables the
+plan in a tab you can scroll, keeps it pending (the status bar then reads **Kanbanzai: Apply**) and does nothing
+until you click that; then it copies the command to a per-user folder, enables the
 plugins for the project and makes the board. [board-view/README.md](board-view/README.md) says exactly what it runs,
 reads and writes; [docs/setup.md](docs/setup.md) walks through it, and through the same setup without the editor.
 

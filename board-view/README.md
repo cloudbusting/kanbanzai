@@ -31,19 +31,27 @@ With none of them, the tab says the command was not found and how to install it.
 The mark is `icon/kanbanzai.svg` at the repository root; `go run ./tools/icon` regenerates `board-view/icon.png`,
 which the Extensions view and the Board tab show.
 
-## Kanbanzai: Init
+## Kanbanzai: Init and Apply
 
 In a trusted workspace whose first folder is a git checkout with no `.kanbanzai/config.toml`, the status bar shows
-**Kanbanzai: Init** (also **Kanbanzai: Init** in the command palette). It does nothing until you click:
+**Kanbanzai: Init** (also in the command palette). It makes a plan first and applies it only when you say so, in two
+clicks with as much time between them as you like:
 
-1. It asks which agents to set up (Claude Code, OpenCode; both ticked).
-2. It runs `kanbanzai init --dry-run --json --plugins <agents>` and shows the whole plan in a read-only tab: the
-   project, the settings and where they came from, every file and folder it would make, keep, append to or merge into,
-   the `config.toml`, the plugin settings, the warnings, and one more line: "copy the command to `<folder>`".
-3. It asks **Apply**. Cancelling, or closing the question, ends it; nothing has been run except the dry run.
-4. On Apply it runs `kanbanzai install` (copies the command to the per-user folder), then `kanbanzai init --plan FILE`
-   with exactly the plan you saw (the file is in a private temporary folder outside the project and is removed
-   afterwards), and tells you the files to commit. A failing step shows the command's own error and stops.
+1. **Init.** It asks which agents to set up (Claude Code, OpenCode; both ticked), runs
+   `kanbanzai init --dry-run --json --plugins <agents>`, saves the plan in the project as
+   `.kanbanzai/state/setup-plan.json`, and opens it in an ordinary tab that you can scroll and search. The first and
+   the last lines of the plan are a boxed reminder: *Click "Kanbanzai: Apply" in the status bar.* The status-bar item
+   has become **Kanbanzai: Apply**. Nothing else has been written or run.
+2. **Apply.** Clicking it is the approval. It runs `kanbanzai install` (copies the command to the per-user folder),
+   then `kanbanzai init --plan` on the saved plan, exactly the plan you read, deletes the saved plan, and tells you
+   the files to commit. A failing step shows the command's own error; after a write failure the plan is kept, so
+   Apply can be clicked again (`init` finishes where it stopped).
+
+Until you apply, the plan stays pending: closing the tab, reloading the window or restarting the editor changes
+nothing, and the item stays **Apply**. **Kanbanzai: Show Setup Plan** opens it again; **Kanbanzai: Cancel Setup**
+deletes it (the item goes back to **Init**); running **Init** again replaces it. If the project changed after the
+plan was made (a file the plan would create now exists, say), Apply refuses, removes the stale plan and asks you to
+run Init again.
 
 If the main branch cannot be told, a box asks for it and the plan is made again. The `kanbanzai.pluginSource` setting
 (a path to a Kanbanzai checkout) makes the plan use a local plugin instead of the GitHub marketplace source, for
@@ -54,14 +62,15 @@ For the longer interview (owner, card prefix, context files) run `/kanbanzai:set
 
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
   `board --json`, `config --json` and `sessions --json` to draw the board, and after you click Apply, `install` and
-  `init --plan`; `init --dry-run --json` to make the plan you review. It runs only in a trusted workspace.
+  `init --plan`; `init --dry-run --json` to make the plan you read. It runs only in a trusted workspace.
 - **Reads:** the project's `.kanbanzai/` (through the command), whether `.git` and `.kanbanzai/config.toml` exist, and
   its own settings.
-- **Writes:** nothing, until you click Apply. Then, through the command: the project's `.kanbanzai/`, its ignore
+- **Writes:** until you click Apply, only the pending plan, `.kanbanzai/state/setup-plan.json` (mode 0600; `state/` is
+  the folder the project ignores; nothing is written through a symlink). Then, on Apply, through the command: the project's `.kanbanzai/`, its ignore
   entries and the plugin settings (`.claude/settings.json` is committed with the project, so Claude Code offers the
   plugin to everyone who opens it; `.claude/settings.local.json` and `.opencode/opencode.json` hold a path to your
   Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder.
-  Briefly, a plan file in a private temporary folder. The board tab itself never writes.
+  The plan file is deleted after a successful Apply. The board tab itself never writes.
 - **Network, telemetry:** none. The extension makes no request and sends nothing. Claude Code (not this extension)
   fetches a plugin from a GitHub marketplace source the next time it starts, and the plan names that source.
 - **The command is not signed:** a binary taken from the `.vsix` may meet macOS Gatekeeper or Windows SmartScreen
