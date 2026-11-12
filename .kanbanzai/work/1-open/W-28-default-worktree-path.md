@@ -1,10 +1,10 @@
 # W-28: Default worktree path `../worktrees/<project-dir-name>/{id}`
 
-- **Stage:** in-qa
+- **Stage:** shipping
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: merge W-28 into main, then run kanbanzai-package; the version and the release are the owner's call (Deploy is package and release)
+- **Next action:** Ship with W-38 in v0.10.0 after combined CI and release verification
 - **Where:** worktree W-28
 
 ## Goal
@@ -92,6 +92,7 @@ unchanged.
 - 2026-11-12: built in worktree W-28 (commit 6ea2987). Found that `wip.Batches` built no batch-workspace matcher for a `{id}`-only leaf, so a batch workspace like `../worktrees/<repo>/style` read as an orphan under the new default; it now matches workspaces under the pattern's parent folder (test added; the old sibling case kept under an explicit `worktree = "../{repo}-{id}"`). Proved in a throwaway repo: `config` prints the new default, the claim hint names it, `git worktree add` creates the missing parent, `move start` accepts it and `wip --audit --card` passes. `go vet` and `go test ./...` pass (the cmd and cli packages need `-p 1`: two test packages build `bin/kanbanzai-go` at once and one gets `text file busy`; not caused by this card).
 - 2026-11-12: build: default changed in config, defaults file, defaults.json and tests; wip reads batch workspaces under the new folder; proved in a throwaway repo
 - 2026-11-12: check: kanbanzai-qa green (go vet, go test, node 233 and 8, hooks, plugin validate, audit); review fixed the batch-workspace matcher for absolute paths
+- 2026-11-12: Combined candidate bb50e5b: go test -p 1 and vet passed; five binaries, VSIX, source bundle, checksums and isolated install proofs passed
 
 ## Out of scope
 
