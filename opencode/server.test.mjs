@@ -252,11 +252,17 @@ test("resolveCommand finds the command in the well-known folder when PATH has no
     writeFileSync(moved, "#!/bin/sh\n", { mode: 0o755 });
     process.env.XDG_DATA_HOME = xdg;
     assert.deepEqual(resolveCommand(), { command: moved, found: true });
+    // The per-user copy (the one the editor extension keeps at the plugin's release) beats a kanbanzai on PATH.
     const onPath = path.join(empty, "kanbanzai");
     writeFileSync(onPath, "#!/bin/sh\n", { mode: 0o755 });
-    assert.deepEqual(resolveCommand(), { command: onPath, found: true });
+    assert.deepEqual(resolveCommand(), { command: moved, found: true });
     process.env.KANBANZAI_BIN = fake;
     assert.deepEqual(resolveCommand(), { command: fake, found: true });
+    // PATH is still the next choice when there is no per-user copy.
+    delete process.env.KANBANZAI_BIN;
+    rmSync(moved);
+    rmSync(fake);
+    assert.deepEqual(resolveCommand(), { command: onPath, found: true });
 
     // A missing HOME must not throw.
     delete process.env.KANBANZAI_BIN;
@@ -272,5 +278,58 @@ test("resolveCommand finds the command in the well-known folder when PATH has no
     }
     rmSync(home, { recursive: true, force: true });
     rmSync(empty, { recursive: true, force: true });
+  }
+});
+
+// The plugin's release goes to the command (`context --adapter-version`), so a command of another release says so; a
+// command too old to know the flag gets the plain context.
+const contextCalls = (record) => readFileSync(record, "utf8").split("\n").filter((line) => line.startsWith("context")).join("\n") + "\n"
+
+function recordingCommand(dir, { rejectFlag }) {
+  const record = path.join(dir, "record.txt");
+  const file = path.join(dir, "kz");
+  const reject = rejectFlag
+    ? `case "$*" in *--adapter-version*) echo 'unknown flag' >&2; exit 2;; esac\n` : "";
+  writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${record}'\n${reject}printf 'CONTEXT-LINE\\n'\n`, { mode: 0o755 });
+  return { file, record };
+}
+
+test("the context request carries the plugin's release", async () => {
+  if (process.platform === "win32") return;
+  const project = newProject();
+  const version = JSON.parse(readFileSync(path.join(ROOT, ".claude-plugin", "plugin.json"), "utf8")).version;
+  const { file, record } = recordingCommand(project, { rejectFlag: false });
+  process.env.KANBANZAI_BIN = file;
+  const { ctx, hooks } = fakeContext(project);
+  const plugin = await loadPlugin("?adapter-version");
+  const cleanup = await plugin.setup(ctx);
+  try {
+    const request = { sessionID: "ses_v", system: [] };
+    await hooks["session.context"](request);
+    assert.equal(contextCalls(record), `context --adapter-version ${version}\n`);
+    assert.match(request.system.map((part) => part.text).join("\n"), /CONTEXT-LINE/);
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("a command that does not know --adapter-version gets the plain context", async () => {
+  if (process.platform === "win32") return;
+  const project = newProject();
+  const version = JSON.parse(readFileSync(path.join(ROOT, ".claude-plugin", "plugin.json"), "utf8")).version;
+  const { file, record } = recordingCommand(project, { rejectFlag: true });
+  process.env.KANBANZAI_BIN = file;
+  const { ctx, hooks } = fakeContext(project);
+  const plugin = await loadPlugin("?adapter-version-old");
+  const cleanup = await plugin.setup(ctx);
+  try {
+    const request = { sessionID: "ses_v2", system: [] };
+    await hooks["session.context"](request);
+    assert.equal(contextCalls(record), `context --adapter-version ${version}\ncontext\n`);
+    assert.match(request.system.map((part) => part.text).join("\n"), /CONTEXT-LINE/);
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
   }
 });

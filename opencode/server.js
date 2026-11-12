@@ -5,7 +5,7 @@
 // It does for OpenCode what `.claude-plugin/` and `hooks/` do for Claude Code, from the same files:
 //   - registers Kanbanzai's skills (../skills/*/SKILL.md) under their own names, and the commands that run
 //     them under their bare name and `kanbanzai:<name>`;
-//   - puts `kanbanzai` (KANBANZAI_BIN, PATH, the per-user folder, or a local build) on the PATH of every shell OpenCode starts, and
+//   - puts `kanbanzai` (KANBANZAI_BIN, the per-user folder, PATH, or a local build) on the PATH of every shell OpenCode starts, and
 //     labels the shell with its session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
 //   - renews this session's claims after every tool call (the heartbeat);
 //   - adds the board's standing context (`kanbanzai context`) to every model request;
@@ -60,16 +60,17 @@ export function wellKnownDir(env, platform, home) {
   }
 }
 
-// The command: KANBANZAI_BIN (an explicit path, even a wrong one), then kanbanzai on PATH, then the well-known
-// per-user folder, then a local build.
+// The command: KANBANZAI_BIN (an explicit path, even a wrong one), then the well-known per-user folder (the copy the
+// editor extension keeps at this plugin's release), then kanbanzai on PATH, then a local build.
 export function resolveCommand() {
   const explicit = (process.env.KANBANZAI_BIN || "").trim()
   if (explicit) return { command: explicit, found: isFile(explicit) }
   const names = process.platform === "win32" ? ["kanbanzai.exe", "kanbanzai"] : ["kanbanzai"]
-  const dirs = (process.env.PATH || "").split(path.delimiter)
   const home = process.platform === "win32" ? process.env.USERPROFILE : process.env.HOME
+  const dirs = []
   const known = wellKnownDir(process.env, process.platform, home || "")
   if (known) dirs.push(known)
+  dirs.push(...(process.env.PATH || "").split(path.delimiter))
   for (const dir of dirs) {
     if (!dir) continue
     for (const name of names) {
@@ -79,6 +80,16 @@ export function resolveCommand() {
   }
   if (isFile(DEV_BIN)) return { command: DEV_BIN, found: true }
   return { command: "kanbanzai", found: false }
+}
+
+// This plugin's release, from the manifest every release keeps in step (tools/release checks it), or "" when unreadable.
+export function pluginVersion() {
+  try {
+    const found = JSON.parse(fs.readFileSync(path.join(ROOT, ".claude-plugin", "plugin.json"), "utf8")).version
+    return typeof found === "string" ? found : ""
+  } catch {
+    return ""
+  }
 }
 
 const resolved = resolveCommand()
@@ -129,6 +140,17 @@ function run(args, cwd, env) {
     execFile(KANBANZAI, args, { cwd, env: { ...process.env, ...env }, timeout: 10_000 }, (err, stdout) =>
       resolve(err ? "" : String(stdout || "")),
     )
+  })
+}
+
+// The standing context. The plugin's release goes with the request, so a command of another release says so in
+// the first line; a command too old to know the flag fails on it, and the plain context is asked for instead.
+function standingContext(cwd) {
+  const version = pluginVersion()
+  if (!version) return run(["context"], cwd, {})
+  return new Promise((resolve) => {
+    execFile(KANBANZAI, ["context", "--adapter-version", version], { cwd, env: process.env, timeout: 10_000 },
+      (err, stdout) => (err ? resolve(run(["context"], cwd, {})) : resolve(String(stdout || ""))))
   })
 }
 
@@ -215,7 +237,7 @@ export default {
 
     let cached = { text: "", at: 0 }
     const standing = async () => {
-      if (Date.now() - cached.at > CONTEXT_TTL_MS) cached = { text: (await run(["context"], directory, {})).trim(), at: Date.now() }
+      if (Date.now() - cached.at > CONTEXT_TTL_MS) cached = { text: (await standingContext(directory)).trim(), at: Date.now() }
       return cached.text
     }
     try {

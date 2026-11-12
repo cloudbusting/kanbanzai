@@ -253,6 +253,87 @@ test("command resolution: the well-known folder when nothing is bundled", async 
   }
 });
 
+// ---- the per-user copy follows the extension ----
+
+// A home with a copy `kanbanzai install` made earlier, for the duration of `body`.
+async function withInstalledCopy(body) {
+  const home = dir();
+  const known = init.wellKnownFile({}, process.platform, home);
+  fs.mkdirSync(path.dirname(known), { recursive: true });
+  fs.writeFileSync(known, "old", { mode: 0o755 });
+  const saved = { HOME: process.env.HOME, XDG: process.env.XDG_DATA_HOME, USERPROFILE: process.env.USERPROFILE, LOCALAPPDATA: process.env.LOCALAPPDATA };
+  process.env.HOME = home; process.env.USERPROFILE = home;
+  delete process.env.XDG_DATA_HOME; delete process.env.LOCALAPPDATA;
+  try {
+    await body(known);
+  } finally {
+    for (const [k, v] of [["HOME", saved.HOME], ["XDG_DATA_HOME", saved.XDG], ["USERPROFILE", saved.USERPROFILE], ["LOCALAPPDATA", saved.LOCALAPPDATA]]) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+}
+const refreshes = (calls) => calls.filter((c) => c.args[0] === "install" && c.args[1] === "--refresh");
+
+test("refresh: an existing per-user copy is refreshed from the bundled command once, quietly, on activation", async () => {
+  if (!EXT()) return;
+  const { d, file } = extensionWithBundled();
+  await withInstalledCopy(async () => {
+    const script = (cmd, args) => (args[0] === "install" ? { stdout: "refreshed /home/x/kanbanzai: v0.6.4 -> v0.8.1\n" } : undefined);
+    await run({ folders: folder(withBoard()), extensionPath: d, script }, async ({ calls, channel, vscode }) => {
+      await settle();
+      const found = refreshes(calls);
+      assert.equal(found.length, 1, JSON.stringify(calls.map((c) => c.args)));
+      assert.equal(found[0].cmd, file);
+      assert.deepEqual(found[0].args, ["install", "--refresh"]);
+      assert.ok(channel.lines.some(([level, line]) => level === "info" && line.includes("v0.6.4 -> v0.8.1")), JSON.stringify(channel.lines));
+      assert.deepEqual(vscode.errors, []);
+      assert.deepEqual(vscode.infos, []);
+    });
+  });
+});
+
+test("refresh: no per-user copy means nothing is run and nothing is made", async () => {
+  if (!EXT()) return;
+  const { d } = extensionWithBundled();
+  await run({ folders: folder(withBoard()), extensionPath: d }, async ({ calls }) => {
+    await settle();
+    assert.deepEqual(refreshes(calls), []);
+    assert.deepEqual(installs(calls), []);
+  });
+});
+
+test("refresh: the kanbanzai.command setting, or no bundled command, means no refresh", async () => {
+  if (!EXT()) return;
+  const { d } = extensionWithBundled();
+  await withInstalledCopy(async () => {
+    await run({ folders: folder(withBoard()), extensionPath: d, setting: "/opt/kz" }, async ({ calls }) => {
+      await settle();
+      assert.deepEqual(refreshes(calls), []);
+    });
+    await run({ folders: folder(withBoard()), extensionPath: dir() }, async ({ calls }) => {
+      await settle();
+      assert.deepEqual(refreshes(calls), []);
+    });
+  });
+});
+
+test("refresh: a failed refresh is logged and told once in plain words, and the board keeps working", async () => {
+  if (!EXT()) return;
+  const { d } = extensionWithBundled();
+  await withInstalledCopy(async (known) => {
+    const script = (cmd, args) => (args[0] === "install" ? { code: 1, stderr: "kanbanzai: install: cannot replace it" } : undefined);
+    await run({ folders: folder(withBoard()), extensionPath: d, script }, async ({ calls, channel, vscode }) => {
+      await settle();
+      assert.equal(refreshes(calls).length, 1);
+      assert.equal(vscode.errors.length, 1);
+      assert.match(vscode.errors[0][0], /could not refresh/);
+      assert.match(vscode.errors[0][0], /cannot replace it/);
+      assert.ok(channel.lines.some(([level, line]) => level === "error" && line.includes(known)), JSON.stringify(channel.lines));
+      assert.ok(calls.some((c) => c.args[0] === "sessions"), "the extension keeps polling the board");
+    });
+  });
+});
+
 test("command resolution: a bundled binary that is not executable is made executable once, and the log says so", async () => {
   if (!EXT() || process.platform === "win32") return;
   const { d, file } = extensionWithBundled(0o644);

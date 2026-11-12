@@ -178,17 +178,105 @@ func TestTheHooksSurviveAMissingHome(t *testing.T) {
 	}
 }
 
-// The command on PATH still wins over the per-user folder.
-func TestThePathCommandComesBeforeTheWellKnownFolder(t *testing.T) {
-	r := newHookRig(t)
-	other := filepath.Join(filepath.Dir(r.tools), "onpath")
-	r.fake(t, other, "kanbanzai")
-	r.fake(t, filepath.Join(r.home, ".local", "share", "kanbanzai", "bin"), "kanbanzai")
-	if err := os.Symlink(filepath.Join(other, "kanbanzai"), filepath.Join(r.tools, "kanbanzai")); err != nil {
+// KANBANZAI_BIN wins, then the per-user folder (the copy the editor extension keeps at the plugin's release), then PATH.
+func TestThePerUserCopyComesBeforeThePathCommand(t *testing.T) {
+	for _, script := range []string{"heartbeat.sh", "session-start.sh"} {
+		t.Run(script, func(t *testing.T) {
+			r := newHookRig(t)
+			other := filepath.Join(filepath.Dir(r.tools), "onpath")
+			r.fakeAs(t, other, "kanbanzai", "PATH")
+			r.fakeAs(t, filepath.Join(r.home, ".local", "share", "kanbanzai", "bin"), "kanbanzai", "PERUSER")
+			if err := os.Symlink(filepath.Join(other, "kanbanzai"), filepath.Join(r.tools, "kanbanzai")); err != nil {
+				t.Fatal(err)
+			}
+			r.run(t, script)
+			if got := r.recorded(); !strings.HasPrefix(got, "PERUSER ") {
+				t.Fatalf("the hook ran %q, want the per-user copy", got)
+			}
+		})
+	}
+}
+
+func TestKanbanzaiBinComesBeforeThePerUserCopy(t *testing.T) {
+	for _, script := range []string{"heartbeat.sh", "session-start.sh"} {
+		t.Run(script, func(t *testing.T) {
+			r := newHookRig(t)
+			explicit := filepath.Join(filepath.Dir(r.tools), "explicit")
+			r.fakeAs(t, explicit, "kz", "EXPLICIT")
+			r.fakeAs(t, filepath.Join(r.home, ".local", "share", "kanbanzai", "bin"), "kanbanzai", "PERUSER")
+			r.run(t, script, "KANBANZAI_BIN="+filepath.Join(explicit, "kz"))
+			if got := r.recorded(); !strings.HasPrefix(got, "EXPLICIT ") {
+				t.Fatalf("the hook ran %q, want KANBANZAI_BIN", got)
+			}
+		})
+	}
+}
+
+// fakeAs is fake, with a first word on each recorded line saying which copy ran.
+func (r hookRig) fakeAs(t *testing.T, dir, name, label string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	r.run(t, "heartbeat.sh")
-	if got := r.recorded(); got != "claim heartbeat --hook\n" {
-		t.Fatalf("got %q", got)
+	script := "#!/bin/sh\nprintf '%s\\n' '" + label + " '\"$*\" >> '" + r.record + "'\nprintf 'CONTEXT\\n'\n"
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The plugin's release goes to the command, so a command of another release can say so; a plugin with no manifest, or a
+// command too old to know the flag, gets the plain context.
+func TestSessionStartPassesThePluginVersion(t *testing.T) {
+	r := newHookRig(t)
+	r.manifest(t, "0.7.1")
+	r.fake(t, filepath.Join(r.home, ".local", "share", "kanbanzai", "bin"), "kanbanzai")
+	stdout, _ := r.run(t, "session-start.sh")
+	if got := r.recorded(); got != "context --adapter-version 0.7.1\n" {
+		t.Fatalf("ran %q", got)
+	}
+	if stdout != "CONTEXT\n" {
+		t.Fatalf("printed %q", stdout)
+	}
+}
+
+func TestSessionStartFallsBackForACommandThatDoesNotKnowTheFlag(t *testing.T) {
+	r := newHookRig(t)
+	r.manifest(t, "0.7.1")
+	dir := filepath.Join(r.home, ".local", "share", "kanbanzai", "bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + r.record + "'\n" +
+		"case \"$*\" in *--adapter-version*) echo 'kanbanzai: context: unknown flag --adapter-version' >&2; exit 2;; esac\nprintf 'CONTEXT\\n'\n"
+	if err := os.WriteFile(filepath.Join(dir, "kanbanzai"), []byte(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr := r.run(t, "session-start.sh")
+	if got := r.recorded(); got != "context --adapter-version 0.7.1\ncontext\n" {
+		t.Fatalf("ran %q", got)
+	}
+	if stdout != "CONTEXT\n" || stderr != "" {
+		t.Fatalf("printed %q, %q", stdout, stderr)
+	}
+}
+
+func TestSessionStartWithoutAManifestRunsPlainContext(t *testing.T) {
+	r := newHookRig(t)
+	r.fake(t, filepath.Join(r.home, ".local", "share", "kanbanzai", "bin"), "kanbanzai")
+	r.run(t, "session-start.sh")
+	if got := r.recorded(); got != "context\n" {
+		t.Fatalf("ran %q", got)
+	}
+}
+
+func (r hookRig) manifest(t *testing.T, version string) {
+	t.Helper()
+	dir := filepath.Join(r.plugin, ".claude-plugin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	text := "{\n  \"name\": \"kanbanzai\",\n  \"version\": \"" + version + "\",\n  \"license\": \"MIT\"\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, "plugin.json"), []byte(text), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

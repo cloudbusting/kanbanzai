@@ -41,12 +41,12 @@ commands:
   config [--json]                the versioned, resolved settings
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   doctor [--json]                diagnose this installation without repairs
-  context                        the standing context
+  context [--adapter-version V] the standing context
   workflow <verb> ...            show, validate, plan, apply and export the flow (columns and steps)
   init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
        [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
                                  set a project up (detect, plan, apply, verify; never commits)
-  install [--dry-run] [--where]  copy this command to the per-user folder (works outside a project)
+  install [--dry-run|--refresh|--where]  copy this command to the per-user folder (works outside a project)
 
   --version                      print the version
   --help                         this help
@@ -104,11 +104,11 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
 	}
 	if command == "install" {
-		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true}, nil)
+		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true}, nil)
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Out: out, Err: errOut})
+		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Refresh: set["refresh"], Out: out, Err: errOut})
 	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
@@ -144,6 +144,12 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")
+	mismatch := ""
+	if command == "context" {
+		if _, flags, _, perr := parse(rest, nil, map[string]bool{"adapter-version": true}); perr == nil {
+			mismatch = context.Mismatch(version.Version, flags["adapter-version"])
+		}
+	}
 	project, err := config.Find("")
 	if err != nil {
 		if config.IsNoProject(err) {
@@ -156,6 +162,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		var configErr *config.ConfigError
 		if errors.As(err, &configErr) {
 			if command == "context" {
+				if mismatch != "" {
+					fmt.Fprintln(out, mismatch)
+				}
 				fmt.Fprintf(out, "Kanbanzai: this project's config cannot be used: %v\n", err)
 				return 0
 			}
@@ -263,9 +272,12 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		showConfig(project, out)
 		return 0
 	case "context":
-		positionals, _, _, err := parse(args, nil, nil)
+		positionals, flags, _, err := parse(args, nil, map[string]bool{"adapter-version": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
+		}
+		if line := context.Mismatch(version.Version, flags["adapter-version"]); line != "" {
+			fmt.Fprintln(out, line)
 		}
 		return context.Run(project, out)
 	}
