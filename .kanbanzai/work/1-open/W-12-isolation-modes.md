@@ -1,10 +1,10 @@
 # W-12: Isolation modes: worktree, branch-only, shared checkout and external
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run go test, go vet, node suites, plugin validate, then review the diff of branch W-12
+- **Next action:** close: merge branch W-12 into main (Deploy is None), move to Done, remove the worktree
 - **Where:** worktree W-12
 
 ## Goal
@@ -87,6 +87,7 @@ README (config reference, the commands list), `docs/isolation.md` (new), `docs/w
 - 2026-11-12: design: four modes, a `workspace` package and command, per-mode Where vocabulary and audit rules, seven ordered tasks; no owner decision open.
 - 2026-11-12: design: four isolation modes, workspace package and command, per-mode audit; no owner decision open
 - 2026-11-12: build: flow.isolation, internal/workspace, workspace command, per-mode move/audit/check/context, skills, fixtures, docs/isolation.md
+- 2026-11-12: check: go test/vet, node suites, hooks, plugin validate, audit, kanbanzai check all green; review fixed one message regression (f969fa5)
 
 ## Out of scope
 
