@@ -1,11 +1,11 @@
 # W-09: Issue types and global numbering: the model and migration policy
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12: design recorded in b3e31c7; no deploy
 - **ADR:** none
-- **Next action:** Close the design-only card; deployment is skipped
-- **Where:** worktree W-09
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -118,5 +118,6 @@ Type-prefixed IDs make a retype expensive because the stable key changes. Existi
 - 2026-11-12: Designed the type model and global numbering; recorded the owner's no-migration and no-retype decisions.
 - 2026-11-12: Completed the design-only deliverable in the board brief; no product files or red test apply.
 - 2026-11-12: QA passed: Go tests and vet, 246 Node tests, hook and JS syntax, plugin validation, config, card audit and board check; reviewed the design brief.
+- 2026-11-12: Deployment skipped: design-only board brief; no product artifact.
 
 ## Comments
