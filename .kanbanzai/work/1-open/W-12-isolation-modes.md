@@ -1,6 +1,6 @@
 # W-12: Isolation modes: worktree, branch-only, shared checkout and external
 
-- **Stage:** designed
+- **Stage:** building
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
