@@ -1,10 +1,10 @@
 # W-22: The installed command follows the release (slice 1 of automatic upgrade)
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none (the Decisions below are the record)
-- **Next action:** check: run /kanbanzai:check on worktree W-22
+- **Next action:** package: /kanbanzai-package builds the vsix and plugin bundles and install-tests them; owner then approves QA
 - **Where:** worktree W-22
 
 ## Goal
@@ -125,6 +125,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
   hooks' PATH-first order. Scope set by the owner to the command; migration moved to slice 2. Designed.
 - 2026-11-12: design settled with the owner: refresh on extension activation, per-user copy before PATH, mismatch warning via context --adapter-version; migration is slice 2
 - 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 5351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
+- 2026-11-12: checked: go 22 packages, node 239, claude validate --strict, hooks, vsix dry run clean, check and audit pass; review fixed a probe race, dry-run side effects and mismatch advice; Windows rename-aside not run (cross-compiled only)
 
 ## Out of scope
 
