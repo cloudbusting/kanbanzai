@@ -42,6 +42,7 @@ commands:
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   doctor [--json]                diagnose this installation without repairs
   context                        the standing context
+  workflow <verb> ...            show, validate, plan, apply and export the flow (columns and steps)
   init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
        [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
                                  set a project up (detect, plan, apply, verify; never commits)
@@ -74,6 +75,10 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	command := args[0]
 	rest := args[1:]
+	if hasHelp(rest) && command == "workflow" {
+		fmt.Fprint(out, workflowUsage)
+		return 0
+	}
 	if hasHelp(rest) {
 		fmt.Fprintf(out, "usage: kanbanzai %s [options]\n", command)
 		return 0
@@ -189,6 +194,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		}
 		return wip.Run(project, wip.Options{Audit: set["audit"], Cleanup: set["cleanup"], Next: set["next"],
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
+	case "workflow":
+		return runWorkflow(project, args, out, errOut)
 	case "claim":
 		return runClaim(project, args, in, out, errOut)
 	case "move":
