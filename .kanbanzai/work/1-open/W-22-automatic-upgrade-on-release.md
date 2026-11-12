@@ -128,8 +128,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
 ## Out of scope
 
 - Slice 2: detecting and migrating a host's config, cards, folders, numbering, claims and worktrees on a release
-  (this is where the moto-tours `config upgrade` prompt belongs); it needs its own card, to be triaged, and its own
-  design.
+  (this is where the moto-tours `config upgrade` prompt belongs); it is W-34.
 - A self-updating command or any download; a plugin-only host with no extension is warned, not repaired.
 - The release pipeline (W-01), the packaged core (W-02), the config schema and doctor (W-03), one host's hand-run
   migration (W-19), upgrade documentation beyond T6 (W-18).
