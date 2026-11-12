@@ -1,11 +1,11 @@
 # W-05: Agent-driven setup skill: /kanbanzai:setup
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.7.1, 18a5884, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.7.1 (0.7.0 was tagged but not published)
 - **ADR:** none
-- **Next action:** release: owner approves; ship with or after W-04 (the skill needs its init --dry-run/--plan); version is the owner's
-- **Where:** worktree W-05
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
