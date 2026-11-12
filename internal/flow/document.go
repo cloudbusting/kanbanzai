@@ -228,16 +228,27 @@ func FromProject(p *config.Project) *Doc {
 		if c.Worktree {
 			entry["worktree"] = true
 		}
-		if c.WaitsForOwner {
-			entry["waits_for_owner"] = true
+		if c.Gate.Set() {
+			entry["gate"] = c.Gate.Type
+			for key, value := range map[string]string{"gate_name": c.Gate.Name, "gate_after": c.Gate.After,
+				"gate_until": c.Gate.Until} {
+				if value != "" {
+					entry[key] = value
+				}
+			}
 		}
 		columns = append(columns, entry)
 	}
 	steps := map[string]any{}
 	for _, name := range p.StepOrder {
 		s := p.Steps[name]
-		steps[name] = map[string]any{"into": s.Into, "during": s.During, "skill": s.Skill, "extend": strs(s.Extend),
+		entry := map[string]any{"into": s.Into, "during": s.During, "skill": s.Skill, "extend": strs(s.Extend),
 			"context": strs(s.Context), "checks": strs(s.Checks)}
+		if s.SkipField != "" {
+			entry["skip_field"] = s.SkipField
+			entry["skip_values"] = strs(s.SkipValues)
+		}
+		steps[name] = entry
 	}
 	raw := map[string]any{"flow": flow, "columns": columns, "steps": steps}
 	return &Doc{Raw: raw, Text: ToTOML(raw), Format: "toml"}
@@ -289,8 +300,8 @@ func jsonValue(v any) any {
 var (
 	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order"}
 	columnKeys = []string{"key", "label", "words", "folder", "kind", "started", "next", "settled_next", "title",
-		"settled_title", "worktree", "waits_for_owner", "lane", "doing"}
-	stepKeys = []string{"into", "during", "skill", "extend", "context", "checks"}
+		"settled_title", "worktree", "waits_for_owner", "lane", "doing", "gate", "gate_name", "gate_after", "gate_until"}
+	stepKeys = []string{"into", "during", "skill", "extend", "context", "checks", "skip_field", "skip_values"}
 )
 
 // ToTOML writes the three tables in a fixed order, with their keys in a fixed order, so equal flows give equal text.

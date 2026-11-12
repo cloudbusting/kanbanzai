@@ -59,7 +59,8 @@ type Column struct {
 	Title         string
 	SettledTitle  string
 	Worktree      bool
-	WaitsForOwner bool
+	WaitsForOwner bool // true for gate = "owner" (the older `waits_for_owner = true` is the same thing)
+	Gate          Gate
 	Lane          string
 	Doing         string
 }
@@ -86,6 +87,11 @@ type Step struct {
 	Checks  []string
 	Active  bool
 	During  string
+
+	// SkipField and SkipValues make a card skip the step: its brief's SkipField (a head line or a "## " section)
+	// starts with one of SkipValues. Both set, or neither.
+	SkipField  string
+	SkipValues []string
 }
 
 // Project is one project's resolved configuration: its paths, columns and steps.
@@ -446,6 +452,12 @@ func (p *Project) columns() error {
 		return errf("there are no [[columns]]")
 	}
 	columns := make([]Column, 0, len(raw))
+	allKeys := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if entry, ok := item.(map[string]any); ok {
+			allKeys = append(allKeys, asString(entry["key"], ""))
+		}
+	}
 	for _, item := range raw {
 		entry, ok := item.(map[string]any)
 		if !ok || asString(entry["key"], "") == "" || asString(entry["folder"], "") == "" {
@@ -483,6 +495,10 @@ func (p *Project) columns() error {
 		for i := range words {
 			words[i] = strings.ToLower(words[i])
 		}
+		gate, err := ParseGate(entry, key, kind, asString(entry["doing"], ""), allKeys)
+		if err != nil {
+			return err
+		}
 		columns = append(columns, Column{
 			Key:           key,
 			Label:         asString(entry["label"], key),
@@ -495,7 +511,8 @@ func (p *Project) columns() error {
 			Title:         asString(entry["title"], ""),
 			SettledTitle:  asString(entry["settled_title"], ""),
 			Worktree:      asBool(entry["worktree"]),
-			WaitsForOwner: asBool(entry["waits_for_owner"]),
+			WaitsForOwner: gate.Type == "owner",
+			Gate:          gate,
 			Lane:          asString(entry["lane"], ""),
 			Doing:         asString(entry["doing"], ""),
 		})
@@ -559,6 +576,19 @@ func (p *Project) steps() error {
 		if err != nil {
 			return errf("step '%s': checks must be a list", name)
 		}
+		skipField := asString(entry["skip_field"], "")
+		skipValues, err := stringList(entry["skip_values"])
+		if err != nil {
+			return errf("step '%s': skip_values must be a list", name)
+		}
+		if (skipField == "") != (len(skipValues) == 0) {
+			return errf("step '%s': skip_field and skip_values go together: set both or neither", name)
+		}
+		for _, value := range skipValues {
+			if strings.TrimSpace(value) == "" {
+				return errf("step '%s': skip_values must not hold an empty value", name)
+			}
+		}
 		during := asString(entry["during"], "")
 		if _, ok := p.ByKey[during]; !ok {
 			during = ""
@@ -573,6 +603,8 @@ func (p *Project) steps() error {
 			Checks:  checks,
 			Active:  active,
 			During:  during,
+
+			SkipField: skipField, SkipValues: skipValues,
 		}
 		names = append(names, name)
 	}
@@ -766,7 +798,9 @@ func (p *Project) AsDict() map[string]any {
 			"settled_next": optional(column.SettledNext), "title": optional(column.Title),
 			"settled_title": optional(column.SettledTitle), "worktree": column.Worktree,
 			"waits_for_owner": column.WaitsForOwner, "lane": optional(column.Lane),
-			"doing": optional(column.Doing),
+			"doing": optional(column.Doing), "gate": optional(column.Gate.Type),
+			"gate_name": optional(column.Gate.Name), "gate_after": optional(column.Gate.After),
+			"gate_until": optional(column.Gate.Until),
 		})
 	}
 	steps := make(map[string]any, len(p.Steps))
@@ -774,6 +808,7 @@ func (p *Project) AsDict() map[string]any {
 		steps[name] = map[string]any{
 			"into": step.Into, "skill": step.Skill, "extend": step.Extend, "context": step.Context,
 			"checks": step.Checks, "active": step.Active, "during": optional(step.During),
+			"skip_field": optional(step.SkipField), "skip_values": step.SkipValues,
 		}
 	}
 	return map[string]any{
