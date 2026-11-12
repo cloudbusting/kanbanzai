@@ -124,7 +124,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
   prefers its bundled command, `install` already overwrites, and what is missing is a trigger on update and the
   hooks' PATH-first order. Scope set by the owner to the command; migration moved to slice 2. Designed.
 - 2026-11-12: design settled with the owner: refresh on extension activation, per-user copy before PATH, mismatch warning via context --adapter-version; migration is slice 2
-- 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
+- 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 5351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
 
 ## Out of scope
 
