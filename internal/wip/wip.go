@@ -161,6 +161,21 @@ func Batches(project *config.Project) []Batch {
 	var spacesRE *regexp.Regexp
 	if stem != "" {
 		spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(stem) + `[^| ]+) \|`)
+	} else if leaf == "{id}" {
+		// A pattern whose last segment is only the id (the default, ../worktrees/{repo}/{id}) gives every worktree its
+		// own folder under one parent; a batch workspace written under that parent is the batch's.
+		if folder := strings.TrimSuffix(strings.TrimSuffix(strings.ReplaceAll(project.WorktreePattern, "\\", "/"), leaf), "/"); folder != "" &&
+			!strings.Contains(folder, "{id}") {
+			if expanded, err := project.Expand(folder, ""); err == nil {
+				// The map may write the path relative or absolute, so match from the first segment that is not "." or "..".
+				for strings.HasPrefix(expanded, "./") || strings.HasPrefix(expanded, "../") {
+					expanded = expanded[strings.Index(expanded, "/")+1:]
+				}
+				if expanded != "" && expanded != ".." && expanded != "." {
+					spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(expanded) + `/[^| /]+) \|`)
+				}
+			}
+		}
 	}
 	out := []Batch{}
 	entries, err := os.ReadDir(project.Batches)
