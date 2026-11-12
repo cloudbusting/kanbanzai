@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-10: issue types and one global number ledger. A project that configures `[[types]]` gets typed ids (`TASK-7`,
+  `BUG-42`, or `KANZ-BUG-43` with a project key), and `kanbanzai number --type KEY` allocates from one global
+  sequence shared by every type. `kanbanzai init` now writes a typed starter config (task, bug, change, spike,
+  chore); `init --prefix KEY` keeps the older single-prefix shape. A project with no `[[types]]` is unchanged, and
+  there is no migration of a legacy per-prefix ledger. See `docs/types.md`.
+
 ## [0.10.0] — 2026-11-12
 
 - W-28: the default worktree path is now `../worktrees/{repo}/{id}`. Existing boards that omit `worktree` and have

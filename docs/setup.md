@@ -78,6 +78,9 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
   cannot give each card a worktree sets `[flow] isolation` afterwards (see [isolation.md](isolation.md)); setup does not ask.
 - **A main branch that is not `main`:** `origin/HEAD`, or the only `main`, `master` or `trunk`, is used and shown; if
   it cannot be told, setup asks and passes `--main-branch`.
+- **Issue types:** a fresh config starts typed (task, bug, change, spike and chore; `default_type = "task"`), so
+  its cards are `TASK-01`, `BUG-02` and so on. `init --prefix KEY` writes the older single-prefix shape instead.
+  [types.md](types.md) has the model, the global number sequence and the no-migration boundary.
 - **An existing `.kanbanzai/config.toml`** is never changed. One that cannot load is reported with the command that
   repairs it (`kanbanzai config upgrade` or `kanbanzai doctor`); replacing a config is a separate question that names
   the backup it makes.

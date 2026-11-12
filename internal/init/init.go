@@ -9,6 +9,7 @@ package initcmd
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
@@ -137,6 +138,10 @@ func render(out io.Writer, report *Report) {
 	if plan.Settings != nil {
 		fmt.Fprintf(out, "  main branch: %s (%s)\n  owner:       %s (%s)\n", plan.Settings.MainBranch,
 			plan.Settings.MainBranchSource, plan.Settings.Owner, plan.Settings.OwnerSource)
+		if len(plan.Settings.Types) > 0 {
+			fmt.Fprintf(out, "  issue types: %s (one global number sequence)\n",
+				strings.Join(plan.Settings.Types, ", "))
+		}
 	}
 	for _, warning := range plan.Warnings {
 		fmt.Fprintf(out, "  note: %s\n", warning)

@@ -17,13 +17,14 @@ var IsolationModes = map[string]bool{"worktree": true, "branch": true, "shared":
 // schemaKeys is the single allowlist for all supported configuration tables. Step names are user-defined.
 func schemaKeys() map[string]map[string]string {
 	return map[string]map[string]string{
-		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps"},
+		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types"},
 		"project": {
-			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings",
+			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
 		"claims":  {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":    {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation"},
 		"columns": {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string", "gate": "string", "gate_name": "string", "gate_after": "string", "gate_until": "string"},
+		"types":   {"key": "string", "label": "string", "prefix": "string", "template": "string", "colour": "string", "icon": "string", "description": "string"},
 		"step":    {"into": "string", "during": "string", "skill": "string", "extend": "strings", "context": "strings", "checks": "strings", "skip_field": "string", "skip_values": "strings"},
 	}
 }
@@ -94,6 +95,9 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 				if typ == "table" || typ == "steps" {
 					return errf("%s: [%s] must be a table; replace the value with a table", source, full)
 				}
+				if typ == "types" {
+					return errf("%s: types must be a list of [[types]] tables", source)
+				}
 				want := typ
 				switch typ {
 				case "strings":
@@ -129,6 +133,12 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 			case "columns":
 				for _, item := range value.([]any) {
 					if err := table(item.(map[string]any), "columns", "columns"); err != nil {
+						return err
+					}
+				}
+			case "types":
+				for _, item := range value.([]any) {
+					if err := table(item.(map[string]any), "types", "types"); err != nil {
 						return err
 					}
 				}
@@ -177,6 +187,17 @@ func validType(value any, typ string) bool {
 	case "columns":
 		list, ok := value.([]any)
 		if !ok || len(list) == 0 {
+			return false
+		}
+		for _, item := range list {
+			if _, ok := item.(map[string]any); !ok {
+				return false
+			}
+		}
+		return true
+	case "types":
+		list, ok := value.([]any)
+		if !ok {
 			return false
 		}
 		for _, item := range list {
