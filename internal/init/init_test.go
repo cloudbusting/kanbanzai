@@ -774,3 +774,26 @@ func TestTheCommandEndToEnd(t *testing.T) {
 		t.Errorf("init outside a project = %d, want 2", result.Code)
 	}
 }
+
+func TestARerunStillListsTheFilesNobodyHasCommittedYet(t *testing.T) {
+	root := repo(t, "main")
+	if code, out, errOut := initRun(root, Options{}); code != 0 {
+		t.Fatalf("init = %d\n%s%s", code, out, errOut)
+	}
+	code, out, _ := initRun(root, Options{})
+	if code != 0 || !strings.Contains(out, "nothing to do: already set up") {
+		t.Fatalf("second init = %d\n%s", code, out)
+	}
+	if !strings.Contains(out, "files to commit:") || !strings.Contains(out, "  .kanbanzai/config.toml") {
+		t.Errorf("the re-run forgot the uncommitted files:\n%s", out)
+	}
+	if strings.Contains(out, "nothing: the board is sound and committed") {
+		t.Errorf("the re-run claims a committed board:\n%s", out)
+	}
+
+	commitAll(t, root)
+	_, out, _ = initRun(root, Options{})
+	if strings.Contains(out, "files to commit:") || !strings.Contains(out, "nothing: the board is sound and committed") {
+		t.Errorf("after the commit nothing is left to commit:\n%s", out)
+	}
+}
