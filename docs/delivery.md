@@ -22,6 +22,11 @@ A card that skips a step goes on to the next step it does not skip. When every s
 closes: `kanbanzai move ID done --done "<what shipped>"`. A project that sets only `skill` on `deploy-qa` and `ship`
 keeps the shipped rule, because step tables merge key by key (`Deploy: None` closes from Checked).
 
+A skipped step cannot be started with `move ID start` or by naming its Doing column. A claim still records the
+lease but leaves the card in place and reports the explicit skip or close route instead of a workspace-start hint.
+Taking that route remains subject to gates and the usual move requirements. `--force --reason` can override a
+refusal and records the override. A step already in progress can still be resumed or finished.
+
 `skip_field` can be any field of the brief. Skip by type once cards have one:
 
 ```toml
