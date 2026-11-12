@@ -35,7 +35,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
     show() { channel.shown += 1; },
     dispose() { channel.disposed = true; },
   };
-  const item = { show() {} };
+  const item = { show() {}, hide() {} };
   const panel = {
     visible: true,
     webview: { html: "", cspSource: "x", onDidReceiveMessage: (f) => { panel.message = f; return { dispose() {} }; } },
@@ -66,7 +66,7 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
       showWarningMessage: () => Promise.resolve(undefined),
       showTextDocument: () => (vscode.openError ? Promise.reject(new Error(vscode.openError)) : Promise.resolve()),
     },
-    commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
+    commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
     channels: [], errors: [], patterns: [], command: "kz",
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
@@ -126,8 +126,10 @@ test("the board panel carries the extension's icon", () => run({}, async ({ vsco
 
 test("the board writes no log file: its lines live in the channel only", () => {
   const files = readdirSync(here).filter((n) => n.endsWith(".js")).sort();
-  assert.deepEqual(files, ["extension.js", "output.js", "render.js", "sessions.js", "toasts.js"]);
+  assert.deepEqual(files, ["extension.js", "init.js", "output.js", "render.js", "sessions.js", "toasts.js"]);
   for (const name of files) {
+    // init.js writes the one plan file for `init --plan` into a private temp folder (init.test.mjs holds that to one write)
+    if (name === "init.js") continue;
     assert.doesNotMatch(readFileSync(path.join(here, name), "utf8"), /writeFile|appendFile|createWriteStream/, name);
   }
 });

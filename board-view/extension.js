@@ -1,10 +1,13 @@
 'use strict';
 // Kanbanzai: the project's board as a compact kanban in an editor tab.
 // It parses nothing itself: it runs `kanbanzai board --json` (and `kanbanzai config --json`, for where the cards
-// live and the owner's name) and renders the result.
+// live and the owner's name) and renders the result. The board tab is read-only. In a git project without a board a
+// status-bar item, "Kanbanzai: Init", starts the guided setup (init.js): it shows `kanbanzai init`'s plan and runs
+// `install` and `init --plan` only after the owner chooses Apply.
 
 const vscode = require('vscode');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
@@ -12,6 +15,7 @@ const { renderHtml, renderError, safeBriefPath } = require('./render');
 const toasts = require('./toasts');
 const sessions = require('./sessions');
 const output = require('./output');
+const setup = require('./init');
 
 const REFRESH_MS = 60 * 1000;
 const DEBOUNCE_MS = 500;
@@ -21,6 +25,8 @@ const SESSIONS_IDLE_MS = 15 * 1000; // and while none is
 const RUN_TIMEOUT_MS = 15 * 1000;
 const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
 const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
+const INIT_TEXT = '$(rocket) Kanbanzai: Init';
+const PLAN_SCHEME = 'kanbanzai-plan';
 const SAFE_TOAST_KEY = /^(?:ask:)?[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, 'burst', or 'ask:' and a card id
 
 function workspaceRoot() {
@@ -31,11 +37,21 @@ function workspaceRoot() {
   return folders.length ? folders[0].uri.fsPath : null;
 }
 
-// The command: the `kanbanzai.command` setting, else kanbanzai on PATH.
+// The command: the `kanbanzai.command` setting, else the binary bundled in the extension for this platform, else the
+// copy `kanbanzai install` made in the per-user folder, else kanbanzai on PATH. It is resolved on every run, so a
+// setting change or an install takes effect without a reload. `resolver` is set by activate.
+let resolver = () => ({ command: process.platform === 'win32' ? 'kanbanzai.exe' : 'kanbanzai', source: 'path' });
+
+function commandInfo() {
+  try {
+    return resolver();
+  } catch (e) {
+    return { command: process.platform === 'win32' ? 'kanbanzai.exe' : 'kanbanzai', source: 'path' };
+  }
+}
+
 function command() {
-  const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
-  if (typeof set === 'string' && set) return set;
-  return process.platform === 'win32' ? 'kanbanzai.exe' : 'kanbanzai';
+  return commandInfo().command;
 }
 
 const MISSING_COMMAND = 'The `kanbanzai` command was not found. Install it from ' +
@@ -291,7 +307,7 @@ function showBoard(context, log) {
 
 // W-99: the status bar counts the cards whose Claude Code session is asking, so it shows with the tab closed, and the
 // open tab is redrawn within a poll of a session's state changing (the claims and sessions live outside the watched folder).
-function watchSessions(context, item, opts, log) {
+function watchSessions(context, item, opts, log, status) {
   const fast = (opts && opts.sessionsMs) || SESSIONS_MS; // the tests pass short ones
   const slow = (opts && opts.idleMs) || SESSIONS_IDLE_MS;
   let timer = null;
@@ -311,6 +327,11 @@ function watchSessions(context, item, opts, log) {
   async function poll() {
     let wait = slow;
     try {
+      // No board yet (the Init item is showing): there is nothing to poll, and the check below notices a board that appears.
+      if (status && status.apply() === 'init') {
+        if (!stopped) timer = setTimeout(poll, wait);
+        return;
+      }
       const root = workspaceRoot();
       const res = root ? await runText(root, ['sessions', '--json']) : { error: 'no project folder' };
       if (stopped) return; // disposed while the command ran: leave the status bar as it was
@@ -344,19 +365,195 @@ function watchSessions(context, item, opts, log) {
   context.subscriptions.push({ dispose: () => { stopped = true; if (timer) clearTimeout(timer); } });
 }
 
+// The project's state for the status bar: a board in any folder, else a git checkout as the first folder, in a
+// trusted workspace (see init.itemState). Reads only; a failed stat counts as absent.
+function projectState() {
+  const there = (p) => {
+    try { return fs.existsSync(p); } catch (e) { return false; }
+  };
+  const folders = vscode.workspace.workspaceFolders || [];
+  const hasBoard = folders.some((f) => !!(f && f.uri) && there(path.join(f.uri.fsPath, '.kanbanzai', 'config.toml')));
+  const first = folders[0] && folders[0].uri ? folders[0].uri.fsPath : '';
+  return setup.itemState({
+    folders, hasBoard, isGit: !!first && there(path.join(first, '.git')), trusted: vscode.workspace.isTrusted !== false,
+  });
+}
+
+// The one status-bar item: `▦ Board` (its text and colour are the session poll's) with a board, "Kanbanzai: Init"
+// in a git checkout without one, hidden otherwise. apply() re-evaluates and returns the state; it never throws.
+function statusItem(item) {
+  let state = 'none';
+  const showBoard = () => {
+    if (item.command !== 'kanbanzai.showBoard') {
+      item.command = 'kanbanzai.showBoard';
+      item.text = sessions.PLAIN;
+      item.tooltip = 'Kanbanzai board';
+      item.backgroundColor = undefined;
+    }
+  };
+  return {
+    get state() { return state; },
+    apply() {
+      try {
+        state = projectState();
+        if (state === 'init') {
+          item.command = 'kanbanzai.init';
+          item.text = INIT_TEXT;
+          item.tooltip = 'Set up Kanbanzai in this project. It shows the plan first and writes nothing until you approve it.';
+          item.backgroundColor = undefined;
+          item.show();
+        } else if (state === 'board') {
+          showBoard();
+          item.show();
+        } else {
+          showBoard();
+          item.hide();
+        }
+      } catch (e) { /* the item stays as it was */ }
+      return state;
+    },
+  };
+}
+
+// The command to run, resolved on every run: the setting, else bundled, else the per-user folder, else PATH. A bundled
+// file without the executable bit is fixed once, and the Output channel says which command is in use.
+function commandResolver(context, log) {
+  const checked = new Set();
+  let announced;
+  const extensionPath = context.extensionPath || (context.extensionUri && context.extensionUri.fsPath) || '';
+  return () => {
+    const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
+    const resolved = setup.resolveCommand({
+      setting: set, extensionPath, platform: process.platform, arch: process.arch, env: process.env, home: os.homedir(),
+      exists: (file) => fs.existsSync(file),
+    });
+    if (resolved.source === 'bundled' && !checked.has(resolved.command)) {
+      checked.add(resolved.command);
+      setup.ensureExecutable(resolved.command, { fs, platform: process.platform, log });
+    }
+    const key = `${resolved.source}:${resolved.command}`;
+    if (resolved.source !== 'setting' && announced !== key) {
+      announced = key;
+      log.info(`using the ${resolved.source} kanbanzai command: ${resolved.command}`);
+    }
+    return resolved;
+  };
+}
+
+// The editor's side of the guided setup (init.guidedSetup): quick pick, input box, a read-only plan tab and a modal
+// question. Every promise is guarded so a UI that fails cannot throw into the editor.
+function setupUi(log) {
+  const plans = new Map();
+  let registered = false;
+  let n = 0;
+  const provide = () => {
+    if (registered) return;
+    registered = true;
+    vscode.workspace.registerTextDocumentContentProvider(PLAN_SCHEME, {
+      provideTextDocumentContent: (uri) => plans.get(uri.toString()) || '',
+    });
+  };
+  const say = (show, message) => {
+    try {
+      const shown = show(message);
+      if (shown && typeof shown.then === 'function') shown.then(undefined, () => {});
+    } catch (e) { /* the log has it */ }
+  };
+  return {
+    async pickAgents() {
+      const picked = await vscode.window.showQuickPick(
+        [
+          { label: 'Claude Code', description: 'enable the Kanbanzai plugin in .claude/settings.json', agent: 'claude', picked: true },
+          { label: 'OpenCode', description: 'enable the Kanbanzai plugin in .opencode/opencode.json', agent: 'opencode', picked: true },
+        ],
+        { canPickMany: true, title: 'Kanbanzai: Init', placeHolder: 'Which agents should use Kanbanzai in this project?' },
+      );
+      return Array.isArray(picked) ? picked.map((p) => p && p.agent) : undefined;
+    },
+    askBranch() {
+      return vscode.window.showInputBox({
+        title: 'Kanbanzai: Init',
+        prompt: 'Kanbanzai could not tell which branch is the main branch. Which one is it?',
+        validateInput: (value) => (setup.validBranch(value) ? undefined : 'A branch name without spaces, not starting with "-".'),
+      });
+    },
+    async showPlan(plan) {
+      provide();
+      n += 1;
+      const uri = vscode.Uri.parse(`${PLAN_SCHEME}:/Kanbanzai%20setup%20plan%20${n}.txt`);
+      plans.set(uri.toString(), plan);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc, { preview: false });
+    },
+    confirm: (message) => vscode.window.showInformationMessage(message, { modal: true }, setup.APPLY),
+    info(message) {
+      log.info(message);
+      say((m) => vscode.window.showInformationMessage(m), message);
+    },
+    error(message) {
+      say((m) => vscode.window.showErrorMessage(m), message);
+    },
+  };
+}
+
+async function runInit(log, status) {
+  try {
+    const folders = vscode.workspace.workspaceFolders || [];
+    const root = folders.length && folders[0].uri ? folders[0].uri.fsPath : null;
+    if (!root) {
+      log.warn('no project folder to set up');
+      vscode.window.showErrorMessage('Kanbanzai: open a project folder first.');
+      return;
+    }
+    const info = commandInfo();
+    const pluginSource = vscode.workspace.getConfiguration('kanbanzai').get('pluginSource');
+    const result = await setup.guidedSetup({
+      root,
+      command: info.command,
+      installedCommand: setup.wellKnownFile(process.env, process.platform, os.homedir()) || info.command,
+      folder: setup.wellKnownDir(process.env, process.platform, os.homedir()),
+      pluginSource: typeof pluginSource === 'string' ? pluginSource : '',
+      execFile,
+      fs,
+      tmpdir: os.tmpdir(),
+      ui: setupUi(log),
+      log,
+      missingText: MISSING_COMMAND,
+      onApplied: () => {
+        status.apply();
+        if (current) void current.refresh();
+      },
+    });
+    log.info(`kanbanzai.init: ${result.status}`);
+  } catch (e) {
+    const why = e && e.message ? e.message : String(e);
+    log.error(`kanbanzai.init failed: ${why}`);
+    vscode.window.showErrorMessage(`Kanbanzai: setup failed: ${why}`);
+  }
+}
+
 function activate(context, opts) {
   // W-104: the board's Output channel: its errors, warnings and key status, kept for the window's life and never
   // opened by itself (the owner chose that, 2026-11-11). VSCodium's own level picker decides what is shown; nothing is
   // written to disk.
   const log = logger(vscode.window.createOutputChannel('Kanbanzai', { log: true }));
+  resolver = commandResolver(context, log);
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
   item.text = sessions.PLAIN;
   item.tooltip = 'Kanbanzai board';
   item.command = 'kanbanzai.showBoard';
-  item.show();
+  const status = statusItem(item);
+  status.apply();
+  const watching = [];
+  for (const event of ['onDidChangeWorkspaceFolders', 'onDidGrantWorkspaceTrust']) {
+    const on = vscode.workspace[event];
+    if (typeof on === 'function') watching.push(on.call(vscode.workspace, () => status.apply()));
+  }
   context.subscriptions.push(
     item,
     log.channel,
+    ...watching,
+    vscode.commands.registerCommand('kanbanzai.init', () => runInit(log, status)),
     vscode.commands.registerCommand('kanbanzai.showBoard', () => showBoard(context, log)),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e || typeof e.affectsConfiguration !== 'function' || !e.affectsConfiguration('kanbanzai.command')) return;
@@ -364,7 +561,7 @@ function activate(context, opts) {
       log.info(typeof set === 'string' && set ? `setting kanbanzai.command is now "${set}"` : 'setting kanbanzai.command is now unset');
     }),
   );
-  watchSessions(context, item, opts, log);
+  watchSessions(context, item, opts, log, status);
 }
 
 function deactivate() {

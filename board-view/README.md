@@ -8,26 +8,65 @@ rules for a card live in one place, the core. Plain JavaScript, no build step, n
 
 ## Install
 
-Install the `kanbanzai` command first: download a release archive for your OS/arch from
-<https://github.com/cloudbusting/kanbanzai/releases>, put the binary on PATH, and check `kanbanzai --version`. The
-extension runs `kanbanzai` from PATH; the `kanbanzai.command` setting names an absolute path instead.
+Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with `codium --install-extension`, then
+run **Developer: Reload Window** once. A release's `.vsix` carries the `kanbanzai` command for Linux and macOS (amd64,
+arm64) and Windows (amd64), so nothing else needs installing. The extension runs the first of these that exists:
 
-Pack this folder into a `.vsix`:
+1. the `kanbanzai.command` setting (an absolute path);
+2. the command bundled in the extension, for this machine;
+3. the copy in the per-user folder (`$XDG_DATA_HOME/kanbanzai/bin`, else `~/.local/share/kanbanzai/bin`;
+   `%LOCALAPPDATA%\kanbanzai\bin` on Windows), which **Kanbanzai: Init** puts there and the Claude Code hooks and the
+   OpenCode adapter also look in;
+4. `kanbanzai` on `PATH`.
 
-```bash
-go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
-```
-
-Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with the VSCodium server's
-`codium --install-extension`, then run **Developer: Reload Window** once. The package contains no machine path.
+With none of them, the tab says the command was not found and how to install it. A `.vsix` built without the command
+(`go run ./tools/vsix -o /tmp/kanbanzai-board.vsix`, for development) uses 1, 3 and 4. A release's is built with
+`go run ./tools/release -bins bins ...` and `go run ./tools/vsix -bin bins -o ...`. The package contains no machine path.
 
 The mark is `icon/kanbanzai.svg` at the repository root; `go run ./tools/icon` regenerates `board-view/icon.png`,
 which the Extensions view and the Board tab show.
 
+## Kanbanzai: Init
+
+In a trusted workspace whose first folder is a git checkout with no `.kanbanzai/config.toml`, the status bar shows
+**Kanbanzai: Init** (also **Kanbanzai: Init** in the command palette). It does nothing until you click:
+
+1. It asks which agents to set up (Claude Code, OpenCode; both ticked).
+2. It runs `kanbanzai init --dry-run --json --plugins <agents>` and shows the whole plan in a read-only tab: the
+   project, the settings and where they came from, every file and folder it would make, keep, append to or merge into,
+   the `config.toml`, the plugin settings, the warnings, and one more line: "copy the command to `<folder>`".
+3. It asks **Apply**. Cancelling, or closing the question, ends it; nothing has been run except the dry run.
+4. On Apply it runs `kanbanzai install` (copies the command to the per-user folder), then `kanbanzai init --plan FILE`
+   with exactly the plan you saw (the file is in a private temporary folder outside the project and is removed
+   afterwards), and tells you the files to commit. A failing step shows the command's own error and stops.
+
+If the main branch cannot be told, a box asks for it and the plan is made again. The `kanbanzai.pluginSource` setting
+(a path to a Kanbanzai checkout) makes the plan use a local plugin instead of the GitHub marketplace source, for
+testing before a release is public; those local-path settings go to `.claude/settings.local.json`, which is yours alone.
+For the longer interview (owner, card prefix, context files) run `/kanbanzai:setup` in Claude Code afterwards.
+
+## What it executes, reads and writes
+
+- **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
+  `board --json`, `config --json` and `sessions --json` to draw the board, and after you click Apply, `install` and
+  `init --plan`; `init --dry-run --json` to make the plan you review. It runs only in a trusted workspace.
+- **Reads:** the project's `.kanbanzai/` (through the command), whether `.git` and `.kanbanzai/config.toml` exist, and
+  its own settings.
+- **Writes:** nothing, until you click Apply. Then, through the command: the project's `.kanbanzai/`, its ignore
+  entries and the plugin settings (`.claude/settings.json` is committed with the project, so Claude Code offers the
+  plugin to everyone who opens it; `.claude/settings.local.json` and `.opencode/opencode.json` hold a path to your
+  Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder.
+  Briefly, a plan file in a private temporary folder. The board tab itself never writes.
+- **Network, telemetry:** none. The extension makes no request and sends nothing. Claude Code (not this extension)
+  fetches a plugin from a GitHub marketplace source the next time it starts, and the plan names that source.
+- **The command is not signed:** a binary taken from the `.vsix` may meet macOS Gatekeeper or Windows SmartScreen
+  prompts. If the editor does not keep its executable bit, the extension sets it once and logs that to the Output
+  channel.
+
 ## Open
 
-Click `▦ Board` in the status bar, or run **Kanbanzai: Show Board** from the command palette. The extension starts in
-a workspace with `.kanbanzai/config.toml`.
+Click `▦ Board` in the status bar, or run **Kanbanzai: Show Board** from the command palette. The extension starts with
+the editor and shows `▦ Board` in a workspace with `.kanbanzai/config.toml`.
 
 The board refreshes half a second after a brief in the project's cards folder changes, and every 60 seconds while the
 tab is visible (the claims live outside the tree). A click, or Enter on a focused card, opens its brief as a normal
