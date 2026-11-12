@@ -1,11 +1,11 @@
 # W-22: The installed command follows the release (slice 1 of automatic upgrade)
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.9.0, db2ff37, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.9.0
 - **ADR:** none (the Decisions below are the record)
-- **Next action:** release: after the owner approves (version must be bumped past v0.8.0, which is already tagged)
-- **Where:** worktree W-22
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -127,6 +127,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
 - 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 5351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
 - 2026-11-12: checked: go 22 packages, node 239, claude validate --strict, hooks, vsix dry run clean, check and audit pass; review fixed a probe race, dry-run side effects and mismatch advice; Windows rename-aside not run (cross-compiled only)
 - 2026-11-12: packaged at e7226f3 as a 0.8.0 rehearsal in /tmp/kanbanzai-package-W-22-0.8.0; vsix with 5 bundled commands refreshed a real v0.6.4 per-user copy to v0.8.0; bundle builds, plugin installs from it; owner's editor check outstanding
+- 2026-11-12: released v0.9.0 with W-13: tags v0.9.0 and kanbanzai--v0.9.0 at db2ff37; release workflow green on 3 OSes; downloads, checksums, go install and the marketplace install verified
 
 ## Out of scope
 
