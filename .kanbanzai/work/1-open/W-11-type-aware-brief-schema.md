@@ -6,6 +6,7 @@
 - **ADR:** none
 - **Next action:** design after the type model: define required fields and per-type sections
 - **Where:** —
+- **Needs:** W-09
 
 ## Goal
 

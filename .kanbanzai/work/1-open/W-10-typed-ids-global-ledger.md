@@ -6,6 +6,7 @@
 - **ADR:** none
 - **Next action:** design after the issue-type model card: implement the allocator and the ID parser
 - **Where:** —
+- **Needs:** W-09
 
 ## Goal
 
