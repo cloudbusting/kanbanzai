@@ -62,7 +62,7 @@ there, and what looks wrong.
 
 - **A valid config already exists:** the board is set up. Do not ask the settings questions. Show the plan anyway: it
   only completes missing folders and ignore entries, or says "nothing to do: already set up". Point to
-  `kanbanzai config` to read the settings and `/kanbanzai:workflow` or the README to change them.
+  `kanbanzai config` to read the settings and the README's "The settings" to change them.
 - **A config that cannot load:** name the error. For an unversioned file point to `kanbanzai config upgrade`; for any
   other error to `kanbanzai doctor`. Never offer `--force` on your own: replacing a config is its own approval
   (step 5) that names the `config.toml.bak-<time>` copy it makes first.
