@@ -12,6 +12,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/install"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
+	"github.com/cloudbusting/kanbanzai/internal/version"
 )
 
 func runCLI(t *testing.T, args ...string) (int, string, string) {
@@ -364,5 +365,29 @@ func TestInitTakesPluginsAndNotWithAPlan(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(project.Root, ".claude", "settings.json")); err != nil {
 		t.Fatalf("the plan did not write the plugin settings: %v", err)
+	}
+}
+
+func TestContextAdapterVersion(t *testing.T) {
+	newProject(t, "")
+	old := version.Version
+	t.Cleanup(func() { version.Version = old })
+	version.Version = "v0.6.4"
+	_, plain, _ := runCLI(t, "context")
+	code, out, errOut := runCLI(t, "context", "--adapter-version", "0.7.1")
+	first := strings.SplitN(out, "\n", 2)[0]
+	if code != 0 || errOut != "" || !strings.Contains(first, "v0.6.4") || !strings.Contains(first, "v0.7.1") {
+		t.Fatalf("context = %d %q %q", code, out, errOut)
+	}
+	if rest := strings.TrimPrefix(out, first+"\n"); rest != plain {
+		t.Fatalf("after the warning the context changed:\n%q\n%q", rest, plain)
+	}
+	_, same, _ := runCLI(t, "context", "--adapter-version", "0.6.4")
+	if same != plain {
+		t.Fatalf("matching releases still printed a line: %q", same)
+	}
+	version.Version = "dev"
+	if _, dev, _ := runCLI(t, "context", "--adapter-version", "0.7.1"); dev != plain {
+		t.Fatalf("a dev build printed a line: %q", dev)
 	}
 }

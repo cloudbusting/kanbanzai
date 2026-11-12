@@ -8,15 +8,22 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/cloudbusting/kanbanzai/internal/version"
 )
 
 // Options is one run of the command. Zero values use the real process: os.Executable, os.Getenv and runtime.GOOS.
 type Options struct {
 	DryRun     bool
 	Where      bool
+	Refresh    bool                     // only replace a copy that is already there; never create one
+	Current    string                   // the running command's release, for the refresh message; "" reads the build's own
+	VersionOf  func(path string) string // the release a command file says it is; "" reads it by running `path --version`
 	Out, Err   io.Writer
 	Executable func() (string, error)
 	Getenv     func(string) string
@@ -91,7 +98,17 @@ func Run(options Options) int {
 	}
 	target := folder + separator + name
 
-	err = install(options.DryRun, executable, folder, target, out)
+	current, versionOf := options.Current, options.VersionOf
+	if current == "" {
+		current = version.Version
+	}
+	if versionOf == nil {
+		versionOf = releaseOf
+	}
+	if goos == "windows" {
+		os.Remove(target + ".old") // left by an earlier refresh, when the running command could not be replaced
+	}
+	err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
 	if err != nil {
 		fmt.Fprintf(errOut, "kanbanzai: install: %v\n", err)
 		var refused refusal
@@ -103,7 +120,8 @@ func Run(options Options) int {
 	return 0
 }
 
-func install(dryRun bool, executable func() (string, error), folder, target string, out io.Writer) error {
+func install(dryRun, refresh, windows bool, executable func() (string, error), folder, target string, out io.Writer,
+	current string, versionOf func(string) string) error {
 	path, err := executable()
 	if err != nil {
 		return fmt.Errorf("cannot find the running command: %w", err)
@@ -155,6 +173,23 @@ func install(dryRun bool, executable func() (string, error), folder, target stri
 		}
 	}
 
+	had := false
+	if folderExists {
+		if info, err := os.Lstat(target); err == nil && info.Mode().IsRegular() {
+			had = true
+		}
+	}
+	if refresh && !had {
+		fmt.Fprintf(out, "nothing to refresh: no command is installed at %s\n", target)
+		return nil
+	}
+	previous := ""
+	if had {
+		previous = versionOf(target)
+		if previous == "" {
+			previous = "unknown"
+		}
+	}
 	if dryRun {
 		fmt.Fprintf(out, "would install %s to %s (dry run, nothing written)\n", path, target)
 		return nil
@@ -162,11 +197,35 @@ func install(dryRun bool, executable func() (string, error), folder, target stri
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return fmt.Errorf("cannot create %s: %w", folder, err)
 	}
-	if err := copyAtomic(path, folder, target); err != nil {
+	if err := copyAtomic(path, folder, target, windows); err != nil {
 		return err
+	}
+	if refresh {
+		fmt.Fprintf(out, "refreshed %s: %s -> %s\n", target, previous, current)
+		return nil
 	}
 	fmt.Fprintf(out, "installed %s to %s\n", path, target)
 	return nil
+}
+
+// releaseOf is the release a command file says it is: its `--version` output without the name, "" when it cannot be
+// run or answers nothing. A copy of a release this old or this broken is simply "unknown" in the refresh message.
+func releaseOf(path string) string {
+	cmd := exec.Command(path, "--version")
+	done := make(chan []byte, 1)
+	go func() {
+		out, _ := cmd.Output()
+		done <- out
+	}()
+	select {
+	case out := <-done:
+		return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(out)), "kanbanzai"))
+	case <-time.After(5 * time.Second):
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		return ""
+	}
 }
 
 // identical reports whether target already holds the source's bytes: the same file, or the same size and sha256.
@@ -204,7 +263,7 @@ func digest(path string) ([sha256.Size]byte, error) {
 }
 
 // copyAtomic copies the file's bytes to a temporary file in folder, sets mode 0755 and renames it over target.
-func copyAtomic(sourcePath, folder, target string) error {
+func copyAtomic(sourcePath, folder, target string, windows bool) error {
 	input, err := os.Open(sourcePath)
 	if err != nil {
 		return fmt.Errorf("cannot read %s: %w", sourcePath, err)
@@ -234,7 +293,18 @@ func copyAtomic(sourcePath, folder, target string) error {
 		os.Remove(name)
 		return fmt.Errorf("cannot make the copy executable: %w", err)
 	}
-	if err := os.Rename(name, target); err != nil {
+	err = os.Rename(name, target)
+	if err != nil && windows {
+		// A running command cannot be renamed over on Windows, but it can be renamed away.
+		aside := target + ".old"
+		os.Remove(aside)
+		if os.Rename(target, aside) == nil {
+			if err = os.Rename(name, target); err != nil {
+				os.Rename(aside, target)
+			}
+		}
+	}
+	if err != nil {
 		os.Remove(name)
 		return fmt.Errorf("cannot replace %s: %w (an installed command that is running cannot be replaced on "+
 			"Windows; stop it and run install again)", target, err)

@@ -562,6 +562,13 @@ function activate(context, opts) {
   const status = statusItem(item);
   status.apply();
   const env = { log, status, ui: setupUi(log) };
+  // The per-user copy follows this extension's release; not awaited, and nothing it does reaches the editor as an error.
+  try {
+    setup.refreshInstalled({
+      resolved: commandInfo(), env: process.env, platform: process.platform, home: os.homedir(),
+      exists: (file) => fs.existsSync(file), execFile, log, error: (message) => env.ui.error(message),
+    }).catch(() => {});
+  } catch (e) { /* the board does not depend on it */ }
   const watching = [];
   for (const event of ['onDidChangeWorkspaceFolders', 'onDidGrantWorkspaceTrust']) {
     const on = vscode.workspace[event];
