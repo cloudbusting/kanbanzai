@@ -1,11 +1,11 @@
 # W-06: Workflow command: show, validate, plan, apply and export a step flow
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.8.0, 5141408, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.8.0
 - **ADR:** none
-- **Next action:** release: after the owner approves the version (a new command: 0.8.0 suggested) — ship via kanbanzai-release
-- **Where:** worktree W-06
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
