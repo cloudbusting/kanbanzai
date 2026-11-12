@@ -1,6 +1,6 @@
 # W-08: Make the shipped skills flow-agnostic and remove hardcoded workflow words
 
-- **Stage:** designed
+- **Stage:** building
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
