@@ -385,7 +385,7 @@ func TestCardRouteNoDoingAndWorkspaceMode(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &found); err != nil {
 		t.Fatal(err)
 	}
-	if found.Route.Action != "step" || found.Route.Step != "build" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no Doing column") {
+	if found.Route.Action != "stop" || found.Route.Step != "build" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no Doing column") {
 		t.Fatalf("no Doing: %+v", found.Route)
 	}
 	build.During = "building"
