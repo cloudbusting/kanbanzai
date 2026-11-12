@@ -1,7 +1,7 @@
 # W-17: Board view marketplace packaging and install path
 
 - **Stage:** todo
-- **Updated:** 2026-11-11
+- **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** needed — the install carrier and its trust model (design writes it)
 - **Next action:** design: choose the one-install carrier (a bundled binary and adapter files in the `.vsix`, a pinned download, or PATH), publisher and activation; activation details follow W-16
@@ -13,6 +13,8 @@ The board view is currently a local `.vsix` built by `tools/vsix`, with `UNLICEN
 
 The owner asked: "what is the best way of delivering the extension and plugins and command binary in one install to VSCode(ium)? Can the vsix bundle the command binary and the plugins, or run the init if that's how it installs the plugins?" This card owns the extension's install carrier: whether the `.vsix` carries the `kanbanzai` binary for its platform (and the adapter files it can place) or downloads a pinned one, and how the extension wires the host project. Today the `.vsix` carries only the extension and spawns `kanbanzai` from `kanbanzai.command` or PATH; `kanbanzai init` writes `.kanbanzai/` only and installs no Claude Code or OpenCode plugin. The plugin side is W-05 (setup) and W-15 (OpenCode package); W-22 owns the pinned version and the upgrade. Done when a clean editor profile installs one `.vsix` and shows a board with no separate command install (or a documented, tested two-step).
 
+The owner then asked (2026-11-12, after finding that `/kanbanzai:setup` cannot be run in a project where the plugin is not yet installed): "a work item to put a status line Kanbanzai Init button to bootstrap the command and plugins." This card owns it: a **Kanbanzai: Init** button in the editor's status bar (the item the extension already shows) that takes a project with nothing installed to a working setup: the `kanbanzai` command available, the Claude Code and OpenCode plugins enabled for the project, and the board set up. It is the entry point the plugin-less user needs, because `/kanbanzai:setup` only exists once the plugin does. Decisions design must settle with the owner: (1) the button is an editor write (it runs `kanbanzai init` and enables plugins), which the extension's read-only contract and this card's Out of scope rule out today, so that contract changes deliberately or the button only opens a terminal with the command to run; (2) how it gets the command (bundled, a pinned download, which is a network request the product does not make today, or PATH); (3) how it enables each plugin (the `claude plugin` CLI, a `.claude/settings.json` edit, `.opencode/opencode.json`) and whether it shows the plan and asks before writing, as `/kanbanzai:setup` does; (4) whether the button hands over to `/kanbanzai:setup` once the plugin is in. "Status line" is read as the editor status bar item; Claude Code's own status line cannot hold a clickable button.
+
 ## Acceptance checks
 
 - [ ] `package.json` carries a real publisher, licence, repository, icon, categories and a marketplace-ready README; `private` is gone.
@@ -21,6 +23,7 @@ The owner asked: "what is the best way of delivering the extension and plugins a
 - [ ] The extension declares workspace trust, has no telemetry, and documents what it executes and reads.
 - [ ] A packaged `.vsix` installs into a clean VS Code/VSCodium profile and shows a board from a fixture project.
 - [ ] The release is versioned with a changelog and built by CI from a tag.
+- [ ] A status-bar **Kanbanzai: Init** item appears in a project with no board and takes it to a working setup (command, plugins, board) from a clean profile, showing what it will do and asking before it writes anything; it does nothing in a project that already has a board. Proof: a fixture in the extension suite for the item's states and its command, and a clean-profile run recorded in the brief (design settles the exact checks).
 
 ## Deploy
 
@@ -49,6 +52,8 @@ The extension executes a host command; a marketplace reviewer and a user both ne
   install carrier: a bundled binary and adapter files, a pinned download, or PATH, plus the extension's setup
   command. W-20 (v0.6.0) delivered the binary, so its `Held` line is gone; the Deploy line now says
   `package and release`.
+
+- 2026-11-12: folded the owner's request for a status-bar "Kanbanzai Init" button that bootstraps the command and plugins (triage; it is the extension's setup command this card already owns, and the way into W-05's `/kanbanzai:setup` for a project without the plugin). Design must reconcile it with the extension's read-only contract.
 
 ## Comments
 
