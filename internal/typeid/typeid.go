@@ -252,6 +252,22 @@ func (s *Set) Canonical(id string) (string, bool) {
 // IDPattern is the regular expression body for a canonical id: the optional project key, one configured prefix and
 // a number padded to at least Digits. It is unanchored, for embedding in CardRe, TitleRe and CardFileRe.
 func (s *Set) IDPattern() string {
+	return s.pattern(`\d{` + strconv.Itoa(s.digits()) + `,}`)
+}
+
+// LooseIDPattern is IDPattern with any number of digits, for finding an id inside a branch name or a path.
+func (s *Set) LooseIDPattern() string {
+	return s.pattern(`\d+`)
+}
+
+func (s *Set) digits() int {
+	if s == nil || s.Digits < 1 {
+		return 1
+	}
+	return s.Digits
+}
+
+func (s *Set) pattern(number string) string {
 	if s == nil || len(s.Types) == 0 {
 		return ""
 	}
@@ -260,7 +276,7 @@ func (s *Set) IDPattern() string {
 		prefixes = append(prefixes, regexp.QuoteMeta(item.Prefix))
 	}
 	sort.SliceStable(prefixes, func(i, j int) bool { return len(prefixes[i]) > len(prefixes[j]) })
-	body := "(?:" + strings.Join(prefixes, "|") + ")-\\d{" + strconv.Itoa(s.Digits) + ",}"
+	body := "(?:" + strings.Join(prefixes, "|") + ")-" + number
 	if s.ProjectKey != "" {
 		body = regexp.QuoteMeta(s.ProjectKey) + "-" + body
 	}

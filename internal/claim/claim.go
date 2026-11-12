@@ -229,7 +229,8 @@ func CheckOwner(value string) (string, error) {
 func CheckCard(project *config.Project, value string) (string, error) {
 	card, ok := project.CanonicalCardID(value)
 	if !ok {
-		return "", claimErr("card must look like %s: '%s'", project.IDsExample(), value)
+		examples := strings.Join(project.IDExamples(), " or ")
+		return "", claimErr("card must look like %s: '%s'", examples, value)
 	}
 	return card, nil
 }

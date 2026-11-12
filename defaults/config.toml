@@ -18,7 +18,7 @@ config_version = 1
 config_allow_unknown = []
 
 [project]
-prefix = "W"                      # card ids are <prefix>-<number>: W-01, W-02 …
+prefix = "W"                      # the LEGACY card id prefix; typed ids are the default (see [[types]] below)
 digits = 2                        # integer 1 through 18; zero-padded to at least this many digits
 owner = "the user"                # the person the skills address and whose decisions they ask for
 home = ".kanbanzai"               # data home; config discovery stays at .kanbanzai/config.toml
@@ -34,22 +34,46 @@ branch = "{id}"                   # a card's branch
 batch_branch = "batch/{id}"       # a card's branch inside a batch
 context = []                      # project files every Kanbanzai skill reads first (rules, where things stand)
 
-# Issue types (optional). With no [[types]] the project uses one prefix: project.prefix, W-01, W-02 …
-# With [[types]] every card id is <TYPE-PREFIX>-<number>, or <project_key>-<TYPE-PREFIX>-<number> when a project key
-# is set, and every type allocates from ONE global number sequence (BUG-07 is the seventh item overall, not the
-# seventh bug). Type keys are lower-case; prefixes are upper-case. A project's `.kanbanzai/config.toml` may set:
-#   default_type = "task"          # the type used when `kanbanzai number` names none
-#   project_key = ""               # optional upper-case component, e.g. KANZ for KANZ-BUG-07
-#   [[types]]
-#   key = "task"                   # required, lower-case identifier
-#   label = "Task"                 # required, shown by the board
-#   prefix = "TASK"                # required, upper-case, unique ignoring case
-#   template = ""                  # optional brief template (per-type templates are W-11)
-#   colour = "#4776B4"             # optional #rrggbb for the board view
-#   icon = "check"                 # optional local symbolic name, never a URL
-#   description = "A piece of work"  # optional
-# When [[types]] is set, project.prefix is not used. Legacy per-prefix ledgers are not migrated: typed mode refuses
-# to allocate while one is present. See docs/types.md.
+# Issue types. Typed ids are the default: every card id is <TYPE-PREFIX>-<number>, or
+# <project_key>-<TYPE-PREFIX>-<number> when a project key is set, and every type allocates from ONE global number
+# sequence (BUG-07 is the seventh item overall, not the seventh bug). Type keys are lower-case; prefixes are
+# upper-case. project.prefix is the LEGACY prefix: a card called <prefix>-NN stays valid, is not rewritten, and moves
+# to done like any other card. A project opts out of typed ids with `types = []`, which restores the single-prefix
+# shape and its <prefix>.json ledger. See docs/types.md.
+default_type = "task"             # the type used when `kanbanzai number` names none
+project_key = ""                  # optional upper-case component, e.g. KANZ for KANZ-BUG-07
+# Each type may also set template = "templates/bug.md", colour = "#C43B3B" and icon = "bug"; colour is #rrggbb,
+# icon is a local symbolic name, never a URL.
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+description = "A change to something that exists"
+
+[[types]]
+key = "spike"
+label = "Spike"
+prefix = "SPIKE"
+description = "An investigation with a time box"
+
+[[types]]
+key = "chore"
+label = "Chore"
+prefix = "CHORE"
+description = "Maintenance with no behaviour change"
 
 [claims]
 lease_minutes = 120               # positive finite minutes, <=153722867; heartbeat renews the lease

@@ -14,7 +14,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
-const defaultConfig = "[project]\nowner = \"Sam\"\n"
+const defaultConfig = "types = []\n[project]\nowner = \"Sam\"\n"
 
 func testProject(t *testing.T, text string) *config.Project {
 	t.Helper()

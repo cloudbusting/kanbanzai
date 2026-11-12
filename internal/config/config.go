@@ -348,11 +348,6 @@ func (p *Project) build() error {
 		return err
 	}
 	if len(types) == 0 {
-		if strings.TrimSpace(asString(project["default_type"], "")) != "" ||
-			strings.TrimSpace(asString(project["project_key"], "")) != "" {
-			return errf("project.default_type and project.project_key need [[types]]: add a [[types]] table, or " +
-				"remove them")
-		}
 		p.Typed = false
 		p.Prefix = strings.TrimSpace(asString(project["prefix"], ""))
 		if !regexp.MustCompile(`^[A-Za-z]+$`).MatchString(p.Prefix) {
@@ -360,7 +355,10 @@ func (p *Project) build() error {
 		}
 	} else {
 		p.Typed = true
-		p.Prefix = ""
+		p.Prefix = strings.TrimSpace(asString(project["prefix"], ""))
+		if p.Prefix != "" && !regexp.MustCompile(`^[A-Za-z]+$`).MatchString(p.Prefix) {
+			return errf("project.prefix is the legacy card id prefix and must be letters only, not '%s'", p.Prefix)
+		}
 		set, err := typeid.Validate(types, asString(project["default_type"], ""),
 			asString(project["project_key"], ""), p.Digits)
 		if err != nil {
@@ -461,22 +459,37 @@ func (p *Project) build() error {
 	}
 	p.PullOrder = pullOrder
 
+	typedPattern, looseTyped := "", ""
 	if p.Typed {
-		p.IDPattern = p.TypeSet.IDPattern()
-	} else {
-		p.IDPattern = regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`
+		typedPattern = p.TypeSet.IDPattern()
+		looseTyped = p.TypeSet.LooseIDPattern()
 	}
+	legacyPattern, looseLegacy := "", ""
+	if p.Prefix != "" {
+		legacyPattern = regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`
+		looseLegacy = regexp.QuoteMeta(p.Prefix) + `-(\d+)`
+	}
+	p.IDPattern = alternatives(typedPattern, legacyPattern)
 	p.CardRe = regexp.MustCompile(`^` + p.IDPattern + `$`)
 	p.TitleRe = regexp.MustCompile(`^# (` + p.IDPattern + `): (.+)$`)
 	p.CardFileRe = regexp.MustCompile(`^(` + p.IDPattern + `)-.+\.md$`)
-	if p.Typed {
-		p.ParseRe = p.CardRe
-		p.IDInRe = regexp.MustCompile(`(?i)` + p.IDPattern)
-	} else {
-		p.ParseRe = regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(p.Prefix) + `-(\d+)$`)
-		p.IDInRe = regexp.MustCompile(`(?i)` + regexp.QuoteMeta(p.Prefix) + `-\d{` + strconv.Itoa(p.Digits) + `,}`)
+	p.IDInRe = regexp.MustCompile(`(?i)(?:` + alternatives(looseTyped, looseLegacy) + `)`)
+	if looseLegacy != "" {
+		p.ParseRe = regexp.MustCompile(`(?i)^` + looseLegacy + `$`)
 	}
 	return nil
+}
+
+// alternatives is a non-capturing group of the two patterns, or the one that is set.
+func alternatives(first, second string) string {
+	switch {
+	case first != "" && second != "":
+		return "(?:" + first + "|" + second + ")"
+	case first != "":
+		return first
+	default:
+		return second
+	}
 }
 
 // types reads the project's [[types]] list. An empty list keeps the legacy single-prefix ids.
@@ -827,6 +840,11 @@ func (p *Project) FormatID(number int) string {
 			return p.TypeSet.Format(item, number)
 		}
 	}
+	return p.legacyID(number)
+}
+
+// legacyID is a number as the legacy prefix's card id.
+func (p *Project) legacyID(number int) string {
 	return fmt.Sprintf("%s-%0*d", p.Prefix, p.Digits, number)
 }
 
@@ -838,16 +856,38 @@ func (p *Project) IDsExample() string {
 	return p.Prefix + "-NN"
 }
 
+// LegacyExample is the legacy prefix's id shape, or empty when there is no legacy prefix.
+func (p *Project) LegacyExample() string {
+	if p.Prefix == "" {
+		return ""
+	}
+	return p.Prefix + "-NN"
+}
+
+// IDExamples are the id shapes a message can offer: the default type and the legacy prefix.
+func (p *Project) IDExamples() []string {
+	out := []string{p.IDsExample()}
+	if legacy := p.LegacyExample(); legacy != "" && legacy != out[0] {
+		out = append(out, legacy)
+	}
+	return out
+}
+
 // IsCardID reports whether value is a canonical card id.
 func (p *Project) IsCardID(value string) bool {
 	return p.CardRe.MatchString(value)
 }
 
-// CanonicalCardID returns value as a canonical card id, or false. Input is case-insensitive; in a typed project the
-// number is padded to the configured digits.
+// CanonicalCardID returns value as a canonical card id, or false. Input is case-insensitive; a typed id is padded
+// to the configured digits, and the legacy prefix is accepted as a legacy card.
 func (p *Project) CanonicalCardID(value string) (string, bool) {
 	if p.TypeSet != nil {
-		return p.TypeSet.Canonical(value)
+		if card, ok := p.TypeSet.Canonical(value); ok {
+			return card, true
+		}
+	}
+	if p.ParseRe == nil {
+		return "", false
 	}
 	match := p.ParseRe.FindStringSubmatch(value)
 	if match == nil {
@@ -857,7 +897,7 @@ func (p *Project) CanonicalCardID(value string) (string, bool) {
 	if err != nil || number <= 0 {
 		return "", false
 	}
-	return p.FormatID(number), true
+	return p.legacyID(number), true
 }
 
 // CardIDIn is the first card id inside a branch name or a path, such as batch/W-07 or /x/proj-W-10.
@@ -869,11 +909,15 @@ func (p *Project) CardIDIn(value string) (string, bool) {
 	return p.CanonicalCardID(match)
 }
 
-// CardNumber is the numeric part of a card id.
+// CardNumber is the numeric part of a card id, typed or legacy.
 func (p *Project) CardNumber(value string) (int, bool) {
 	if p.TypeSet != nil {
-		_, number, ok := p.TypeSet.Parse(value)
-		return number, ok
+		if _, number, ok := p.TypeSet.Parse(value); ok {
+			return number, true
+		}
+	}
+	if p.ParseRe == nil {
+		return 0, false
 	}
 	match := p.ParseRe.FindStringSubmatch(strings.TrimSpace(value))
 	if match == nil {
@@ -886,7 +930,7 @@ func (p *Project) CardNumber(value string) (int, bool) {
 	return number, true
 }
 
-// TypeOf is the type of a card id, in a typed project.
+// TypeOf is the type of a card id, in a typed project. A legacy id has no type.
 func (p *Project) TypeOf(value string) (typeid.Type, bool) {
 	if p.TypeSet == nil {
 		return typeid.Type{}, false
@@ -895,7 +939,7 @@ func (p *Project) TypeOf(value string) (typeid.Type, bool) {
 	return item, ok
 }
 
-// CardTypeInfo is the card's type for JSON, or nil in a legacy project.
+// CardTypeInfo is the card's type for JSON, or nil for a legacy card and in a legacy project.
 func (p *Project) CardTypeInfo(value string) *typeid.TypeInfo {
 	item, ok := p.TypeOf(value)
 	if !ok {
@@ -905,12 +949,24 @@ func (p *Project) CardTypeInfo(value string) *typeid.TypeInfo {
 	return &info
 }
 
-// CardPrefixes are the configured type prefixes, or the legacy prefix.
+// CardPrefixes are every accepted id prefix: the configured types and the legacy prefix.
 func (p *Project) CardPrefixes() []string {
+	out := []string{}
+	if p.TypeSet != nil {
+		out = append(out, p.TypeSet.Prefixes()...)
+	}
+	if p.Prefix != "" {
+		out = append(out, p.Prefix)
+	}
+	return out
+}
+
+// TypePrefixes are the configured type prefixes only.
+func (p *Project) TypePrefixes() []string {
 	if p.TypeSet != nil {
 		return p.TypeSet.Prefixes()
 	}
-	return []string{p.Prefix}
+	return nil
 }
 
 // TypeInfos are the configured types in their JSON shape.

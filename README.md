@@ -98,7 +98,7 @@ or `--owner NAME`), an existing config and board, and the rule files you already
 …, listed, never edited). It then builds one plan, the same JSON for `--dry-run --json`, for the real run and for
 `--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
 folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
-template; `--prefix KEY` writes the older single-prefix card ids instead of the typed starter, and
+template; `--prefix KEY` writes the older single-prefix card ids (`types = []`) instead of the typed starter, and
 `--context FILE[,FILE]` the files every skill reads first (both only for a config
 `init` writes; an existing one is edited by hand, or replaced with `--force`); `--plugins claude,opencode` adds the project's plugin settings to the plan: `.claude/settings.json` gets the
 marketplace and `enabledPlugins` entries (a GitHub source, or with `--plugin-source <a Kanbanzai checkout>` a local
@@ -161,7 +161,7 @@ By default everything is in the project's `.kanbanzai/`, in the **main checkout*
 | The settings | `.kanbanzai/config.toml` | yes |
 | The cards | `.kanbanzai/work/<folder>/<ID>-<slug>.md` | yes |
 | The leases | `.kanbanzai/state/claims/` | no |
-| The number ledger | `.kanbanzai/state/numbers/` (one `_ledger.json` in a typed project; one `<prefix>.json` in legacy mode) | no |
+| The number ledger | `.kanbanzai/state/numbers/` (one `_ledger.json`, seeded from the legacy `<prefix>.json`; a `types = []` project keeps `<prefix>.json`) | no |
 
 Each path can be moved in the settings (`[project] work`, `state`, `claims`, `numbers`).
 
@@ -183,14 +183,16 @@ set those paths explicitly (paths remain relative to the main checkout).
 
 ### Issue types and numbering
 
-A project may give its work item types. Each type has a key (`task`), a label (`Task`) and an upper-case prefix
-(`TASK`); a card's id is `<PREFIX>-<number>`, or `<PROJECT_KEY>-<PREFIX>-<number>` when `project_key` is set. Every
-type allocates from **one global number sequence**, so `BUG-7` is the seventh item overall, not the seventh bug.
+Typed ids are the default. Each type has a key (`task`), a label (`Task`) and an upper-case prefix (`TASK`); a card's
+id is `<PREFIX>-<number>`, or `<PROJECT_KEY>-<PREFIX>-<number>` when `project_key` is set. Every type allocates from
+**one global number sequence**, so `BUG-07` is the seventh item overall, not the seventh bug. The shipped defaults
+configure task, bug, change, spike and chore with `default_type = "task"`.
 
 ```toml
 [project]
+prefix = "W"              # the LEGACY prefix: W-01 stays valid and is not rewritten
 default_type = "task"
-project_key = ""          # optional, e.g. KANZ for KANZ-BUG-7
+project_key = ""          # optional, e.g. KANZ for KANZ-BUG-07
 
 [[types]]
 key = "task"
@@ -204,14 +206,19 @@ item, type, owner and time; `kanbanzai number --status` prints it. Type keys are
 key are upper-case letters and digits. The optional `template`, `colour`, `icon` and `description` on a type are
 metadata for the board and the brief schema.
 
-`[[types]]` is optional. With none, a project keeps the older single-prefix ids (`prefix = "W"`, `W-01`) and its
-`<prefix>.json` ledger, exactly as before. `kanbanzai init` writes a typed config for a fresh project (task, bug,
-change, spike, chore; `default_type = "task"`); `init --prefix W` writes the legacy shape instead.
+**The old cards stay.** `project.prefix` is the legacy prefix: a card called `W-01` remains a valid card with no type,
+is not rewritten, and can be claimed, moved and closed like any other. On the first typed allocation the ledger is
+seeded from the legacy `<prefix>.json` and every `<prefix>-` brief in every worktree, so the first typed number is one
+above the highest legacy number; the old ledger is left in place as the historical record. A legacy brief that
+appears later is still counted. A project can opt out of typed ids entirely with `types = []` at the root of its
+config, which restores the single-prefix shape and its `<prefix>.json` ledger.
+
+`kanbanzai init` writes a typed config for a fresh project (task, bug, change, spike, chore; `default_type = "task"`;
+`prefix = ""`, so there is no legacy alias). `init --prefix W` writes a single-prefix config (`types = []`) instead.
 
 The type is the id's prefix and nothing else: there is no separate Type field to disagree with it, and changing a
-card's type in place is not supported. Typed mode does not migrate a legacy per-prefix ledger; if one is present it
-refuses to allocate rather than reuse a number, and a project that wants types starts a fresh typed board (or stays
-in legacy mode). [docs/types.md](docs/types.md) has the model, the grammar and the migration boundary.
+card's type in place is not supported. [docs/types.md](docs/types.md) has the model, the grammar, the seed and the
+legacy boundary.
 
 ### Config contract and upgrades
 

@@ -12,7 +12,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
-const defaultConfig = "[project]\nowner = \"Sam\"\n"
+const defaultConfig = "types = []\n[project]\nowner = \"Sam\"\n"
 
 const shippedColumns = `
 [[columns]]

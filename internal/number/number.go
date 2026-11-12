@@ -17,7 +17,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,33 +71,6 @@ func lock(project *config.Project) (*fsutil.Lock, error) {
 	return fsutil.OpenLock(filepath.Join(dir, name))
 }
 
-// typedGuard refuses to allocate in typed mode while a legacy per-prefix ledger exists. Typed mode never reads,
-// rewrites or deletes one (W-09's no-migration decision), so it fails closed instead of reusing numbers.
-func typedGuard(project *config.Project) error {
-	if project.TypeSet == nil {
-		return nil
-	}
-	entries, err := os.ReadDir(project.Numbers)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if name == "_ledger.json" || !strings.HasSuffix(name, ".json") {
-			continue
-		}
-		return numberErr("numbers/%s is a legacy ledger; typed mode does not migrate it (see docs/types.md). "+
-			"Keep this project in legacy mode, or start a fresh typed board", name)
-	}
-	return nil
-}
-
 // Roots is the main checkout and every worktree of it.
 func Roots(project *config.Project) []string {
 	found := []string{project.Root}
@@ -126,28 +98,6 @@ func Roots(project *config.Project) []string {
 // RepoTaken is every number already recorded in any worktree: only a brief's file name counts.
 func RepoTaken(project *config.Project) map[int]bool {
 	found := map[int]bool{}
-	var numberIn func(name string) (int, bool)
-	if project.TypeSet != nil {
-		numberIn = func(name string) (int, bool) {
-			match := project.CardFileRe.FindStringSubmatch(name)
-			if match == nil {
-				return 0, false
-			}
-			_, value, ok := project.TypeSet.Parse(match[1])
-			return value, ok
-		}
-	} else {
-		pattern := regexp.MustCompile(`^` + regexp.QuoteMeta(project.Prefix) + `-(\d{` +
-			strconv.Itoa(project.Digits) + `,})-.+\.md$`)
-		numberIn = func(name string) (int, bool) {
-			match := pattern.FindStringSubmatch(name)
-			if match == nil {
-				return 0, false
-			}
-			value, err := strconv.Atoi(match[1])
-			return value, err == nil
-		}
-	}
 	inside, err := filepath.Rel(project.Root, project.Work)
 	external := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
 	for _, root := range Roots(project) {
@@ -162,7 +112,11 @@ func RepoTaken(project *config.Project) map[int]bool {
 			if walkErr != nil || entry.IsDir() {
 				return nil
 			}
-			if value, ok := numberIn(entry.Name()); ok {
+			match := project.CardFileRe.FindStringSubmatch(entry.Name())
+			if match == nil {
+				return nil
+			}
+			if value, ok := project.CardNumber(match[1]); ok {
 				found[value] = true
 			}
 			return nil
@@ -186,7 +140,10 @@ func load(project *config.Project) ([]int, []map[string]any, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil, nil
+			if project.TypeSet == nil {
+				return nil, nil, nil
+			}
+			return seed(project)
 		}
 		return nil, nil, err
 	}
@@ -195,6 +152,14 @@ func load(project *config.Project) ([]int, []map[string]any, error) {
 	decoder.UseNumber()
 	if err := decoder.Decode(&document); err != nil {
 		return nil, nil, numberErr("%s: the ledger is not valid JSON (%v); repair or remove it", path, err)
+	}
+	if project.TypeSet != nil {
+		if _, issued := document["issued"]; !issued {
+			if _, reserved := document["reserved"]; !reserved {
+				return nil, nil, numberErr("%s: not a kanbanzai ledger (no issued or reserved); remove it to "+
+					"seed from the legacy ledger", path)
+			}
+		}
 	}
 	issued := []int{}
 	if items, ok := document["issued"].([]any); ok {
@@ -220,6 +185,52 @@ func load(project *config.Project) ([]int, []map[string]any, error) {
 		}
 	}
 	return issued, reserved, nil
+}
+
+// seed is the first typed ledger: the numbers in the legacy per-prefix ledger and every legacy (and typed) brief in
+// every worktree, so the first typed number is above all of them. The legacy ledger is read, never written.
+func seed(project *config.Project) ([]int, []map[string]any, error) {
+	numbers := map[int]bool{}
+	if project.Prefix != "" {
+		legacyPath := filepath.Join(project.Numbers, project.Prefix+".json")
+		data, err := os.ReadFile(legacyPath)
+		if err == nil {
+			document := map[string]any{}
+			decoder := json.NewDecoder(bytes.NewReader(data))
+			decoder.UseNumber()
+			if err := decoder.Decode(&document); err != nil {
+				return nil, nil, numberErr("%s: the legacy ledger is not valid JSON (%v); repair or remove it",
+					legacyPath, err)
+			}
+			if items, ok := document["issued"].([]any); ok {
+				for _, item := range items {
+					if value, ok := numberOf(item); ok {
+						numbers[value] = true
+					}
+				}
+			}
+			if items, ok := document["reserved"].([]any); ok {
+				for _, item := range items {
+					if record, ok := item.(map[string]any); ok {
+						if value, ok := numberOf(record["number"]); ok {
+							numbers[value] = true
+						}
+					}
+				}
+			}
+		} else if !os.IsNotExist(err) {
+			return nil, nil, err
+		}
+	}
+	for value := range RepoTaken(project) {
+		numbers[value] = true
+	}
+	issued := make([]int, 0, len(numbers))
+	for value := range numbers {
+		issued = append(issued, value)
+	}
+	sort.Ints(issued)
+	return issued, []map[string]any{}, nil
 }
 
 func save(project *config.Project, issued []int, reserved []map[string]any) error {
@@ -264,25 +275,16 @@ func NextNumber(taken map[int]bool, issued []int, reserved []map[string]any) int
 	return next + 1
 }
 
-// ParseItem is a card id as a number, or an error naming what it was for.
+// ParseItem is a card id as a number, or an error naming what it was for. A typed id and a legacy prefix both count.
 func ParseItem(project *config.Project, item, what string) (int, error) {
-	if project.TypeSet != nil {
-		if _, number, ok := project.TypeSet.Parse(item); ok {
-			return number, nil
-		}
-		return 0, numberErr("not a number to %s: '%s' (like %s; configured types: %s)", what, item,
-			project.IDsExample(), strings.Join(project.CardPrefixes(), ", "))
+	if number, ok := project.CardNumber(item); ok {
+		return number, nil
 	}
-	pattern := regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(project.Prefix) + `-(\d+)$`)
-	match := pattern.FindStringSubmatch(strings.TrimSpace(item))
-	if match == nil {
-		return 0, numberErr("not a number to %s: '%s' (like %s)", what, item, project.FormatID(45))
+	example := project.IDsExample()
+	if legacy := project.LegacyExample(); legacy != "" {
+		example += " or " + legacy
 	}
-	value, err := strconv.Atoi(match[1])
-	if err != nil {
-		return 0, numberErr("not a number to %s: '%s' (like %s)", what, item, project.FormatID(45))
-	}
-	return value, nil
+	return 0, numberErr("not a number to %s: '%s' (like %s)", what, item, example)
 }
 
 // resolveType is the type an allocation names, or the default; a legacy project has no type.
@@ -319,9 +321,6 @@ func Allocate(project *config.Project, peek bool, note string) (string, error) {
 func AllocateType(project *config.Project, typeKey string, peek bool, note string) (string, error) {
 	item, err := resolveType(project, typeKey)
 	if err != nil {
-		return "", err
-	}
-	if err := typedGuard(project); err != nil {
 		return "", err
 	}
 	now := timeutil.Now()
@@ -370,9 +369,6 @@ func Release(project *config.Project, item string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := typedGuard(project); err != nil {
-		return "", err
-	}
 	lock, err := lock(project)
 	if err != nil {
 		return "", err
@@ -400,10 +396,8 @@ func Release(project *config.Project, item string) (string, error) {
 	if err := save(project, keptIssued, keptReserved); err != nil {
 		return "", err
 	}
-	if project.TypeSet != nil {
-		if typeOf, number, ok := project.TypeSet.Parse(item); ok {
-			return project.TypeSet.Format(typeOf, number), nil
-		}
+	if card, ok := project.CanonicalCardID(item); ok {
+		return card, nil
 	}
 	return project.FormatID(value), nil
 }
@@ -412,9 +406,6 @@ func Release(project *config.Project, item string) (string, error) {
 func Mark(project *config.Project, item string) (string, error) {
 	value, err := ParseItem(project, item, "mark")
 	if err != nil {
-		return "", err
-	}
-	if err := typedGuard(project); err != nil {
 		return "", err
 	}
 	lock, err := lock(project)
@@ -442,10 +433,8 @@ func Mark(project *config.Project, item string) (string, error) {
 	if err := save(project, issued, reserved); err != nil {
 		return "", err
 	}
-	if project.TypeSet != nil {
-		if typeOf, number, ok := project.TypeSet.Parse(item); ok {
-			return project.TypeSet.Format(typeOf, number), nil
-		}
+	if card, ok := project.CanonicalCardID(item); ok {
+		return card, nil
 	}
 	return project.FormatID(value), nil
 }
@@ -457,9 +446,6 @@ func Status(project *config.Project, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(out, "state: %s\n", dir)
-	if err := typedGuard(project); err != nil {
-		return err
-	}
 	lock, err := lock(project)
 	if err != nil {
 		return err

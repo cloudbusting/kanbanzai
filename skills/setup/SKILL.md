@@ -79,9 +79,9 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
 2. **Main branch**, only when init refused it with exit 2. The options are the branches init listed, none
    recommended unless one is `origin/HEAD`. (`--main-branch NAME`)
 3. **Issue types, or one prefix.** A fresh config starts typed (task, bug, change, spike and chore, one global
-   number sequence), which is the recommended shape and needs no flag. The alternative is the older single-prefix
-   card ids, whose prefix the owner names (`W` gives `W-01`); letters only, passed as `--prefix KEY`. Ask this only
-   when the owner asks for a single prefix.
+   number sequence), which is the recommended shape and needs no flag; it has no legacy alias. The alternative is
+   the older single-prefix card ids, whose prefix the owner names (`W` gives `W-01`); letters only, passed as
+   `--prefix KEY`, which writes `types = []`. Ask this only when the owner asks for a single prefix.
 4. **Context files**: a multi-select of the rule files found (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
    `README.md`), all pre-recommended; the skills read the chosen ones first. (`--context FILE[,FILE]`)
 

@@ -11,6 +11,7 @@ import (
 const typedWorkspaceConfig = `
 [project]
 owner = "Sam"
+prefix = ""
 default_type = "task"
 worktree = "../wt/{id}"
 
