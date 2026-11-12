@@ -1,10 +1,10 @@
 # W-22: The installed command follows the release (slice 1 of automatic upgrade)
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none (the Decisions below are the record)
-- **Next action:** package: /kanbanzai-package builds the vsix and plugin bundles and install-tests them; owner then approves QA
+- **Next action:** release: after the owner approves (version must be bumped past v0.8.0, which is already tagged)
 - **Where:** worktree W-22
 
 ## Goal
@@ -126,6 +126,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
 - 2026-11-12: design settled with the owner: refresh on extension activation, per-user copy before PATH, mismatch warning via context --adapter-version; migration is slice 2
 - 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 5351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
 - 2026-11-12: checked: go 22 packages, node 239, claude validate --strict, hooks, vsix dry run clean, check and audit pass; review fixed a probe race, dry-run side effects and mismatch advice; Windows rename-aside not run (cross-compiled only)
+- 2026-11-12: packaged at e7226f3 as a 0.8.0 rehearsal in /tmp/kanbanzai-package-W-22-0.8.0; vsix with 5 bundled commands refreshed a real v0.6.4 per-user copy to v0.8.0; bundle builds, plugin installs from it; owner's editor check outstanding
 
 ## Out of scope
 
