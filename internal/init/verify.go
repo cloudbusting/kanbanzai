@@ -112,7 +112,7 @@ func Verify(start string, plan *Plan) *Verification {
 func uncommitted(plan *Plan) []string {
 	touched := map[string]bool{}
 	for _, action := range plan.Actions {
-		if action.Op != OpMkdir {
+		if action.Op != OpMkdir && !strings.HasSuffix(action.Path, ".local.json") {
 			touched[action.Path] = true
 		}
 	}

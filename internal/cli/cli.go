@@ -18,6 +18,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	initcmd "github.com/cloudbusting/kanbanzai/internal/init"
+	"github.com/cloudbusting/kanbanzai/internal/install"
 	"github.com/cloudbusting/kanbanzai/internal/move"
 	"github.com/cloudbusting/kanbanzai/internal/number"
 	sessionstate "github.com/cloudbusting/kanbanzai/internal/sessions"
@@ -42,8 +43,9 @@ commands:
   doctor [--json]                diagnose this installation without repairs
   context                        the standing context
   init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-       [--context FILE[,FILE]] [--with-template]
+       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
                                  set a project up (detect, plan, apply, verify; never commits)
+  install [--dry-run] [--where]  copy this command to the per-user folder (works outside a project)
 
   --version                      print the version
   --help                         this help
@@ -96,14 +98,22 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
 	}
+	if command == "install" {
+		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true}, nil)
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, command, err)
+		}
+		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Out: out, Err: errOut})
+	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
-			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true})
+			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
+			"plugins": true, "plugin-source": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
 		if _, planned := flags["plan"]; planned {
-			for _, name := range []string{"main-branch", "owner", "prefix", "context"} {
+			for _, name := range []string{"main-branch", "owner", "prefix", "context", "plugins", "plugin-source"} {
 				if _, given := flags[name]; given {
 					return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --%s cannot be "+
 						"combined with it", name))
@@ -118,9 +128,14 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		if list, given := flags["context"]; given {
 			context = strings.Split(list, ",")
 		}
+		var plugins []string
+		if list, given := flags["plugins"]; given {
+			plugins = strings.Split(list, ",")
+		}
 		return initcmd.Run("", initcmd.Options{DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
 			WithTemplate: set["with-template"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
-			Owner: flags["owner"], Prefix: flags["prefix"], Context: context, Out: out, Err: errOut})
+			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
+			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})
 	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")

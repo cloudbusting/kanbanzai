@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -200,5 +200,77 @@ test("writes each session's state where the core reads it", async () => {
   } finally {
     cleanup();
     rmSync(project, { recursive: true, force: true });
+  }
+});
+
+// W-17: the adapters find the command in the well-known per-user folder, the same rule as hooks/*.sh and `kanbanzai install`.
+test("wellKnownDir is the per-user folder on each OS", async () => {
+  const { wellKnownDir } = await import(`${SERVER}?wellknown`);
+  const join = path.join;
+  // Linux: XDG_DATA_HOME when absolute, else HOME/.local/share.
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/data" }, "linux", "/home/a"), join("/data", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "" }, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "relative/data" }, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "linux", ""), null);
+  assert.equal(wellKnownDir({}, "linux", undefined), null);
+  // macOS follows the same rule as Linux.
+  assert.equal(wellKnownDir({}, "darwin", "/Users/a"), join("/Users/a", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/x" }, "darwin", "/Users/a"), join("/x", "kanbanzai", "bin"));
+  // Windows: LOCALAPPDATA, else USERPROFILE\AppData\Local (the home argument is the user profile).
+  assert.equal(wellKnownDir({ LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" }, "win32", "C:\\Users\\a"),
+    path.win32.join("C:\\Users\\a\\AppData\\Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "win32", "C:\\Users\\a"),
+    path.win32.join("C:\\Users\\a", "AppData", "Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ USERPROFILE: "C:\\Users\\b" }, "win32", ""),
+    path.win32.join("C:\\Users\\b", "AppData", "Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "win32", ""), null);
+});
+
+test("resolveCommand finds the command in the well-known folder when PATH has none", async () => {
+  if (process.platform === "win32") return; // the fake is a shell-less file; the folder rule is proved above
+  const { resolveCommand } = await import(`${SERVER}?wellknown-resolve`);
+  const home = mkdtempSync(path.join(os.tmpdir(), "kanbanzai-home-"));
+  const empty = mkdtempSync(path.join(os.tmpdir(), "kanbanzai-path-"));
+  const saved = {};
+  for (const key of ["KANBANZAI_BIN", "PATH", "HOME", "USERPROFILE", "XDG_DATA_HOME"]) saved[key] = process.env[key];
+  try {
+    delete process.env.KANBANZAI_BIN;
+    process.env.PATH = empty;
+    process.env.HOME = home;
+    delete process.env.XDG_DATA_HOME;
+    const dir = path.join(home, ".local", "share", "kanbanzai", "bin");
+    mkdirSync(dir, { recursive: true });
+    const fake = path.join(dir, "kanbanzai");
+    writeFileSync(fake, "#!/bin/sh\n", { mode: 0o755 });
+    assert.deepEqual(resolveCommand(), { command: fake, found: true });
+
+    // An absolute XDG_DATA_HOME moves the folder; KANBANZAI_BIN and PATH still win over it.
+    const xdg = path.join(home, "xdg");
+    mkdirSync(path.join(xdg, "kanbanzai", "bin"), { recursive: true });
+    const moved = path.join(xdg, "kanbanzai", "bin", "kanbanzai");
+    writeFileSync(moved, "#!/bin/sh\n", { mode: 0o755 });
+    process.env.XDG_DATA_HOME = xdg;
+    assert.deepEqual(resolveCommand(), { command: moved, found: true });
+    const onPath = path.join(empty, "kanbanzai");
+    writeFileSync(onPath, "#!/bin/sh\n", { mode: 0o755 });
+    assert.deepEqual(resolveCommand(), { command: onPath, found: true });
+    process.env.KANBANZAI_BIN = fake;
+    assert.deepEqual(resolveCommand(), { command: fake, found: true });
+
+    // A missing HOME must not throw.
+    delete process.env.KANBANZAI_BIN;
+    delete process.env.XDG_DATA_HOME;
+    delete process.env.HOME;
+    delete process.env.USERPROFILE;
+    rmSync(onPath);
+    assert.doesNotThrow(() => resolveCommand());
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(home, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
   }
 });

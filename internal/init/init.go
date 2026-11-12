@@ -25,6 +25,8 @@ type Options struct {
 	Owner        string
 	Prefix       string
 	Context      []string
+	Plugins      []string
+	PluginSource string
 	Out, Err     io.Writer
 
 	// Test hooks.
@@ -124,7 +126,7 @@ func emit(out, errOut io.Writer, report *Report, opts Options) int {
 }
 
 var dryVerb = map[string]string{OpMkdir: "would make", OpCreate: "would make", OpKeep: "kept",
-	OpAppend: "would append", OpBackup: "would back up", OpReplace: "would replace"}
+	OpAppend: "would append", OpBackup: "would back up", OpReplace: "would replace", OpMerge: "would merge into"}
 
 func render(out io.Writer, report *Report) {
 	plan := report.Plan

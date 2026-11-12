@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/install"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
@@ -298,5 +300,69 @@ func TestInitTakesPrefixAndContextAndNotWithAPlan(t *testing.T) {
 	reloaded, err := config.Find(project.Root)
 	if err != nil || reloaded.Prefix != "ACME" || len(reloaded.Context) != 2 {
 		t.Fatalf("the plan did not carry the prefix and context: %+v %v", reloaded, err)
+	}
+}
+
+func TestInstallCommand(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "local"))
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("KANBANZAI_PROJECT", "")
+	t.Chdir(t.TempDir()) // outside any project
+	want, _ := installFolder()
+	if code, out, _ := runCLI(t, "install", "--where"); code != 0 || strings.TrimSpace(out) != want {
+		t.Fatalf("install --where = %d %q, want %q", code, out, want)
+	}
+	if code, out, errOut := runCLI(t, "install", "--dry-run"); code != 0 || !strings.Contains(out, "would") {
+		t.Fatalf("install --dry-run = %d %q %q", code, out, errOut)
+	}
+	if _, err := os.Stat(want); err == nil {
+		t.Fatal("--dry-run created the folder")
+	}
+	if code, _, _ := runCLI(t, "install", "--bogus"); code != 2 {
+		t.Fatalf("install --bogus = %d", code)
+	}
+	if code, _, _ := runCLI(t, "install", "extra"); code != 2 {
+		t.Fatalf("install extra = %d", code)
+	}
+}
+
+func installFolder() (string, error) {
+	return install.Folder(runtime.GOOS, os.Getenv)
+}
+
+func TestInitTakesPluginsAndNotWithAPlan(t *testing.T) {
+	project := newProject(t, "")
+	if code, out, _ := runCLI(t, "--help"); code != 0 || !strings.Contains(out, "--plugins claude,opencode") ||
+		!strings.Contains(out, "--plugin-source DIR") {
+		t.Fatalf("the usage does not list --plugins and --plugin-source:\n%s", out)
+	}
+	code, out, errOut := runCLI(t, "init", "--dry-run", "--json", "--plugins", "claude")
+	if code != 0 || !strings.Contains(out, ".claude/settings.json") || !strings.Contains(out, `"merge"`) {
+		t.Fatalf("dry run = %d %q %q", code, out, errOut)
+	}
+	if _, err := os.Stat(filepath.Join(project.Root, ".claude")); !os.IsNotExist(err) {
+		t.Fatalf("the dry run wrote .claude: %v", err)
+	}
+	plan := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(plan, []byte(out), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, flags := range [][]string{{"--plugins", "claude"}, {"--plugin-source", project.Root}} {
+		args := append([]string{"init", "--plan", plan}, flags...)
+		if code, _, errOut := runCLI(t, args...); code != 2 || !strings.Contains(errOut, "--plan") {
+			t.Errorf("init %v = %d %q, want 2 naming --plan", args, code, errOut)
+		}
+	}
+	if code, _, errOut := runCLI(t, "init", "--plugins", "vim"); code != 2 {
+		t.Errorf("init --plugins vim = %d %q, want 2", code, errOut)
+	}
+	if code, _, errOut := runCLI(t, "init", "--plan", plan); code != 0 {
+		t.Fatalf("init --plan = %d %q", code, errOut)
+	}
+	if _, err := os.Stat(filepath.Join(project.Root, ".claude", "settings.json")); err != nil {
+		t.Fatalf("the plan did not write the plugin settings: %v", err)
 	}
 }
