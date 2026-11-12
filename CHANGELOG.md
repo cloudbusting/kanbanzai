@@ -8,11 +8,13 @@ and the editor extension carry the same version.
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
   columns and branch. `step --for <ID> --json` adds a `route` object for the immediate action, blockers, workspace and
   close requirements; its text output also reports the route. Unsupported routes stop rather than forcing a move.
-- W-10: issue types and one global number ledger. A project that configures `[[types]]` gets typed ids (`TASK-7`,
-  `BUG-42`, or `KANZ-BUG-43` with a project key), and `kanbanzai number --type KEY` allocates from one global
-  sequence shared by every type. `kanbanzai init` now writes a typed starter config (task, bug, change, spike,
-  chore); `init --prefix KEY` keeps the older single-prefix shape. A project with no `[[types]]` is unchanged, and
-  there is no migration of a legacy per-prefix ledger. See `docs/types.md`.
+- W-41 (with W-10): typed ids and one global number ledger, on by default. Every project gets task, bug, change,
+  spike and chore with `default_type = "task"`; `kanbanzai number --type KEY` allocates from one global sequence, and
+  a project can opt out with `types = []`. The old prefix is a legacy alias on the same board: existing `W-…` cards
+  stay valid and move to done without being rewritten. On the first typed allocation the ledger is seeded from the
+  legacy `<prefix>.json` and every legacy brief, so the first typed number is one above the highest legacy number;
+  the old ledger is left in place. `kanbanzai init` writes a typed config with no legacy alias, and `init --prefix
+  KEY` writes the single-prefix shape. See `docs/types.md`.
 
 ## [0.10.0] — 2026-11-12
 

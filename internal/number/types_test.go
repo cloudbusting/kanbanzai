@@ -155,19 +155,40 @@ func TestTypedStatusShowsTheOneLedger(t *testing.T) {
 	}
 }
 
-func TestTypedModeRefusesALegacyLedger(t *testing.T) {
+func TestTypedModeSeedsFromTheLegacyLedgerAndBriefs(t *testing.T) {
 	project := testProject(t, typedConfig)
 	if err := os.MkdirAll(project.Numbers, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	testutil.Write(t, filepath.Join(project.Numbers, "W.json"), `{"issued":[1],"reserved":[]}`)
-	if _, err := AllocateType(project, "task", false, ""); err == nil ||
-		!strings.Contains(err.Error(), "legacy ledger") {
-		t.Fatalf("allocate error = %v, want a legacy-ledger refusal", err)
+	legacyPath := filepath.Join(project.Numbers, "W.json")
+	legacy := `{"issued":[7,21],"reserved":[]}`
+	testutil.Write(t, legacyPath, legacy)
+	putCard(t, project, "W-30")
+	if got := allocateType(t, project, "task"); got != "TASK-31" {
+		t.Fatalf("allocate = %q, want TASK-31", got)
+	}
+	if data, err := os.ReadFile(legacyPath); err != nil || string(data) != legacy {
+		t.Fatalf("the legacy ledger changed: %q, %v", data, err)
+	}
+	issued, _ := Load(project)
+	for _, want := range []int{7, 21, 30, 31} {
+		found := false
+		for _, number := range issued {
+			if number == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("seeded ledger = %v, want %d", issued, want)
+		}
+	}
+	putCard(t, project, "W-40")
+	if got := allocateType(t, project, "task"); got != "TASK-41" {
+		t.Fatalf("a later legacy brief was not counted: allocate = %q", got)
 	}
 	var out, errOut bytes.Buffer
-	if code := Run(project, Options{Status: true, Out: &out, Err: &errOut}); code != 1 ||
-		!strings.Contains(errOut.String(), "legacy ledger") {
+	if code := Run(project, Options{Status: true, Out: &out, Err: &errOut}); code != 0 ||
+		!strings.Contains(out.String(), "_ledger.json") {
 		t.Fatalf("status = %d, %q", code, errOut.String())
 	}
 }
@@ -216,5 +237,24 @@ func TestTypedModeFailsClosedOnAnExhaustedSequence(t *testing.T) {
 	if _, err := AllocateType(project, "task", false, ""); err == nil ||
 		!strings.Contains(err.Error(), "exhausted") {
 		t.Fatalf("allocate error = %v, want an exhausted-sequence refusal", err)
+	}
+}
+
+func TestATypedFreshProjectStartsAtOne(t *testing.T) {
+	project := testProject(t, typedConfig)
+	if got := allocateType(t, project, "task"); got != "TASK-01" {
+		t.Fatalf("allocate = %q, want TASK-01", got)
+	}
+}
+
+func TestATypedLedgerThatIsNotOursFailsClosed(t *testing.T) {
+	project := testProject(t, typedConfig)
+	if err := os.MkdirAll(project.Numbers, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, filepath.Join(project.Numbers, "_ledger.json"), "{}")
+	if _, err := AllocateType(project, "task", false, ""); err == nil ||
+		!strings.Contains(err.Error(), "not a kanbanzai ledger") {
+		t.Fatalf("allocate error = %v, want a not-a-ledger refusal", err)
 	}
 }

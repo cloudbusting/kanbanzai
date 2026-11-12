@@ -222,7 +222,8 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 	named := project.CardFileRe.FindStringSubmatch(filepath.Base(path))
 	found := project.TitleRe.FindStringSubmatch(titleLine)
 	if found == nil {
-		return nil, []string{fmt.Sprintf("%s: the first line must be '# %s: <the work>'", rel, project.IDsExample())}
+		return nil, []string{fmt.Sprintf("%s: the first line must be '# %s: <the work>'", rel,
+			strings.Join(project.IDExamples(), " or "))}
 	}
 	cardID := found[1]
 	title := strings.TrimSpace(found[2])

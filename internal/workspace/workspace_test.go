@@ -12,7 +12,7 @@ import (
 func project(t *testing.T, mode string) *config.Project {
 	t.Helper()
 	t.Setenv("KANBANZAI_PROJECT", "")
-	text := "[project]\nowner = \"Sam\"\nworktree = \"../wt/{id}\"\n"
+	text := "types = []\n[project]\nowner = \"Sam\"\nworktree = \"../wt/{id}\"\n"
 	if mode != "" {
 		text += "[flow]\nisolation = \"" + mode + "\"\n"
 	}

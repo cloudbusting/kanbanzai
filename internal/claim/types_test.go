@@ -43,7 +43,10 @@ func TestTypedClaimIsCanonical(t *testing.T) {
 	if card, err := CheckCard(project, "task-1"); err != nil || card != "TASK-01" {
 		t.Fatalf("CheckCard = %q, %v", card, err)
 	}
-	for _, bad := range []string{"W-01", "DEF-01", "BUG-7\n"} {
+	if card, err := CheckCard(project, "w-1"); err != nil || card != "W-01" {
+		t.Fatalf("legacy CheckCard = %q, %v", card, err)
+	}
+	for _, bad := range []string{"FOO-01", "DEF-01", "BUG-7\n"} {
 		if _, err := CheckCard(project, bad); err == nil {
 			t.Fatalf("CheckCard accepted %q", bad)
 		}

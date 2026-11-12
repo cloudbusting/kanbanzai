@@ -112,7 +112,7 @@ func Titles(project *config.Project) []string {
 		found := project.TitleRe.FindStringSubmatch(first)
 		if found == nil {
 			problems = append(problems, fmt.Sprintf("%s: the first line must be '# %s: <the work>'",
-				project.Rel(path), project.IDsExample()))
+				project.Rel(path), strings.Join(project.IDExamples(), " or ")))
 			continue
 		}
 		if !strings.HasPrefix(filepath.Base(path), found[1]+"-") {
@@ -505,7 +505,19 @@ func whereWords(project *config.Project) string {
 	vocabulary := workspace.Vocabulary(project)
 	switch workspace.Of(project) {
 	case workspace.Worktree:
-		return fmt.Sprintf("'—', 'main' or 'worktree %s", project.IDsExample())
+		examples := project.IDExamples()
+		if len(examples) == 1 {
+			return "'—', 'main' or 'worktree " + examples[0]
+		}
+		parts := []string{"'—'", "'main'"}
+		for index, example := range examples {
+			if index == len(examples)-1 {
+				parts = append(parts, "'worktree "+example)
+				continue
+			}
+			parts = append(parts, "'worktree "+example+"'")
+		}
+		return strings.Join(parts, ", ")
 	case workspace.Shared:
 		return "'—' or 'main'"
 	}
