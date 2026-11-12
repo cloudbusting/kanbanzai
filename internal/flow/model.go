@@ -9,6 +9,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/move"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 // ModelVersion is the schema_version of `workflow show --json`. New fields are added without raising it.
@@ -79,9 +80,12 @@ type WIP struct {
 	Claimed          []string `json:"claimed"`
 }
 
-// Isolation is how a card's change is kept apart from the board: today always a worktree and a branch per card.
+// Isolation is how a card's change is kept apart from the board, by the `[flow] isolation` setting (a worktree and a
+// branch per card by default).
 type Isolation struct {
 	Mode            string   `json:"mode"`
+	Setting         string   `json:"setting"`
+	WhereVocabulary []string `json:"where_vocabulary"`
 	WorktreeColumns []string `json:"worktree_columns"`
 	WorktreePattern string   `json:"worktree_pattern"`
 	BranchPattern   string   `json:"branch_pattern"`
@@ -128,7 +132,8 @@ func Build(p *config.Project) *Model {
 	m.Gates = []Gate{}
 	m.WIP = WIP{Limit: p.WIPLimit, StaleDays: p.StaleDays, MoveGraceMinutes: p.MoveGraceMinutes, Started: []string{},
 		Claimed: []string{}}
-	m.Isolation = Isolation{Mode: "worktree-per-card", WorktreeColumns: []string{}, WorktreePattern: p.WorktreePattern,
+	m.Isolation = Isolation{Mode: workspace.ModeName(p), Setting: workspace.Of(p),
+		WhereVocabulary: workspace.Vocabulary(p), WorktreeColumns: []string{}, WorktreePattern: p.WorktreePattern,
 		BranchPattern: p.BranchPattern, BatchBranch: p.BatchBranchPattern, MainBranch: p.MainBranch}
 	for _, c := range p.Columns {
 		if c.Gate.Set() {

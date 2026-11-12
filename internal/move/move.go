@@ -26,6 +26,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 const (
@@ -168,14 +169,13 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		problems = append(problems, fmt.Sprintf("%s has a Held line (%s): clear it in this move with --clear-held",
 			cardID, *held))
 	}
-	if goal.Worktree && mine && destination != key {
+	if goal.Worktree && workspace.Needs(project) && mine && destination != key {
 		where := card.Where
 		if changes.Where != nil {
 			where = *changes.Where
 		}
-		if !worktreeOK(project, where) {
-			problems = append(problems, fmt.Sprintf("%s needs the card's worktree: make it (../<repo>-%s) and "+
-				"pass --where \"worktree %s\" in this move", goal.Label, cardID, cardID))
+		if !workspace.Exists(project, where) {
+			problems = append(problems, workspace.Missing(project, goal.Label, cardID))
 		}
 	}
 	if len(problems) > 0 {
@@ -440,9 +440,8 @@ func StartStep(project *config.Project, cardID, owner string) (string, error) {
 	if words.Start == "" {
 		return "", nil
 	}
-	if project.ByKey[words.Start].Worktree {
-		return fmt.Sprintf("now: make the worktree (%s), then run: kanbanzai move %s start --where "+
-			"\"worktree %s\"", project.WorktreeHint(cardID), cardID, cardID), nil
+	if project.ByKey[words.Start].Worktree && workspace.Needs(project) {
+		return workspace.StartHint(project, cardID), nil
 	}
 	message, err := Apply(project, cardID, "start", owner, Changes{}, nil)
 	if err != nil {
@@ -473,15 +472,6 @@ func labelList(project *config.Project, allowed map[string]string, except string
 	}
 	sort.Strings(labels)
 	return labels
-}
-
-func worktreeOK(project *config.Project, where string) bool {
-	words := strings.Fields(strings.ReplaceAll(where, "`", ""))
-	if len(words) < 2 || words[0] != "worktree" {
-		return false
-	}
-	info, err := os.Stat(project.WorktreePath(words[1]))
-	return err == nil && info.IsDir()
 }
 
 func fileExists(path string) bool {
