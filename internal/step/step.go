@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 )
@@ -24,18 +25,19 @@ type Instead struct {
 
 // Description is a step as plain data, in the shape `step --json` prints.
 type Description struct {
-	Step           string   `json:"step"`
-	Active         bool     `json:"active"`
-	Into           string   `json:"into"`
-	IntoLabel      *string  `json:"into_label"`
-	Skill          string   `json:"skill"`
-	HasSkill       bool     `json:"has_skill"`
-	Extend         []string `json:"extend"`
-	Context        []string `json:"context"`
-	Checks         []string `json:"checks"`
-	ProjectContext []string `json:"project_context"`
-	Owner          string   `json:"owner"`
-	Instead        *Instead `json:"instead"`
+	Step           string    `json:"step"`
+	Active         bool      `json:"active"`
+	Into           string    `json:"into"`
+	IntoLabel      *string   `json:"into_label"`
+	Skill          string    `json:"skill"`
+	HasSkill       bool      `json:"has_skill"`
+	Extend         []string  `json:"extend"`
+	Context        []string  `json:"context"`
+	Checks         []string  `json:"checks"`
+	ProjectContext []string  `json:"project_context"`
+	Owner          string    `json:"owner"`
+	Instead        *Instead  `json:"instead"`
+	Skip           *SkipRule `json:"skip"`
 }
 
 // StageMoves is the Stage words for a step: the Doing column to start in, the Done column to finish in, and whether
@@ -81,6 +83,23 @@ func InsteadOf(project *config.Project, step config.Step) *Instead {
 	return &Instead{Action: "stop", Column: column.Key, Label: column.Label, From: from}
 }
 
+// SkippedFor is true when the step has a skip rule and the brief text matches it: the brief's SkipField (a head
+// line or a `## ` section) starts with one of SkipValues. A step with no rule is never skipped.
+func SkippedFor(project *config.Project, briefText, name string) bool {
+	step, ok := project.Steps[name]
+	if !ok || step.SkipField == "" {
+		return false
+	}
+	value, found := brief.FieldValue(briefText, step.SkipField)
+	return found && brief.StartsWithWord(value, step.SkipValues)
+}
+
+// SkipRule is the step's rule as plain data, or nil when it has none.
+type SkipRule struct {
+	Field  string   `json:"field"`
+	Values []string `json:"values"`
+}
+
 // Describe is the step as plain data, or nil when this project has no step of that name.
 func Describe(project *config.Project, name string) *Description {
 	step, ok := project.Steps[name]
@@ -100,6 +119,9 @@ func Describe(project *config.Project, name string) *Description {
 	}
 	if !hasSkill && step.Active {
 		description.Instead = InsteadOf(project, step)
+	}
+	if step.SkipField != "" {
+		description.Skip = &SkipRule{Field: step.SkipField, Values: copyStrings(step.SkipValues)}
 	}
 	return description
 }

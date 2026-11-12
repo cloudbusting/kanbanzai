@@ -33,11 +33,7 @@ const (
 	HeldCode    = 3
 )
 
-var (
-	dateRE        = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
-	deployField   = regexp.MustCompile(`(?m)^- \*\*Deploy:\*\*\s*None\b`)
-	deploySection = regexp.MustCompile(`(?m)^## Deploy\s*\n\s*None\b`)
-)
+var dateRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}`)
 
 // Refused is a move that is not made; Code is the command's exit code.
 type Refused struct {
@@ -140,7 +136,10 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		return "", err
 	}
 	problems := []string{}
-	allowed := LegalTargets(project, key, &look, ShipsNothing(string(original)))
+	briefText := string(original)
+	allowed := LegalTargets(project, key, &look, func(name string) bool {
+		return step.SkippedFor(project, briefText, name)
+	})
 	if _, ok := allowed[destination]; !ok {
 		switch {
 		case column.Kind == "parked":
@@ -275,13 +274,11 @@ func Resolve(project *config.Project, target string) string {
 	return ""
 }
 
-// ShipsNothing is true when the brief's Deploy is None: the card skips the deploy steps.
-func ShipsNothing(text string) bool {
-	return deployField.MatchString(text) || deploySection.MatchString(text)
-}
-
-// LegalTargets is {column key: why} for the columns a card may move to without --force.
-func LegalTargets(project *config.Project, key string, card *board.Card, nothingToShip bool) map[string]string {
+// LegalTargets is {column key: why} for the columns a card may move to without --force. skipped says whether the
+// card skips a step (a step's skip rule matched its brief); nil means it skips none. A card that skips the steps
+// ahead of it may move on past them: to the first column whose step it does not skip ("skip"), or to Done when it
+// skips every remaining step ("close").
+func LegalTargets(project *config.Project, key string, card *board.Card, skipped func(step string) bool) map[string]string {
 	column, ok := project.ByKey[key]
 	if !ok {
 		return map[string]string{}
@@ -297,25 +294,10 @@ func LegalTargets(project *config.Project, key string, card *board.Card, nothing
 			found[words.Start] = "start"
 		}
 		description := step.Describe(project, name)
-		if description != nil && description.Instead != nil {
-			if description.Instead.Action == "close" {
-				found[description.Instead.Column] = "close"
-			} else if nothingToShip && (name == "deploy-qa" || name == "ship") {
-				for _, other := range project.Columns {
-					if other.Kind == "done" {
-						found[other.Key] = "close"
-						break
-					}
-				}
-			}
-		} else if nothingToShip && (name == "deploy-qa" || name == "ship") {
-			for _, other := range project.Columns {
-				if other.Kind == "done" {
-					found[other.Key] = "close"
-					break
-				}
-			}
+		if description != nil && description.Instead != nil && description.Instead.Action == "close" {
+			found[description.Instead.Column] = "close"
 		}
+		skipAhead(project, name, skipped, found)
 	}
 	if column.Doing != "" {
 		if into, ok := project.ByKey[project.Steps[column.Doing].Into]; ok {
@@ -340,6 +322,29 @@ func LegalTargets(project *config.Project, key string, card *board.Card, nothing
 		}
 	}
 	return found
+}
+
+// skipAhead follows the steps the card skips, starting at its next step, and records where it may land.
+func skipAhead(project *config.Project, name string, skipped func(string) bool, found map[string]string) {
+	if skipped == nil {
+		return
+	}
+	landing := ""
+	for count := 0; count <= len(project.Steps) && name != "" && skipped(name); count++ {
+		into, ok := project.ByKey[project.Steps[name].Into]
+		if !ok {
+			return
+		}
+		if into.Kind == "done" {
+			found[into.Key] = "close"
+			return
+		}
+		landing = into.Key
+		name = into.Next
+	}
+	if _, taken := found[landing]; landing != "" && !taken {
+		found[landing] = "skip"
+	}
 }
 
 // Options is one move command.
