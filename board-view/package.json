@@ -33,6 +33,18 @@
       {
         "command": "kanbanzai.init",
         "title": "Kanbanzai: Init"
+      },
+      {
+        "command": "kanbanzai.apply",
+        "title": "Kanbanzai: Apply"
+      },
+      {
+        "command": "kanbanzai.showPlan",
+        "title": "Kanbanzai: Show Setup Plan"
+      },
+      {
+        "command": "kanbanzai.cancelSetup",
+        "title": "Kanbanzai: Cancel Setup"
       }
     ],
     "configuration": {
