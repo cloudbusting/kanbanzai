@@ -414,3 +414,34 @@ func TestTheSkillsCarryNoWorkspaceCommands(t *testing.T) {
 		t.Error("skills/next does not stop a batch in a mode that cannot run cards in parallel")
 	}
 }
+
+// W-42: shipping a card whose release carries a .vsix installs that released .vsix in the editor and asks the owner to
+// reload, and a missing editor CLI or a failed install never stops the release from closing.
+func TestTheReleaseSkillInstallsTheReleasedVsix(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(root, ".claude", "skills", "kanbanzai-release", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	release := string(b)
+	for _, want := range []string{
+		"## 8. Install the released `.vsix` in the editor",
+		"gh release download \"v<version>\" --repo cloudbusting/kanbanzai --dir \"$VSIX\" --pattern '*.vsix' --pattern SHA256SUMS",
+		"sha256sum -c --ignore-missing SHA256SUMS",
+		"codium --install-extension \"$VSIX/kanbanzai-board-<extension-version>.vsix\" --force",
+		"codium --list-extensions --show-versions",
+		"Never install a command-less `.vsix`",
+		"the release still closes",
+		"Reload Window",
+	} {
+		if !strings.Contains(release, want) {
+			t.Errorf("kanbanzai-release lacks %q", want)
+		}
+	}
+	if strings.Contains(release, "record that the owner must install it manually") {
+		t.Error("kanbanzai-release still leaves the released .vsix install to the owner")
+	}
+}

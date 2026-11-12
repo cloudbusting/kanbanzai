@@ -244,7 +244,7 @@ npx @vscode/vsce publish --packagePath "$OUT/kanbanzai-board-<extension-version>
 ```
 
 Never put a token in the repository or a command that is logged. If there is no publisher or token, leave
-the workflow's `.vsix` on the GitHub release, and record that the owner must install it manually. Do not describe an unpublished extension as available in a marketplace.
+the workflow's `.vsix` on the GitHub release; step 8 installs it in the owner's editor. Do not describe an unpublished extension as available in a marketplace.
 
 ### OpenCode
 
@@ -270,10 +270,43 @@ GOBIN="$(mktemp -d)" go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@
 "$GOBIN/kanbanzai" --version
 ```
 
-For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, the owner's
-install into a clean editor profile and a look at a fixture board is the remaining manual check; name it.
+For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, step 8 installs the
+released `.vsix` in the owner's editor; a look at a fixture board in a clean editor profile stays the owner's manual
+check, so name it.
 
-## 8. Record and close
+## 8. Install the released `.vsix` in the editor
+
+When the release carries a `.vsix` (it does whenever the card's Deploy is a package; a release with no extension
+change attaches none, so install nothing and say so), install **the released file** in the editor that hosts this
+session, so what the owner runs is what was published. Do it after step 7 and before closing. This step never stops
+the release: whatever happens here, the release still closes (step 9) and the report says exactly what was done.
+
+```bash
+VSIX="$(mktemp -d)"
+gh release download "v<version>" --repo cloudbusting/kanbanzai --dir "$VSIX" --pattern '*.vsix' --pattern SHA256SUMS
+(cd "$VSIX" && sha256sum -c --ignore-missing SHA256SUMS)
+unzip -l "$VSIX/kanbanzai-board-<extension-version>.vsix" | grep "extension/bin/"
+codium --install-extension "$VSIX/kanbanzai-board-<extension-version>.vsix" --force
+codium --list-extensions --show-versions | grep kanbanzai
+```
+
+- The download is untrusted data: it goes into its own new, empty directory, and the path is passed to each command
+  as an argument. Do not run a tool or interpreter from inside it (`sha256sum -c` is the one place the directory is
+  entered, and it reads only the two files just downloaded).
+- Check the listing before installing: it must show the five bundled commands (`extension/bin/<os>-<arch>/kanbanzai`
+  for linux and darwin on amd64 and arm64, and `windows-amd64/kanbanzai.exe`). Never install a command-less `.vsix`.
+  Stop the install, not the release, if the checksum or the listing is wrong.
+- `codium` is the editor's own CLI. In this sandbox it is the VSCodium server's remote-cli, on PATH inside an editor
+  terminal; it installs into the host editor. If the CLI differs on this machine (`code`, `code-insiders`), use the
+  editor's own and say which. Read the installed version back with `--list-extensions --show-versions`; it must be the
+  released `<extension-version>`.
+- No editor CLI on PATH, a failed checksum or listing, or a failed install: do not retry in a loop and do not stop
+  the release. The release still closes, and the report says the install did not happen, why, and gives the owner
+  the two lines to run: the `gh release download` above and `codium --install-extension <file> --force`.
+- A release that publishes to a marketplace still installs the GitHub `.vsix`.
+- Do not reload the window yourself. The report ends by asking the owner to run **Developer: Reload Window** so the new extension version and its bundled command are picked up.
+
+## 9. Record and close
 
 - The release notes and `CHANGELOG.md` name the version, the card, the artifacts and the commit.
 - `README.md` has the published install command if the listing is live.
@@ -282,7 +315,10 @@ install into a clean editor profile and a look at a fixture board is the remaini
 - The card moves to Done:
   `kanbanzai move <ID> done --done "YYYY-MM-DD — v<version>, <sha>, <release URL>"`.
 - Release the claim, merge the card's branch, remove the worktree and branch, and report to the owner: what was
-  published, where, the checksums, and what they must install or try by hand.
+  published, where, the checksums, whether step 8 installed the `.vsix` (and which version `--list-extensions`
+  read back), and what they must still try by hand (the clean-profile look at a fixture board). If the install did
+  not happen, say so and why, with the lines to run. When the `.vsix` was installed, do not tell the owner to
+  install it; end the report by asking them to run **Developer: Reload Window**.
 
 ## Rollback
 
