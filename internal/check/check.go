@@ -21,6 +21,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
 // HeadFields are the fields every brief and the template must carry.
@@ -104,7 +105,6 @@ func Titles(project *config.Project) []string {
 // Headers checks Stage, Updated, Next action and Where on every brief; a Done date on a done card.
 func Headers(project *config.Project) []string {
 	problems := []string{}
-	whereRE := regexp.MustCompile(`^(—|main|worktree ` + project.IDPattern + `)(\s.*)?$`)
 	doneWords := map[string]bool{}
 	for _, column := range project.Columns {
 		if column.Kind == "done" {
@@ -125,13 +125,16 @@ func Headers(project *config.Project) []string {
 		if value := fields["Updated"]; value != "" && !updatedRE.MatchString(value) {
 			problems = append(problems, fmt.Sprintf("%s: Updated must be YYYY-MM-DD, not '%s'", name, value))
 		}
-		if value := fields["Where"]; value != "" && !whereRE.MatchString(value) {
+		kind := ""
+		if column, ok := project.ByKey[project.StageColumn[brief.StageWord(fields["Stage"])]]; ok {
+			kind = column.Kind
+		}
+		if value := fields["Where"]; value != "" && !workspace.WhereValid(project, value, kind) {
 			short := value
 			if len(short) > 30 {
 				short = short[:30]
 			}
-			problems = append(problems, fmt.Sprintf("%s: Where must be '—', 'main' or 'worktree %s-NN, not '%s'",
-				name, project.Prefix, short))
+			problems = append(problems, fmt.Sprintf("%s: Where must be %s, not '%s'", name, whereWords(project), short))
 		}
 		if doneWords[brief.StageWord(fields["Stage"])] && !datedRE.MatchString(fields["Done"]) {
 			problems = append(problems, fmt.Sprintf("%s: a done card's Done line starts with its date", name))
@@ -460,4 +463,16 @@ func contains(values []string, wanted string) bool {
 		}
 	}
 	return false
+}
+
+// whereWords names the Where lines an open card may carry. The default mode's wording is the one it has always had.
+func whereWords(project *config.Project) string {
+	vocabulary := workspace.Vocabulary(project)
+	switch workspace.Of(project) {
+	case workspace.Worktree:
+		return fmt.Sprintf("'—', 'main' or 'worktree %s-NN", project.Prefix)
+	case workspace.Shared:
+		return "'—' or 'main'"
+	}
+	return fmt.Sprintf("'—', 'main' or '%s'", vocabulary[len(vocabulary)-1])
 }

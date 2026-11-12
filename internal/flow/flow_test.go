@@ -67,7 +67,7 @@ func TestShowIsOneModelOfTheShippedFlow(t *testing.T) {
 	if m.WIP.Limit != 5 || !reflect.DeepEqual(m.WIP.Claimed, []string{"todo"}) {
 		t.Fatalf("wip = %+v", m.WIP)
 	}
-	if m.Isolation.Mode != "worktree-per-card" || len(m.Isolation.WorktreeColumns) != 8 {
+	if m.Isolation.Mode != "worktree-per-card" || m.Isolation.Setting != "worktree" || len(m.Isolation.WorktreeColumns) != 8 {
 		t.Fatalf("isolation = %+v", m.Isolation)
 	}
 }

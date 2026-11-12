@@ -315,9 +315,21 @@ func showText(m *flow.Model) string {
 	}
 	fmt.Fprintf(&b, "WIP\n  limit %d started cards (columns: %s; with a claim: %s); stale after %d days; claimed-not-started after %g minutes\n",
 		m.WIP.Limit, strings.Join(m.WIP.Started, ", "), strings.Join(m.WIP.Claimed, ", "), m.WIP.StaleDays, m.WIP.MoveGraceMinutes)
-	fmt.Fprintf(&b, "Isolation\n  %s: a worktree %s on branch %s (batches %s) from %s, required in: %s\n", m.Isolation.Mode,
-		m.Isolation.WorktreePattern, m.Isolation.BranchPattern, m.Isolation.BatchBranch, m.Isolation.MainBranch,
-		strings.Join(m.Isolation.WorktreeColumns, ", "))
+	columns := strings.Join(m.Isolation.WorktreeColumns, ", ")
+	switch m.Isolation.Setting {
+	case "branch":
+		fmt.Fprintf(&b, "Isolation\n  %s: a branch %s in the one checkout from %s, one card at a time, required in: %s\n",
+			m.Isolation.Mode, m.Isolation.BranchPattern, m.Isolation.MainBranch, columns)
+	case "shared":
+		fmt.Fprintf(&b, "Isolation\n  %s: the one checkout, no workspace record; parallel sessions share one tree; work "+
+			"columns: %s\n", m.Isolation.Mode, columns)
+	case "external":
+		fmt.Fprintf(&b, "Isolation\n  %s: the host owns the workspace; a card records it as Where: external <ref>; required "+
+			"in: %s\n", m.Isolation.Mode, columns)
+	default:
+		fmt.Fprintf(&b, "Isolation\n  %s: a worktree %s on branch %s (batches %s) from %s, required in: %s\n", m.Isolation.Mode,
+			m.Isolation.WorktreePattern, m.Isolation.BranchPattern, m.Isolation.BatchBranch, m.Isolation.MainBranch, columns)
+	}
 	fmt.Fprintf(&b, "Pull order\n  %s\n", strings.Join(m.PullOrder, " > "))
 	return b.String()
 }
