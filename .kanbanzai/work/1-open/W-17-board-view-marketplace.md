@@ -1,10 +1,10 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** building
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
-- **Next action:** T1 (kanbanzai install) and T3 (packer) and T4 (adapters find the command) in the W-17 worktree, tests first; T2 after T1; T5 after T1
+- **Next action:** check: run kanbanzai-qa, then review the diff of branch W-17; then package (deploy-qa) and the owner's clean-profile check
 - **Where:** worktree W-17
 
 ## Goal
@@ -16,7 +16,7 @@ The owner's words: "what is the best way of delivering the extension and plugins
 ## Acceptance checks
 
 - [ ] **Metadata.** `board-view/package.json` has publisher, licence, repository, icon, categories and no `private`; a test in `tools/vsix/vsix_test.go` fails when any is missing or when the version differs from `.claude-plugin/plugin.json`.
-- [ ] **Bundled command.** `go run ./tools/vsix -bin DIR -o X.vsix` packs `extension/bin/<os>-<arch>/kanbanzai[.exe]` for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64 with the executable bit set; the test lists the archive and fails if one is missing, if a binary's `--version` differs from the extension's, or if the archive holds a machine path. Without `-bin` the packer still builds a dev `.vsix` and says it has no command.
+- [ ] **Bundled command.** `go run ./tools/vsix -bin DIR -o X.vsix` packs `extension/bin/<os>-<arch>/kanbanzai[.exe]` for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64 with the executable bit set; the test lists the archive and fails if one is missing, if an entry lacks the executable bit, or if the archive holds a machine path. A cross-compiled binary is not run in CI; the package step runs the host platform's bundled binary and checks its `--version` against the extension's. Without `-bin` the packer still builds a dev `.vsix` and says it has no command.
 - [ ] **Command resolution.** The extension runs the `kanbanzai.command` setting, else the bundled binary for `process.platform`/`process.arch`, else the well-known user folder, else PATH; never a path recorded at build time. With none, one actionable message appears (in the tab and the Output channel) and nothing throws. Proof: `board-view` fixtures for each source and for none.
 - [ ] **The item.** In a trusted workspace whose first folder is a git checkout without `.kanbanzai/config.toml`, the status bar shows **Kanbanzai: Init** (command `kanbanzai.init`); with a board it shows `▦ Board` as today; with no folder or no git it shows nothing. It does not repeat a toast. Proof: extension fixtures for the three states.
 - [ ] **The guided setup.** Clicking it: asks which agents (Claude Code, OpenCode; both ticked), runs `init --dry-run --json --plugins <agents>` and shows the plan in a read-only editor tab (root, settings and their sources, every action, the `config.toml`, the plugin settings, warnings, and the extra line "copy the command to <folder>"), then asks Apply or Cancel. Cancel leaves the project and the machine untouched. Proof: the fake `execFile` records only `--dry-run` calls, no `install`, no `--plan`, and the fake file system sees no write.
@@ -36,12 +36,12 @@ The owner's words: "what is the best way of delivering the extension and plugins
 
 Order: T1, T3, T4 own disjoint files and can start together; T2 follows T1 because both edit `internal/cli/cli.go`; T5 needs T1 for the folder rule; T6 needs T1, T2, T3; T7 last. Each task writes its failing test first.
 
-- [ ] **T1 — `kanbanzai install`.** Owns `internal/install/` (new: `install.go`, `install_test.go`), `internal/cli/cli.go` and `cli_test.go` (command, usage line). The folder rule, the atomic copy, `--dry-run`, `--where`. Proves the `install` check.
-- [ ] **T2 — `init --plugins`.** Owns `internal/init/plugins.go` (new), `plan.go`, `apply.go`, `planfile.go`, `init_test.go`, `plugins_test.go` (new), `internal/cli/cli.go` (flags, after T1). Adds the `merge` operation to the plan (additive: `PlanVersion` stays 1; an older command refuses a plan with an operation it does not know), the Claude Code and OpenCode fragments, and the `--plugin-source` flag. Proves the `init --plugins` check.
-- [ ] **T3 — packer.** Owns `tools/vsix/main.go`, `vsix_test.go`, `tools/release/` (a `-bins DIR` flag that leaves the raw binaries beside the archives; the version check), `.github/workflows/release.yml` (build the `.vsix` and attach it). Proves the metadata, bundled-command and release checks.
-- [ ] **T4 — adapters find the command.** Owns `hooks/heartbeat.sh`, `hooks/session-start.sh`, `opencode/server.js`, `opencode/server.test.mjs`, and a Go test beside the hooks. Proves the adapters check. Both adapters change together (parity); the folder rule is written once in the README and once per language, each with a test.
-- [ ] **T5 — the extension.** Owns `board-view/extension.js`, `board-view/init.js` (new: the item's state, the bundled-path rule, the plan text, the apply sequence, all as functions the tests call), `board-view/package.json` (activation `onStartupFinished` beside `workspaceContains`, the `kanbanzai.init` command, a machine-scoped `kanbanzai.pluginSource` setting for pre-release testing), `board-view/init.test.mjs` (new), `extension_*.test.mjs`. Proves the command-resolution, item, guided-setup, apply and trust checks. The extension contains no policy: every file decision is `init`'s plan.
-- [ ] **T6 — docs.** Owns `README.md` (install: one `.vsix`, the button), `board-view/README.md` (install, the button, the trust model), `docs/setup.md` (lead with the button; the two `claude plugin` commands for a machine without the editor extension — this closes the gap W-05 found), `CHANGELOG.md`. Proves a reader can go from the `.vsix` to a board.
+- [x] **T1 — `kanbanzai install`.** Owns `internal/install/` (new: `install.go`, `install_test.go`), `internal/cli/cli.go` and `cli_test.go` (command, usage line). The folder rule, the atomic copy, `--dry-run`, `--where`. Proves the `install` check.
+- [x] **T2 — `init --plugins`.** Owns `internal/init/plugins.go` (new), `plan.go`, `apply.go`, `planfile.go`, `init_test.go`, `plugins_test.go` (new), `internal/cli/cli.go` (flags, after T1). Adds the `merge` operation to the plan (additive: `PlanVersion` stays 1; an older command refuses a plan with an operation it does not know), the Claude Code and OpenCode fragments, and the `--plugin-source` flag. Proves the `init --plugins` check.
+- [x] **T3 — packer.** Owns `tools/vsix/main.go`, `vsix_test.go`, `tools/release/` (a `-bins DIR` flag that leaves the raw binaries beside the archives; the version check), `.github/workflows/release.yml` (build the `.vsix` and attach it). Proves the metadata, bundled-command and release checks.
+- [x] **T4 — adapters find the command.** Owns `hooks/heartbeat.sh`, `hooks/session-start.sh`, `opencode/server.js`, `opencode/server.test.mjs`, and a Go test beside the hooks. Proves the adapters check. Both adapters change together (parity); the folder rule is written once in the README and once per language, each with a test.
+- [x] **T5 — the extension.** Owns `board-view/extension.js`, `board-view/init.js` (new: the item's state, the bundled-path rule, the plan text, the apply sequence, all as functions the tests call), `board-view/package.json` (activation `onStartupFinished` beside `workspaceContains`, the `kanbanzai.init` command, a machine-scoped `kanbanzai.pluginSource` setting for pre-release testing), `board-view/init.test.mjs` (new), `extension_*.test.mjs`. Proves the command-resolution, item, guided-setup, apply and trust checks. The extension contains no policy: every file decision is `init`'s plan.
+- [x] **T6 — docs.** Owns `README.md` (install: one `.vsix`, the button), `board-view/README.md` (install, the button, the trust model), `docs/setup.md` (lead with the button; the two `claude plugin` commands for a machine without the editor extension — this closes the gap W-05 found), `CHANGELOG.md`. Proves a reader can go from the `.vsix` to a board.
 - [ ] **T7 — package and clean-profile proof.** Not a build task: the package step builds the `.vsix` with `-bin` and the owner runs the manual check.
 
 ## Trust model (proposed)
@@ -84,6 +84,7 @@ Publishing to the Visual Studio Marketplace or Open VSX (a release-step action t
 - 2026-11-12: folded the owner's request for a status-bar "Kanbanzai Init" button that bootstraps the command and plugins (triage; it is the extension's setup command this card already owns, and the way into W-05's `/kanbanzai:setup` for a project without the plugin). Design must reconcile it with the extension's read-only contract.
 - 2026-11-12: design: the owner chose to bundle the command in the `.vsix`, a guided approve-then-write button, and a well-known user folder plus `init --plugins`; tasks T1-T7 written; the marketplace-metadata check is already met in `package.json` and only needs a test.
 - 2026-11-12: design done: tasks T1-T7, acceptance checks, trust model
+- 2026-11-12: build done: kanbanzai install, init --plugins (merge action), packer -bin and release -bins, hooks and OpenCode look in the per-user folder, extension Init item and guided setup, docs; go/node/validate/cross-builds green; end-to-end run with the built binary passed; editor behaviour not run
 
 ## Comments
 
