@@ -1,7 +1,7 @@
 {
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
-  "description": "The project's Kanbanzai board as a compact kanban in an editor tab. Read-only.",
+  "description": "The project's Kanbanzai board as a compact kanban in an editor tab. The board tab is read-only.",
   "version": "0.6.4",
   "publisher": "cloudbusting",
   "license": "MIT",
@@ -21,13 +21,18 @@
   ],
   "main": "./extension.js",
   "activationEvents": [
-    "workspaceContains:.kanbanzai/config.toml"
+    "workspaceContains:.kanbanzai/config.toml",
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
       {
         "command": "kanbanzai.showBoard",
         "title": "Kanbanzai: Show Board"
+      },
+      {
+        "command": "kanbanzai.init",
+        "title": "Kanbanzai: Init"
       }
     ],
     "configuration": {
@@ -36,7 +41,13 @@
         "kanbanzai.command": {
           "type": "string",
           "default": "",
-          "description": "The kanbanzai command to run: an absolute path, or empty for kanbanzai on PATH.",
+          "description": "The kanbanzai command to run: an absolute path, or empty for the command bundled in this extension, else the copy in the per-user folder, else kanbanzai on PATH.",
+          "scope": "machine"
+        },
+        "kanbanzai.pluginSource": {
+          "type": "string",
+          "default": "",
+          "description": "A path to a Kanbanzai checkout, used as the plugin source instead of the GitHub marketplace source when Kanbanzai: Init plans the plugin settings. For pre-release testing; leave empty otherwise.",
           "scope": "machine"
         }
       }
@@ -45,7 +56,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "The board runs the kanbanzai command in the workspace."
+      "description": "The board and the setup run the kanbanzai command in the workspace."
     }
   }
 }

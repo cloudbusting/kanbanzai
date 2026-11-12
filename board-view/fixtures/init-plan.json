@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "mode": "dry-run",
+  "plan": {
+    "schema_version": 1,
+    "kind": "kanbanzai-init-plan",
+    "root": "/work/project",
+    "detected": {
+      "root": "/work/project",
+      "toplevel": "/work/project",
+      "git_common": "/work/project/.git",
+      "in_git": true,
+      "ran_from_worktree": false,
+      "branch": "main",
+      "detached": false,
+      "branches": [],
+      "remotes": [],
+      "git_user": "Sam",
+      "config": {
+        "exists": false,
+        "regular": false,
+        "valid": false
+      },
+      "cards": 0,
+      "root_gitignore": false,
+      "suggested_context": []
+    },
+    "settings": {
+      "main_branch": "main",
+      "main_branch_source": "the checked-out branch (the only one)",
+      "owner": "Sam",
+      "owner_source": "git config user.name"
+    },
+    "actions": [
+      {
+        "op": "mkdir",
+        "path": ".kanbanzai/work/1-open",
+        "what": "folder"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/work/1-open/.gitkeep",
+        "what": "gitkeep"
+      },
+      {
+        "op": "mkdir",
+        "path": ".kanbanzai/work/x-paused",
+        "what": "folder"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/work/x-paused/.gitkeep",
+        "what": "gitkeep"
+      },
+      {
+        "op": "mkdir",
+        "path": ".kanbanzai/work/10-done",
+        "what": "folder"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/work/10-done/.gitkeep",
+        "what": "gitkeep"
+      },
+      {
+        "op": "mkdir",
+        "path": ".kanbanzai/work/batches",
+        "what": "batches"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/work/batches/.gitkeep",
+        "what": "gitkeep"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/.gitignore",
+        "what": "gitignore",
+        "content": "state/\n",
+        "sha256": "14188a31de4a645fd035797f1b2e904c60b2f1428ae555ed2a281e2431b3f2d6"
+      },
+      {
+        "op": "create",
+        "path": ".kanbanzai/config.toml",
+        "what": "config",
+        "content": "# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:\n# the columns, the cap of five started cards, the two-hour lease and the pull order are the defaults.\n# `kanbanzai config` prints the settings in force. Tables merge key by key; a list (such as [[columns]])\n# replaces the default one whole.\n\nconfig_version = 1\n\n[project]\nowner = \"Sam\"      # the person the skills address and whose decisions they ask for\n\n# More you can set (see Kanbanzai's defaults/config.toml for every key):\n#   [project]  prefix, work, claims, numbers, worktree, context = [\"rules file\", ...]\n#   [flow]     wip_limit, pull_order\n#   [steps.check]  skill = \"your-skill\", extend = [\"your-extension\"], checks = [\"your-test-skill\"]\n",
+        "sha256": "475ca8394027f0cadd010c3b7fe29ec62cb8f0a6e98283a063d0dc56badb98e7"
+      },
+      {
+        "op": "merge",
+        "path": ".claude/settings.json",
+        "what": "plugin-settings",
+        "content": "{\n  \"extraKnownMarketplaces\": {\n    \"kanbanzai\": {\n      \"source\": {\n        \"source\": \"github\",\n        \"repo\": \"cloudbusting/kanbanzai\"\n      }\n    }\n  },\n  \"enabledPlugins\": {\n    \"kanbanzai@kanbanzai\": true\n  }\n}\n",
+        "sha256": "d4fbf92f06b8485a5d033fc2129e6c79c3dfe90e91b78f15bfccd10bec03f7c9"
+      },
+      {
+        "op": "keep",
+        "path": ".gitignore",
+        "what": "gitignore"
+      }
+    ],
+    "warnings": [
+      "OpenCode: the published package is not available yet; pass a plugin source to enable it."
+    ]
+  }
+}
