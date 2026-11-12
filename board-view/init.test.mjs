@@ -547,9 +547,52 @@ test("the only file the extension writes is the plan file, in init.js", () => {
   }
 });
 
-test("planText says the Claude settings are committed only when the plan merges into the committed file", () => {
-  const merge = (path) => ({ plan: { root: "/p", actions: [{ op: "merge", path, what: "plugin-settings", content: "{}\n" }], warnings: [] } });
-  assert.match(init.planText(merge(".claude/settings.json"), FOLDER), /\.claude\/settings\.json is committed with the project/);
-  const local = init.planText(merge(".claude/settings.local.json"), FOLDER);
-  assert.doesNotMatch(local, /committed with the project/, "the local settings file is not committed");
+test("planText adds no sentence of its own about committing: init's warning says it, once", () => {
+  const withWarning = { plan: { root: "/p", actions: [{ op: "merge", path: ".claude/settings.json", what: "plugin-settings", content: "{}\n" }],
+    warnings: [".claude/settings.json is committed with the project: every teammate's Claude Code will offer the Kanbanzai plugin"] } };
+  const text = init.planText(withWarning, FOLDER);
+  assert.equal(text.split("committed with the project").length - 1, 1, text);
+});
+
+// ---- a command that is too old says which one it was and what to do ----
+
+const OLD = "kanbanzai: init: unknown flag --dry-run";
+const tooOld = (args) => (args.includes("--dry-run") ? { code: 2, stderr: OLD } : undefined);
+
+for (const [source, command, wants] of [
+  ["setting", "/opt/old/kanbanzai", [/\/opt\/old\/kanbanzai/, /kanbanzai\.command setting/, /Clear/i, /bundled/i, /unknown flag --dry-run/]],
+  ["bundled", "/ext/bin/linux-amd64/kanbanzai", [/bundled with this extension/, /Reinstall the extension/i, /unknown flag --dry-run/]],
+  ["well-known", "/home/u/.local/share/kanbanzai/bin/kanbanzai", [/per-user folder/, /\/home\/u\/\.local\/share\/kanbanzai\/bin\/kanbanzai/, /newer/i]],
+  ["path", "kanbanzai", [/PATH/, /newer/i, /unknown flag --dry-run/]],
+]) {
+  test(`a command that is too old (${source}): the message names it, where it came from and what to do`, async () => {
+    const exec = fakeExec((cmd, args) => tooOld(args)); const ui = fakeUi();
+    const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { command, commandSource: source }));
+    assert.equal(out.status, "failed");
+    assert.equal(ui.errors.length, 1);
+    for (const want of wants) assert.match(ui.errors[0], want);
+    assert.equal(exec.calls.filter((c) => !c.args.includes("--dry-run")).length, 0, "nothing but the dry run ran");
+  });
+}
+
+test("an ordinary init failure is not called 'too old'", async () => {
+  const exec = fakeExec((cmd, args) => (args.includes("--dry-run") ? { code: 1, stderr: "disk on fire" } : undefined));
+  const ui = fakeUi();
+  await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { commandSource: "setting" }));
+  assert.match(ui.errors[0], /disk on fire/);
+  assert.doesNotMatch(ui.errors[0], /older|too old/i);
+});
+
+test("an old command that does not know 'install' is reported the same way, and init --plan does not run", async () => {
+  const exec = fakeExec((cmd, args) => {
+    if (args.includes("--dry-run")) return OK_DRY;
+    if (args[0] === "install") return { code: 2, stderr: "kanbanzai: unknown command 'install'" };
+    return undefined;
+  });
+  const ui = fakeUi();
+  const out = await init.guidedSetup(flowDeps(exec, fakeFs(), ui, { command: "/opt/old/kanbanzai", commandSource: "setting" }));
+  assert.equal(out.status, "failed");
+  assert.match(ui.errors[0], /kanbanzai\.command setting/);
+  assert.match(ui.errors[0], /unknown command/);
+  assert.equal(exec.calls.filter((c) => c.args.includes("--plan")).length, 0);
 });

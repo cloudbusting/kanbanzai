@@ -25,6 +25,9 @@ const asking = (n) => ({ waiting: n, claims: n, cards: {} });
 function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], folders, throwing, missing } = {}) {
   const record = (level, text) => {
     if (throwing) throw new Error("the channel is broken");
+    // The one line saying which kanbanzai command is in use is tested in extension_init.test.mjs; here the log is the
+    // board's, so the tests below look at everything else.
+    if (/^using the (command from the kanbanzai\.command setting|\w[\w-]* kanbanzai command)/.test(text)) return;
     channel.lines.push({ level, text });
   };
   const channel = {
