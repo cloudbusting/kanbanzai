@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-11-12
+
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
   columns and branch. `step --for <ID> --json` adds a `route` object for the immediate action, blockers, workspace and
   close requirements; its text output also reports the route. Unsupported routes stop rather than forcing a move.
