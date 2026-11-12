@@ -1,10 +1,10 @@
 # W-05: Agent-driven setup skill: /kanbanzai:setup
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** T1: add init --prefix and --context (tests first), and T2 the wording/registration tests, in the W-05 worktree
+- **Next action:** check: run the project's checks, then review the diff of branch W-05 (fixtures T3 pass without new code except prefix/context)
 - **Where:** worktree W-05
 
 ## Goal
@@ -20,7 +20,7 @@ A new host project is set up by an agent command, not by a human hand-editing TO
 - [ ] After approval it applies exactly the reviewed plan with `kanbanzai init --plan FILE` and nothing else on that command line, then runs `kanbanzai check`, `kanbanzai wip --audit` and `kanbanzai doctor` itself and reports the board path, the files to commit (it never commits), the plugin enablement still to do per harness, and the next command (`/kanbanzai:triage`). Proof: wording test; the fixture test applies the plan file and the three commands exit 0.
 - [ ] A command older than W-04's init (no `--dry-run`/`--plan`: exit 2 `unknown flag`) or a missing command stops the skill before it asks anything, with an install instruction. Proof: wording test; the skill names both failure modes.
 - [ ] Fixtures (Go, in a temporary git repository, through the real CLI) cover: a fresh repo; a repo whose default branch is `trunk` (init's refusal on `master`+`main`, then `--main-branch`); a repo with a valid `.kanbanzai/config.toml` (plan has no replace; `--prefix`/`--context` refused); a monorepo (several manifests in subfolders, started from a subfolder: the plan's root is the git root); and a start from a linked worktree (root is the main checkout). Each does dry-run to a plan file in a folder outside the repository, applies it with `--plan`, then `check`, `wip --audit` and `doctor` exit 0.
-- [ ] `kanbanzai init --prefix KEY` and `--context FILE[,FILE]` are the only core changes: they write `prefix` and `context` into the new config, validated by the loader; they are refused (exit 2, nothing written) for an existing config without `--force`, for an invalid key, for a missing or outside-the-repo or comma-containing context file, and in combination with `--plan`. Proof: new cases in `internal/init/init_test.go` and `internal/cli/cli_test.go` that fail without the change.
+- [ ] `kanbanzai init --prefix KEY` and `--context FILE[,FILE]` are the only core changes: they write `prefix` and `context` into the new config, validated by the loader; they are refused (exit 2, nothing written) for an existing config without `--force`, for an invalid key, for a missing, non-file, absolute or outside-the-repo context file, and in combination with `--plan` (a name with a comma cannot be given: the list is comma-separated). Proof: new cases in `internal/init/init_test.go` and `internal/cli/cli_test.go` that fail without the change.
 
 ## Deploy
 
@@ -30,11 +30,11 @@ Package and release. The skill is part of the plugin bundle and `--prefix`/`--co
 
 Order: T1 and T2 do not share files and can run in parallel; T3 needs T1; T4 needs T2; T5 last. Tests are written before the code they prove.
 
-- [ ] **T1 — init flags.** Owns `internal/init/plan.go`, `internal/init/init.go` (Options), `internal/cli/cli.go` (usage line, flag table, the `--plan` combination refusal), `internal/init/init_test.go`, `internal/cli/cli_test.go`. Adds `--prefix` and `--context` as the last acceptance check says, as engineer's choices: `ConfigText` gets a prefix and a context list; context entries are comma-separated, must be regular files inside the root and are written relative to it; the existing config case refuses both like `--owner`. Proves: the new cases, red before.
-- [ ] **T2 — wording and registration tests first.** Owns `skills_wording_test.go` and `opencode/server.test.mjs`. Adds `TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies` (frontmatter; `init --dry-run --json`; `init --plan`; "question tool"; `kanbanzai check`, `wip --audit`, `doctor`; never commits, never `--force` without its own approval; no `gh`/network; the old-command stop; the capability gate) and the OpenCode assertion that `setup` and `kanbanzai:setup` are registered with the skill's description. Red until T4.
-- [ ] **T3 — the flow fixtures.** Owns `internal/init/setup_flow_test.go` (new). The five fixtures of the sixth acceptance check, using the real `Run` and `testutil`. Needs T1 for the `--prefix`/`--context` steps.
-- [ ] **T4 — the skill.** Owns `skills/setup/SKILL.md`. Content in "The skill" below. Proves: T2 goes green; `claude plugin validate --strict .`.
-- [ ] **T5 — docs and changelog.** Owns `README.md` (skills list, the `init` usage line and "Set up a project"), `docs/setup.md` (new: clone or download, install the command, enable the plugin, `/kanbanzai:setup`, commit, first `/triage`), `CHANGELOG.md` (Unreleased). Proves: a reader following `docs/setup.md` on a throwaway repository gets a board that passes `check`; the changelog test in `tools/release -check` passes.
+- [x] **T1 — init flags.** Owns `internal/init/plan.go`, `internal/init/init.go` (Options), `internal/cli/cli.go` (usage line, flag table, the `--plan` combination refusal), `internal/init/init_test.go`, `internal/cli/cli_test.go`. Adds `--prefix` and `--context` as the last acceptance check says, as engineer's choices: `ConfigText` gets a prefix and a context list; context entries are comma-separated, must be regular files inside the root and are written relative to it; the existing config case refuses both like `--owner`. Proves: the new cases, red before.
+- [x] **T2 — wording and registration tests first.** Owns `skills_wording_test.go` and `opencode/server.test.mjs`. Adds `TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies` (frontmatter; `init --dry-run --json`; `init --plan`; "question tool"; `kanbanzai check`, `wip --audit`, `doctor`; never commits, never `--force` without its own approval; no `gh`/network; the old-command stop; the capability gate) and the OpenCode assertion that `setup` and `kanbanzai:setup` are registered with the skill's description. Red until T4.
+- [x] **T3 — the flow fixtures.** Owns `internal/init/setup_flow_test.go` (new). The five fixtures of the sixth acceptance check, using the real `Run` and `testutil`. Needs T1 for the `--prefix`/`--context` steps.
+- [x] **T4 — the skill.** Owns `skills/setup/SKILL.md`. Content in "The skill" below. Proves: T2 goes green; `claude plugin validate --strict .`.
+- [x] **T5 — docs and changelog.** Owns `README.md` (skills list, the `init` usage line and "Set up a project"), `docs/setup.md` (new: clone or download, install the command, enable the plugin, `/kanbanzai:setup`, commit, first `/triage`), `CHANGELOG.md` (Unreleased). Proves: a reader following `docs/setup.md` on a throwaway repository gets a board that passes `check`; the changelog test in `tools/release -check` passes.
 
 ## The skill
 
@@ -79,6 +79,7 @@ An agent that guesses the main branch or owner creates a board that looks right 
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
 - 2026-11-12: design: the owner chose to ask only what init can apply; tasks T1-T5 written; Deploy corrected to package and release.
 - 2026-11-12: design done; brief has tasks T1-T5 and acceptance checks
+- 2026-11-12: build done: init --prefix/--context, skills/setup, flow fixtures, wording and OpenCode registration tests, README/docs/setup.md/CHANGELOG; go test, vet, node tests, cross-builds, plugin validate green
 
 ## Comments
 
