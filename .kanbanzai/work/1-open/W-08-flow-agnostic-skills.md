@@ -4,9 +4,10 @@
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Review the route contract and finish the skills, fixture and guard; investigate no-Doing move limitation
+- **Next action:** After W-38 is Done, integrate its fix and rerun the custom-flow regression and full checks; review skills and finish docs
 - **Where:** worktree W-08
-- **Needs:** W-12
+- **Needs:** W-12, W-38
+- **Held:** blocked: W-38 must fix starting a skipped step before the custom-flow regression can pass
 
 ## Goal
 
@@ -67,5 +68,6 @@ Over-generalising can make a skill vague enough to be unsafe. Each skill still n
   is designed.
 - 2026-11-12: Designed generic workflow contract, safety checks and ordered tasks; build depends on W-12
 - 2026-11-12: Build started after W-12; initial route contract committed with focused tests. W-37 tracks existing move limitations for flows without a Doing column and no-skill intermediate steps; the route reports stop rather than recommending an illegal move.
+- 2026-11-12: Draft skills, guard and fixture committed; `go test ./...` is red only at `TestW08SkippedReviewClosesWithoutRunningIt` because `move start` enters a skipped review step. W-38 tracks the fix. Skills and full diff still need review; docs and acceptance checks remain unfinished.
 
 ## Comments
