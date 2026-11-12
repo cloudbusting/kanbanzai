@@ -1,11 +1,11 @@
 # W-29: CI runs on branch pushes and pull requests only, not on every tag
 
-- **Stage:** todo
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** close: Deploy is None
+- **Where:** worktree W-29
 
 ## Goal
 
@@ -35,6 +35,8 @@ A branch pushed without a pull request no longer gets CI. Kanbanzai's own work l
 ## Progress
 
 - 2026-11-12: captured from the owner's request after the v0.7.1 release.
+- 2026-11-12: built: ci.yml push trigger limited to main
+- 2026-11-12: checked: tools and root tests, plugin validate green; diff is one line
 
 ## Comments
 
