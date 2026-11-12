@@ -3,7 +3,7 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
-## [Unreleased]
+## [0.9.0] — 2026-11-12
 
 - W-13: delivery is data. A step can declare `skip_field` and `skip_values`: a card whose brief matches skips the
   step, and a card that skips everything ahead of it closes. The shipped `deploy-qa` and `ship` steps carry the old
