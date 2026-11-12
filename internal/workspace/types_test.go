@@ -43,7 +43,18 @@ func TestTypedWorkspaceVocabularyAndRecord(t *testing.T) {
 	if got := Record(project, "BUG-07"); got != "worktree BUG-07" {
 		t.Fatalf("record = %q", got)
 	}
-	if got := project.WorktreePath("BUG-07"); got != filepath.Join(root, "..", "wt", "BUG-07") {
-		t.Fatalf("worktree path = %q", got)
+	got := project.WorktreePath("BUG-07")
+	// The temporary directory may sit behind a symlink (macOS /var) or a short name (Windows), so compare the
+	// resolved parent and the fixed tail.
+	wantParent, err := filepath.EvalSymlinks(filepath.Dir(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotParent, err := filepath.EvalSymlinks(filepath.Dir(filepath.Dir(got)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotParent != wantParent || filepath.Base(filepath.Dir(got)) != "wt" || filepath.Base(got) != "BUG-07" {
+		t.Fatalf("worktree path = %q, want %s/wt/BUG-07", got, wantParent)
 	}
 }
