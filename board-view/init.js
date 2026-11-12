@@ -67,6 +67,34 @@ function resolveCommand({ setting, extensionPath, platform, arch, env, home, exi
   return { command: exeName(platform), source: 'path' };
 }
 
+// The per-user copy follows the extension. The hooks, the OpenCode adapter and a terminal use that copy, and nothing else
+// updates it when the extension does, so on activation a bundled command refreshes a copy that is already there
+// (`install --refresh`: it never makes one; the guided setup's Apply is the only thing that does). Never throws; a
+// failure is logged and said once in plain words, and the board keeps working.
+async function refreshInstalled({ resolved, env, platform, home, exists, execFile, log, error } = {}) {
+  try {
+    if (!resolved || resolved.source !== 'bundled' || !nonEmpty(resolved.command)) return { ran: false };
+    const known = wellKnownFile(env, platform, home);
+    if (!known || typeof exists !== 'function' || !exists(known)) return { ran: false };
+    const done = await runFile(execFile, resolved.command, ['install', '--refresh'], {});
+    if (done.ok) {
+      const said = done.stdout.trim();
+      if (said && log) log.info(said);
+      return { ran: true, ok: true };
+    }
+    const why = done.stderr || done.message || 'install --refresh failed';
+    if (log) log.error(`could not refresh ${known} from ${resolved.command}: ${why}`);
+    if (typeof error === 'function') {
+      error(`Kanbanzai: could not refresh the command in the per-user folder to this extension's release: ${why}. ` +
+        'Claude Code and OpenCode may run an older command until it is replaced; run `kanbanzai install` from this ' +
+        'extension\'s release in a terminal.');
+    }
+    return { ran: true, ok: false };
+  } catch (e) {
+    return { ran: false };
+  }
+}
+
 // A bundled file the editor's extraction left without the executable bit gets it once; every outcome is logged.
 function ensureExecutable(file, { fs, platform, log }) {
   if (platform === 'win32' || !file) return;
@@ -468,7 +496,7 @@ async function discardPending(deps) {
 }
 
 module.exports = {
-  AGENTS, NO_PENDING, STALE_PLAN, bundledPath, wellKnownDir, wellKnownFile, resolveCommand, ensureExecutable, itemState,
+  AGENTS, NO_PENDING, STALE_PLAN, bundledPath, wellKnownDir, wellKnownFile, resolveCommand, refreshInstalled, ensureExecutable, itemState,
   validBranch, validAgents, planText, filesToCommit, runFile, pendingPath, hasPending, planSetup, applyPending,
   showPending, discardPending,
 };

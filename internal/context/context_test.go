@@ -118,3 +118,26 @@ func itoa(value int) string {
 	}
 	return string(digits)
 }
+
+func TestMismatchNamesBothReleasesAndTheFix(t *testing.T) {
+	got := Mismatch("v0.6.4", "0.7.1")
+	for _, want := range []string{"v0.6.4", "v0.7.1", "kanbanzai install", "extension"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Mismatch = %q, want it to contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "\n") {
+		t.Fatalf("Mismatch = %q, want one line", got)
+	}
+}
+
+func TestMismatchIsSilentWhenTheReleasesAgreeOrAreUnknown(t *testing.T) {
+	for _, c := range [][2]string{
+		{"v0.7.1", "0.7.1"}, {"0.7.1", "v0.7.1"}, {"v0.7.1", "v0.7.1"},
+		{"dev", "0.7.1"}, {"v0.7.1", "dev"}, {"", "0.7.1"}, {"v0.7.1", ""}, {"dev", "dev"},
+	} {
+		if got := Mismatch(c[0], c[1]); got != "" {
+			t.Errorf("Mismatch(%q, %q) = %q, want nothing", c[0], c[1], got)
+		}
+	}
+}

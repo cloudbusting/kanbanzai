@@ -15,12 +15,12 @@ esac
 if [ -n "${KANBANZAI_BIN:-}" ]; then
   [ -x "$KANBANZAI_BIN" ] || exit 0
   kz="$KANBANZAI_BIN"
-elif kz="$(command -v kanbanzai 2>/dev/null)"; then
-  :
 elif [ -n "$data" ] && [ -x "$data/kanbanzai/bin/kanbanzai" ] && [ -f "$data/kanbanzai/bin/kanbanzai" ]; then
   kz="$data/kanbanzai/bin/kanbanzai"
 elif [ -n "$data" ] && [ -x "$data/kanbanzai/bin/kanbanzai.exe" ] && [ -f "$data/kanbanzai/bin/kanbanzai.exe" ]; then
   kz="$data/kanbanzai/bin/kanbanzai.exe"
+elif kz="$(command -v kanbanzai 2>/dev/null)"; then
+  :
 elif [ -x "$root/bin/kanbanzai" ]; then
   kz="$root/bin/kanbanzai"
 elif [ -x "$root/bin/kanbanzai.exe" ]; then

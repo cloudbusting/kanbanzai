@@ -3,6 +3,17 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [Unreleased]
+
+- W-22: the installed command follows the release. The editor extension refreshes the per-user copy of the command
+  from its bundled one each time it starts (`kanbanzai install --refresh`, new: replaces a copy that is already
+  there and never makes one), so the Claude Code hooks, the OpenCode adapter and a terminal run the extension's
+  release. The hooks and the OpenCode adapter now take `KANBANZAI_BIN`, then the per-user copy, then `PATH` (it was
+  `PATH` first): to run your own build, set `KANBANZAI_BIN`. `kanbanzai context --adapter-version V` (new) starts
+  with one line when the command and the plugin are different releases; a plugin with no extension is warned, not
+  changed. `install` no longer described as never overwriting: it has always replaced a copy of another release.
+  No network request, no new dependency.
+
 ## [0.8.0] — 2026-11-12
 
 - W-06: `kanbanzai workflow` changes the flow (the columns, steps and pull order) safely. `show [--json]` prints the

@@ -134,3 +134,16 @@ func Run(project *config.Project, out io.Writer) int {
 	fmt.Fprintln(out, Build(project))
 	return 0
 }
+
+// Mismatch is the one line a session starts with when the adapter that asked for the context (a plugin, whose release
+// it names) is not the release of the command that answered. It is "" when either release is unknown or a developer
+// build ("dev", ""), or when they are the same. The adapters pass their version; the comparison and the words live
+// only here.
+func Mismatch(command, adapter string) string {
+	command, adapter = strings.TrimPrefix(strings.TrimSpace(command), "v"), strings.TrimPrefix(strings.TrimSpace(adapter), "v")
+	if command == "" || adapter == "" || command == "dev" || adapter == "dev" || command == adapter {
+		return ""
+	}
+	return fmt.Sprintf("Kanbanzai: the command is v%s but this plugin is v%s. Update the editor extension (it brings the "+
+		"matching command), or run `kanbanzai install` from the new release.", command, adapter)
+}
