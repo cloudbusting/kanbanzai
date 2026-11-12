@@ -1,6 +1,6 @@
 # W-35: Close all board toasts
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-12
 - **ADR:** none
 - **Next action:** Package and install-test the checked artifacts
