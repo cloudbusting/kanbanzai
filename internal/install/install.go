@@ -3,6 +3,7 @@
 package install
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -105,7 +106,7 @@ func Run(options Options) int {
 	if versionOf == nil {
 		versionOf = releaseOf
 	}
-	if goos == "windows" {
+	if goos == "windows" && !options.DryRun {
 		os.Remove(target + ".old") // left by an earlier refresh, when the running command could not be replaced
 	}
 	err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
@@ -183,16 +184,16 @@ func install(dryRun, refresh, windows bool, executable func() (string, error), f
 		fmt.Fprintf(out, "nothing to refresh: no command is installed at %s\n", target)
 		return nil
 	}
+	if dryRun {
+		fmt.Fprintf(out, "would install %s to %s (dry run, nothing written)\n", path, target)
+		return nil
+	}
 	previous := ""
 	if had {
 		previous = versionOf(target)
 		if previous == "" {
 			previous = "unknown"
 		}
-	}
-	if dryRun {
-		fmt.Fprintf(out, "would install %s to %s (dry run, nothing written)\n", path, target)
-		return nil
 	}
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		return fmt.Errorf("cannot create %s: %w", folder, err)
@@ -211,21 +212,13 @@ func install(dryRun, refresh, windows bool, executable func() (string, error), f
 // releaseOf is the release a command file says it is: its `--version` output without the name, "" when it cannot be
 // run or answers nothing. A copy of a release this old or this broken is simply "unknown" in the refresh message.
 func releaseOf(path string) string {
-	cmd := exec.Command(path, "--version")
-	done := make(chan []byte, 1)
-	go func() {
-		out, _ := cmd.Output()
-		done <- out
-	}()
-	select {
-	case out := <-done:
-		return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(out)), "kanbanzai"))
-	case <-time.After(5 * time.Second):
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, path, "--version").Output()
+	if err != nil {
 		return ""
 	}
+	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(out)), "kanbanzai"))
 }
 
 // identical reports whether target already holds the source's bytes: the same file, or the same size and sha256.

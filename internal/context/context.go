@@ -144,6 +144,7 @@ func Mismatch(command, adapter string) string {
 	if command == "" || adapter == "" || command == "dev" || adapter == "dev" || command == adapter {
 		return ""
 	}
-	return fmt.Sprintf("Kanbanzai: the command is v%s but this plugin is v%s. Update the editor extension (it brings the "+
-		"matching command), or run `kanbanzai install` from the new release.", command, adapter)
+	return fmt.Sprintf("Kanbanzai: the command is v%s but this plugin is v%s. Keep them on one release: update the editor "+
+		"extension (it brings the matching command) or run `kanbanzai install` from the new release if the command is older; "+
+		"update the plugin if the plugin is older.", command, adapter)
 }
