@@ -112,10 +112,19 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 }
 
 func TestExportRoundTripsThroughValidateAndResolve(t *testing.T) {
-	for name, text := range map[string]string{"defaults": "", "own": ownConfig} {
+	gated := "config_version = 1\n" + strings.Replace(strings.Replace(base, `next = "finish"`,
+		"next = \"finish\"\ngate = \"external\"\ngate_name = \"train\"", 1), `skill = "kanbanzai:check"`,
+		"skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\", \"note\"]", 1)
+	for name, text := range map[string]string{"defaults": "", "own": ownConfig, "gated": gated} {
 		p := project(t, text)
 		before := Build(p)
 		doc := FromProject(p)
+		if name == "gated" && !strings.Contains(doc.Text, `gate_name = "train"`) || name == "gated" && !strings.Contains(doc.Text, `skip_values = ["docs", "note"]`) {
+			t.Fatalf("the export dropped the gate or the skip rule:\n%s", doc.Text)
+		}
+		if name == "defaults" && (!strings.Contains(doc.Text, `gate = "owner"`) || strings.Contains(doc.Text, "waits_for_owner")) {
+			t.Fatalf("the shipped owner gate is not exported as gate = \"owner\":\n%s", doc.Text)
+		}
 
 		again, err := Parse([]byte(doc.Text), false)
 		if err != nil {

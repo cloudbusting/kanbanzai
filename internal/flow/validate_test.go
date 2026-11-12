@@ -237,3 +237,34 @@ func TestTheShippedSkillListMatchesSkillsFolder(t *testing.T) {
 		t.Fatalf("skills/ has %v but ShippedSkills is %v", onDisk, listed)
 	}
 }
+
+func TestInvalidGatesAndSkipRulesAreReportedOnce(t *testing.T) {
+	cases := []struct {
+		name string
+		edit func(string) string
+		want string
+	}{
+		{"unknown gate", func(s string) string { return strings.Replace(s, `next = "finish"`, "next = \"finish\"\ngate = \"bank\"", 1) }, "column.gate"},
+		{"external gate without a name", func(s string) string {
+			return strings.Replace(s, `next = "finish"`, "next = \"finish\"\ngate = \"external\"", 1)
+		}, "column.gate"},
+		{"gate on the Doing column", func(s string) string { return strings.Replace(s, `doing = "work"`, "doing = \"work\"\ngate = \"ci\"", 1) }, "column.gate"},
+		{"gate on a done column", func(s string) string { return strings.Replace(s, `kind = "done"`, "kind = \"done\"\ngate = \"owner\"", 1) }, "column.gate"},
+		{"half a skip rule", func(s string) string { return strings.Replace(s, `skill = "kanbanzai:check"`, "skill = \"kanbanzai:check\"\nskip_field = \"Type\"", 1) }, "step.skip"},
+	}
+	for _, c := range cases {
+		r := validate(t, "", c.edit(base))
+		got := ids(r)
+		if r.OK || len(got) != 1 || got[0] != c.want {
+			t.Errorf("%s: ok=%v ids=%v findings=%+v", c.name, r.OK, got, r.Findings)
+		}
+	}
+}
+
+func TestAValidGateAndSkipRuleAreClean(t *testing.T) {
+	text := strings.Replace(base, `next = "finish"`, "next = \"finish\"\ngate = \"external\"\ngate_name = \"train\"", 1)
+	text = strings.Replace(text, `skill = "kanbanzai:check"`, "skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\"]", 1)
+	if r := validate(t, "", text); !r.OK || len(r.Findings) != 0 {
+		t.Fatalf("findings: %+v", r.Findings)
+	}
+}
