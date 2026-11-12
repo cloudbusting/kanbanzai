@@ -104,8 +104,10 @@ directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets t
 added, a plugin you disabled stays disabled, and a settings file that is not plain JSON is left alone with the
 lines to add by hand. `kanbanzai install` copies the running command to `$XDG_DATA_HOME/kanbanzai/bin` (else
 `~/.local/share/kanbanzai/bin`; `%LOCALAPPDATA%\kanbanzai\bin` on Windows), where the hooks, the OpenCode adapter and
-the editor look after `PATH`. It never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
-next. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
+the editor look after `PATH`. It replaces a copy of another release (written to a temporary file and renamed over it),
+so running it again from the same command is a no-op and an interrupted run is finished by the next. `install --refresh`
+only replaces a copy that is already there and never makes one: the editor extension runs it from its bundled command
+every time it starts, so the per-user copy is always the extension's own release. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
 finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
 never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
 arguments, with nothing written.
@@ -122,7 +124,11 @@ arguments, with nothing written.
 ```
 
 The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …). The hooks run the `kanbanzai`
-command from `KANBANZAI_BIN`, PATH, the per-user folder `kanbanzai install` fills, then a local build in `bin/`. The plugin loads in place: an edit
+command from `KANBANZAI_BIN`, then the per-user folder `kanbanzai install` fills (the copy the editor extension keeps at its own
+release), then PATH, then a local build in `bin/`; to run your own build, set `KANBANZAI_BIN`. At session start a hook passes the
+plugin's release to `kanbanzai context --adapter-version`, and if the command is another release the context starts with one
+line saying so (a plugin installed without the editor extension has no command to refresh, so it is told, not changed:
+update the extension, or run `kanbanzai install` from the new release). The plugin loads in place: an edit
 here reaches a project at its next session (or `/reload-plugins`). This repository is also its own public
 marketplace: `/plugin marketplace add cloudbusting/kanbanzai`, then `/plugin install kanbanzai@kanbanzai`.
 
@@ -137,7 +143,7 @@ the PATH of the shells OpenCode starts, labels them with the session (`KANBANZAI
 the session's claims after each tool call, adds the board's context to each request, and writes each session's state
 (busy, idle or asking) into the project's state folder so the board can show it, as it shows a Claude Code session's.
 The plugin is plain JavaScript with nothing to install, but it needs the `kanbanzai` command: `KANBANZAI_BIN` first,
-then PATH.
+then the per-user folder, then PATH, and it passes its own release to the command the same way (the line above).
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
@@ -361,7 +367,7 @@ kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
                                          [--with-template]
                                          set a project up: detect, plan, apply, verify; never commits
-kanbanzai install [--dry-run|--where]    copy this command to the per-user folder the plugins and the editor search
+kanbanzai install [--dry-run|--refresh|--where]    copy this command to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
 ```
 

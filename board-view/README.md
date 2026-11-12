@@ -16,7 +16,9 @@ arm64) and Windows (amd64), so nothing else needs installing. The extension runs
 2. the command bundled in the extension, for this machine;
 3. the copy in the per-user folder (`$XDG_DATA_HOME/kanbanzai/bin`, else `~/.local/share/kanbanzai/bin`;
    `%LOCALAPPDATA%\kanbanzai\bin` on Windows), which **Kanbanzai: Init** puts there and the Claude Code hooks and the
-   OpenCode adapter also look in;
+   OpenCode adapter run first (before PATH). Each time the extension starts with its bundled command in use, it
+   refreshes a copy that is already there to its own release (`install --refresh`), so an extension update brings the
+   hooks and OpenCode along; it never creates the copy, and a failure is logged in the Output channel and told once;
 4. `kanbanzai` on `PATH`.
 
 The setting is machine-wide, so every profile shares it: a leftover `kanbanzai.command` pointing at an old build wins
@@ -61,7 +63,8 @@ For the longer interview (owner, card prefix, context files) run `/kanbanzai:set
 ## What it executes, reads and writes
 
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
-  `board --json`, `config --json` and `sessions --json` to draw the board, and after you click Apply, `install` and
+  `board --json`, `config --json` and `sessions --json` to draw the board, `install --refresh` at startup (only
+  when a per-user copy is already there), and after you click Apply, `install` and
   `init --plan`; `init --dry-run --json` to make the plan you read. It runs only in a trusted workspace.
 - **Reads:** the project's `.kanbanzai/` (through the command), whether `.git` and `.kanbanzai/config.toml` exist, and
   its own settings.
@@ -69,7 +72,8 @@ For the longer interview (owner, card prefix, context files) run `/kanbanzai:set
   the folder the project ignores; nothing is written through a symlink). Then, on Apply, through the command: the project's `.kanbanzai/`, its ignore
   entries and the plugin settings (`.claude/settings.json` is committed with the project, so Claude Code offers the
   plugin to everyone who opens it; `.claude/settings.local.json` and `.opencode/opencode.json` hold a path to your
-  Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder.
+  Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder
+  (replaced with the extension's own release whenever the extension starts, if you had set it up).
   The plan file is deleted after a successful Apply. The board tab itself never writes.
 - **Network, telemetry:** none. The extension makes no request and sends nothing. Claude Code (not this extension)
   fetches a plugin from a GitHub marketplace source the next time it starts, and the plan names that source.

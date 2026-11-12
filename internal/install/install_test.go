@@ -284,3 +284,72 @@ func TestFailedWriteIsExit1(t *testing.T) {
 		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
 	}
 }
+
+// A refresh replaces the copy a setup made and says which release replaced which; it never makes a copy.
+func (f *fixture) refresh(current string, versions map[string]string) int {
+	f.out.Reset()
+	f.errOut.Reset()
+	return Run(Options{Refresh: true, Current: current, Out: f.out, Err: f.errOut,
+		Executable: func() (string, error) { return f.source, nil },
+		VersionOf:  func(path string) string { return versions[path] }})
+}
+
+func TestRefreshWithoutACopyWritesNothing(t *testing.T) {
+	f := newFixture(t)
+	if code := f.refresh("v0.7.2", nil); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if _, err := os.Lstat(f.folder); !os.IsNotExist(err) {
+		t.Fatalf("refresh made %s: %v", f.folder, err)
+	}
+	if !strings.Contains(f.out.String(), "nothing to refresh") {
+		t.Fatalf("output = %q", f.out.String())
+	}
+}
+
+func TestRefreshReplacesAnotherReleaseAndNamesBoth(t *testing.T) {
+	f := newFixture(t)
+	f.run(false, false)
+	if err := os.WriteFile(f.source, []byte("pretend binary v2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := f.refresh("v0.7.2", map[string]string{f.target(): "v0.6.4"}); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	got, _ := os.ReadFile(f.target())
+	if string(got) != "pretend binary v2\n" {
+		t.Fatalf("target = %q", got)
+	}
+	want := "refreshed " + f.target() + ": v0.6.4 -> v0.7.2"
+	if !strings.Contains(f.out.String(), want) {
+		t.Fatalf("output = %q, want it to contain %q", f.out.String(), want)
+	}
+	entries, _ := os.ReadDir(f.folder)
+	if len(entries) != 1 {
+		t.Fatalf("folder holds %d entries, want only the command", len(entries))
+	}
+}
+
+func TestRefreshNamesAnUnrunnableCopyAsUnknown(t *testing.T) {
+	f := newFixture(t)
+	f.run(false, false)
+	os.WriteFile(f.source, []byte("pretend binary v2\n"), 0o644)
+	if code := f.refresh("v0.7.2", nil); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if !strings.Contains(f.out.String(), ": unknown -> v0.7.2") {
+		t.Fatalf("output = %q", f.out.String())
+	}
+}
+
+func TestRefreshOfTheSameBytesChangesNothing(t *testing.T) {
+	f := newFixture(t)
+	f.run(false, false)
+	before := snapshot(t, f.folder)
+	if code := f.refresh("v0.7.2", map[string]string{f.target(): "v0.7.2"}); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if !strings.Contains(f.out.String(), "already installed") || snapshot(t, f.folder) != before {
+		t.Fatalf("output = %q", f.out.String())
+	}
+}
