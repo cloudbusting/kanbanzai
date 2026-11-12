@@ -393,7 +393,7 @@ func TestDefaultPaths(t *testing.T) {
 	if project.Batches != filepath.Join(project.Work, "batches") {
 		t.Fatalf("batches = %q", project.Batches)
 	}
-	if project.WorktreePattern != "../{repo}-{id}" || project.BranchPattern != "{id}" ||
+	if project.WorktreePattern != "../worktrees/{repo}/{id}" || project.BranchPattern != "{id}" ||
 		project.BatchBranchPattern != "batch/{id}" {
 		t.Fatalf("patterns = %q %q %q", project.WorktreePattern, project.BranchPattern, project.BatchBranchPattern)
 	}
@@ -493,7 +493,7 @@ func TestWorktreeConfigWhenMainHasNone(t *testing.T) {
 
 func TestExpansionAndNames(t *testing.T) {
 	project := loadProject(t, testutil.Repo(t, defaultConfig))
-	if got := project.WorktreeHint("W-01"); got != "../"+filepath.Base(project.Root)+"-W-01" {
+	if got := project.WorktreeHint("W-01"); got != "../worktrees/"+filepath.Base(project.Root)+"/W-01" {
 		t.Fatalf("worktree hint = %q", got)
 	}
 	if got := project.Branch("W-01", false); got != "W-01" {
