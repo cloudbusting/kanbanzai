@@ -4,9 +4,8 @@
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** After main checkout is clean, confirm release candidate 3ba069d remains current, then push main and wait for CI before tagging
+- **Next action:** Build the candidate from current main, push main, then wait for green CI before tagging
 - **Where:** worktree W-38
-- **Held:** blocked: main checkout has another session's untracked W-39 brief; clean checkout required before push
 
 ## Goal
 
@@ -59,5 +58,6 @@ Does not rewrite shared skills or address unrelated single-column workflow behav
 - 2026-11-12: QA and main-session diff review passed; go test rerun passed after transient text-file-busy failure, vet, Node, hooks, plugin validation and board checks passed
 - 2026-11-12: Packaged 0.9.0 from 1f1ae5a and passed artifact, checksum and isolated install proofs; editor check remains manual
 - 2026-11-12: Prepared v0.10.0 at 3ba069d and built candidate artifacts; push stopped because main checkout has an unrelated untracked card
+- 2026-11-12: Checkout blocker cleared; owner asked to continue approved release
 
 ## Comments
