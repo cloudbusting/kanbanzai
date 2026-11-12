@@ -32,6 +32,14 @@ const gitProject = (files = {}) => dir({ ".git/HEAD": "ref: refs/heads/main\n", 
 const withBoard = (files = {}) => gitProject({ ".kanbanzai/config.toml": "config_version = 1\n", ...files });
 process.on("exit", () => { for (const d of tmp) fs.rmSync(d, { recursive: true, force: true }); });
 
+// The extension looks for an installed command in the user's home. These tests must not depend on whether this machine
+// has one (it has, once Kanbanzai: Init has run here), so the whole file runs with an empty home; a test that needs
+// a particular home sets its own.
+const emptyHome = dir();
+for (const key of ["HOME", "USERPROFILE"]) process.env[key] = emptyHome;
+delete process.env.XDG_DATA_HOME;
+delete process.env.LOCALAPPDATA;
+
 // `script(cmd, args, opts)` answers a command as { code, stdout, stderr, enoent }.
 function load({ folders, setting = "", pluginSource = "", extensionPath, script, trusted, pick, apply = "Apply", branch } = {}) {
   const channel = { lines: [], info(t) { this.lines.push(["info", t]); }, warn(t) { this.lines.push(["warn", t]); }, error(t) { this.lines.push(["error", t]); }, dispose() {} };
@@ -437,5 +445,30 @@ test("kanbanzai.init with no folder says so and runs nothing", async () => {
     await commands["kanbanzai.init"]();
     assert.equal(calls.length, 0);
     assert.equal(vscode.errors.length, 1);
+  });
+});
+
+// ---- the command in use is always in the Output channel, and a stale one is named when Init fails ----
+
+test("the Output channel says which command is in use, also when the setting chose it", async () => {
+  await run({ folders: folder(withBoard()), setting: "/opt/kz" }, async ({ channel }) => {
+    await settle();
+    assert.ok(channel.lines.some(([level, t]) => level === "info" && /kanbanzai\.command setting/.test(t) && t.includes("/opt/kz")),
+      JSON.stringify(channel.lines));
+  });
+});
+
+test("Init with a stale kanbanzai.command setting: the error names the setting, the path and the way out", async () => {
+  const project = gitProject();
+  const script = scripted({ before: (cmd, args) => (args.includes("--dry-run") ? { code: 2, stderr: "kanbanzai: init: unknown flag --dry-run" } : undefined) });
+  await run({ folders: folder(project), setting: "/opt/stale/kanbanzai", script }, async ({ commands, vscode, channel }) => {
+    await settle();
+    await commands["kanbanzai.init"]();
+    await settle();
+    const message = vscode.errors.map((e) => e[0]).join("\n");
+    assert.match(message, /\/opt\/stale\/kanbanzai/);
+    assert.match(message, /kanbanzai\.command setting/);
+    assert.match(message, /Clear/i);
+    assert.ok(channel.lines.some(([level, t]) => level === "error" && /kanbanzai\.command setting/.test(t)));
   });
 });

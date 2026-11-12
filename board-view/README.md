@@ -19,6 +19,11 @@ arm64) and Windows (amd64), so nothing else needs installing. The extension runs
    OpenCode adapter also look in;
 4. `kanbanzai` on `PATH`.
 
+The setting is machine-wide, so every profile shares it: a leftover `kanbanzai.command` pointing at an old build wins
+over the bundled command. The Output channel (**Kanbanzai**) says at startup which command is in use, and
+**Kanbanzai: Init** names the command and the setting when that command is too old to set up a project (clear the
+setting to use the bundled one).
+
 With none of them, the tab says the command was not found and how to install it. A `.vsix` built without the command
 (`go run ./tools/vsix -o /tmp/kanbanzai-board.vsix`, for development) uses 1, 3 and 4. A release's is built with
 `go run ./tools/release -bins bins ...` and `go run ./tools/vsix -bin bins -o ...`. The package contains no machine path.
