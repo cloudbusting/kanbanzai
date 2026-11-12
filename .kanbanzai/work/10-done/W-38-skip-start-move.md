@@ -1,11 +1,11 @@
 # W-38: Refuse starting a step the card skips
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — v0.10.0, aac11de, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.10.0
 - **ADR:** none
-- **Next action:** Build combined candidate, push main, wait for green CI, then tag and publish
-- **Where:** worktree W-38
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -61,5 +61,6 @@ Does not rewrite shared skills or address unrelated single-column workflow behav
 - 2026-11-12: Checkout blocker cleared; owner asked to continue approved release
 - 2026-11-12: Owner requested W-28 in v0.10.0; no tags pushed; previous CI run 43193180854 remains in progress on Windows
 - 2026-11-12: W-28 merged and packaged; owner approved its inclusion; W-35 remains manually unchecked as disclosed
+- 2026-11-12: 2026-11-12: ship: tagged and published v0.10.0 at aac11de with W-28 and W-35; artifacts, checksums and install proofs verified
 
 ## Comments

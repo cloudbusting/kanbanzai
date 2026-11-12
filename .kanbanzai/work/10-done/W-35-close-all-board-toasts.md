@@ -1,11 +1,11 @@
 # W-35: Close all board toasts
 
-- **Stage:** in-qa
+- **Stage:** done
 - **Updated:** 2026-11-12
+- **Done:** 2026-11-12 — v0.10.0, aac11de, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.10.0
 - **ADR:** none
-- **Next action:** Owner checks the packaged VSIX in the Board tab, then finish QA
-- **Where:** worktree W-35
-- **Held:** waiting: owner, verify the packaged close-all control in the editor
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -53,5 +53,7 @@ Transient notifications may be missed when dismissed; no user data is deleted. R
 - 2026-11-12: Designed the close-all control, dismissal semantics and acceptance checks
 - 2026-11-12: Built the close-all control and instance-safe dismissal; 246 Node tests pass
 - 2026-11-12: QA passed: Go tests and vet, 246 Node tests, hooks and JS syntax, plugin validation, board audit and VSIX dry run; editor check remains manual
+- 2026-11-12: 2026-11-12: deploy-qa finished; owner approved without the manual editor check (to be done after install); v0.10.0 artifacts include the close-all control
+- 2026-11-12: 2026-11-12: ship: published v0.10.0 with the close-all control; owner approved without the manual editor check, still to do after install
 
 ## Comments
