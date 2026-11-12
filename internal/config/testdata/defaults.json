@@ -147,12 +147,14 @@
     "branch": "{id}",
     "claims": "",
     "context": [],
+    "default_type": "task",
     "digits": 2,
     "home": ".kanbanzai",
     "main_branch": "main",
     "numbers": "",
     "owner": "the user",
     "prefix": "W",
+    "project_key": "",
     "state": ".kanbanzai/state",
     "template": "",
     "work": ".kanbanzai/work",
@@ -203,5 +205,37 @@
         "None"
       ]
     }
-  }
+  },
+  "types": [
+    {
+      "description": "A piece of work",
+      "key": "task",
+      "label": "Task",
+      "prefix": "TASK"
+    },
+    {
+      "description": "Unexpected behaviour",
+      "key": "bug",
+      "label": "Bug",
+      "prefix": "BUG"
+    },
+    {
+      "description": "A change to something that exists",
+      "key": "change",
+      "label": "Change",
+      "prefix": "CHANGE"
+    },
+    {
+      "description": "An investigation with a time box",
+      "key": "spike",
+      "label": "Spike",
+      "prefix": "SPIKE"
+    },
+    {
+      "description": "Maintenance with no behaviour change",
+      "key": "chore",
+      "label": "Chore",
+      "prefix": "CHORE"
+    }
+  ]
 }

@@ -57,12 +57,13 @@ func TestTypedBriefsPassAndTheChecksCatchDisagreement(t *testing.T) {
 	put(t, project, "1-open", "TASK-01-x.md", goodBrief("TASK-01", "designed", "", ""))
 	put(t, project, "1-open", "BUG-02-x.md", goodBrief("BUG-02", "designed", "", ""))
 	put(t, project, "1-open", "CHANGE-03-x.md", goodBrief("CHANGE-03", "designed", "", ""))
+	put(t, project, "1-open", "W-06-x.md", goodBrief("W-06", "designed", "", ""))
 	if problems := ProblemsOf(project); len(problems) != 0 {
 		t.Fatalf("problems = %v", problems)
 	}
 
-	unknown := filepath.Join(project.Work, "1-open", "W-04-x.md")
-	put(t, project, "1-open", "W-04-x.md", goodBrief("W-04", "designed", "", ""))
+	unknown := filepath.Join(project.Work, "1-open", "FOO-04-x.md")
+	put(t, project, "1-open", "FOO-04-x.md", goodBrief("W-04", "designed", "", ""))
 	if problems := ProblemsOf(project); !hasProblem(problems, "not a configured type") {
 		t.Fatalf("unknown prefix: %v", problems)
 	}
@@ -97,6 +98,15 @@ func TestLegacyFilesAreIgnoredInALegacyProject(t *testing.T) {
 		t.Fatalf("legacy TypedFiles = %v", problems)
 	}
 	if problems := ProblemsOf(project); len(problems) != 0 {
+		t.Fatalf("problems = %v", problems)
+	}
+}
+
+func TestATypedAndLegacyCardCannotShareANumber(t *testing.T) {
+	project := typedProject(t)
+	put(t, project, "1-open", "W-06-x.md", goodBrief("W-06", "designed", "", ""))
+	put(t, project, "1-open", "TASK-06-x.md", goodBrief("TASK-06", "designed", "", ""))
+	if problems := ProblemsOf(project); !hasProblem(problems, "share the global number 6") {
 		t.Fatalf("problems = %v", problems)
 	}
 }

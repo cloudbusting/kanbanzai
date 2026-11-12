@@ -38,8 +38,8 @@ func TestTypedConfigResolves(t *testing.T) {
 	if !project.Typed {
 		t.Fatal("typed config did not enable typed ids")
 	}
-	if project.Prefix != "" {
-		t.Fatalf("prefix = %q, want it unused in typed mode", project.Prefix)
+	if project.Prefix != "W" {
+		t.Fatalf("prefix = %q, want the inherited legacy prefix W", project.Prefix)
 	}
 	if project.DefaultType != "task" || project.ProjectKey != "KANZ" {
 		t.Fatalf("default = %q, project key = %q", project.DefaultType, project.ProjectKey)
@@ -59,7 +59,7 @@ func TestTypedConfigResolves(t *testing.T) {
 	if number, ok := project.CardNumber("KANZ-BUG-42"); !ok || number != 42 {
 		t.Fatalf("CardNumber = %d, %v", number, ok)
 	}
-	for _, id := range []string{"KANZ-TASK-01", "KANZ-BUG-42", "KANZ-CHANGE-123"} {
+	for _, id := range []string{"KANZ-TASK-01", "KANZ-BUG-42", "KANZ-CHANGE-123", "W-01"} {
 		if !project.IsCardID(id) {
 			t.Fatalf("IsCardID(%q) = false", id)
 		}
@@ -68,6 +68,12 @@ func TestTypedConfigResolves(t *testing.T) {
 		if project.IsCardID(id) {
 			t.Fatalf("IsCardID(%q) = true", id)
 		}
+	}
+	if got, ok := project.CanonicalCardID("w-7"); !ok || got != "W-07" {
+		t.Fatalf("legacy CanonicalCardID = %q, %v", got, ok)
+	}
+	if project.CardTypeInfo("W-07") != nil {
+		t.Fatal("a legacy card got a type")
 	}
 	info := project.CardTypeInfo("KANZ-BUG-42")
 	if info == nil || info.Key != "bug" || info.Colour != "#C43B3B" || info.Icon != "bug" {
@@ -99,9 +105,9 @@ func TestTypedConfigJSONExposesTypes(t *testing.T) {
 }
 
 func TestLegacyConfigStaysSinglePrefix(t *testing.T) {
-	project := loadProject(t, testutil.Repo(t, "[project]\nowner = \"Sam\"\n"))
+	project := loadProject(t, testutil.Repo(t, "types = []\n[project]\nowner = \"Sam\"\n"))
 	if project.Typed {
-		t.Fatal("a config without [[types]] became typed")
+		t.Fatal("a config with types = [] became typed")
 	}
 	if project.Prefix != "W" {
 		t.Fatalf("prefix = %q, want W", project.Prefix)
@@ -134,7 +140,6 @@ func TestTypedConfigErrors(t *testing.T) {
 		{"bad default", strings.Replace(typedConfig, `default_type = "task"`, `default_type = "nope"`, 1), "default_type names"},
 		{"bad project key", strings.Replace(typedConfig, `project_key = "KANZ"`, `project_key = "kanz"`, 1), "project_key"},
 		{"bad colour", typedConfig + "\n[[types]]\nkey = \"chore\"\nlabel = \"Chore\"\nprefix = \"CHORE\"\ncolour = \"red\"\n", "colour must be"},
-		{"types needed", "[project]\nowner = \"Sam\"\ndefault_type = \"task\"\n", "need [[types]]"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,5 +148,18 @@ func TestTypedConfigErrors(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestTheShippedDefaultsAreTyped(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, ""))
+	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 5 {
+		t.Fatalf("typed = %v, default = %q, types = %d", project.Typed, project.DefaultType, len(project.Types))
+	}
+	if project.Prefix != "W" {
+		t.Fatalf("legacy prefix = %q, want W", project.Prefix)
+	}
+	if got, ok := project.CanonicalCardID("w-7"); !ok || got != "W-07" {
+		t.Fatalf("legacy id = %q, %v", got, ok)
 	}
 }

@@ -162,7 +162,9 @@ func Vocabulary(p *config.Project) []string {
 	out := []string{"—", "main"}
 	switch Of(p) {
 	case Worktree, Branch:
-		out = append(out, Of(p)+" "+p.IDsExample())
+		for _, example := range p.IDExamples() {
+			out = append(out, Of(p)+" "+example)
+		}
 	case External:
 		out = append(out, "external <ref>")
 	}
