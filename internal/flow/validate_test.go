@@ -244,13 +244,21 @@ func TestInvalidGatesAndSkipRulesAreReportedOnce(t *testing.T) {
 		edit func(string) string
 		want string
 	}{
-		{"unknown gate", func(s string) string { return strings.Replace(s, `next = "finish"`, "next = \"finish\"\ngate = \"bank\"", 1) }, "column.gate"},
+		{"unknown gate", func(s string) string {
+			return strings.Replace(s, `next = "finish"`, "next = \"finish\"\ngate = \"bank\"", 1)
+		}, "column.gate"},
 		{"external gate without a name", func(s string) string {
 			return strings.Replace(s, `next = "finish"`, "next = \"finish\"\ngate = \"external\"", 1)
 		}, "column.gate"},
-		{"gate on the Doing column", func(s string) string { return strings.Replace(s, `doing = "work"`, "doing = \"work\"\ngate = \"ci\"", 1) }, "column.gate"},
-		{"gate on a done column", func(s string) string { return strings.Replace(s, `kind = "done"`, "kind = \"done\"\ngate = \"owner\"", 1) }, "column.gate"},
-		{"half a skip rule", func(s string) string { return strings.Replace(s, `skill = "kanbanzai:check"`, "skill = \"kanbanzai:check\"\nskip_field = \"Type\"", 1) }, "step.skip"},
+		{"gate on the Doing column", func(s string) string {
+			return strings.Replace(s, `doing = "work"`, "doing = \"work\"\ngate = \"ci\"", 1)
+		}, "column.gate"},
+		{"gate on a done column", func(s string) string {
+			return strings.Replace(s, `kind = "done"`, "kind = \"done\"\ngate = \"owner\"", 1)
+		}, "column.gate"},
+		{"half a skip rule", func(s string) string {
+			return strings.Replace(s, `skill = "kanbanzai:check"`, "skill = \"kanbanzai:check\"\nskip_field = \"Type\"", 1)
+		}, "step.skip"},
 	}
 	for _, c := range cases {
 		r := validate(t, "", c.edit(base))

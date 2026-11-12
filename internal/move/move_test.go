@@ -12,6 +12,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -661,5 +662,86 @@ func TestNoDeployLineCannotSkipTheDeployStepsEither(t *testing.T) {
 		options.Done = str("shipped")
 	}); code != 2 {
 		t.Fatalf("no deploy line skipped = %d", code)
+	}
+}
+
+const typeSkipConfig = `[project]
+owner = "Sam"
+[steps.deploy-qa]
+skill = "proj:deploy"
+skip_field = "Type"
+skip_values = ["docs", "note"]
+[steps.ship]
+skill = "proj:deploy"
+skip_field = "Type"
+skip_values = ["docs"]
+`
+
+func TestACardSkipsTheDeployStepsByAnyNamedField(t *testing.T) {
+	project := testProject(t, typeSkipConfig)
+	putCard(t, project, "W-01", "the docs", "checked", cardOptions{Where: "worktree W-01", Extra: "- **Type:** Docs\n"})
+	putCard(t, project, "W-02", "the code", "checked", cardOptions{Where: "worktree W-02", Extra: "- **Type:** feature\n"})
+	for _, id := range []string{"W-01", "W-02"} {
+		claimCard(t, project, id, "tester:me")
+		makeWorktree(t, project, id)
+	}
+	if code, _, errOut := runMove(t, project, "W-01", "done", func(options *Options) {
+		options.Done = str("docs only")
+	}); code != 0 {
+		t.Fatalf("a docs card did not close: %d %q", code, errOut)
+	}
+	if code, _, errOut := runMove(t, project, "W-02", "done", func(options *Options) {
+		options.Done = str("code")
+	}); code != 2 || !strings.Contains(errOut, "skips a step") {
+		t.Fatalf("a feature card skipped the deploy: %d %q", code, errOut)
+	}
+}
+
+func TestASkippedStepLandsOnTheNextStepTheCardDoesNotSkip(t *testing.T) {
+	project := testProject(t, typeSkipConfig)
+	skipped := func(brief string) func(string) bool {
+		return func(name string) bool { return step.SkippedFor(project, brief, name) }
+	}
+	card := &board.Card{}
+	cases := []struct {
+		brief, want, why string
+	}{
+		{"# W-01: x\n\n- **Type:** docs\n", "done", "close"},
+		{"# W-01: x\n\n- **Type:** note\n", "qa-approved", "skip"},
+		{"# W-01: x\n\n- **Type:** feature\n", "", ""},
+		{"# W-01: x\n\n- **Type:** Documentation\n", "", ""},
+	}
+	for _, c := range cases {
+		targets := LegalTargets(project, "checked", card, skipped(c.brief))
+		if c.want == "" {
+			if _, ok := targets["done"]; ok {
+				t.Errorf("%q: done is legal: %v", c.brief, targets)
+			}
+			if _, ok := targets["qa-approved"]; ok {
+				t.Errorf("%q: qa-approved is legal: %v", c.brief, targets)
+			}
+			continue
+		}
+		if targets[c.want] != c.why {
+			t.Errorf("%q: targets = %v, want %s: %s", c.brief, targets, c.want, c.why)
+		}
+	}
+}
+
+func TestCaseAndTrailingWordsDoNotChangeTheShippedDeployNone(t *testing.T) {
+	project := testProject(t, deployConfig)
+	for text, closes := range map[string]bool{
+		"## Deploy\n\nNone\n":                           true,
+		"## Deploy\n\nnone: the board\n":                true,
+		"- **Deploy:** None (tooling)\n":                true,
+		"## Deploy\n\nNonexistent until QA\n":           false,
+		"## Deploy\n\nThe QA stack, then production.\n": false,
+		"": false,
+	} {
+		skipped := func(name string) bool { return step.SkippedFor(project, "# W-01: x\n\n"+text, name) }
+		_, ok := LegalTargets(project, "checked", &board.Card{}, skipped)["done"]
+		if ok != closes {
+			t.Errorf("%q: done legal = %v, want %v", text, ok, closes)
+		}
 	}
 }

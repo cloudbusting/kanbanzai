@@ -135,19 +135,23 @@ func Build(p *config.Project) *Model {
 }
 
 // Transitions is every move a card can make without --force, as the move command allows it: the union of
-// move.LegalTargets over each column, for a card that is settled or not and whose deploy is None or not. The
+// move.LegalTargets over each column, for a card that is settled or not and for a card that skips every step with a skip rule or none. The
 // rules live in the move package; this only asks it.
 func Transitions(p *config.Project) []Transition {
 	found := []Transition{}
 	seen := map[Transition]bool{}
 	for _, c := range p.Columns {
 		for _, settled := range []bool{false, true} {
-			for _, nothing := range []bool{false, true} {
+			for _, skips := range []bool{false, true} {
 				card := &board.Card{}
 				if settled {
 					card.Next = "settled"
 				}
-				targets := move.LegalTargets(p, c.Key, card, nothing)
+				var skipped func(string) bool
+				if skips {
+					skipped = func(name string) bool { return p.Steps[name].SkipField != "" }
+				}
+				targets := move.LegalTargets(p, c.Key, card, skipped)
 				for _, to := range p.Columns {
 					why, ok := targets[to.Key]
 					if !ok || why == "stay" {

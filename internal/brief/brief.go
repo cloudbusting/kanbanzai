@@ -221,3 +221,50 @@ func orderedChanges(changes map[string]*string) []string {
 	}
 	return names
 }
+
+// FieldValue is what a brief says under a name: the head line `- **Name:** value`, else the first non-blank line
+// under a `## Name` section. The second result is false when the brief says nothing under that name. Names compare
+// case-insensitively.
+func FieldValue(text, name string) (string, bool) {
+	_, fields := Header(text)
+	for key, value := range fields {
+		if strings.EqualFold(key, name) {
+			return value, true
+		}
+	}
+	inSection := false
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			if inSection {
+				return "", false
+			}
+			inSection = strings.EqualFold(strings.TrimSpace(line[3:]), name)
+			continue
+		}
+		if inSection && strings.TrimSpace(line) != "" {
+			return strings.TrimSpace(line), true
+		}
+	}
+	return "", false
+}
+
+// StartsWithWord is true when value begins with one of the wanted words, whole-word and case-insensitively: "None
+// (tooling)" and "none: the board" start with "None", "Nonexistent" does not.
+func StartsWithWord(value string, wanted []string) bool {
+	lower := strings.ToLower(strings.TrimSpace(value))
+	for _, word := range wanted {
+		word = strings.ToLower(strings.TrimSpace(word))
+		if word == "" || !strings.HasPrefix(lower, word) {
+			continue
+		}
+		rest := lower[len(word):]
+		if rest == "" {
+			return true
+		}
+		next := rest[0]
+		if !(next >= 'a' && next <= 'z' || next >= '0' && next <= '9' || next == '_' || next >= 0x80) {
+			return true
+		}
+	}
+	return false
+}

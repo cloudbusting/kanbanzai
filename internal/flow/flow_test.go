@@ -83,7 +83,7 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 					if settled {
 						card.Next = "settled"
 					}
-					for to, why := range move.LegalTargets(p, c.Key, card, nothing) {
+					for to, why := range move.LegalTargets(p, c.Key, card, skipFor(p, nothing)) {
 						if why != "stay" {
 							want[Transition{From: c.Key, To: to, Kind: why}] = true
 						}
@@ -240,4 +240,12 @@ func TestSpliceRefusesWhatItCannotDoExactly(t *testing.T) {
 	if _, err := Splice("config_version = 1\nflow.wip_limit = 7\n[project]\nowner = \"x\"\n", doc); err == nil {
 		t.Fatal("spliced a config with a root-level flow.* key")
 	}
+}
+
+// skipFor is the skip function for "this card skips every step that has a skip rule" or none.
+func skipFor(p *config.Project, all bool) func(string) bool {
+	if !all {
+		return nil
+	}
+	return func(name string) bool { return p.Steps[name].SkipField != "" }
 }
