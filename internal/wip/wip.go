@@ -175,7 +175,13 @@ func Batches(project *config.Project) []Batch {
 		if folder := strings.TrimSuffix(strings.TrimSuffix(strings.ReplaceAll(project.WorktreePattern, "\\", "/"), leaf), "/"); folder != "" &&
 			!strings.Contains(folder, "{id}") {
 			if expanded, err := project.Expand(folder, ""); err == nil {
-				spacesRE = regexp.MustCompile(`\| (?:worktree )?(` + regexp.QuoteMeta(expanded) + `/[^| /]+) \|`)
+				// The map may write the path relative or absolute, so match from the first segment that is not "." or "..".
+				for strings.HasPrefix(expanded, "./") || strings.HasPrefix(expanded, "../") {
+					expanded = expanded[strings.Index(expanded, "/")+1:]
+				}
+				if expanded != "" && expanded != ".." && expanded != "." {
+					spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(expanded) + `/[^| /]+) \|`)
+				}
 			}
 		}
 	}
