@@ -67,10 +67,11 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
       createStatusBarItem: () => item,
       showErrorMessage: (...args) => { vscode.errors.push(args); },
       showWarningMessage: () => Promise.resolve(undefined),
+      showInformationMessage: (...args) => { vscode.infos.push(args); return Promise.resolve(undefined); },
       showTextDocument: () => (vscode.openError ? Promise.reject(new Error(vscode.openError)) : Promise.resolve()),
     },
     commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
-    channels: [], errors: [], patterns: [], command: "kz",
+    channels: [], infos: [], errors: [], patterns: [], command: "kz",
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const next = (list) => (list.length > 1 ? list.shift() : list[0]);
@@ -110,6 +111,8 @@ const run = async (opts, body) => {
     for (const d of t.context.subscriptions) if (d && d.dispose) d.dispose();
     if (t.panel.disposed) t.panel.disposed();
   }
+  // The extension never asks a modal question: scan every information message the fake saw.
+  for (const call of t.vscode.infos) for (const arg of call) assert.ok(!(arg && typeof arg === "object" && arg.modal), `a modal message: ${JSON.stringify(call)}`);
 };
 
 test("activate makes one log channel named Kanbanzai, and nothing opens it", () => run({}, async ({ vscode, channel }) => {

@@ -1,14 +1,18 @@
 'use strict';
 // Kanbanzai: Init. The guided setup's rules as plain functions, kept free of the vscode module so node can test them.
 // Everything that touches the world (execFile, the file system, the editor's UI) is passed in. The extension holds no
-// policy: every file decision is the plan `kanbanzai init --dry-run --json` prints, and this file only shows it,
-// waits for the owner's Apply, and hands the same plan back to `kanbanzai init --plan`.
+// policy: every file decision is the plan `kanbanzai init --dry-run --json` prints. This file saves that plan as a
+// pending file in the project (.kanbanzai/state/setup-plan.json), shows it in a normal tab, and, when the owner clicks
+// "Kanbanzai: Apply", hands the same file back to `kanbanzai init --plan`. No modal: the pending file is the state,
+// and it survives a reload until the owner applies or cancels it.
 
 const path = require('path');
+const crypto = require('crypto');
 
 const AGENTS = ['claude', 'opencode'];
-const APPLY = 'Apply';
-const PLAN_PREFIX = 'kanbanzai-plan-';
+const PENDING_PARTS = ['.kanbanzai', 'state', 'setup-plan.json'];
+const NO_PENDING = 'There is no pending setup plan. Click Kanbanzai: Init to make one.';
+const STALE_PLAN = 'The project changed since the plan was made, so the plan was removed. Click Kanbanzai: Init to plan again.';
 const BINARY_OS = { linux: 'linux', darwin: 'darwin', win32: 'windows' };
 const BINARY_ARCH = { x64: 'amd64', arm64: 'arm64' };
 
@@ -78,10 +82,11 @@ function ensureExecutable(file, { fs, platform, log }) {
   }
 }
 
-// The status-bar item: 'board' with a board, 'init' in a trusted git checkout without one, else 'none' (hidden).
-function itemState({ folders, hasBoard, isGit, trusted } = {}) {
+// The status-bar item: 'board' with a board (a leftover pending plan is ignored), 'apply' in a trusted git checkout
+// without one when a setup plan is waiting, 'init' without a plan, else 'none' (hidden).
+function itemState({ folders, hasBoard, isGit, trusted, pending } = {}) {
   if (hasBoard) return 'board';
-  if (Array.isArray(folders) && folders.length > 0 && isGit && trusted) return 'init';
+  if (Array.isArray(folders) && folders.length > 0 && isGit && trusted) return pending ? 'apply' : 'init';
   return 'none';
 }
 
@@ -121,12 +126,20 @@ function indent(block, by) {
 
 // A plain-text rendering of the report `init --dry-run --json` printed, for a read-only tab. `folder` is where
 // `kanbanzai install` will copy the command.
+const BLOCK = [
+  '==============================================================================',
+  '  NOT APPLIED YET.',
+  '  To apply this plan, click  "Kanbanzai: Apply"  in the status bar (bottom left).',
+  '  To throw it away, run  "Kanbanzai: Cancel Setup"  from the command palette.',
+  '==============================================================================',
+];
+
 function planText(report, folder) {
   const plan = report && typeof report === 'object' && report.plan && typeof report.plan === 'object' ? report.plan : {};
   const actions = (Array.isArray(plan.actions) ? plan.actions : []).filter((a) => a && typeof a === 'object' && typeof a.op === 'string');
   const warnings = (Array.isArray(plan.warnings) ? plan.warnings : []).filter((w) => typeof w === 'string' && w);
   const settings = plan.settings && typeof plan.settings === 'object' ? plan.settings : null;
-  const out = ['Kanbanzai setup plan', 'Nothing is written until you choose Apply.', ''];
+  const out = [...BLOCK, '', 'Kanbanzai setup plan', ''];
   out.push(`Project: ${text(plan.root) || '(unknown)'}`, '');
   out.push('Settings');
   if (settings) {
@@ -154,6 +167,7 @@ function planText(report, folder) {
     out.push('');
   }
   out.push(`Also: copy the command to ${nonEmpty(folder) ? folder : 'the per-user folder'} (kanbanzai install)`);
+  out.push('', ...BLOCK);
   return out.join('\n') + '\n';
 }
 
@@ -214,33 +228,91 @@ function runFile(execFile, file, args, options) {
   });
 }
 
-// What the owner approved, applied: `<command> install`, then `<installed command> init --plan FILE`. The plan (the
-// text the dry run printed, verbatim) goes in a private folder under the temp folder, outside the project, and is
-// removed afterwards even when init fails. A failing step is reported with its own stderr and stops the sequence.
-async function applySequence({ command, installedCommand, commandSource, cwd, planText: planJson, execFile, fs, tmpdir, missingText }) {
-  const failure = (step, r, which = command) => ({
-    ok: false, step, code: r.code,
-    tooOld: !r.missing && TOO_OLD.test(r.stderr || ''),
-    error: r.missing && missingText ? missingText : (r.stderr || r.message || `${step} failed`),
-    command: which,
-  });
-  const installed = await runFile(execFile, command, ['install'], { cwd });
-  if (!installed.ok) return failure('install', installed);
+// ---- the pending plan file ----
 
-  let dirMade = null;
+// <root>/.kanbanzai/state/setup-plan.json: the stdout of `init --dry-run --json`, verbatim, so `init --plan FILE`
+// accepts it as it is. `state/` is the folder init gitignores. The file's presence is the "plan is waiting" state.
+function pendingPath(root) {
+  return path.join(root, ...PENDING_PARTS);
+}
+
+function lstatOrNull(fs, target) {
   try {
-    dirMade = fs.mkdtempSync(path.join(tmpdir, PLAN_PREFIX));
-    const file = path.join(dirMade, 'plan.json');
-    fs.writeFileSync(file, planJson, { mode: 0o600 });
-    const applied = await runFile(execFile, installedCommand || command, ['init', '--plan', file], { cwd });
-    if (!applied.ok) return failure('init', applied, installedCommand || command);
-    return { ok: true, files: filesToCommit(applied.stdout), output: applied.stdout };
+    return fs.lstatSync(target);
   } catch (e) {
-    return { ok: false, step: 'plan file', code: null, error: `cannot prepare the plan file: ${e && e.message ? e.message : e}` };
-  } finally {
-    if (dirMade) {
-      try { fs.rmSync(dirMade, { recursive: true, force: true }); } catch (e) { /* a temp folder left behind holds only the plan */ }
+    if (e && (e.code === 'ENOENT' || e.code === 'ENOTDIR')) return null;
+    throw e;
+  }
+}
+
+// Why the pending location cannot be trusted, or null. A link or a plain file where `.kanbanzai` or `state` should be
+// a folder, or a link as the file itself, is refused: the extension never follows a link out of the project.
+function pendingProblem(fs, root) {
+  let where = root;
+  for (const part of PENDING_PARTS.slice(0, 2)) {
+    where = path.join(where, part);
+    const st = lstatOrNull(fs, where);
+    if (!st) return null;
+    if (st.isSymbolicLink() || !st.isDirectory()) return `${path.relative(root, where)} is a link or not a folder`;
+  }
+  const st = lstatOrNull(fs, pendingPath(root));
+  if (st && !st.isFile()) return `${path.relative(root, pendingPath(root))} is a link or not a regular file`;
+  return null;
+}
+
+// The pending file exists and is a regular file in a trustworthy place. Never throws.
+function hasPending(fs, root) {
+  try {
+    if (!nonEmpty(root) || pendingProblem(fs, root)) return false;
+    const st = lstatOrNull(fs, pendingPath(root));
+    return !!st && st.isFile();
+  } catch (e) {
+    return false;
+  }
+}
+
+// Saves the plan: a temporary name in the same folder (mode 0600), then a rename, so a crash leaves the old plan or
+// the new one, never half of one. Resolves { ok } or { ok: false, error }; never throws.
+function writePending(fs, root, content) {
+  try {
+    const problem = pendingProblem(fs, root);
+    if (problem) return { ok: false, error: `Kanbanzai: cannot save the setup plan: ${problem}.` };
+    const file = pendingPath(root);
+    const dir = path.dirname(file);
+    fs.mkdirSync(dir, { recursive: true, mode: 0o755 });
+    const temp = path.join(dir, `.setup-plan-${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`);
+    try {
+      fs.writeFileSync(temp, content, { mode: 0o600, flag: 'wx' });
+      fs.renameSync(temp, file);
+    } catch (e) {
+      try { fs.unlinkSync(temp); } catch (e2) { /* it was never made, or is already gone */ }
+      throw e;
     }
+    return { ok: true, file };
+  } catch (e) {
+    return { ok: false, error: `Kanbanzai: cannot save the setup plan: ${e && e.message ? e.message : e}` };
+  }
+}
+
+// The plan text, or null when there is none to read. Never throws.
+function readPending(fs, root) {
+  try {
+    return hasPending(fs, root) ? fs.readFileSync(pendingPath(root), 'utf8') : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Deletes the pending file, then the folders it made if they are empty (rmdir refuses a folder with anything in it).
+function removePending(fs, root) {
+  try {
+    if (hasPending(fs, root)) fs.unlinkSync(pendingPath(root));
+  } catch (e) { /* the next look at the file says whether it is still there */ }
+  for (const dir of [path.join(root, PENDING_PARTS[0], PENDING_PARTS[1]), path.join(root, PENDING_PARTS[0])]) {
+    try {
+      const st = lstatOrNull(fs, dir);
+      if (st && st.isDirectory()) fs.rmdirSync(dir);
+    } catch (e) { /* not empty, or not ours to remove */ }
   }
 }
 
@@ -253,16 +325,26 @@ function parseReport(output) {
     !Array.isArray(value.plan) ? value : null;
 }
 
-// The guided setup, step by step. `ui` is { pickAgents, askBranch, showPlan, confirm, info, error }; nothing is
-// written to the project or the machine before `ui.confirm` answers 'Apply'. Resolves { status }: 'cancelled',
-// 'failed' or 'applied'; it never rejects.
-async function guidedSetup(deps) {
-  const { root, command, commandSource, installedCommand, folder, pluginSource, execFile, fs, tmpdir, ui, log, onApplied, missingText } = deps;
-  const fail = (message) => {
-    try { log.error(message); } catch (e) { /* the message still reaches the owner */ }
-    try { ui.error(message); } catch (e) { /* nothing more to do */ }
-    return { status: 'failed', message };
+// Every flow reports through `ui` ({ pickAgents, askBranch, showPlan, info, error }) and `log`, and never rejects.
+function reporter(deps) {
+  const { ui, log, onChanged } = deps;
+  return {
+    fail(message, extra) {
+      try { log.error(message); } catch (e) { /* the message still reaches the owner */ }
+      try { ui.error(message); } catch (e) { /* nothing more to do */ }
+      return { status: 'failed', message, ...extra };
+    },
+    changed() {
+      try { if (typeof onChanged === 'function') onChanged(); } catch (e) { /* the item catches up on the next poll */ }
+    },
   };
+}
+
+// Kanbanzai: Init. Picks the agents, asks `init --dry-run --json` for the plan, saves it as the pending file (replacing
+// an older one) and shows it. Nothing is installed or applied. Resolves { status }: 'planned', 'cancelled' or 'failed'.
+async function planSetup(deps) {
+  const { root, command, commandSource, folder, pluginSource, execFile, fs, ui, missingText } = deps;
+  const { fail, changed } = reporter(deps);
   try {
     const agents = validAgents(await ui.pickAgents());
     if (!agents.length) return { status: 'cancelled' };
@@ -294,26 +376,99 @@ async function guidedSetup(deps) {
     const report = parseReport(result.stdout);
     if (!report) return fail('Kanbanzai: init --dry-run printed something that is not a plan.');
 
+    const saved = writePending(fs, root, result.stdout);
+    if (!saved.ok) return fail(saved.error);
+    changed(); // the item is the Apply item from here on, whether or not the tab opens
     await ui.showPlan(planText(report, folder));
-    const answer = await ui.confirm(`Apply this Kanbanzai setup to ${root}? Nothing has been written yet.`);
-    if (answer !== APPLY) return { status: 'cancelled' };
-
-    const applied = await applySequence({ command, installedCommand, commandSource, cwd: root, planText: result.stdout, execFile, fs, tmpdir, missingText });
-    if (!applied.ok && applied.tooOld) {
-      // `install` ran the resolved command; `init --plan` ran the installed copy, which has the same meaning when it is the same one.
-      return fail(tooOldMessage(applied.command, applied.step === 'install' ? commandSource : 'well-known', applied.error));
-    }
-    if (!applied.ok) return fail(`Kanbanzai: setup stopped at ${applied.step}: ${applied.error}`);
-    try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the item catches up on the next poll */ }
-    const list = applied.files.length ? ` Files to commit: ${applied.files.join(', ')}.` : '';
-    ui.info(`Kanbanzai is set up.${list} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
-    return { status: 'applied', files: applied.files };
+    return { status: 'planned' };
   } catch (e) {
     return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
   }
 }
 
+// Kanbanzai: Apply. The click is the approval: `<command> install`, then `<installed command> init --plan <pending file>`.
+// Resolves { status }: 'applied' or 'failed' (with stale: true when the plan was removed because the project changed).
+async function applyPending(deps) {
+  const { root, command, commandSource, installedCommand, execFile, fs, ui, log, onApplied, missingText } = deps;
+  const { fail, changed } = reporter(deps);
+  try {
+    if (!hasPending(fs, root)) {
+      const out = fail(NO_PENDING);
+      changed();
+      return out;
+    }
+    const file = pendingPath(root);
+    const failure = (step, r, which) => {
+      if (r.missing && missingText) return fail(missingText);
+      if (!r.missing && TOO_OLD.test(r.stderr || '')) return fail(tooOldMessage(which, step === 'install' ? commandSource : 'well-known', r.stderr));
+      return fail(`Kanbanzai: setup stopped at ${step}: ${r.stderr || r.message || `${step} failed`}`);
+    };
+
+    const installed = await runFile(execFile, command, ['install'], { cwd: root });
+    if (!installed.ok) return failure('install', installed, command); // the plan stays: apply again once it is fixed
+
+    const which = installedCommand || command;
+    const applied = await runFile(execFile, which, ['init', '--plan', file], { cwd: root });
+    if (!applied.ok) {
+      if (applied.code === 2 && (applied.stderr || '').includes('run init --dry-run again')) {
+        try { log.error(`the setup plan is stale: ${applied.stderr}`); } catch (e) { /* the owner still sees the message */ }
+        removePending(fs, root);
+        changed();
+        const out = fail(STALE_PLAN);
+        return { ...out, stale: true };
+      }
+      return failure('init', applied, which); // exit 1 is resumable: the plan stays
+    }
+
+    removePending(fs, root);
+    changed();
+    try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the board catches up on the next poll */ }
+    const files = filesToCommit(applied.stdout);
+    const list = files.length ? ` Files to commit: ${files.join(', ')}.` : '';
+    ui.info(`Kanbanzai is set up.${list} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
+    return { status: 'applied', files };
+  } catch (e) {
+    return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
+  }
+}
+
+// Kanbanzai: Show Setup Plan. The pending file, rendered as planText again.
+async function showPending(deps) {
+  const { root, fs, ui, folder } = deps;
+  const { fail } = reporter(deps);
+  try {
+    const raw = readPending(fs, root);
+    if (raw === null) return fail(NO_PENDING);
+    const report = parseReport(raw);
+    if (!report) return fail('Kanbanzai: the pending setup plan cannot be read. Run Kanbanzai: Cancel Setup, then Kanbanzai: Init.');
+    await ui.showPlan(planText(report, folder));
+    return { status: 'shown' };
+  } catch (e) {
+    return fail(`Kanbanzai: cannot show the setup plan: ${e && e.message ? e.message : e}`);
+  }
+}
+
+// Kanbanzai: Cancel Setup. Deletes the pending file; with nothing pending it says so and is not an error.
+async function discardPending(deps) {
+  const { root, fs, ui } = deps;
+  const { fail, changed } = reporter(deps);
+  try {
+    if (!hasPending(fs, root)) {
+      ui.info('There is no pending setup plan.');
+      changed();
+      return { status: 'nothing' };
+    }
+    removePending(fs, root);
+    changed();
+    ui.info('Setup plan discarded.');
+    return { status: 'discarded' };
+  } catch (e) {
+    return fail(`Kanbanzai: cannot discard the setup plan: ${e && e.message ? e.message : e}`);
+  }
+}
+
 module.exports = {
-  AGENTS, APPLY, bundledPath, wellKnownDir, wellKnownFile, resolveCommand, ensureExecutable, itemState, validBranch,
-  validAgents, planText, filesToCommit, runFile, applySequence, guidedSetup,
+  AGENTS, NO_PENDING, STALE_PLAN, bundledPath, wellKnownDir, wellKnownFile, resolveCommand, ensureExecutable, itemState,
+  validBranch, validAgents, planText, filesToCommit, runFile, pendingPath, hasPending, planSetup, applyPending,
+  showPending, discardPending,
 };
