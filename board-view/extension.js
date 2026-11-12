@@ -432,9 +432,11 @@ function commandResolver(context, log) {
       setup.ensureExecutable(resolved.command, { fs, platform: process.platform, log });
     }
     const key = `${resolved.source}:${resolved.command}`;
-    if (resolved.source !== 'setting' && announced !== key) {
+    if (announced !== key) {
       announced = key;
-      log.info(`using the ${resolved.source} kanbanzai command: ${resolved.command}`);
+      log.info(resolved.source === 'setting'
+        ? `using the command from the kanbanzai.command setting: ${resolved.command}`
+        : `using the ${resolved.source} kanbanzai command: ${resolved.command}`);
     }
     return resolved;
   };
@@ -510,6 +512,7 @@ async function runInit(log, status) {
     const result = await setup.guidedSetup({
       root,
       command: info.command,
+      commandSource: info.source,
       installedCommand: setup.wellKnownFile(process.env, process.platform, os.homedir()) || info.command,
       folder: setup.wellKnownDir(process.env, process.platform, os.homedir()),
       pluginSource: typeof pluginSource === 'string' ? pluginSource : '',

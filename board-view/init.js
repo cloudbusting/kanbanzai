@@ -148,9 +148,6 @@ function planText(report, folder) {
     const label = a.op === 'merge' ? `Fragment merged into ${text(a.path)}` : `${text(a.path)} would contain`;
     out.push(`--- ${label} ---`, indent(a.content, '  '), '');
   }
-  if (actions.some((a) => a.op === 'merge' && a.path === '.claude/settings.json')) {
-    out.push('.claude/settings.json is committed with the project, so Claude Code offers the plugin to everyone who opens it.', '');
-  }
   if (warnings.length) {
     out.push('Warnings');
     for (const w of warnings) out.push(`  ! ${w}`);
@@ -171,6 +168,30 @@ function filesToCommit(output) {
     files.push(lines[i].trim());
   }
   return files;
+}
+
+// ---- a command that is too old ----
+
+// An old kanbanzai says "unknown flag --dry-run" or "unknown command 'install'". That is not a failure of the project:
+// the command that ran is older than this extension needs, and which one it was depends on where it came from.
+const TOO_OLD = /unknown (flag|command)/i;
+
+function tooOldMessage(command, source, stderr) {
+  const said = `it said: ${text(stderr).trim()}`;
+  switch (source) {
+    case 'setting':
+      return `Kanbanzai: the command from your kanbanzai.command setting (${command}) is older than this extension needs; ${said}. ` +
+        'Clear that setting to use the command bundled with the extension.';
+    case 'bundled':
+      return `Kanbanzai: the command bundled with this extension (${command}) did not understand the request; ${said}. ` +
+        'Reinstall the extension.';
+    case 'well-known':
+      return `Kanbanzai: the command in the per-user folder (${command}) is older than this extension needs; ${said}. ` +
+        'Install a newer kanbanzai, or reinstall this extension, which bundles one.';
+    default:
+      return `Kanbanzai: the kanbanzai on your PATH (${command}) is older than this extension needs; ${said}. ` +
+        'Install a newer kanbanzai, or reinstall this extension, which bundles one.';
+  }
 }
 
 // ---- running the command ----
@@ -196,10 +217,12 @@ function runFile(execFile, file, args, options) {
 // What the owner approved, applied: `<command> install`, then `<installed command> init --plan FILE`. The plan (the
 // text the dry run printed, verbatim) goes in a private folder under the temp folder, outside the project, and is
 // removed afterwards even when init fails. A failing step is reported with its own stderr and stops the sequence.
-async function applySequence({ command, installedCommand, cwd, planText: planJson, execFile, fs, tmpdir, missingText }) {
-  const failure = (step, r) => ({
+async function applySequence({ command, installedCommand, commandSource, cwd, planText: planJson, execFile, fs, tmpdir, missingText }) {
+  const failure = (step, r, which = command) => ({
     ok: false, step, code: r.code,
+    tooOld: !r.missing && TOO_OLD.test(r.stderr || ''),
     error: r.missing && missingText ? missingText : (r.stderr || r.message || `${step} failed`),
+    command: which,
   });
   const installed = await runFile(execFile, command, ['install'], { cwd });
   if (!installed.ok) return failure('install', installed);
@@ -210,7 +233,7 @@ async function applySequence({ command, installedCommand, cwd, planText: planJso
     const file = path.join(dirMade, 'plan.json');
     fs.writeFileSync(file, planJson, { mode: 0o600 });
     const applied = await runFile(execFile, installedCommand || command, ['init', '--plan', file], { cwd });
-    if (!applied.ok) return failure('init', applied);
+    if (!applied.ok) return failure('init', applied, installedCommand || command);
     return { ok: true, files: filesToCommit(applied.stdout), output: applied.stdout };
   } catch (e) {
     return { ok: false, step: 'plan file', code: null, error: `cannot prepare the plan file: ${e && e.message ? e.message : e}` };
@@ -234,7 +257,7 @@ function parseReport(output) {
 // written to the project or the machine before `ui.confirm` answers 'Apply'. Resolves { status }: 'cancelled',
 // 'failed' or 'applied'; it never rejects.
 async function guidedSetup(deps) {
-  const { root, command, installedCommand, folder, pluginSource, execFile, fs, tmpdir, ui, log, onApplied, missingText } = deps;
+  const { root, command, commandSource, installedCommand, folder, pluginSource, execFile, fs, tmpdir, ui, log, onApplied, missingText } = deps;
   const fail = (message) => {
     try { log.error(message); } catch (e) { /* the message still reaches the owner */ }
     try { ui.error(message); } catch (e) { /* nothing more to do */ }
@@ -264,6 +287,7 @@ async function guidedSetup(deps) {
         return fail(`Kanbanzai: ${result.stderr}`);
       }
     }
+    if (!result.ok && !result.missing && TOO_OLD.test(result.stderr)) return fail(tooOldMessage(command, commandSource, result.stderr));
     if (!result.ok) {
       return fail(result.missing && missingText ? missingText : `Kanbanzai: init --dry-run failed: ${result.stderr || result.message}`);
     }
@@ -274,7 +298,11 @@ async function guidedSetup(deps) {
     const answer = await ui.confirm(`Apply this Kanbanzai setup to ${root}? Nothing has been written yet.`);
     if (answer !== APPLY) return { status: 'cancelled' };
 
-    const applied = await applySequence({ command, installedCommand, cwd: root, planText: result.stdout, execFile, fs, tmpdir, missingText });
+    const applied = await applySequence({ command, installedCommand, commandSource, cwd: root, planText: result.stdout, execFile, fs, tmpdir, missingText });
+    if (!applied.ok && applied.tooOld) {
+      // `install` ran the resolved command; `init --plan` ran the installed copy, which has the same meaning when it is the same one.
+      return fail(tooOldMessage(applied.command, applied.step === 'install' ? commandSource : 'well-known', applied.error));
+    }
     if (!applied.ok) return fail(`Kanbanzai: setup stopped at ${applied.step}: ${applied.error}`);
     try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the item catches up on the next poll */ }
     const list = applied.files.length ? ` Files to commit: ${applied.files.join(', ')}.` : '';
