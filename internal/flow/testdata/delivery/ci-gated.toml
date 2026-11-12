@@ -1,9 +1,4 @@
 # A library: build, then wait for CI. Nobody approves; a recorded CI result releases the card.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["built", "todo"]
 

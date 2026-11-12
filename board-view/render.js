@@ -53,6 +53,17 @@ function markOf(key, ownerName) {
   return Object.prototype.hasOwnProperty.call(MARKS, key) ? MARKS[key] : null;
 }
 
+// A gated column's gate for one card, as `board --json` prints it. Every field is optional; a card with no usable
+// gate has none.
+function gateOf(value) {
+  const g = obj(value);
+  const str = (v) => (typeof v === 'string' ? v : '');
+  const type = str(g.type);
+  const state = str(g.state);
+  if (!type || !state) return null;
+  return { type, name: str(g.name), state, opens: str(g.opens_when), why: str(g.why) };
+}
+
 function cardHtml(card, colKey, ownerName, now) {
   const c = obj(card);
   const id = String(c.id || '');
@@ -68,6 +79,12 @@ function cardHtml(card, colKey, ownerName, now) {
   if (updated) hover.push(`Updated: ${updated}`);
   if (mark) hover.push(markInfo.text);
   if (c.held) hover.push(`Held: ${c.held}`);
+  const gate = gateOf(c.gate);
+  const gateWaits = gate !== null && gate.state !== 'open';
+  if (gate) {
+    hover.push(`Gate: ${gate.type}${gate.name ? ` (${gate.name})` : ''} ${gate.state}${gateWaits ? '' : gate.why ? ` (${gate.why})` : ''}`);
+    if (gateWaits && gate.opens) hover.push(`Opens when ${gate.opens}`);
+  }
   if (owner) hover.push(`Claimed by ${owner}`);
   // The claiming Claude Code session, when `kanbanzai board` found a live one: asking (waiting for the owner), busy or idle.
   const session = owner ? sessionOf(c.session) : null;
@@ -77,6 +94,7 @@ function cardHtml(card, colKey, ownerName, now) {
   if (session && session.state === 'waiting') classes.push('asking');
   if (mark) classes.push(`mark-${mark}`);
   if (owner) classes.push('claimed');
+  if (gateWaits) classes.push('gated');
   if (colKey === 'done') classes.push('done');
   if (c.interrupted === true) {
     hover.push(INTERRUPTED_TEXT);
@@ -91,6 +109,7 @@ function cardHtml(card, colKey, ownerName, now) {
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
   if (c.claimed_not_started === true) glyphs += `<span class="glyph glyph-unstarted" title="${esc(UNSTARTED_TEXT)}">⚑</span>`;
+  if (gateWaits) glyphs += `<span class="glyph glyph-gate" title="${esc(`Waiting at a ${gate.type} gate: ${gate.state}`)}">🔒</span>`;
   if (session) {
     const label = session.state === 'waiting' ? `❓ ${SESSION_WORD.waiting}` : `${CLAIMED_GLYPH} ${SESSION_WORD[session.state]}`;
     const kind = session.state === 'waiting' ? 'glyph-asking' : `glyph-claimed glyph-${session.state}`;
@@ -257,6 +276,7 @@ const STYLE = `
   .glyph-blocked { color: var(--vscode-errorForeground); }
   .glyph-waiting-owner, .glyph-waiting { color: var(--vscode-editorWarning-foreground); }
   .glyph-interrupted, .glyph-unstarted { color: var(--vscode-editorWarning-foreground); }
+  .glyph-gate { color: var(--vscode-descriptionForeground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
   .glyph-busy, .glyph-idle { font-size: 0.85em; color: var(--vscode-descriptionForeground); white-space: nowrap; }

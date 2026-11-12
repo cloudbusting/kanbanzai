@@ -1,9 +1,4 @@
 # A scheduled release: a card built before the date waits for it. @DATE@ is replaced by the test.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["built", "todo"]
 

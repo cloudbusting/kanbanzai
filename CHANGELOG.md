@@ -5,6 +5,20 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-13: delivery is data. A step can declare `skip_field` and `skip_values`: a card whose brief matches skips the
+  step, and a card that skips everything ahead of it closes. The shipped `deploy-qa` and `ship` steps carry the old
+  `Deploy: None` rule this way, and the Go code no longer names them. A column can declare a `gate` (`owner`, `ci`,
+  `external`, `date`, `card`, with `gate_name`, `gate_after`, `gate_until`): `kanbanzai move` refuses to take a card
+  out of a closed gate (`--force --reason` overrides), `wip --next` does not offer it, and a card waiting there is
+  marked `🔒`, never stale. `waits_for_owner = true` still works and means `gate = "owner"`; `workflow export` now
+  writes `gate = "owner"`. New `kanbanzai gate pass|fail|status` writes a `Gate:` line into the brief (the owner gate
+  needs `--note` with the owner's words); `check` validates that line and the new `Needs:` line a `card` gate reads.
+  `step --for` (text and `--json`) names the gate and the steps a card skips. Additive: `board --json` cards gain
+  `gate`, `config --json` columns and steps gain the new keys, `workflow show --json` gates gain `type`, `name`,
+  `after`, `until`. **The shipped flow now needs the owner's approval recorded (`gate pass ID --note "<their
+  words>"`) before a QA-approved card moves to Shipping**; `kanbanzai-release` does it. New `docs/delivery.md` and
+  seven delivery fixtures. No network request, no new dependency.
+
 - W-22: the installed command follows the release. The editor extension refreshes the per-user copy of the command
   from its bundled one each time it starts (`kanbanzai install --refresh`, new: replaces a copy that is already
   there and never makes one), so the Claude Code hooks, the OpenCode adapter and a terminal run the extension's

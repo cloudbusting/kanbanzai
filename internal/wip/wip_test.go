@@ -611,7 +611,7 @@ func TestACardAtAClosedGateIsNotPulledAndIsMarked(t *testing.T) {
 	}
 
 	_, report, _ := runWip(t, project, Options{})
-	if !strings.Contains(report, "W-01 ⏸") || !strings.Contains(report, "W-03 ⏸") || strings.Contains(report, "W-02 ⏸") {
+	if !strings.Contains(report, "W-01 🔒") || !strings.Contains(report, "W-03 🔒") || strings.Contains(report, "W-02 🔒") {
 		t.Fatalf("the board marks:\n%s", report)
 	}
 }

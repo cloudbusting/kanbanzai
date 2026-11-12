@@ -1,9 +1,4 @@
 # A mobile app: after it is submitted a card waits for the store's review, which only the store can give.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["in-review", "built", "todo"]
 
