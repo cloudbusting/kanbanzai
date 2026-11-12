@@ -9,6 +9,7 @@
 package number
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -190,7 +191,9 @@ func load(project *config.Project) ([]int, []map[string]any, error) {
 		return nil, nil, err
 	}
 	document := map[string]any{}
-	if err := json.Unmarshal(data, &document); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&document); err != nil {
 		return nil, nil, numberErr("%s: the ledger is not valid JSON (%v); repair or remove it", path, err)
 	}
 	issued := []int{}
@@ -337,6 +340,9 @@ func AllocateType(project *config.Project, typeKey string, peek bool, note strin
 	}
 	reserved = StillReserved(reserved, taken)
 	value := NextNumber(taken, issued, reserved)
+	if value <= 0 {
+		return "", numberErr("the number sequence is exhausted; no further card can be allocated")
+	}
 	id := project.FormatID(value)
 	if project.TypeSet != nil {
 		id = project.TypeSet.Format(item, value)
