@@ -14,7 +14,7 @@ import (
 var FieldRE = regexp.MustCompile(`^- \*\*([A-Za-z ]+):\*\*\s*(.*)$`)
 
 // Order is where a missing head field is inserted: after the nearest field before it.
-var Order = []string{"Stage", "Updated", "Done", "ADR", "Next action", "Where", "Held"}
+var Order = []string{"Stage", "Updated", "Done", "ADR", "Next action", "Where", "Held", "Gate", "Needs"}
 
 var dateRE = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 

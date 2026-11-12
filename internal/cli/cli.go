@@ -17,6 +17,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/context"
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/gatecmd"
 	initcmd "github.com/cloudbusting/kanbanzai/internal/init"
 	"github.com/cloudbusting/kanbanzai/internal/install"
 	"github.com/cloudbusting/kanbanzai/internal/move"
@@ -34,6 +35,7 @@ commands:
   wip [--next|--title ID|--audit [--card ID]|--cleanup]
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
+  gate pass|fail|status [ID...]  record a card's gate result, or say where its gate stands
   number [PREFIX] [options]      allocate the next card number
   check                          validate every brief
   step NAME | --for ID           what runs a step
@@ -220,6 +222,15 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			Progress: ptr(flags, "progress"), Done: ptr(flags, "done"), Reason: ptr(flags, "reason"),
 			ClearHeld: set["clear-held"], Force: set["force"], Out: out, Err: errOut,
 		})
+	case "gate":
+		positionals, flags, set, err := parse(args, map[string]bool{"json": true},
+			map[string]bool{"owner": true, "note": true, "reason": true})
+		if err != nil || len(positionals) == 0 {
+			return usageError(errOut, command, err)
+		}
+		return gatecmd.Run(project, gatecmd.Options{Action: positionals[0], Cards: positionals[1:],
+			Note: ptr(flags, "note"), Reason: ptr(flags, "reason"), Owner: flags["owner"], JSON: set["json"],
+			Out: out, Err: errOut})
 	case "number":
 		positionals, flags, set, err := parse(args, map[string]bool{"peek": true, "status": true},
 			map[string]bool{"release": true, "mark": true, "note": true})

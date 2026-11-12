@@ -36,6 +36,7 @@ type cardOptions struct {
 	Where      string
 	Done       string
 	Held       string
+	Extra      string
 	Folder     string
 }
 
@@ -66,6 +67,9 @@ func briefText(id, title, stage string, opts cardOptions) string {
 	lines = append(lines, "- **Next action:** "+opts.NextAction, "- **Where:** "+opts.Where)
 	if opts.Held != "" {
 		lines = append(lines, "- **Held:** "+opts.Held)
+	}
+	if opts.Extra != "" {
+		lines = append(lines, strings.TrimRight(opts.Extra, "\n"))
 	}
 	lines = append(lines, "## Goal", "", "Body.", "", "- **Stage:** design (a body line, never read)", "",
 		"## Comments", "")
@@ -186,7 +190,7 @@ func TestCardFields(t *testing.T) {
 		"id": "W-75", "title": "The briefs are the board", "stage": "built",
 		"next": "Write board.py, then the extension", "updated": "2026-11-10", "where": "worktree W-75",
 		"done": nil, "owner": "claude:42", "mark": nil, "held": nil, "interrupted": false, "session": nil,
-		"claimed_not_started": false, "path": ".kanbanzai/work/1-open/W-75-x.md",
+		"claimed_not_started": false, "path": ".kanbanzai/work/1-open/W-75-x.md", "gate": nil,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("card = %#v\nwant %#v", got, want)
@@ -563,5 +567,30 @@ func TestASessionOnAClaimedCard(t *testing.T) {
 	card.Session = &sessions.Record{State: "busy", Since: 1, Name: "p"}
 	if strings.Contains(AsText(result, "Sam"), "W-99 ● ❓") {
 		t.Fatal("a busy session was marked as waiting")
+	}
+}
+
+func TestAGatedCardCarriesItsGateStatus(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, "W-01", "waiting", "qa-approved", cardOptions{Where: "worktree W-01"})
+	putCard(t, project, "W-02", "approved", "qa-approved", cardOptions{Where: "worktree W-02",
+		Extra: "- **Gate:** passed by tester, 2026-11-12 — yes\n"})
+	putCard(t, project, "W-03", "failed", "qa-approved", cardOptions{Where: "worktree W-03",
+		Extra: "- **Gate:** failed by tester, 2026-11-12 — broken\n"})
+	putCard(t, project, "W-04", "no gate here", "built", cardOptions{Where: "worktree W-04",
+		Extra: "- **Gate:** passed by tester, 2026-11-12\n"})
+	result := Load(project, map[string]string{}, nil)
+	got := map[string]string{}
+	for _, card := range column(result, "qa-approved") {
+		if card.Gate == nil || card.Gate.Type != "owner" || card.Gate.OpensWhen == "" {
+			t.Fatalf("%s: gate = %+v", card.ID, card.Gate)
+		}
+		got[card.ID] = card.Gate.State
+	}
+	if want := map[string]string{"W-01": "closed", "W-02": "open", "W-03": "failed"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("states = %v, want %v", got, want)
+	}
+	if card := column(result, "built")[0]; card.Gate != nil {
+		t.Fatalf("a card in an ungated column has a gate: %+v", card.Gate)
 	}
 }

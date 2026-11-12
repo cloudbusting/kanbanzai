@@ -23,6 +23,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
@@ -151,6 +152,14 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 				column.Label, goal.Label, column.Label, strings.Join(labelList(project, allowed, key), ", ")))
 		}
 	}
+	if destination != key && card.Gate != nil {
+		// A closed gate holds a card back from going forward; going back or pausing is always free.
+		if kind := allowed[destination]; kind != "back" && kind != "pause" {
+			if refusal := gate.Blocks(project, card.Gate, cardID); refusal != "" {
+				problems = append(problems, refusal)
+			}
+		}
+	}
 	if destination != key && (goal.Doing != "" || word == "finish") && !mine {
 		problems = append(problems, fmt.Sprintf("%s is not claimed by you: claim it first (kanbanzai claim claim %s)",
 			cardID, cardID))
@@ -204,6 +213,9 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		}
 	} else if column.Kind == "done" {
 		fields["Done"] = nil
+	}
+	if destination != key {
+		fields["Gate"] = nil // a gate's record belongs to the visit to its column
 	}
 	if goal.Kind != "open" {
 		fields["Held"] = nil
