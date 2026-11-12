@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
+  columns and branch. `step --for <ID> --json` adds a `route` object for the immediate action, blockers, workspace and
+  close requirements; its text output also reports the route. Unsupported routes stop rather than forcing a move.
+
 - W-12: isolation is a setting. `[flow] isolation` is `worktree` (the default, exactly as before), `branch` (a branch
   per card in the one checkout), `shared` (the one checkout, no workspace record) or `external` (a workspace the host
   owns, recorded as `Where: external <ref>`). `wip --audit`, `move`, `claim`, `check` and `context` follow the mode:
