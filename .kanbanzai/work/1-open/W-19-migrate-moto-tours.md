@@ -6,6 +6,7 @@
 - **ADR:** none
 - **Next action:** design after the type, schema, workflow and isolation cards: plan the host migration
 - **Where:** —
+- **Needs:** W-06, W-09, W-11, W-12
 
 ## Goal
 

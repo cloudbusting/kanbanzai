@@ -6,6 +6,7 @@
 - **ADR:** none
 - **Next action:** design after isolation, gates, the workflow command and the type-aware brief schema: choose the first delivery presets and their fixture projects
 - **Where:** —
+- **Needs:** W-06, W-11, W-12, W-13
 
 ## Goal
 
