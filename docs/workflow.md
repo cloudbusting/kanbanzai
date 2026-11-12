@@ -81,6 +81,17 @@ A flow file carries the delivery rules too: `gate`, `gate_name`, `gate_after` an
 reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`.
 [docs/delivery.md](delivery.md) says what each does.
 
+## How the skills follow your flow
+
+The shipped skills carry no column names of their own. They read the project through the core: `kanbanzai context` for
+standing context, `workflow show` for columns, steps, gates and pull order, `step --for <ID>` for a card's next action,
+`workspace <ID>` for the isolation mode, and `move` for every transition. `step --for <ID> --json` has a `route` object
+(`action`, `step`, `target`, `blocked`, `reason`, the workspace facts and whether closing needs `--done`) so a skill
+never rebuilds the rule from the transition table. A route is not permission: a skipped, held, gated or parked card is
+not run, and a route marked `stop` (for example a step with no Doing column, which `move` cannot start) is reported
+rather than forced. The shipped columns appear in skill text only inside marked example blocks, and a test
+(`skills_wording_test.go`) rejects fixed stage words and routes outside them.
+
 ## What it does not do
 
 It does not decide what your workflow should be, move worktrees or branches, rewrite links in briefs (a link that would
