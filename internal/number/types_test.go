@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -199,5 +200,21 @@ func TestUnknownTypeAndTheCommandGuards(t *testing.T) {
 	if code := Run(legacy, Options{Type: "bug", Out: &out, Err: &errOut}); code != 2 ||
 		!strings.Contains(errOut.String(), "no issue types") {
 		t.Fatalf("legacy --type = %d, %q", code, errOut.String())
+	}
+}
+
+func TestTypedModeFailsClosedOnAnExhaustedSequence(t *testing.T) {
+	if strconv.IntSize < 64 {
+		t.Skip("the fixture uses a 64-bit number")
+	}
+	project := testProject(t, typedConfig)
+	if err := os.MkdirAll(project.Numbers, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, filepath.Join(project.Numbers, "_ledger.json"),
+		`{"issued":[9223372036854775807],"reserved":[]}`)
+	if _, err := AllocateType(project, "task", false, ""); err == nil ||
+		!strings.Contains(err.Error(), "exhausted") {
+		t.Fatalf("allocate error = %v, want an exhausted-sequence refusal", err)
 	}
 }
