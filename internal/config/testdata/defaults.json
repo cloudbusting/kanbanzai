@@ -155,7 +155,7 @@
     "state": ".kanbanzai/state",
     "template": "",
     "work": ".kanbanzai/work",
-    "worktree": "../{repo}-{id}"
+    "worktree": "../worktrees/{repo}/{id}"
   },
   "steps": {
     "build": {

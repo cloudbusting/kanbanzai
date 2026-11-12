@@ -340,7 +340,7 @@ func (p *Project) build() error {
 	}
 	p.Owner = asString(project["owner"], "the user")
 	p.MainBranch = asString(project["main_branch"], "main")
-	p.WorktreePattern = asString(project["worktree"], "../{repo}-{id}")
+	p.WorktreePattern = asString(project["worktree"], "../worktrees/{repo}/{id}")
 	p.BranchPattern = asString(project["branch"], "{id}")
 	p.BatchBranchPattern = asString(project["batch_branch"], "batch/{id}")
 
