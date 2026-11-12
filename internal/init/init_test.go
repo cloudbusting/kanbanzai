@@ -23,6 +23,11 @@ func isolate(t *testing.T) {
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("KANBANZAI_PROJECT", "")
+	// doctor only checks that KANBANZAI_BIN or PATH names an executable file (it never runs it); CI has no kanbanzai
+	// on PATH, so the tests name one.
+	if self, err := os.Executable(); err == nil {
+		t.Setenv("KANBANZAI_BIN", self)
+	}
 }
 
 // repo is a git checkout on branch with one commit.
@@ -872,5 +877,24 @@ func TestPrefixAndContextNeedForceOnAnExistingConfig(t *testing.T) {
 	}
 	if p, _ := config.Find(root); p == nil || p.Prefix != "ACME" {
 		t.Fatalf("--force --prefix did not apply: %+v", p)
+	}
+}
+
+// A project reached through a symlink (macOS temp folders live under /var -> /private/var, Windows may give a short
+// 8.3 name) is the same checkout: init must not call its own folders "outside the main checkout".
+func TestAProjectGivenThroughASymlinkIsStillInsideItsCheckout(t *testing.T) {
+	root := repo(t, "main")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(root, link); err != nil {
+		t.Skip("no symlinks here")
+	}
+	t.Setenv("KANBANZAI_PROJECT", link)
+	testutil.Write(t, filepath.Join(root, ".kanbanzai", "config.toml"), "config_version = 1\n[project]\nhome='local-data'\nstate='local-data/state'\n")
+	var out, errOut bytes.Buffer
+	if code := Run("", Options{DryRun: true, Out: &out, Err: &errOut}); code != 0 {
+		t.Fatalf("dry run through a symlink = %d\n%s%s", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(out.String(), "would make") {
+		t.Errorf("the plan is empty:\n%s", out.String())
 	}
 }
