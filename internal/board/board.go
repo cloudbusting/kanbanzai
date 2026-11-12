@@ -189,7 +189,10 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			continue
 		}
 		for _, card := range byColumn[column.Key] {
-			card.Gate = gate.Eval(project, column, card.gateLine, card.needs, where, now)
+			card.Gate = gate.Eval(project, column, card.ID, card.gateLine, card.needs, where, now)
+			if card.WaitsAtGate() {
+				card.ClaimedNotStarted = false // waiting at a gate is a reason to sit, like a Held line
+			}
 		}
 	}
 	for _, column := range project.Columns {

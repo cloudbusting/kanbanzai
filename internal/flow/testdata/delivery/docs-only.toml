@@ -1,0 +1,63 @@
+# A docs site: write it, check it, publish by merging. No branch per card, no CI, no deploy, no QA column: the
+# check step closes the card.
+config_version = 1
+
+[project]
+owner = "Sam"
+
+[flow]
+pull_order = ["written", "todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "write"
+
+[[columns]]
+key = "writing"
+label = "Writing"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "write"
+
+[[columns]]
+key = "written"
+label = "Written"
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+
+[[columns]]
+key = "checking"
+label = "Checking"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.write]
+into = "written"
+during = "writing"
+skill = "kanbanzai:build"
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"

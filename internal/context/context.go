@@ -167,7 +167,7 @@ func gateNote(project *config.Project, column config.Column) string {
 		name += ": " + column.Gate.Name
 	}
 	return fmt.Sprintf("; gate (%s): a card leaves only when %s", name,
-		strings.ReplaceAll(gate.OpensWhen(project, column), "<ID>", "ID"))
+		strings.ReplaceAll(gate.OpensWhen(project, column, ""), "<ID>", "ID"))
 }
 
 // gateLine is the standing rule for gates, or "" (dropped) when no column has one.

@@ -1,0 +1,12 @@
+# Kanbanzai's own shipped flow, with a deploy skill for QA and for shipping: the owner approves a QA-approved card
+# before it ships. Nothing but the two skills differs from the defaults.
+config_version = 1
+
+[project]
+owner = "Sam"
+
+[steps.deploy-qa]
+skill = "package-it"
+
+[steps.ship]
+skill = "release-it"

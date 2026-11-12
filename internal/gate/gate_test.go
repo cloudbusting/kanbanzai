@@ -98,7 +98,7 @@ func nowAt(day string) time.Time {
 
 func TestAColumnWithNoGateHasNoStatus(t *testing.T) {
 	project := load(t)
-	if got := Eval(project, project.ByKey["todo"], "passed by x, 2026-01-01", nil, nil, nowAt("2026-01-01")); got != nil {
+	if got := Eval(project, project.ByKey["todo"], "W-01", "passed by x, 2026-01-01", nil, nil, nowAt("2026-01-01")); got != nil {
 		t.Fatalf("status = %+v", got)
 	}
 }
@@ -111,7 +111,7 @@ func TestRecordedGatesOpenOnAPassedLineAndFailOnAFailedOne(t *testing.T) {
 		cases := map[string]string{"": Closed, "waiting on someone": Closed, "passed by sam, 2026-11-12": Open,
 			"Passed by sam, 2026-11-12 — yes": Open, "failed by sam, 2026-11-12 — red": Failed}
 		for record, want := range cases {
-			got := Eval(project, column, record, nil, nil, now)
+			got := Eval(project, column, "W-01", record, nil, nil, now)
 			if got == nil || got.State != want || got.Type != column.Gate.Type || got.OpensWhen == "" {
 				t.Errorf("%s %q: %+v, want %s", key, record, got, want)
 			}
@@ -123,11 +123,11 @@ func TestADateGateOpensOnItsDateInUTC(t *testing.T) {
 	project := load(t)
 	column := project.ByKey["later"]
 	for day, want := range map[string]string{"2030-05-31": Closed, "2030-06-01": Open, "2031-01-01": Open} {
-		if got := Eval(project, column, "", nil, nil, nowAt(day)); got.State != want {
+		if got := Eval(project, column, "W-01", "", nil, nil, nowAt(day)); got.State != want {
 			t.Errorf("%s: %s, want %s (%s)", day, got.State, want, got.Why)
 		}
 	}
-	if got := Eval(project, column, "passed by x, 2026-01-01", nil, nil, nowAt("2030-05-31")); got.State != Closed {
+	if got := Eval(project, column, "W-01", "passed by x, 2026-01-01", nil, nil, nowAt("2030-05-31")); got.State != Closed {
 		t.Errorf("a recorded pass opened a computed date gate: %+v", got)
 	}
 }
@@ -156,12 +156,12 @@ func TestACardGateWaitsForEveryNeededCard(t *testing.T) {
 		{"earlier than ready is not", toReady, []string{"W-01"}, map[string]string{"W-01": "working"}, Closed},
 	}
 	for _, c := range cases {
-		got := Eval(project, c.column, "", c.needs, where(c.sits), now)
+		got := Eval(project, c.column, "W-09", "", c.needs, where(c.sits), now)
 		if got.State != c.want {
 			t.Errorf("%s: %s (%s), want %s", c.name, got.State, got.Why, c.want)
 		}
 	}
-	got := Eval(project, toDone, "", []string{"W-02"}, where(map[string]string{"W-02": "ready"}), now)
+	got := Eval(project, toDone, "W-09", "", []string{"W-02"}, where(map[string]string{"W-02": "ready"}), now)
 	if !strings.Contains(got.Why, "W-02 (in ready)") || !strings.Contains(got.Why, "done") {
 		t.Errorf("why = %q", got.Why)
 	}
@@ -198,7 +198,7 @@ func TestTheRecordLinesNameWhoWhenAndWhy(t *testing.T) {
 func TestBlocksNamesTheGateAndWhatOpensIt(t *testing.T) {
 	project := load(t)
 	now := nowAt("2026-11-12")
-	closed := Eval(project, project.ByKey["approved"], "", nil, nil, now)
+	closed := Eval(project, project.ByKey["approved"], "W-22", "", nil, nil, now)
 	text := Blocks(project, closed, "W-22")
 	for _, want := range []string{"W-22 is held by the approved gate (owner)", "Sam's approval is recorded",
 		"kanbanzai gate pass W-22 --note"} {
@@ -206,11 +206,11 @@ func TestBlocksNamesTheGateAndWhatOpensIt(t *testing.T) {
 			t.Errorf("blocks = %q, missing %q", text, want)
 		}
 	}
-	failed := Eval(project, project.ByKey["ready"], "failed by x, 2026-11-12 — red", nil, nil, now)
+	failed := Eval(project, project.ByKey["ready"], "W-22", "failed by x, 2026-11-12 — red", nil, nil, now)
 	if text := Blocks(project, failed, "W-22"); !strings.Contains(text, "failed by x") || !strings.Contains(text, "gate pass W-22") {
 		t.Errorf("failed blocks = %q", text)
 	}
-	open := Eval(project, project.ByKey["ready"], "passed by x, 2026-11-12", nil, nil, now)
+	open := Eval(project, project.ByKey["ready"], "W-22", "passed by x, 2026-11-12", nil, nil, now)
 	if Blocks(project, open, "W-22") != "" || Blocks(project, nil, "W-22") != "" {
 		t.Error("an open or missing gate blocks")
 	}

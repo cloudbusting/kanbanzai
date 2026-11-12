@@ -1,0 +1,43 @@
+# Work that cannot start until another card is done: the first column holds a card behind a card gate, which
+# reads the card's `Needs:` line.
+config_version = 1
+
+[project]
+owner = "Sam"
+
+[flow]
+pull_order = ["todo"]
+
+[[columns]]
+key = "todo"
+label = "Todo"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+gate = "card"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+folder = "1-open"
+kind = "open"
+started = true
+doing = "build"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+folder = "x-paused"
+kind = "parked"
+
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+
+[steps.build]
+into = "done"
+during = "building"
+skill = "kanbanzai:build"
