@@ -87,9 +87,9 @@ kanbanzai init             # .kanbanzai/: config.toml, work/ (cards, batches), s
 ```
 
 Or let the agent do it: with the plugin enabled, `/kanbanzai:setup` (`/setup` where the harness allows) inspects the
-repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, card id
-prefix, context files), shows the plan and waits for approval, applies exactly that plan with `init --plan`, and
-proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
+repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, whether to
+keep the typed starter or use a single prefix, context files), shows the plan and waits for approval, applies
+exactly that plan with `init --plan`, and proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
 clone to board.
 
 `init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
