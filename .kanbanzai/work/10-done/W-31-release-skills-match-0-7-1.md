@@ -1,11 +1,11 @@
 # W-31: Release and package skills describe the release as it was really done in 0.7.1
 
-- **Stage:** todo
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — merged as aecf705, no deploy (project skill text)
 - **ADR:** none
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -35,6 +35,7 @@ Changing the release workflow itself (making it compute `SHA256SUMS` over every 
 ## Progress
 
 - 2026-11-12: captured from the v0.7.1 release, triaged on the owner's request.
+- 2026-11-12: kanbanzai-qa: go test 233 node pass, go vet, node board-view 233/opencode 8, hooks, claude validate, config/steps, card audit, kanbanzai check all green; review of the whole diff done, none outstanding
 
 ## Comments
 
