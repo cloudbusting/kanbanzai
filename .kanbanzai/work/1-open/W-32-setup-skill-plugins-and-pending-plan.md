@@ -5,7 +5,7 @@
 - **Done:** —
 - **ADR:** none
 - **Next action:** design it: settle the questions below with the owner, then write the tasks
-- **Where:** worktree W-32
+- **Where:** —
 
 ## Goal
 
