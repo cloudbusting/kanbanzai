@@ -1,10 +1,10 @@
 # W-38: Refuse starting a step the card skips
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Package and install-test the checked artifacts
+- **Next action:** Release after owner approves version, licence, publisher and public release; manually check the editor Board tab
 - **Where:** worktree W-38
 
 ## Goal
@@ -21,11 +21,11 @@ Use the existing core skip rule and skip path as the source of truth. A skipped 
 
 ## Acceptance checks
 
-- [ ] Custom flow regression: when the next step's configured field matches, `move ID start` and a direct move to its Doing column refuse with exit 2, leave the brief unchanged, and identify the skip/valid route; the same step starts normally for a nonmatching card.
-- [ ] Claim auto-start retains the claim and leaves the card in place for skipped steps, explains the skip rather than suggesting a workspace start, including when the Doing column requires a workspace; `--no-move` is unchanged.
-- [ ] Skip chains to a later step and to Done retain their existing explicit routes and Done requirement; closed gates cannot be bypassed by a claim or skip move, and `--force --reason` still logs overrides.
-- [ ] Existing Doing-step resume/finish, Held and worktree behavior remain intact; tests cover both direct and symbolic start, a closed gate, a skip chain, and non-skipped control.
-- [ ] `go test ./...`, `go vet ./...`, and configured checks pass; the W-08 skipped-review regression scenario is independently reproduced against this branch. Both harnesses consume the same core command; no adapter policy, network or dependency is added.
+- [x] Custom flow regression: when the next step's configured field matches, `move ID start` and a direct move to its Doing column refuse with exit 2, leave the brief unchanged, and identify the skip/valid route; the same step starts normally for a nonmatching card.
+- [x] Claim auto-start retains the claim and leaves the card in place for skipped steps, explains the skip rather than suggesting a workspace start, including when the Doing column requires a workspace; `--no-move` is unchanged.
+- [x] Skip chains to a later step and to Done retain their existing explicit routes and Done requirement; closed gates cannot be bypassed by a claim or skip move, and `--force --reason` still logs overrides.
+- [x] Existing Doing-step resume/finish, Held and worktree behavior remain intact; tests cover both direct and symbolic start, a closed gate, a skip chain, and non-skipped control.
+- [x] `go test ./...`, `go vet ./...`, and configured checks pass; the W-08 skipped-review regression scenario is independently reproduced against this branch. Both harnesses consume the same core command; no adapter policy, network or dependency is added.
 
 ## Tasks
 
@@ -52,8 +52,10 @@ Does not rewrite shared skills or address unrelated single-column workflow behav
 ## Progress
 
 - 2026-11-12: triage — W-08's custom-flow regression exposed the incorrect start of a skipped review step; design claim, skip and gate compatibility before implementation.
+- 2026-11-12: Package rehearsal 0.9.0 from main 1f1ae5a; source bundle, five binary archives, VSIX and verified SHA256SUMS in /tmp/kanbanzai-package-W-38-0.9.0. Extracted command init/check/JSON, isolated Claude plugin install/validate, OpenCode entry and VSIX listing passed. Editor install and Board tab remain a manual owner check; no push or release.
 - 2026-11-12: Designed skip-safe starts, claim hints, gate preservation and regression checks
 - 2026-11-12: Implemented skip-safe starts and claim hints with regression tests; documented delivery behavior
 - 2026-11-12: QA and main-session diff review passed; go test rerun passed after transient text-file-busy failure, vet, Node, hooks, plugin validation and board checks passed
+- 2026-11-12: Packaged 0.9.0 from 1f1ae5a and passed artifact, checksum and isolated install proofs; editor check remains manual
 
 ## Comments
