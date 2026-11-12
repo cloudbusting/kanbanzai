@@ -1,10 +1,10 @@
 # W-13: Configurable delivery and gates: deploy-less close, approvals and release trains
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 1: model skip rules and gates in internal/config and internal/flow/validate.go (fixtures for every validation message and the waits_for_owner alias)
+- **Next action:** Check: run the project's tests and review the whole diff of branch W-13 against the brief's acceptance checks
 - **Where:** worktree W-13
 
 ## Goal
@@ -55,7 +55,7 @@ gate  = "owner"            # owner | ci | external | date | card
   - Leaving the gated column clears the Gate line in the same atomic write as the move. `Gate` is one new optional brief head field, added after `Held` in `brief` order; `kanbanzai check` accepts it, rejects a Gate line on a card whose column has no gate, and rejects `passed` without a name and date.
 - **Enforced:** `move` refuses to take a card out of a gated column while its gate is closed or failed, with the message `W-22 is held by the QA-approved gate (owner): record the owner's approval with: kanbanzai gate pass W-22 --note "<their words>"`; `--force --reason` overrides and is logged like any forced move. `start` on a closed gate says the same.
 - **Pull rule:** a card in a gated column is never offered by `wip --next` while its gate is closed; once open and unclaimed it is offered like any other column in `pull_order`. An owner-gated column keeps its place outside the shipped `pull_order`, so the shipped pull is unchanged.
-- **Explaining:** `step --for <ID>` (text and `--json`) gains the gate (type, state, what opens it) and, for a card with skipped steps, `skips` and the next legal move; `wip` marks a gated card `⏸ gate: <type> closed`; `kanbanzai context` lists each gate under its column instead of "waits for the owner". The skills quote these answers.
+- **Explaining:** `step --for <ID>` (text and `--json`) gains the gate (type, state, what opens it) and, for a card with skipped steps, `skips` and the next legal move; `wip` and `board` mark a card waiting at a gate `🔒` (⏸ is the extension's paused mark), and the extension's hover says `Gate: <type> closed`; `kanbanzai context` lists each gate under its column instead of "waits for the owner". The skills quote these answers.
 - **Release train** is an `external` gate with `gate_name = "train"`; the train opening is `gate pass <ID>…` on each waiting card (several ids per call). Recurring schedules are not modelled: a calendar is not a gate type.
 
 ### Rules check
@@ -78,7 +78,7 @@ The shipped skills are not made flow-agnostic here (W-08 owns that); only the de
 - [ ] A flow with a gate on a card that cannot reach Done, or a gate cycle through `card` dependencies the board can detect (`Needs:` naming itself or a card that needs it), fails `workflow validate`/`kanbanzai check` with one message.
 - [ ] The extension shows a card's gate state beside its Held line and treats a missing `gate` as none; the board view tests pass with and without it (owner's manual check below).
 
-Manual check for the owner (the build cannot open the editor): with a fixture board that has a card in a column gated `ci`, open the board view, hover that card, and read `Gate: ci closed`; run `kanbanzai gate pass <ID>`, refresh, and read `Gate: ci passed`.
+Manual check for the owner (the build cannot open the editor): with a fixture board that has a card in a column gated `ci`, open the board view, hover that card, and read `Gate: ci closed` and a 🔒 on the card; run `kanbanzai gate pass <ID>`, refresh, and read `Gate: ci open (passed by …)` with no lock.
 
 ## Deploy
 
@@ -88,13 +88,13 @@ None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no p
 
 Order: 1, then 2 and 3 in parallel (disjoint files), then 4, then 5 and 6 in parallel, then 7.
 
-- [ ] 1. Model skip rules and gates — `internal/config` (Column.Gate*, Step.Skip*, schema keys, the `waits_for_owner` alias, defaults), `internal/flow/validate.go` (the one-message validations, gate cycles via `Needs:`) — fixtures for every validation message and for the alias; the old config loads.
-- [ ] 2. Replace the hardcoded close — `internal/move/move.go` (`LegalTargets` and `ShipsNothing` replaced), `internal/step/step.go` (`SkippedFor`, `InsteadOf`), `internal/brief` (`FieldValue` for head line or section), `internal/flow/model.go` (`Transitions` over the skip states) — the default config's move/step/flow tests pass unchanged; the grep check passes; a fixture skips by a named field.
-- [ ] 3. Add the gate record — new `internal/gate` package and `kanbanzai gate` in `internal/cli/cli.go`, `brief` (the `Gate` and `Needs` head fields in order), `internal/check` (accept and validate them) — fixtures cover pass, fail, status, the refusals and the atomic clear.
-- [ ] 4. Enforce and explain — `internal/move` (refuse on a closed gate, clear the Gate line on leaving), `internal/wip` (`PullCandidates`, the `⏸` mark, `--next`), `internal/step` (`Run`, `--json`), `internal/context`, `internal/flow/model.go` and `internal/cli/workflow.go` (`Gate` fields) — tests for the refusal message, the override, the pull rule and every printed answer.
-- [ ] 5. Add the delivery fixtures — `internal/flow/testdata/` (or `internal/gate/testdata/`): docs-only, CI-gated, release-train, store-review, owner-approval, date, sibling-card — each drives the core operations to Done and passes `check` and `wip --audit`.
-- [ ] 6. Show it in the extension and both adapters — `board-view/render.js` and its fixtures and tests, `board --json` card `gate` (`internal/board`), the OpenCode fake harness and hook context text — gate present and absent both render; no adapter holds a gate rule.
-- [ ] 7. Quote the answer in skills and docs — `skills/do`, `skills/check`, `.claude/skills/kanbanzai-release`, `skills_wording_test.go`, `README.md`, `docs/workflow.md`, new `docs/delivery.md` (the cookbook: library, mobile app, data pipeline, docs site, release train; and what the flow cannot express: no branching, no parallel steps, no recurring schedule, no per-type flows), `defaults/config.toml` comments, `CHANGELOG.md` — wording tests assert the skills quote `kanbanzai step --for`/`gate status` and do not name `deploy-qa`/`ship` as instructions in the delivery passages.
+- [x] 1. Model skip rules and gates — `internal/config` (Column.Gate*, Step.Skip*, schema keys, the `waits_for_owner` alias, defaults), `internal/flow/validate.go` (the one-message validations, gate cycles via `Needs:`) — fixtures for every validation message and for the alias; the old config loads.
+- [x] 2. Replace the hardcoded close — `internal/move/move.go` (`LegalTargets` and `ShipsNothing` replaced), `internal/step/step.go` (`SkippedFor`, `InsteadOf`), `internal/brief` (`FieldValue` for head line or section), `internal/flow/model.go` (`Transitions` over the skip states) — the default config's move/step/flow tests pass unchanged; the grep check passes; a fixture skips by a named field.
+- [x] 3. Add the gate record — new `internal/gate` package and `kanbanzai gate` in `internal/cli/cli.go`, `brief` (the `Gate` and `Needs` head fields in order), `internal/check` (accept and validate them) — fixtures cover pass, fail, status, the refusals and the atomic clear.
+- [x] 4. Enforce and explain — `internal/move` (refuse on a closed gate, clear the Gate line on leaving), `internal/wip` (`PullCandidates`, the `⏸` mark, `--next`), `internal/step` (`Run`, `--json`), `internal/context`, `internal/flow/model.go` and `internal/cli/workflow.go` (`Gate` fields) — tests for the refusal message, the override, the pull rule and every printed answer.
+- [x] 5. Add the delivery fixtures — `internal/flow/testdata/` (or `internal/gate/testdata/`): docs-only, CI-gated, release-train, store-review, owner-approval, date, sibling-card — each drives the core operations to Done and passes `check` and `wip --audit`.
+- [x] 6. Show it in the extension and both adapters — `board-view/render.js` and its fixtures and tests, `board --json` card `gate` (`internal/board`), the OpenCode fake harness and hook context text — gate present and absent both render; no adapter holds a gate rule.
+- [x] 7. Quote the answer in skills and docs — `skills/do`, `skills/check`, `.claude/skills/kanbanzai-release`, `skills_wording_test.go`, `README.md`, `docs/workflow.md`, new `docs/delivery.md` (the cookbook: library, mobile app, data pipeline, docs site, release train; and what the flow cannot express: no branching, no parallel steps, no recurring schedule, no per-type flows), `defaults/config.toml` comments, `CHANGELOG.md` — wording tests assert the skills quote `kanbanzai step --for`/`gate status` and do not name `deploy-qa`/`ship` as instructions in the delivery passages.
 
 ## Decisions
 
@@ -127,6 +127,8 @@ A recorded approval is trust, not proof: any session can run `gate pass`. The `-
 - 2026-11-11: direction settled with the owner: the flow's transitions, gates and close conditions become data inside the current linear pipeline; an arbitrary state graph, parallel steps and per-type flows are out of scope, and W-14's presets configure this bounded model.
 - 2026-11-12: design drafted; the owner decided the gate record (a Gate line in the brief) and enforcement (every gate, owner included).
 - 2026-11-12: design done: skip_field/skip_values on steps, five gate types on columns, a Gate line in the brief written by kanbanzai gate, every gate enforced by move; 7 tasks
+- 2026-11-12: build done: skip rules, gates, kanbanzai gate, move enforcement, pull rule, step/context explanations, the Gates check, seven delivery fixtures with scenario tests, the extension mark, skills and docs/delivery.md; six wip commits on W-13
 
 ## Comments
 
+- 2026-11-12 claude:65859f68: `go test ./...` in parallel can fail in cmd/kanbanzai and internal/doctor with "text file busy" (both rebuild bin/kanbanzai-go); it is not from this card. Run `go test -p 1 ./...`. Build commits are on branch W-13 in the worktree (six `W-13 wip:` commits).
