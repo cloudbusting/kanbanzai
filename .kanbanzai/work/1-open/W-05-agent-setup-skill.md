@@ -1,10 +1,10 @@
 # W-05: Agent-driven setup skill: /kanbanzai:setup
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run the project's checks, then review the diff of branch W-05 (fixtures T3 pass without new code except prefix/context)
+- **Next action:** deploy-qa: package the plugin bundle and binary, install-test them (kanbanzai-package); then QA-approved waits for the owner. Must release with or after W-04.
 - **Where:** worktree W-05
 
 ## Goal
@@ -80,6 +80,7 @@ An agent that guesses the main branch or owner creates a board that looks right 
 - 2026-11-12: design: the owner chose to ask only what init can apply; tasks T1-T5 written; Deploy corrected to package and release.
 - 2026-11-12: design done; brief has tasks T1-T5 and acceptance checks
 - 2026-11-12: build done: init --prefix/--context, skills/setup, flow fixtures, wording and OpenCode registration tests, README/docs/setup.md/CHANGELOG; go test, vet, node tests, cross-builds, plugin validate green
+- 2026-11-12: checked: kanbanzai-qa checks all green; diff reviewed, 3 small review fixes; committed 569501f on W-05
 
 ## Comments
 
