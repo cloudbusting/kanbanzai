@@ -1,6 +1,6 @@
 # W-05: Agent-driven setup skill: /kanbanzai:setup
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
