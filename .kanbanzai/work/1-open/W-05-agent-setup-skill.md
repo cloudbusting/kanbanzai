@@ -1,10 +1,10 @@
 # W-05: Agent-driven setup skill: /kanbanzai:setup
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: package the plugin bundle and binary, install-test them (kanbanzai-package); then QA-approved waits for the owner. Must release with or after W-04.
+- **Next action:** release: owner approves; ship with or after W-04 (the skill needs its init --dry-run/--plan); version is the owner's
 - **Where:** worktree W-05
 
 ## Goal
@@ -81,6 +81,8 @@ An agent that guesses the main branch or owner creates a board that looks right 
 - 2026-11-12: design done; brief has tasks T1-T5 and acceptance checks
 - 2026-11-12: build done: init --prefix/--context, skills/setup, flow fixtures, wording and OpenCode registration tests, README/docs/setup.md/CHANGELOG; go test, vet, node tests, cross-builds, plugin validate green
 - 2026-11-12: checked: kanbanzai-qa checks all green; diff reviewed, 3 small review fixes; committed 569501f on W-05
+- 2026-11-12: packaged from df2b792: source bundle 0.6.4 (includes skills/setup, docs/setup.md), five binary archives, .vsix; sha256 verified; built-from-bundle binary ran the setup flow (dry-run to plan file, init --plan, check, doctor); claude validate and throwaway install pass (10 skills); QA-approved, waits for the owner
 
 ## Comments
 
+- 2026-11-12 claude:d01da6dc: the package/release skills' `git archive` path lists omit `docs`, so README's link to docs/setup.md would dangle in the source tarball (the plugin install is unaffected, it takes the whole tree). Add `docs` to both lists at release. The package was rehearsed with `docs` added; artifacts in /tmp/kanbanzai-package-W-05-0.6.4. Manual check still open: run /kanbanzai:setup in a throwaway repo with the plugin enabled (see Risk).
