@@ -1,10 +1,10 @@
 # W-28: Default worktree path `../worktrees/<project-dir-name>/{id}`
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** task 1: change the default worktree pattern (tests first) in config, defaults.json and their tests
+- **Next action:** check: run /check on the W-28 worktree (commit 6ea2987), then review the whole diff
 - **Where:** worktree W-28
 
 ## Goal
@@ -20,20 +20,20 @@ Kanbanzai's own `.kanbanzai/config.toml` already sets `../worktrees/kanbanzai/{i
 
 ## Acceptance checks
 
-- [ ] `defaults/config.toml` and `internal/config/config.go` both say `worktree = "../worktrees/{repo}/{id}"`;
+- [x] `defaults/config.toml` and `internal/config/config.go` both say `worktree = "../worktrees/{repo}/{id}"`;
       `internal/config/testdata/defaults.json` agrees, and the test that compares the embedded defaults file with the Go
       fallback (`internal/config/schema_test.go`) passes.
-- [ ] `go test ./internal/config` fails without the change: `WorktreeHint("W-01")` for a project with no `worktree` setting
+- [x] `go test ./internal/config` fails without the change: `WorktreeHint("W-01")` for a project with no `worktree` setting
       is `../worktrees/<project folder>/W-01`, and `WorktreePath("W-01")` is that path made absolute.
-- [ ] `kanbanzai config` on a config with no `worktree` key prints `worktree:      ../worktrees/{repo}/{id}`; one that sets
+- [x] `kanbanzai config` on a config with no `worktree` key prints `worktree:      ../worktrees/{repo}/{id}`; one that sets
       `worktree` explicitly (this repository's own) prints its own value unchanged.
-- [ ] `kanbanzai claim claim` on a Building-bound card prints a `git worktree add ../worktrees/<project>/<ID>` hint, and
+- [x] `kanbanzai claim claim` on a Building-bound card prints a `git worktree add ../worktrees/<project>/<ID>` hint, and
       `git worktree add` of that path (parent folder not yet present) succeeds in a throwaway repo.
-- [ ] `kanbanzai wip --audit` in a throwaway repo with a card whose worktree is at `../worktrees/<project>/<ID>`
+- [x] `kanbanzai wip --audit` in a throwaway repo with a card whose worktree is at `../worktrees/<project>/<ID>`
       reports it as that card's worktree (no orphan, no "Where disagrees"); the same with a branch-only match still works.
-- [ ] The batch-map reader (`wip.Batches`, `CardOf`) still finds a worktree path written in a batch file under the new
+- [x] The batch-map reader (`wip.Batches`, `CardOf`) still finds a worktree path written in a batch file under the new
       default, and a worktree no card names is still flagged as an orphan.
-- [ ] `go vet ./... && go test ./...` pass; `kanbanzai check` exits 0.
+- [x] `go vet ./... && go test ./...` pass; `kanbanzai check` exits 0.
 
 ## Deploy
 
@@ -44,25 +44,26 @@ owner's call at the release step.)
 
 All tasks share the config files and the wip tests, so they run in one worktree, in this order.
 
-- [ ] **1. Change the default (test first).** Update the tests that assert the old value, watch them fail, then change it:
+- [x] **1. Change the default (test first).** Update the tests that assert the old value, watch them fail, then change it:
       `internal/config/config_test.go` (the `WorktreePattern` assertion near line 396 and the `WorktreeHint` one near
       line 496), `internal/context/context_test.go` (near line 60), `internal/config/testdata/defaults.json`. Then
       `defaults/config.toml` (value and the comment: still `{repo}` = the main checkout's folder name, now also the project
       sub-folder) and `internal/config/config.go` line 343. Check: the acceptance checks 1 to 3.
-- [ ] **2. Make wip find a worktree under the new default.** `internal/wip/wip.go` `Batches` builds the batch-map path
+- [x] **2. Make wip find a worktree under the new default.** `internal/wip/wip.go` `Batches` builds the batch-map path
       matcher from the part of the pattern before `{id}` in its last path segment; with the new pattern that segment is
       just `{id}`, so the stem is empty and no matcher is built. Read `CardOf`, `Batches` and `Reconcile`, decide whether
       the card-from-path and batch-map reading still work (this repository already runs with a `{id}` leaf, so they
       should), and fix `internal/wip/wip_test.go` fixtures that assume `proj-W-07` style paths so the tests exercise the
       default pattern as well as an explicit `../{repo}-{id}` one. Files: `internal/wip/wip.go`, `internal/wip/wip_test.go`.
       Check: acceptance checks 5 and 6.
-- [ ] **3. Worktree creation proof.** A test (or a documented throwaway-repo run in Progress) that `git worktree add
+- [x] **3. Worktree creation proof.** A test (or a documented throwaway-repo run in Progress) that `git worktree add
       ../worktrees/<project>/<ID> -b <ID> main` works with the parent folder absent, and that `move start --where` accepts
       it (`internal/move`). Files: `internal/move/*_test.go` only if a gap shows. Check: acceptance check 4.
-- [ ] **4. Docs.** README and the skills do not state the default path (confirmed by search), so: add one line to the
+- [x] **4. Docs.** README and the skills do not state the default path (confirmed by search), so: add one line to the
       `worktree` comment in `defaults/config.toml`, and a changelog entry if a changelog exists at build time that says the
       default moved and how an existing board keeps the old layout (set `worktree = "../{repo}-{id}"`). Files:
-      `defaults/config.toml`, `CHANGELOG.md` if present. Check: the line is there; `kanbanzai check` passes.
+      `defaults/config.toml`. Check: the line is there; `kanbanzai check` passes. (Built: the changelog is left to the
+      release step, which writes it with the version; the note is in Comments.)
 
 ## Docs
 
@@ -88,6 +89,8 @@ unchanged.
   tests); the path is used by `WorktreeHint`/`WorktreePath` (move, wip, context, flow model) and `wip.Batches` derives a
   batch-map matcher from it; docs do not state the default. Owner chose no fallback for existing boards.
 - 2026-11-12: design: owner chose the new default for every board with no fallback; brief and tasks written
+- 2026-11-12: built in worktree W-28 (commit 6ea2987). Found that `wip.Batches` built no batch-workspace matcher for a `{id}`-only leaf, so a batch workspace like `../worktrees/<repo>/style` read as an orphan under the new default; it now matches workspaces under the pattern's parent folder (test added; the old sibling case kept under an explicit `worktree = "../{repo}-{id}"`). Proved in a throwaway repo: `config` prints the new default, the claim hint names it, `git worktree add` creates the missing parent, `move start` accepts it and `wip --audit --card` passes. `go vet` and `go test ./...` pass (the cmd and cli packages need `-p 1`: two test packages build `bin/kanbanzai-go` at once and one gets `text file busy`; not caused by this card).
+- 2026-11-12: build: default changed in config, defaults file, defaults.json and tests; wip reads batch workspaces under the new folder; proved in a throwaway repo
 
 ## Out of scope
 
@@ -105,3 +108,4 @@ this repository's own config, which already sets the new pattern.
   (the old sibling layout collided the same way) and left as it is.
 
 ## Comments
+- 2026-11-12 W-28 session: release note for the changelog: the default `worktree` is now `../worktrees/{repo}/{id}`; a board that does not set `worktree` expects new worktrees there and must `git worktree move` any in-flight card, or pin `worktree = "../{repo}-{id}"`. Tests need `go test -p 1` for cmd and cli (parallel `bin/kanbanzai-go` build race).
