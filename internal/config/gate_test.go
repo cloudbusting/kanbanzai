@@ -136,3 +136,26 @@ func TestAProjectThatOverridesOnlyTheDeploySkillKeepsTheDeploySkip(t *testing.T)
 		t.Fatalf("deploy-qa: %+v", step)
 	}
 }
+
+// An old config's `waits_for_owner = true` was only ever a note on the column. It still loads wherever it sat, and it
+// gates nothing there (a gate needs an open column that is not a Doing column).
+func TestTheOldWaitsForOwnerLoadsOnAnyColumnAndGatesOnlyWhereAGateCanSit(t *testing.T) {
+	doing := strings.Replace(columnsWith(""), "doing='work'\n", "doing='work'\nwaits_for_owner=true\n", 1)
+	for name, text := range map[string]string{
+		"a Doing column":  doing,
+		"a parked column": columnsWith("[[columns]]\nkey='held'\nfolder='x'\nkind='parked'\nwaits_for_owner=true\n"),
+	} {
+		project := loadProject(t, testutil.Repo(t, text))
+		column := project.ByKey["held"]
+		if name == "a Doing column" {
+			column = project.ByKey["working"]
+		}
+		if !column.WaitsForOwner || column.Gate.Set() {
+			t.Errorf("%s: waits %v, gate %+v", name, column.WaitsForOwner, column.Gate)
+		}
+	}
+	column := loadProject(t, testutil.Repo(t, columnsWith("[[columns]]\nkey='held'\nfolder='1-open'\nnext='finish'\nwaits_for_owner=true\n"))).ByKey["held"]
+	if !column.WaitsForOwner || column.Gate.Type != "owner" {
+		t.Errorf("an open column: waits %v, gate %+v", column.WaitsForOwner, column.Gate)
+	}
+}

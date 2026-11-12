@@ -275,3 +275,16 @@ func TestShowListsEveryGateAndSkipRule(t *testing.T) {
 		t.Fatalf("the shipped gate = %+v", shipped.Gates)
 	}
 }
+
+func TestAnOldWaitsForOwnerOnAColumnNoGateCanSitOnSurvivesShowAndExport(t *testing.T) {
+	text := "config_version = 1\n" + strings.Replace(base, `doing = "work"`, "doing = \"work\"\nwaits_for_owner = true", 1)
+	p := project(t, text)
+	m := Build(p)
+	if len(m.Gates) != 1 || m.Gates[0].Column != "working" || m.Gates[0].Kind != "owner-approval" {
+		t.Fatalf("gates = %+v", m.Gates)
+	}
+	doc := FromProject(p)
+	if !strings.Contains(doc.Text, "waits_for_owner = true") || strings.Contains(doc.Text, "gate = ") {
+		t.Fatalf("export:\n%s", doc.Text)
+	}
+}

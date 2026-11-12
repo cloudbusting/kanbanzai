@@ -56,6 +56,10 @@ func ParseGate(entry map[string]any, key, kind, doing string, columnKeys []strin
 		After: asString(entry["gate_after"], ""), Until: asString(entry["gate_until"], ""),
 	}
 	waits := asBool(entry["waits_for_owner"])
+	if waits && gate.Type == "" && (kind != "open" || doing != "") {
+		// The old spelling was only a note on the column and was allowed anywhere: keep loading it, gate nothing.
+		return Gate{}, nil
+	}
 	if waits {
 		if gate.Type != "" && gate.Type != "owner" {
 			return Gate{}, errf("column '%s': waits_for_owner = true means gate = \"owner\", but gate is '%s'; "+

@@ -228,6 +228,9 @@ func FromProject(p *config.Project) *Doc {
 		if c.Worktree {
 			entry["worktree"] = true
 		}
+		if c.WaitsForOwner && !c.Gate.Set() {
+			entry["waits_for_owner"] = true
+		}
 		if c.Gate.Set() {
 			entry["gate"] = c.Gate.Type
 			for key, value := range map[string]string{"gate_name": c.Gate.Name, "gate_after": c.Gate.After,

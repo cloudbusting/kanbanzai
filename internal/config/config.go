@@ -511,7 +511,7 @@ func (p *Project) columns() error {
 			Title:         asString(entry["title"], ""),
 			SettledTitle:  asString(entry["settled_title"], ""),
 			Worktree:      asBool(entry["worktree"]),
-			WaitsForOwner: gate.Type == "owner",
+			WaitsForOwner: gate.Type == "owner" || asBool(entry["waits_for_owner"]),
 			Gate:          gate,
 			Lane:          asString(entry["lane"], ""),
 			Doing:         asString(entry["doing"], ""),
