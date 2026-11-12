@@ -66,6 +66,6 @@ Over-generalising can make a skill vague enough to be unsafe. Each skill still n
 - 2026-11-11: triage — W-27 removes the `/obs` skill; drop `obs` from this card's skill list and wording test when it
   is designed.
 - 2026-11-12: Designed generic workflow contract, safety checks and ordered tasks; build depends on W-12
-- 2026-11-12: Build started after W-12; initial route contract committed with focused tests. Existing move behavior cannot normally finish a step without a Doing column; verify and resolve within scope before claiming custom-flow support.
+- 2026-11-12: Build started after W-12; initial route contract committed with focused tests. W-37 tracks existing move limitations for flows without a Doing column and no-skill intermediate steps; the route reports stop rather than recommending an illegal move.
 
 ## Comments
