@@ -24,7 +24,7 @@ go.mod                     the Go module (Go 1.24+, standard library only, no re
 assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
-skills/                    triage, design, do, next, wip, audit, cleanup, build, check
+skills/                    setup, triage, design, do, next, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
@@ -74,13 +74,20 @@ kanbanzai init --dry-run   # show the plan: what it would make, keep or append; 
 kanbanzai init             # .kanbanzai/: config.toml, work/ (cards, batches), state/ (gitignored)
 ```
 
+Or let the agent do it: with the plugin enabled, `/kanbanzai:setup` (`/setup` where the harness allows) inspects the
+repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, card id
+prefix, context files), shows the plan and waits for approval, applies exactly that plan with `init --plan`, and
+proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
+clone to board.
+
 `init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
 only branch; anything it cannot tell is exit 2 asking for `--main-branch NAME`), the owner (`git config user.name`,
 or `--owner NAME`), an existing config and board, and the rule files you already keep (`AGENTS.md`, `CLAUDE.md`,
 …, listed, never edited). It then builds one plan, the same JSON for `--dry-run --json`, for the real run and for
 `--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
 folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
-template; it never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
+template; `--prefix KEY` sets the card id prefix and `--context FILE[,FILE]` the files every skill reads first (both only for a config
+`init` writes; an existing one is edited by hand, or replaced with `--force`); it never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
 next. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
 finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
 never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
@@ -312,7 +319,8 @@ kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai context                        the standing context the hooks inject
-kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--with-template]
+kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
+                                         [--context FILE[,FILE]] [--with-template]
                                          set a project up: detect, plan, apply, verify; never commits
 kanbanzai --version                      the command's version
 ```

@@ -5,6 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-05: `/kanbanzai:setup` (and `/setup`) sets a project up with an agent: it inspects the repository and reports
+  what it found with the evidence, asks only the owner's open decisions, shows the `init` plan and waits for
+  approval, applies exactly that plan and proves it with `check`, `wip --audit` and `doctor`. It never commits and
+  makes no network request. `kanbanzai init` takes `--prefix KEY` and `--context FILE[,FILE]` for a new config.
+  It needs the `init --dry-run` and `--plan` of the W-04 entry below.
 - W-04: `kanbanzai init` is a plan-and-verify engine. It detects the main branch (and records it, so `wip --audit`
   no longer fails on a `master` or `trunk` repository; an unclear one is exit 2 asking for `--main-branch`), the
   owner (`git config user.name`) and the existing board; `--dry-run [--json]` shows the plan and `--plan FILE`
