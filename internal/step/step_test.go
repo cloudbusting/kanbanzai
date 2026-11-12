@@ -301,3 +301,147 @@ func TestStepForNamesTheGateThatHoldsACard(t *testing.T) {
 		t.Fatalf("json %q: %+v (%v)", out, found, err)
 	}
 }
+
+func TestCardRouteReportsActionWithoutChangingLegacyFields(t *testing.T) {
+	project := testProject(t, deployStepConfig)
+	putCard(t, project, "W-01", "skip", "checked", "- **Deploy:** None")
+	putCard(t, project, "W-02", "gate", "qa-approved")
+	putCard(t, project, "W-03", "resume", "building")
+	putCard(t, project, "W-04", "held", "built", "- **Held:** blocked: W-01")
+	putCard(t, project, "W-05", "start", "designed")
+	for _, tc := range []struct {
+		id, action, next, target string
+		blocked, workspace       bool
+	}{
+		{"W-01", "close", "", "done", false, false},
+		{"W-02", "step", "ship", "shipping", true, true},
+		{"W-03", "resume", "build", "built", false, true},
+		{"W-04", "held", "", "", true, false},
+		{"W-05", "step", "build", "building", false, true},
+	} {
+		_, out, _ := runStep(t, project, Options{For: tc.id, JSON: true})
+		var found map[string]any
+		if err := json.Unmarshal([]byte(out), &found); err != nil {
+			t.Fatal(err)
+		}
+		route, ok := found["route"].(map[string]any)
+		if !ok {
+			t.Errorf("%s: missing route in %s", tc.id, out)
+			continue
+		}
+		if route["action"] != tc.action || route["step"] != tc.next || route["target"] != tc.target ||
+			route["blocked"] != tc.blocked || route["workspace_required"] != tc.workspace {
+			t.Errorf("%s: route = %#v", tc.id, route)
+		}
+		if tc.id == "W-01" && (found["next"] != "deploy-qa" || found["lands_in"] != "done") {
+			t.Errorf("legacy fields changed: %#v", found)
+		}
+	}
+}
+
+func TestCardRouteExceptionalFlows(t *testing.T) {
+	project := testProject(t, "")
+	putCard(t, project, "W-10", "initial skip", "todo", "- **Deploy:** None")
+	putCard(t, project, "W-11", "no skill", "checked")
+	putCard(t, project, "W-12", "parked", "paused")
+	putCard(t, project, "W-13", "finished", "done", "- **Done:** done")
+	initial := project.ByKey["todo"]
+	initial.Next, initial.SettledNext = "deploy-qa", ""
+	project.ByKey["todo"] = initial
+	for _, tc := range []struct {
+		id, action, target string
+		done               bool
+	}{
+		{"W-10", "close", "done", true}, {"W-11", "close", "done", true},
+		{"W-12", "parked", "", false}, {"W-13", "finished", "", false},
+	} {
+		_, out, _ := runStep(t, project, Options{For: tc.id, JSON: true})
+		var found struct {
+			Route Route `json:"route"`
+		}
+		if err := json.Unmarshal([]byte(out), &found); err != nil {
+			t.Fatal(err)
+		}
+		if found.Route.Action != tc.action || found.Route.Target != tc.target || found.Route.CloseRequiresDone != tc.done {
+			t.Errorf("%s: %+v", tc.id, found.Route)
+		}
+	}
+	_, text, _ := runStep(t, project, Options{For: "W-11"})
+	if !strings.Contains(text, "route: close; target: done") || !strings.Contains(text, "close: move requires --done") {
+		t.Errorf("close text: %s", text)
+	}
+}
+
+func TestCardRouteNoDoingAndWorkspaceMode(t *testing.T) {
+	project := testProject(t, "")
+	putCard(t, project, "W-01", "one column", "designed")
+	build := project.Steps["build"]
+	build.During = ""
+	project.Steps["build"] = build
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found struct {
+		Route Route `json:"route"`
+	}
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found.Route.Action != "step" || found.Route.Step != "build" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no Doing column") {
+		t.Fatalf("no Doing: %+v", found.Route)
+	}
+	build.During = "building"
+	project.Steps["build"] = build
+	project.Isolation = "shared"
+	_, out, _ = runStep(t, project, Options{For: "W-01", JSON: true})
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found.Route.Action != "step" || found.Route.WorkspaceRequired {
+		t.Fatalf("shared: %+v", found.Route)
+	}
+}
+
+func TestCardRouteResumeNeedsCurrentColumnWorkspace(t *testing.T) {
+	project := testProject(t, "")
+	putCard(t, project, "W-01", "resuming", "building")
+	built := project.ByKey["built"]
+	built.Worktree = false
+	project.ByKey["built"] = built
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found struct {
+		Route Route `json:"route"`
+	}
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found.Route.Action != "resume" || !found.Route.WorkspaceRequired {
+		t.Fatalf("resuming in a workspace-required column: %+v", found.Route)
+	}
+}
+
+func TestCardRouteSkipToNextStepAndNoSkillStop(t *testing.T) {
+	project := testProject(t, deployStepConfig)
+	putCard(t, project, "W-01", "partial skip", "checked", "- **Deploy:** None")
+	ship := project.Steps["ship"]
+	ship.SkipField = ""
+	project.Steps["ship"] = ship
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found struct {
+		Route Route `json:"route"`
+	}
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found.Route.Action != "skip" || found.Route.Target != "qa-approved" || found.Route.Step != "ship" {
+		t.Fatalf("partial skip: %+v", found.Route)
+	}
+	deploy := project.Steps["deploy-qa"]
+	deploy.Skill, deploy.SkipField = "", ""
+	project.Steps["deploy-qa"] = deploy
+	_, out, _ = runStep(t, project, Options{For: "W-01", JSON: true})
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found.Route.Action != "stop" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no skill") {
+		t.Fatalf("no skill: %+v", found.Route)
+	}
+}
