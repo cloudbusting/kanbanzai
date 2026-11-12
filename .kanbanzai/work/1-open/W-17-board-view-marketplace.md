@@ -1,6 +1,6 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
