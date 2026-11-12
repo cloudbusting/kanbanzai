@@ -1,10 +1,10 @@
 # W-22: The installed command follows the release (slice 1 of automatic upgrade)
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none (the Decisions below are the record)
-- **Next action:** build T1: kanbanzai install --refresh in the core
+- **Next action:** check: run /kanbanzai:check on worktree W-22
 - **Where:** worktree W-22
 
 ## Goal
@@ -39,26 +39,26 @@ This slice fixes the copy and the order, and makes any remaining mismatch loud:
 
 ## Acceptance checks
 
-- [ ] `install --refresh` with no per-user copy writes nothing, prints that there is nothing to refresh and exits 0;
+- [x] `install --refresh` with no per-user copy writes nothing, prints that there is nothing to refresh and exits 0;
       with a copy of another version it replaces it atomically and prints the old and new version; with the same
       bytes it prints "already installed". Go tests in `internal/install` for all three, failing before the change.
-- [ ] The extension, on activation with a bundled command and an existing per-user copy of another version, runs
+- [x] The extension, on activation with a bundled command and an existing per-user copy of another version, runs
       `<bundled> install --refresh` once, logs the outcome in its Output channel, and shows no error or toast when it
       succeeds. A refresh failure is logged and shown once as a plain message; the board keeps working. Tests in
       `board-view/` with a fake `execFile`.
-- [ ] The extension never creates a per-user copy that was not there (init's Apply is the only place that does).
-- [ ] `hooks/session-start.sh`, `hooks/heartbeat.sh` and `opencode/server.js` resolve in the order `KANBANZAI_BIN`,
+- [x] The extension never creates a per-user copy that was not there (init's Apply is the only place that does).
+- [x] `hooks/session-start.sh`, `hooks/heartbeat.sh` and `opencode/server.js` resolve in the order `KANBANZAI_BIN`,
       per-user copy, PATH, the plugin's local `bin/`. `hooks_test.go` and `opencode/server.test.mjs` prove it with
       a different fake command in each place.
-- [ ] `kanbanzai context --adapter-version 0.7.1` printed by a v0.6.4 command prints one first line naming both
+- [x] `kanbanzai context --adapter-version 0.7.1` printed by a v0.6.4 command prints one first line naming both
       versions and the fix ("update the extension, or run `kanbanzai install` from it"); with matching versions, or
       with `dev` on either side, it prints nothing extra. Both adapters pass their release version (read from
       `.claude-plugin/plugin.json`) and the line reaches the session in Claude Code and in OpenCode.
-- [ ] A command too old to know `--adapter-version` (v0.7.1 or earlier) does not break the hook: the adapter ignores
+- [x] A command too old to know `--adapter-version` (v0.7.1 or earlier) does not break the hook: the adapter ignores
       the failure and runs plain `context`. Proved with a fake old command.
-- [ ] README and `board-view/README.md` state the resolution order, when the per-user copy is refreshed, that a
+- [x] README and `board-view/README.md` state the resolution order, when the per-user copy is refreshed, that a
       plugin-only host (no extension) gets the warning but not a new command, and fix the "never overwrites" sentence.
-- [ ] `kanbanzai check` passes; `go test ./...`, the extension tests and the OpenCode tests pass.
+- [x] `kanbanzai check` passes; `go test ./...`, the extension tests and the OpenCode tests pass.
 
 ## Deploy
 
@@ -67,29 +67,29 @@ owner's approved release (the next version after v0.7.1).
 
 ## Tasks
 
-- [ ] **T1: `install --refresh`** — `internal/install/install.go`, `install_test.go`, `internal/cli/cli.go` (flag and
+- [x] **T1: `install --refresh`** — `internal/install/install.go`, `install_test.go`, `internal/cli/cli.go` (flag and
       usage line), `internal/cli/config_contract_test.go` only if it lists flags. Adds the flag: without a target
       file, do nothing and say so (exit 0). Otherwise behave as `install`, and print `refreshed <path>: <old
       version> -> <new version>` (the old version is read by running the target with `--version` under a 5-second
       timeout and standard library `os/exec`; an unrunnable target reads as `unknown`). On Windows, where a running
       command cannot be renamed over, move the old file aside to `kanbanzai.old.exe` first and remove that file on
       the next run; if even that fails, exit 1 with the existing message. — the three install tests.
-- [ ] **T2: `context --adapter-version`** — `internal/context/*`, `internal/cli/cli.go`, tests. Prints the mismatch
+- [x] **T2: `context --adapter-version`** — `internal/context/*`, `internal/cli/cli.go`, tests. Prints the mismatch
       line from the Acceptance checks; the comparison and the wording live only here. `dev` on either side is silent.
       Additive flag; `context` without it is byte-for-byte unchanged. — the context tests, plus an old-command test
       in T3 and T4. *(parallel with T1)*
-- [ ] **T3: Claude Code hooks** — `hooks/session-start.sh`, `hooks/heartbeat.sh`, `hooks_test.go`. New order; read the
+- [x] **T3: Claude Code hooks** — `hooks/session-start.sh`, `hooks/heartbeat.sh`, `hooks_test.go`. New order; read the
       version with `sed` from `.claude-plugin/plugin.json`; pass it to `context`, falling back to plain `context`
       when the command fails on the flag. Cheap: no new process on the heartbeat path. — the hooks test. *(after T2)*
-- [ ] **T4: OpenCode adapter** — `opencode/server.js`, `opencode/server.test.mjs`. Same order and the same
+- [x] **T4: OpenCode adapter** — `opencode/server.js`, `opencode/server.test.mjs`. Same order and the same
       `--adapter-version` call with the version read from `../.claude-plugin/plugin.json` (the one place a release
       version is kept; `tools/release` already checks that the manifests agree). — the fake-harness test. *(after T2;
       parallel with T3)*
-- [ ] **T5: extension refresh** — `board-view/extension.js`, `board-view/init.js` (a `refreshInstalled` function,
+- [x] **T5: extension refresh** — `board-view/extension.js`, `board-view/init.js` (a `refreshInstalled` function,
       beside `resolveCommand`), `board-view/*.test.mjs`. On activation, when `source` is `bundled` and the
       well-known file exists, run `install --refresh` through `runFile`; log the output; one plain message on
       failure; never throws into the editor. — the extension tests. *(after T1)*
-- [ ] **T6: docs and release notes** — `README.md`, `board-view/README.md`, `CHANGELOG.md` (unreleased entry). — the
+- [x] **T6: docs and release notes** — `README.md`, `board-view/README.md`, `CHANGELOG.md` (unreleased entry). — the
       docs test (`docs_test.go`) and a read-through. *(after T1–T5)*
 
 The owner's manual check, after packaging: install the new `.vsix` over an older one, reload the window, and run
@@ -124,6 +124,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
   prefers its bundled command, `install` already overwrites, and what is missing is a trigger on update and the
   hooks' PATH-first order. Scope set by the owner to the command; migration moved to slice 2. Designed.
 - 2026-11-12: design settled with the owner: refresh on extension activation, per-user copy before PATH, mismatch warning via context --adapter-version; migration is slice 2
+- 2026-11-12: built T1-T6 test-first in worktree W-22 (commit 351cb5): install --refresh, context --adapter-version, hooks and OpenCode order, extension refresh, docs; go, extension and OpenCode tests green
 
 ## Out of scope
 
