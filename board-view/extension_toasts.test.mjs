@@ -106,6 +106,21 @@ test("a toast closed in the page stays closed through later rerenders, and a lat
   assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-4", "W-5"].sort(), "W-2 stays closed; W-5 stays; W-4 is new");
 }));
 
+test("close all survives a redraw without discarding a newer toast for the same card", () => run([
+  board({ building: [card("W-1"), card("W-2")] }),
+  board({ built: [card("W-1")], building: [card("W-2", { mark: "blocked" })] }),
+  board({ built: [card("W-1", { mark: "blocked" })], building: [card("W-2", { mark: "blocked" })] }),
+  board({ built: [card("W-1", { mark: "blocked" })], building: [card("W-2", { mark: "blocked" })], todo: [card("W-3")] }),
+], async ({ panel, vscode }) => {
+  vscode.run(); await settle();
+  panel.viewState({}); await settle();
+  assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-1", "W-2"]);
+  panel.viewState({}); await settle(); // W-1 is replaced by a new instance before the old page's message arrives
+  panel.message({ type: "toast-close-all", instances: [{ key: "W-1", seq: 2 }, { key: "W-2", seq: 1 }] });
+  panel.viewState({}); await settle();
+  assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-1", "W-3"]);
+}));
+
 test("events found while the tab is hidden wait for it to be visible, then show once", () => run([
   board({ building: [card("W-1")] }),
   board({ built: [card("W-1")] }),
