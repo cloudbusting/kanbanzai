@@ -1,11 +1,11 @@
 # W-12: Isolation modes: worktree, branch-only, shared checkout and external
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-12
-- **Done:** —
+- **Done:** 2026-11-12 — no deploy; merged to main as b6dae31 (not pushed)
 - **ADR:** none
-- **Next action:** close: merge branch W-12 into main (Deploy is None), move to Done, remove the worktree
-- **Where:** worktree W-12
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
