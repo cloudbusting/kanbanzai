@@ -1,10 +1,11 @@
 # W-10: Typed IDs and one global ledger across the core
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-12
+- **Done:** 2026-11-12: merged c5b7dfc (6772e93, becc78c); no deploy (Deploy: None)
 - **ADR:** none
-- **Next action:** Close: merge the branch and mark the card done (Deploy is None)
-- **Where:** worktree W-10
+- **Next action:** —
+- **Where:** main
 - **Needs:** W-09
 
 ## Goal
