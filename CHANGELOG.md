@@ -3,7 +3,7 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
-## [Unreleased]
+## [0.7.0] — 2026-11-12
 
 - W-17: one editor install sets a project up. The `.vsix` carries the `kanbanzai` command for the five supported
   platforms, and a status-bar **Kanbanzai: Init** item (in a git project with no board) saves and shows the plan in
