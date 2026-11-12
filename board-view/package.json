@@ -2,7 +2,7 @@
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
   "description": "The project's Kanbanzai board as a compact kanban in an editor tab. The board tab is read-only.",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "publisher": "cloudbusting",
   "license": "MIT",
   "icon": "icon.png",
