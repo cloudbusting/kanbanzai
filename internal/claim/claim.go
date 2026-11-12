@@ -49,7 +49,6 @@ var parentProcess = visibleParentProcess
 // Store is one card per file, with the lock around every read-modify-write.
 type Store struct {
 	Directory string
-	Prefix    string
 }
 
 // NewStore makes the claims folder and returns its store.
@@ -57,7 +56,7 @@ func NewStore(project *config.Project) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(project.Claims, "cards"), 0o700); err != nil {
 		return nil, err
 	}
-	return &Store{Directory: project.Claims, Prefix: project.Prefix}, nil
+	return &Store{Directory: project.Claims}, nil
 }
 
 // Lock takes the store's advisory lock.
@@ -78,7 +77,7 @@ func (s *Store) Load(card string) (map[string]any, bool) {
 // Records reads every claim in the store.
 func (s *Store) Records() map[string]map[string]any {
 	found := map[string]map[string]any{}
-	paths, _ := filepath.Glob(filepath.Join(s.Directory, "cards", s.Prefix+"-*.json"))
+	paths, _ := filepath.Glob(filepath.Join(s.Directory, "cards", "*.json"))
 	sort.Strings(paths)
 	for _, path := range paths {
 		record, ok := fsutil.ReadJSON(path)
@@ -116,7 +115,7 @@ func (s *Store) History(record map[string]any) error {
 
 // ReadRecords reads every claim without creating anything.
 func ReadRecords(project *config.Project) map[string]map[string]any {
-	store := &Store{Directory: project.Claims, Prefix: project.Prefix}
+	store := &Store{Directory: project.Claims}
 	return store.Records()
 }
 
@@ -226,12 +225,13 @@ func CheckOwner(value string) (string, error) {
 	return value, nil
 }
 
-// CheckCard is an id that looks like the project's W-NN.
+// CheckCard is an id that looks like the project's card id, returned in canonical form.
 func CheckCard(project *config.Project, value string) (string, error) {
-	if !project.CardRe.MatchString(value) {
-		return "", claimErr("card must look like %s-NN: '%s'", project.Prefix, value)
+	card, ok := project.CanonicalCardID(value)
+	if !ok {
+		return "", claimErr("card must look like %s: '%s'", project.IDsExample(), value)
 	}
-	return value, nil
+	return card, nil
 }
 
 // BranchName is the branch of the worktree this session is in.

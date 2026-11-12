@@ -9,6 +9,7 @@
 package number
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
+	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
 
 // NumberError is a number that cannot be allocated, released or marked.
@@ -45,11 +47,15 @@ func StateDir(project *config.Project) (string, error) {
 	return project.Numbers, nil
 }
 
-// StatePath is the project's ledger file.
+// StatePath is the project's ledger file. A typed project has one global ledger; the leading underscore cannot
+// collide with an upper-case type prefix.
 func StatePath(project *config.Project) (string, error) {
 	dir, err := StateDir(project)
 	if err != nil {
 		return "", err
+	}
+	if project.TypeSet != nil {
+		return filepath.Join(dir, "_ledger.json"), nil
 	}
 	return filepath.Join(dir, project.Prefix+".json"), nil
 }
@@ -59,7 +65,38 @@ func lock(project *config.Project) (*fsutil.Lock, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsutil.OpenLock(filepath.Join(dir, project.Prefix+".lock"))
+	name := project.Prefix + ".lock"
+	if project.TypeSet != nil {
+		name = "_ledger.lock"
+	}
+	return fsutil.OpenLock(filepath.Join(dir, name))
+}
+
+// typedGuard refuses to allocate in typed mode while a legacy per-prefix ledger exists. Typed mode never reads,
+// rewrites or deletes one (W-09's no-migration decision), so it fails closed instead of reusing numbers.
+func typedGuard(project *config.Project) error {
+	if project.TypeSet == nil {
+		return nil
+	}
+	entries, err := os.ReadDir(project.Numbers)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == "_ledger.json" || !strings.HasSuffix(name, ".json") {
+			continue
+		}
+		return numberErr("numbers/%s is a legacy ledger; typed mode does not migrate it (see docs/types.md). "+
+			"Keep this project in legacy mode, or start a fresh typed board", name)
+	}
+	return nil
 }
 
 // Roots is the main checkout and every worktree of it.
@@ -89,8 +126,28 @@ func Roots(project *config.Project) []string {
 // RepoTaken is every number already recorded in any worktree: only a brief's file name counts.
 func RepoTaken(project *config.Project) map[int]bool {
 	found := map[int]bool{}
-	pattern := regexp.MustCompile(`^` + regexp.QuoteMeta(project.Prefix) + `-(\d{` +
-		strconv.Itoa(project.Digits) + `,})-.+\.md$`)
+	var numberIn func(name string) (int, bool)
+	if project.TypeSet != nil {
+		numberIn = func(name string) (int, bool) {
+			match := project.CardFileRe.FindStringSubmatch(name)
+			if match == nil {
+				return 0, false
+			}
+			_, value, ok := project.TypeSet.Parse(match[1])
+			return value, ok
+		}
+	} else {
+		pattern := regexp.MustCompile(`^` + regexp.QuoteMeta(project.Prefix) + `-(\d{` +
+			strconv.Itoa(project.Digits) + `,})-.+\.md$`)
+		numberIn = func(name string) (int, bool) {
+			match := pattern.FindStringSubmatch(name)
+			if match == nil {
+				return 0, false
+			}
+			value, err := strconv.Atoi(match[1])
+			return value, err == nil
+		}
+	}
 	inside, err := filepath.Rel(project.Root, project.Work)
 	external := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
 	for _, root := range Roots(project) {
@@ -105,12 +162,7 @@ func RepoTaken(project *config.Project) map[int]bool {
 			if walkErr != nil || entry.IsDir() {
 				return nil
 			}
-			match := pattern.FindStringSubmatch(entry.Name())
-			if match == nil {
-				return nil
-			}
-			value, err := strconv.Atoi(match[1])
-			if err == nil {
+			if value, ok := numberIn(entry.Name()); ok {
 				found[value] = true
 			}
 			return nil
@@ -121,16 +173,31 @@ func RepoTaken(project *config.Project) map[int]bool {
 
 // Load is the ledger: every number ever issued, and the reservations still worth showing.
 func Load(project *config.Project) ([]int, []map[string]any) {
+	issued, reserved, _ := load(project)
+	return issued, reserved
+}
+
+// load reads the ledger and says why it cannot, so typed mode can fail closed on a corrupt file.
+func load(project *config.Project) ([]int, []map[string]any, error) {
 	path, err := StatePath(project)
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
-	data, ok := fsutil.ReadJSON(path)
-	if !ok {
-		return nil, nil
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
+	}
+	document := map[string]any{}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&document); err != nil {
+		return nil, nil, numberErr("%s: the ledger is not valid JSON (%v); repair or remove it", path, err)
 	}
 	issued := []int{}
-	if items, ok := data["issued"].([]any); ok {
+	if items, ok := document["issued"].([]any); ok {
 		for _, item := range items {
 			if value, ok := numberOf(item); ok {
 				issued = append(issued, value)
@@ -138,7 +205,7 @@ func Load(project *config.Project) ([]int, []map[string]any) {
 		}
 	}
 	reserved := []map[string]any{}
-	if items, ok := data["reserved"].([]any); ok {
+	if items, ok := document["reserved"].([]any); ok {
 		for _, item := range items {
 			record, ok := item.(map[string]any)
 			if !ok {
@@ -152,7 +219,7 @@ func Load(project *config.Project) ([]int, []map[string]any) {
 			reserved = append(reserved, record)
 		}
 	}
-	return issued, reserved
+	return issued, reserved, nil
 }
 
 func save(project *config.Project, issued []int, reserved []map[string]any) error {
@@ -199,6 +266,13 @@ func NextNumber(taken map[int]bool, issued []int, reserved []map[string]any) int
 
 // ParseItem is a card id as a number, or an error naming what it was for.
 func ParseItem(project *config.Project, item, what string) (int, error) {
+	if project.TypeSet != nil {
+		if _, number, ok := project.TypeSet.Parse(item); ok {
+			return number, nil
+		}
+		return 0, numberErr("not a number to %s: '%s' (like %s; configured types: %s)", what, item,
+			project.IDsExample(), strings.Join(project.CardPrefixes(), ", "))
+	}
 	pattern := regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(project.Prefix) + `-(\d+)$`)
 	match := pattern.FindStringSubmatch(strings.TrimSpace(item))
 	if match == nil {
@@ -211,8 +285,45 @@ func ParseItem(project *config.Project, item, what string) (int, error) {
 	return value, nil
 }
 
+// resolveType is the type an allocation names, or the default; a legacy project has no type.
+func resolveType(project *config.Project, key string) (typeid.Type, error) {
+	key = strings.TrimSpace(key)
+	if project.TypeSet == nil {
+		if key != "" {
+			return typeid.Type{}, numberErr("this project has no issue types; remove --type (it uses %s)",
+				project.IDsExample())
+		}
+		return typeid.Type{}, nil
+	}
+	if key == "" {
+		item, ok := project.TypeSet.DefaultType()
+		if !ok {
+			return typeid.Type{}, numberErr("no default type is configured; name one with --type")
+		}
+		return item, nil
+	}
+	item, ok := project.TypeSet.ByKey(key)
+	if !ok {
+		return typeid.Type{}, numberErr("unknown type '%s' (valid keys: %s)", key,
+			strings.Join(project.TypeSet.Keys(), ", "))
+	}
+	return item, nil
+}
+
 // Allocate is the next free number, issued to this session unless peeking.
 func Allocate(project *config.Project, peek bool, note string) (string, error) {
+	return AllocateType(project, "", peek, note)
+}
+
+// AllocateType is the next free number for one type, from the project's single global sequence.
+func AllocateType(project *config.Project, typeKey string, peek bool, note string) (string, error) {
+	item, err := resolveType(project, typeKey)
+	if err != nil {
+		return "", err
+	}
+	if err := typedGuard(project); err != nil {
+		return "", err
+	}
 	now := timeutil.Now()
 	lock, err := lock(project)
 	if err != nil {
@@ -220,21 +331,37 @@ func Allocate(project *config.Project, peek bool, note string) (string, error) {
 	}
 	defer lock.Close()
 	taken := RepoTaken(project)
-	issued, reserved := Load(project)
+	issued, reserved, err := load(project)
+	if err != nil {
+		if project.TypeSet != nil {
+			return "", err
+		}
+		issued, reserved = nil, nil
+	}
 	reserved = StillReserved(reserved, taken)
 	value := NextNumber(taken, issued, reserved)
-	item := project.FormatID(value)
+	if value <= 0 {
+		return "", numberErr("the number sequence is exhausted; no further card can be allocated")
+	}
+	id := project.FormatID(value)
+	if project.TypeSet != nil {
+		id = project.TypeSet.Format(item, value)
+	}
 	if !peek {
 		issued = append(issued, value)
-		reserved = append(reserved, map[string]any{
-			"number": value, "item": item, "owner": claim.OwnerLabel(project), "at": timeutil.ToISO(now),
+		record := map[string]any{
+			"number": value, "item": id, "owner": claim.OwnerLabel(project), "at": timeutil.ToISO(now),
 			"note": note,
-		})
+		}
+		if project.TypeSet != nil {
+			record["type"] = item.Key
+		}
+		reserved = append(reserved, record)
 		if err := save(project, issued, reserved); err != nil {
 			return "", err
 		}
 	}
-	return item, nil
+	return id, nil
 }
 
 // Release gives an abandoned number back.
@@ -243,12 +370,21 @@ func Release(project *config.Project, item string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := typedGuard(project); err != nil {
+		return "", err
+	}
 	lock, err := lock(project)
 	if err != nil {
 		return "", err
 	}
 	defer lock.Close()
-	issued, reserved := Load(project)
+	issued, reserved, err := load(project)
+	if err != nil {
+		if project.TypeSet != nil {
+			return "", err
+		}
+		issued, reserved = nil, nil
+	}
 	keptIssued := make([]int, 0, len(issued))
 	for _, number := range issued {
 		if number != value {
@@ -264,6 +400,11 @@ func Release(project *config.Project, item string) (string, error) {
 	if err := save(project, keptIssued, keptReserved); err != nil {
 		return "", err
 	}
+	if project.TypeSet != nil {
+		if typeOf, number, ok := project.TypeSet.Parse(item); ok {
+			return project.TypeSet.Format(typeOf, number), nil
+		}
+	}
 	return project.FormatID(value), nil
 }
 
@@ -273,12 +414,21 @@ func Mark(project *config.Project, item string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := typedGuard(project); err != nil {
+		return "", err
+	}
 	lock, err := lock(project)
 	if err != nil {
 		return "", err
 	}
 	defer lock.Close()
-	issued, reserved := Load(project)
+	issued, reserved, err := load(project)
+	if err != nil {
+		if project.TypeSet != nil {
+			return "", err
+		}
+		issued, reserved = nil, nil
+	}
 	found := false
 	for _, number := range issued {
 		if number == value {
@@ -292,6 +442,11 @@ func Mark(project *config.Project, item string) (string, error) {
 	if err := save(project, issued, reserved); err != nil {
 		return "", err
 	}
+	if project.TypeSet != nil {
+		if typeOf, number, ok := project.TypeSet.Parse(item); ok {
+			return project.TypeSet.Format(typeOf, number), nil
+		}
+	}
 	return project.FormatID(value), nil
 }
 
@@ -302,19 +457,35 @@ func Status(project *config.Project, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintf(out, "state: %s\n", dir)
+	if err := typedGuard(project); err != nil {
+		return err
+	}
 	lock, err := lock(project)
 	if err != nil {
 		return err
 	}
 	defer lock.Close()
 	taken := RepoTaken(project)
-	issued, reserved := Load(project)
+	issued, reserved, err := load(project)
+	if err != nil {
+		if project.TypeSet != nil {
+			return err
+		}
+		issued, reserved = nil, nil
+	}
 	reserved = StillReserved(reserved, taken)
 	if err := save(project, issued, reserved); err != nil {
 		return err
 	}
 	next := NextNumber(taken, issued, reserved)
-	fmt.Fprintf(out, "%s: next %s; %d issued\n", project.Prefix, project.FormatID(next), len(issued))
+	path, _ := StatePath(project)
+	if project.TypeSet != nil {
+		fmt.Fprintf(out, "ledger: %s (one global sequence across %s)\n", path,
+			strings.Join(project.CardPrefixes(), ", "))
+		fmt.Fprintf(out, "next: %s; %d issued\n", project.FormatID(next), len(issued))
+	} else {
+		fmt.Fprintf(out, "%s: next %s; %d issued\n", project.Prefix, project.FormatID(next), len(issued))
+	}
 	sort.SliceStable(reserved, func(i, j int) bool {
 		left, _ := numberOf(reserved[i]["number"])
 		right, _ := numberOf(reserved[j]["number"])
@@ -326,6 +497,12 @@ func Status(project *config.Project, out io.Writer) error {
 			value, _ := numberOf(record["number"])
 			item = strconv.Itoa(value)
 		}
+		if project.TypeSet != nil {
+			fmt.Fprintf(out, "  %-14s %-8s %-32s %s  %s\n", item, recordString(record, "type", "?"),
+				recordString(record, "owner", "?"), recordString(record, "at", ""),
+				recordString(record, "note", ""))
+			continue
+		}
 		fmt.Fprintf(out, "  %-6s %-32s %s  %s\n", item, recordString(record, "owner", "?"),
 			recordString(record, "at", ""), recordString(record, "note", ""))
 	}
@@ -335,6 +512,7 @@ func Status(project *config.Project, out io.Writer) error {
 // Options is one number command.
 type Options struct {
 	Prefix  string
+	Type    string
 	Peek    bool
 	Release string
 	Mark    string
@@ -372,11 +550,24 @@ func Run(project *config.Project, opts Options) int {
 		fmt.Fprintln(out, item)
 		return 0
 	}
-	if opts.Prefix != "" && !strings.EqualFold(opts.Prefix, project.Prefix) {
-		fmt.Fprintf(errOut, "number: this project's numbers are %s-NN, not '%s'\n", project.Prefix, opts.Prefix)
-		return 2
+	if project.TypeSet != nil {
+		if opts.Prefix != "" {
+			fmt.Fprintf(errOut, "number: this project uses typed ids (%s); select a type with --type KEY, not "+
+				"'%s'\n", strings.Join(project.CardPrefixes(), ", "), opts.Prefix)
+			return 2
+		}
+	} else {
+		if opts.Type != "" {
+			fmt.Fprintf(errOut, "number: this project has no issue types; remove --type (it uses %s)\n",
+				project.IDsExample())
+			return 2
+		}
+		if opts.Prefix != "" && !strings.EqualFold(opts.Prefix, project.Prefix) {
+			fmt.Fprintf(errOut, "number: this project's numbers are %s-NN, not '%s'\n", project.Prefix, opts.Prefix)
+			return 2
+		}
 	}
-	item, err := Allocate(project, opts.Peek, opts.Note)
+	item, err := AllocateType(project, opts.Type, opts.Peek, opts.Note)
 	if err != nil {
 		fmt.Fprintf(errOut, "number: %v\n", err)
 		return 1

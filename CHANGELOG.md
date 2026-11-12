@@ -8,7 +8,21 @@ and the editor extension carry the same version.
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
   columns and branch. `step --for <ID> --json` adds a `route` object for the immediate action, blockers, workspace and
   close requirements; its text output also reports the route. Unsupported routes stop rather than forcing a move.
+- W-10: issue types and one global number ledger. A project that configures `[[types]]` gets typed ids (`TASK-7`,
+  `BUG-42`, or `KANZ-BUG-43` with a project key), and `kanbanzai number --type KEY` allocates from one global
+  sequence shared by every type. `kanbanzai init` now writes a typed starter config (task, bug, change, spike,
+  chore); `init --prefix KEY` keeps the older single-prefix shape. A project with no `[[types]]` is unchanged, and
+  there is no migration of a legacy per-prefix ledger. See `docs/types.md`.
 
+## [0.10.0] — 2026-11-12
+
+- W-28: the default worktree path is now `../worktrees/{repo}/{id}`. Existing boards that omit `worktree` and have
+  in-flight worktrees at the old sibling paths must move those worktrees or set `worktree = "../{repo}-{id}"` in
+  `.kanbanzai/config.toml` to retain the old layout; there is no automatic fallback.
+- W-38: a card cannot start a skipped workflow step, including through claim auto-start. The claim remains recorded
+  and reports the explicit skip or close route; gates and audited force overrides continue to apply.
+- W-35: the board's toast stack offers Close all when multiple notifications are visible. A manual check in the
+  editor is still outstanding.
 - W-12: isolation is a setting. `[flow] isolation` is `worktree` (the default, exactly as before), `branch` (a branch
   per card in the one checkout), `shared` (the one checkout, no workspace record) or `external` (a workspace the host
   owns, recorded as `Where: external <ref>`). `wip --audit`, `move`, `claim`, `check` and `context` follow the mode:

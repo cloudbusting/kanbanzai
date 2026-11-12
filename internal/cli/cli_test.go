@@ -112,7 +112,7 @@ func TestInitBoardConfigAndContext(t *testing.T) {
 
 func TestNumberClaimMoveAndCheck(t *testing.T) {
 	project := newProject(t, "")
-	if code, _, errOut := runCLI(t, "init"); code != 0 {
+	if code, _, errOut := runCLI(t, "init", "--prefix", "W"); code != 0 {
 		t.Fatalf("init = %d %q", code, errOut)
 	}
 	code, out, _ := runCLI(t, "number")
@@ -158,7 +158,7 @@ func cardStage(board map[string]any, id string) string {
 
 func TestStepWipTitleAndSessions(t *testing.T) {
 	project := newProject(t, "")
-	if code, _, _ := runCLI(t, "init"); code != 0 {
+	if code, _, _ := runCLI(t, "init", "--prefix", "W"); code != 0 {
 		t.Fatalf("init failed")
 	}
 	writeCard(t, project, "W-10", "Fuel", "designed", "1-open")
@@ -233,7 +233,7 @@ func TestABadConfig(t *testing.T) {
 
 func TestClaimRulesAndUsageErrors(t *testing.T) {
 	project := newProject(t, "")
-	if code, _, _ := runCLI(t, "init"); code != 0 {
+	if code, _, _ := runCLI(t, "init", "--prefix", "W"); code != 0 {
 		t.Fatalf("init failed")
 	}
 	writeCard(t, project, "W-01", "the work", "todo", "1-open")

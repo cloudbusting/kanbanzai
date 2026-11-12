@@ -358,3 +358,14 @@ test("closing an asking toast by its ✕ removes it by key", () => {
   const s = T.close(T.applyEvents(empty(), [asking()], NOW), "ask:W-12");
   assert.equal(s.stack.length, 0);
 });
+
+test("close all removes only the specified toast instances, preserving newer replacements", () => {
+  const first = T.applyEvents(empty(), [asking()], NOW);
+  const view = T.toViews(first, NOW)[0];
+  assert.equal(view.seq, first.stack[0].seq);
+  const newer = T.applyEvents(first, [asking()], NOW + 1);
+  const closed = T.closeInstances(newer, [{ key: view.key, seq: view.seq }]);
+  assert.equal(closed.stack.length, 1);
+  assert.equal(closed.stack[0].seq, newer.stack[0].seq);
+  assert.equal(T.closeInstances(first, [{ key: view.key, seq: view.seq }]).stack.length, 0);
+});
