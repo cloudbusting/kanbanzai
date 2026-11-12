@@ -336,26 +336,14 @@ func LegalTargets(project *config.Project, key string, card *board.Card, skipped
 	return found
 }
 
-// skipAhead follows the steps the card skips, starting at its next step, and records where it may land.
+// skipAhead records where a card that skips steps, starting at its next step, may land.
 func skipAhead(project *config.Project, name string, skipped func(string) bool, found map[string]string) {
-	if skipped == nil {
+	path := step.SkipPath(project, name, skipped)
+	if path == nil {
 		return
 	}
-	landing := ""
-	for count := 0; count <= len(project.Steps) && name != "" && skipped(name); count++ {
-		into, ok := project.ByKey[project.Steps[name].Into]
-		if !ok {
-			return
-		}
-		if into.Kind == "done" {
-			found[into.Key] = "close"
-			return
-		}
-		landing = into.Key
-		name = into.Next
-	}
-	if _, taken := found[landing]; landing != "" && !taken {
-		found[landing] = "skip"
+	if _, taken := found[path.Column]; path.Kind == "close" || !taken {
+		found[path.Column] = path.Kind
 	}
 }
 

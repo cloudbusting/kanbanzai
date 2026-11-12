@@ -30,6 +30,10 @@ type ColumnInfo struct {
 	SettledTitle  string   `json:"settled_title"`
 	Worktree      bool     `json:"worktree"`
 	WaitsForOwner bool     `json:"waits_for_owner"`
+	Gate          string   `json:"gate"`
+	GateName      string   `json:"gate_name"`
+	GateAfter     string   `json:"gate_after"`
+	GateUntil     string   `json:"gate_until"`
 }
 
 // StepInfo is one step.
@@ -42,6 +46,9 @@ type StepInfo struct {
 	Context []string `json:"context"`
 	Checks  []string `json:"checks"`
 	Active  bool     `json:"active"`
+
+	SkipField  string   `json:"skip_field"`
+	SkipValues []string `json:"skip_values"`
 }
 
 // Transition is a move a card may make without --force: From and To are column keys, Kind says why it is legal
@@ -52,11 +59,15 @@ type Transition struct {
 	Kind string `json:"kind"`
 }
 
-// Gate is a point where the flow waits for the owner.
+// Gate is a column where a card waits until a condition holds.
 type Gate struct {
 	Column string `json:"column"`
-	Kind   string `json:"kind"`
+	Kind   string `json:"kind"` // "owner-approval" for the owner gate, else the gate type
 	Step   string `json:"step"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	After  string `json:"after"`
+	Until  string `json:"until"`
 }
 
 // WIP is the work-in-progress rules.
@@ -103,13 +114,15 @@ func Build(p *config.Project) *Model {
 	for _, c := range p.Columns {
 		m.Columns = append(m.Columns, ColumnInfo{Key: c.Key, Label: c.Label, Words: list(c.Words), Folder: c.Folder,
 			Kind: c.Kind, Started: c.Started, Title: c.Title, SettledTitle: c.SettledTitle, Lane: c.Lane, Doing: c.Doing, Next: c.Next, SettledNext: c.SettledNext,
-			Worktree: c.Worktree, WaitsForOwner: c.WaitsForOwner})
+			Worktree: c.Worktree, WaitsForOwner: c.WaitsForOwner, Gate: c.Gate.Type, GateName: c.Gate.Name,
+			GateAfter: c.Gate.After, GateUntil: c.Gate.Until})
 	}
 	m.Steps = []StepInfo{}
 	for _, name := range p.StepOrder {
 		s := p.Steps[name]
 		m.Steps = append(m.Steps, StepInfo{Name: s.Name, Into: s.Into, During: s.During, Skill: s.Skill,
-			Extend: list(s.Extend), Context: list(s.Context), Checks: list(s.Checks), Active: s.Active})
+			Extend: list(s.Extend), Context: list(s.Context), Checks: list(s.Checks), Active: s.Active,
+			SkipField: s.SkipField, SkipValues: list(s.SkipValues)})
 	}
 	m.Transitions = Transitions(p)
 	m.Gates = []Gate{}
@@ -118,8 +131,13 @@ func Build(p *config.Project) *Model {
 	m.Isolation = Isolation{Mode: "worktree-per-card", WorktreeColumns: []string{}, WorktreePattern: p.WorktreePattern,
 		BranchPattern: p.BranchPattern, BatchBranch: p.BatchBranchPattern, MainBranch: p.MainBranch}
 	for _, c := range p.Columns {
-		if c.WaitsForOwner {
-			m.Gates = append(m.Gates, Gate{Column: c.Key, Kind: "owner-approval", Step: c.Next})
+		if c.Gate.Set() {
+			kind := c.Gate.Type
+			if kind == "owner" {
+				kind = "owner-approval"
+			}
+			m.Gates = append(m.Gates, Gate{Column: c.Key, Kind: kind, Step: c.Next, Type: c.Gate.Type,
+				Name: c.Gate.Name, After: c.Gate.After, Until: c.Gate.Until})
 		}
 		if c.StartedBool() {
 			m.WIP.Started = append(m.WIP.Started, c.Key)

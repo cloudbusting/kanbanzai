@@ -14,11 +14,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/gate"
 )
 
 // HeadFields are the fields every brief and the template must carry.
@@ -32,7 +34,7 @@ var (
 
 // Checks are the board's checks, in the order the command reports them.
 var Checks = []func(*config.Project) []string{
-	Folders, Titles, Headers, Stages, Unique, Held, Links, Comments, Template,
+	Folders, Titles, Headers, Stages, Unique, Held, Gates, Links, Comments, Template,
 }
 
 // Folders checks that every column folder exists and the work folder holds no other folder.
@@ -217,6 +219,124 @@ func Held(project *config.Project) []string {
 		}
 	}
 	return problems
+}
+
+var gateLineRE = regexp.MustCompile(`^(passed|failed) by \S+, \d{4}-\d{2}-\d{2}( — .+)?$`)
+
+// Gates checks the Gate and Needs lines: a Gate line sits only on a card in a column with a recorded gate and
+// says who passed or failed it and when; a Needs line names cards that exist, never the card itself, and the cards
+// never wait on each other in a circle.
+func Gates(project *config.Project) []string {
+	problems := []string{}
+	needs := map[string][]string{}
+	known := map[string]bool{}
+	paths := map[string]string{}
+	for _, path := range board.Briefs(project) {
+		data, _ := os.ReadFile(path)
+		title, fields := brief.Header(string(data))
+		if found := project.TitleRe.FindStringSubmatch(title); found != nil {
+			known[found[1]] = true
+			paths[found[1]] = project.Rel(path)
+			needs[found[1]] = gate.Needs(fields["Needs"])
+		}
+	}
+	for _, path := range board.Briefs(project) {
+		data, _ := os.ReadFile(path)
+		title, fields := brief.Header(string(data))
+		name := project.Rel(path)
+		id := ""
+		if found := project.TitleRe.FindStringSubmatch(title); found != nil {
+			id = found[1]
+		}
+		if record := fields["Gate"]; record != "" {
+			column := project.ByKey[project.StageColumn[brief.StageWord(fields["Stage"])]]
+			switch {
+			case !column.Gate.Recorded():
+				problems = append(problems, fmt.Sprintf("%s: a Gate line belongs on a card in a column with an owner, "+
+					"ci or external gate, not '%s'", name, fields["Stage"]))
+			case !gateLineRE.MatchString(record):
+				problems = append(problems, fmt.Sprintf("%s: a Gate line reads 'passed|failed by <who>, YYYY-MM-DD "+
+					"[— <note>]', not '%s'", name, shorten(record, 40)))
+			}
+		}
+		for _, other := range needs[id] {
+			switch {
+			case other == id:
+				problems = append(problems, fmt.Sprintf("%s: a card cannot need itself", name))
+			case !known[other]:
+				problems = append(problems, fmt.Sprintf("%s: Needs names %s, which is not on the board", name, other))
+			}
+		}
+	}
+	for _, cycle := range needCycles(needs) {
+		problems = append(problems, fmt.Sprintf("%s: the cards wait on each other: %s", paths[cycle[0]],
+			strings.Join(cycle, " -> ")))
+	}
+	return problems
+}
+
+// needCycles is one cycle for each card that waits on itself through other cards, e.g. [W-1 W-2 W-1]; a card
+// that needs only itself is reported by Gates on its own.
+func needCycles(needs map[string][]string) [][]string {
+	ids := make([]string, 0, len(needs))
+	for id := range needs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	var cycles [][]string
+	reported := map[string]bool{}
+	state := map[string]int{} // 1 on the path, 2 finished
+	var path []string
+	var visit func(string)
+	visit = func(id string) {
+		state[id] = 1
+		path = append(path, id)
+		for _, other := range needs[id] {
+			if other == id {
+				continue
+			}
+			switch state[other] {
+			case 0:
+				if _, exists := needs[other]; exists {
+					visit(other)
+				}
+			case 1:
+				start := 0
+				for i, item := range path {
+					if item == other {
+						start = i
+					}
+				}
+				cycle := append(append([]string{}, path[start:]...), other)
+				key := strings.Join(sortedCopy(cycle[:len(cycle)-1]), ",")
+				if !reported[key] {
+					reported[key] = true
+					cycles = append(cycles, cycle)
+				}
+			}
+		}
+		path = path[:len(path)-1]
+		state[id] = 2
+	}
+	for _, id := range ids {
+		if state[id] == 0 {
+			visit(id)
+		}
+	}
+	return cycles
+}
+
+func sortedCopy(values []string) []string {
+	out := append([]string{}, values...)
+	sort.Strings(out)
+	return out
+}
+
+func shorten(value string, limit int) string {
+	if len(value) > limit {
+		return value[:limit]
+	}
+	return value
 }
 
 // Links checks that every relative link in a brief resolves.
