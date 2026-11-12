@@ -41,7 +41,8 @@ commands:
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   doctor [--json]                diagnose this installation without repairs
   context                        the standing context
-  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--with-template]
+  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
+       [--context FILE[,FILE]] [--with-template]
                                  set a project up (detect, plan, apply, verify; never commits)
 
   --version                      print the version
@@ -97,12 +98,12 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
-			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true})
+			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
 		if _, planned := flags["plan"]; planned {
-			for _, name := range []string{"main-branch", "owner"} {
+			for _, name := range []string{"main-branch", "owner", "prefix", "context"} {
 				if _, given := flags[name]; given {
 					return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --%s cannot be "+
 						"combined with it", name))
@@ -113,9 +114,13 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 					"--with-template cannot be combined with it"))
 			}
 		}
+		var context []string
+		if list, given := flags["context"]; given {
+			context = strings.Split(list, ",")
+		}
 		return initcmd.Run("", initcmd.Options{DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
 			WithTemplate: set["with-template"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
-			Owner: flags["owner"], Out: out, Err: errOut})
+			Owner: flags["owner"], Prefix: flags["prefix"], Context: context, Out: out, Err: errOut})
 	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")

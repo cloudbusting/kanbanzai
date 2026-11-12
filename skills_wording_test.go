@@ -125,3 +125,83 @@ func TestTheReadmeDocumentsTheClaimMoveAndTheUnstartedFlag(t *testing.T) {
 		}
 	}
 }
+
+// W-05: /kanbanzai:setup detects, plans, asks, waits for approval, applies the reviewed plan and proves the result,
+// and never changes anything before the owner has seen the plan.
+func TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "setup", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	front := regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n`).FindStringSubmatch(text)
+	if front == nil {
+		t.Fatal("skills/setup has no frontmatter")
+	}
+	for _, key := range []string{"name: setup", "description: ", "argument-hint: "} {
+		if !strings.Contains(front[1], key) {
+			t.Errorf("skills/setup frontmatter lacks %q", key)
+		}
+	}
+	flat := strings.Join(strings.Fields(text), " ")
+	lower := strings.ToLower(flat)
+
+	// Detection: init's own, then the skill's, each with evidence.
+	for _, words := range []string{"kanbanzai init --dry-run --json", "git shortlog", "evidence", "unknown", "git root",
+		"worktree", "main branch", "owner candidates", "issue tracker", "languages", "check commands", "deploy",
+		"monorepo", "context files"} {
+		if !strings.Contains(lower, words) {
+			t.Errorf("skills/setup does not name %q in its detection", words)
+		}
+	}
+	// The old or missing command stops the skill before it asks anything.
+	for _, words := range []string{"unknown flag", "is not installed"} {
+		if !strings.Contains(lower, words) {
+			t.Errorf("skills/setup does not handle %q", words)
+		}
+	}
+	// The interview: the owner's decisions through the question tool, and the capability gate.
+	for _, words := range []string{"question tool", "recommended", "--main-branch", "--prefix", "--context",
+		"kanbanzai init --help"} {
+		if !strings.Contains(lower, words) {
+			t.Errorf("skills/setup does not name %q in its interview", words)
+		}
+	}
+	// The plan is made in a folder outside the repository, shown, approved, and only then applied.
+	plan := strings.Index(flat, "kanbanzai init --dry-run --json")
+	apply := strings.Index(flat, "kanbanzai init --plan")
+	if plan < 0 || apply < 0 || plan > apply {
+		t.Fatal("skills/setup must show the plan (init --dry-run --json) before it applies one (init --plan)")
+	}
+	for _, words := range []string{"mktemp -d", "outside the repository", "approv", "alone on", "changed since the plan"} {
+		if !strings.Contains(lower, words) {
+			t.Errorf("skills/setup does not name %q in its plan and apply steps", words)
+		}
+	}
+	// Verification and the hand-over.
+	for _, words := range []string{"kanbanzai check", "kanbanzai wip --audit", "kanbanzai doctor", "/kanbanzai:triage",
+		"git add"} {
+		if !strings.Contains(lower, words) {
+			t.Errorf("skills/setup does not name %q in its verification", words)
+		}
+	}
+	// What it never does.
+	never := strings.Index(lower, "**never:**")
+	if never < 0 {
+		t.Fatal("skills/setup has no Never list")
+	}
+	for _, words := range []string{"commit", "push", "--force", "network", "by hand"} {
+		if !strings.Contains(lower[never:], words) {
+			t.Errorf("skills/setup's Never list lacks %q", words)
+		}
+	}
+	for _, banned := range []string{"gh issue", "curl ", "wget ", "fetch("} {
+		if strings.Contains(lower, banned) {
+			t.Errorf("skills/setup tells the agent to make a network request (%q)", banned)
+		}
+	}
+}

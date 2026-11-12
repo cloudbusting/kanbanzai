@@ -118,6 +118,10 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 			return nil, refuse("--owner has no effect on the existing %s: edit it, or use --force to replace it",
 				ConfigRel)
 		}
+		if opts.Prefix != "" || len(opts.Context) > 0 {
+			return nil, refuse("--prefix and --context have no effect on the existing %s: edit it, or use --force to "+
+				"replace it", ConfigRel)
+		}
 		project = existing
 		configActions = []Action{{Op: OpKeep, Path: ConfigRel, What: WhatConfig}}
 		if detected, _, err := chooseMainBranch(d, ""); err == nil && detected != project.MainBranch {
@@ -146,11 +150,19 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 			plan.Warnings = append(plan.Warnings, fmt.Sprintf("git user.name is not usable as the owner (%v)", err))
 			settings.Owner, settings.OwnerSource = "the user", "default"
 		}
+		prefix, err := checkPrefix(opts.Prefix)
+		if err != nil {
+			return nil, err
+		}
+		context, err := contextFiles(root, opts.Context)
+		if err != nil {
+			return nil, err
+		}
 		template := ""
 		if opts.WithTemplate {
 			template = DefaultTemplateRel
 		}
-		text := ConfigText(settings.Owner, branch, template)
+		text := ConfigText(settings.Owner, branch, template, prefix, context)
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
 		if err != nil {
 			return nil, fmt.Errorf("init built a config the loader rejects (a bug): %w", err)
@@ -377,8 +389,8 @@ func within(dir, path string) bool {
 func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x00") == string(data) }
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
-// template are written only when they differ from the defaults.
-func ConfigText(owner, mainBranch, template string) string {
+// template are written only when they differ from the defaults; prefix and context only when asked for.
+func ConfigText(owner, mainBranch, template, prefix string, context []string) string {
 	var b strings.Builder
 	b.WriteString(`# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:
 # the columns, the cap of five started cards, the two-hour lease and the pull order are the defaults.
@@ -396,6 +408,16 @@ config_version = 1
 	if template != "" {
 		fmt.Fprintf(&b, "template = %s      # the card template; edit it freely, init never overwrites it\n",
 			tomlString(template))
+	}
+	if prefix != "" {
+		fmt.Fprintf(&b, "prefix = %s      # card ids are <prefix>-<number>\n", tomlString(prefix))
+	}
+	if len(context) > 0 {
+		quoted := make([]string, len(context))
+		for i, item := range context {
+			quoted[i] = tomlString(item)
+		}
+		fmt.Fprintf(&b, "context = [%s]      # files every skill reads first\n", strings.Join(quoted, ", "))
 	}
 	b.WriteString(`
 # More you can set (see Kanbanzai's defaults/config.toml for every key):
@@ -421,6 +443,44 @@ func tomlString(text string) string {
 	}
 	b.WriteByte('"')
 	return b.String()
+}
+
+// checkPrefix validates --prefix the way the loader will (letters only), so a bad key is a refusal before any plan.
+func checkPrefix(prefix string) (string, error) {
+	if prefix == "" {
+		return "", nil
+	}
+	for _, r := range prefix {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+			return "", refuse("--prefix '%s': a card id prefix is letters only (for example W or ACME)", prefix)
+		}
+	}
+	return prefix, nil
+}
+
+// contextFiles turns --context into the config's list: each entry a regular file inside the checkout, written
+// relative to it with forward slashes, once.
+func contextFiles(root string, given []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, item := range given {
+		if strings.TrimSpace(item) == "" || filepath.IsAbs(item) {
+			return nil, refuse("--context '%s': name a file inside the checkout, relative to its root", item)
+		}
+		rel, err := insideRoot(root, filepath.Join(root, filepath.FromSlash(item)), "--context "+item)
+		if err != nil {
+			return nil, err
+		}
+		info, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(rel)))
+		if statErr != nil || !info.Mode().IsRegular() {
+			return nil, refuse("--context %s is not a file in the checkout", rel)
+		}
+		if !seen[rel] {
+			seen[rel] = true
+			out = append(out, rel)
+		}
+	}
+	return out, nil
 }
 
 // checkOwner refuses a name that cannot be a single-line TOML string.
