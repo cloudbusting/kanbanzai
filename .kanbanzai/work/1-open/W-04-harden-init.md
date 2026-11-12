@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: run kanbanzai-package on the merged W-04 (build and prove the .vsix and plugin bundles); then the owner approves the release
+- **Next action:** deploy-qa: re-run kanbanzai-package on the merged W-04
 - **Where:** worktree W-04
 
 ## Goal
@@ -92,6 +92,8 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 - 2026-11-12: design: one detect→plan→apply→verify pipeline; plan JSON; main-branch rule; owner from git user.name (owner's choice); Deploy corrected to package and release
 - 2026-11-12: build: init as detect/plan/apply/verify in internal/init; config.ValidateText; CLI flags; README and CHANGELOG; go vet and go test ./... green, Node suites green, windows/darwin cross-builds compile
 - 2026-11-12: check: kanbanzai-qa green — go test ./... (294 tests, 20 packages), go vet, node 132, hooks, js syntax, claude plugin validate, step resolution, kanbanzai check, card audit; diff reviewed, no must-fix
+- 2026-11-12: build: packaging found that a no-op init re-run claimed a committed board; kept files are now listed too (test first, red then green); go test, vet and node green
+- 2026-11-12: check: kanbanzai-qa green again on bf49c43 (go 20 packages, vet, node 132, plugin validate, board and audit); diff of the fix reviewed
 
 ## Comments
 
