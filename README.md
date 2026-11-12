@@ -70,8 +70,21 @@ promise about versions that were not tested; raising a pin is a change to this t
 
 ```bash
 cd <your project>
-kanbanzai init      # .kanbanzai/: config.toml, work/, state/ (gitignored)
+kanbanzai init --dry-run   # show the plan: what it would make, keep or append; writes nothing
+kanbanzai init             # .kanbanzai/: config.toml, work/ (cards, batches), state/ (gitignored)
 ```
+
+`init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
+only branch; anything it cannot tell is exit 2 asking for `--main-branch NAME`), the owner (`git config user.name`,
+or `--owner NAME`), an existing config and board, and the rule files you already keep (`AGENTS.md`, `CLAUDE.md`,
+…, listed, never edited). It then builds one plan, the same JSON for `--dry-run --json`, for the real run and for
+`--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
+folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
+template; it never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
+next. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
+finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
+never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
+arguments, with nothing written.
 
 **Claude Code** — in the project's `.claude/settings.json`:
 
@@ -124,7 +137,7 @@ Each path can be moved in the settings (`[project] work`, `state`, `claims`, `nu
 `.kanbanzai/config.toml` overrides [defaults/config.toml](defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
 The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate
-config discovery. `init` uses that same location and never overwrites a config. The existing worktree fallback is
+config discovery. `init` writes the config only there (never a second one in a relocated home) and never overwrites one without `--force`, which backs it up first. The existing worktree fallback is
 used only when the main checkout has no config. Changing `home` does not implicitly change `work` or `state`;
 set those paths explicitly (paths remain relative to the main checkout).
 
@@ -299,7 +312,8 @@ kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai context                        the standing context the hooks inject
-kanbanzai init                           set a project up
+kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--with-template]
+                                         set a project up: detect, plan, apply, verify; never commits
 kanbanzai --version                      the command's version
 ```
 
