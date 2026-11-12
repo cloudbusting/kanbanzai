@@ -1,10 +1,10 @@
 # W-06: Workflow command: show, validate, plan, apply and export a step flow
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Deploy-QA: run kanbanzai-package (build the .vsix and both plugin bundles, install-test them); then stop for the owner's release decision
+- **Next action:** release: after the owner approves the version (a new command: 0.8.0 suggested) — ship via kanbanzai-release
 - **Where:** worktree W-06
 
 ## Goal
@@ -56,6 +56,7 @@ README (command list and a short "Change the workflow" section), a new `docs/wor
 - 2026-11-12: design done: flow-file semantics decided with the owner; 5 tasks; apply/rollback contract
 - 2026-11-12: built: internal/flow (model, document, validate, splice, plan, apply+journal+rollback), internal/cli/workflow.go, README, docs/workflow.md, changelog; go test ./... green, windows/darwin vet clean; commit f38ab63 on W-06
 - 2026-11-12: checked: kanbanzai-qa — go test ./... (22 pkgs) green, go vet + windows vet clean, node suites 227+6 pass, hooks syntax ok, claude plugin validate ok, steps/config resolve, audit + board check ok; diff reviewed (no deps, no network, no contract change); commit f38ab63
+- 2026-11-12: packaged at f2e2a26 (rehearsal as 0.7.1, the metadata version): source bundle, 5 binary archives, .vsix, SHA256SUMS in /tmp/kanbanzai-package-W-06-0.7.1; bundle builds, init+check+board --json+workflow export/validate/plan pass from the extracted tree; claude plugin validate + throwaway install pass; opencode syntax + 10 skills present; no .git/state/.env in any archive
 
 ## Out of scope
 
