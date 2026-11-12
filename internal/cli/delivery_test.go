@@ -17,7 +17,8 @@ import (
 
 func deliveryProject(t *testing.T, fixture string, replace ...string) *config.Project {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "flow", "testdata", "delivery", fixture+".toml"))
+	path := filepath.Join("..", "flow", "testdata", "delivery", fixture+".toml")
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,12 +26,18 @@ func deliveryProject(t *testing.T, fixture string, replace ...string) *config.Pr
 	if len(replace) == 2 {
 		text = strings.ReplaceAll(text, replace[0], replace[1])
 	}
-	project := newProject(t, text)
-	// The flow the config resolves to must export, validate and be the flow the fixture says.
+	// A fixture is a flow file; the project around it is the same for every one.
+	project := newProject(t, "config_version = 1\n[project]\nowner = \"Sam\"\n\n"+text)
+	// The flow the config resolves to exports, and what the fixture says is a flow file the command validates.
 	exported := filepath.Join(t.TempDir(), "flow.toml")
 	testutil.Write(t, exported, ok(t, "workflow", "export"))
 	if code, out, errOut := runCLI(t, "workflow", "validate", "--file", exported); code != 0 {
-		t.Fatalf("%s: the fixture flow does not validate: %d %s%s", fixture, code, out, errOut)
+		t.Fatalf("%s: the exported flow does not validate: %d %s%s", fixture, code, out, errOut)
+	}
+	direct := filepath.Join(t.TempDir(), "fixture.toml")
+	testutil.Write(t, direct, text)
+	if code, out, errOut := runCLI(t, "workflow", "validate", "--file", direct); code != 0 {
+		t.Fatalf("%s: the fixture is not a valid flow file: %d %s%s", fixture, code, out, errOut)
 	}
 	return project
 }
@@ -126,7 +133,7 @@ func TestCIGatedFlowWaitsForARecordedResultAndNeedsNoOwner(t *testing.T) {
 	if out := ok(t, "step", "--for", "W-01"); !strings.Contains(out, "gate: W-01 is held by the Built gate") {
 		t.Fatalf("step = %q", out)
 	}
-	if out := ok(t, "wip"); !strings.Contains(out, "W-01 ⏸") {
+	if out := ok(t, "wip"); !strings.Contains(out, "W-01 🔒") {
 		t.Fatalf("wip does not mark the waiting card:\n%s", out)
 	}
 	ok(t, "gate", "fail", "W-01", "--reason", "the lint job is red")

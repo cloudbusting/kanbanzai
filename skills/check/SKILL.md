@@ -80,9 +80,11 @@ When the checks are green and the review is done:
 2. `kanbanzai move <ID> finish --next "<the next step, from kanbanzai step --for <ID>>" --progress "<the checks>"`
    (it sets **Stage** to `checked`, **Updated**, **Next action** and the **Progress** line), and tick the tasks. Commit the brief in the main checkout as
    its own commit, `<ID>: board — checked`.
-3. If the next step is a deploy step with a skill (`kanbanzai step deploy-qa` says), merge the card's branch into the
-   main branch now, from the main checkout (`git merge --no-ff <branch>`): the deploy step ships what the main branch
-   holds. With no such skill, the card is closed by the do skill instead, which merges it then.
+3. Ask where the card goes next: `kanbanzai step --for <ID>`. If it goes on to a step that ships (the project's
+   deploy or release step, with a skill), merge the card's branch into the main branch now, from the main checkout
+   (`git merge --no-ff <branch>`): that step ships what the main branch holds. If it says the card skips those
+   steps and closes, or the project has no such skill, the card is closed by the do skill instead, which merges it
+   then. If it prints a `gate:` the card is held at, say so in the report; the do skill does not move it on.
 4. Renew the claim and set the session title (`kanbanzai wip --title <ID>`).
 
 Committing is yours once the work is done; pushing waits for the owner (the owner is `project.owner` in

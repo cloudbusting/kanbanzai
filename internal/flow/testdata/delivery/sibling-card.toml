@@ -1,10 +1,5 @@
 # Work that cannot start until another card is done: the first column holds a card behind a card gate, which
 # reads the card's `Needs:` line.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["todo"]
 

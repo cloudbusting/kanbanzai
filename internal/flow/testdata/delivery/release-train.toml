@@ -1,9 +1,4 @@
 # A release train: approved cards wait in Approved until the train opens, then ship together.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["approved", "todo"]
 

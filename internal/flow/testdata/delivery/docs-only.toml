@@ -1,10 +1,5 @@
 # A docs site: write it, check it, publish by merging. No branch per card, no CI, no deploy, no QA column: the
 # check step closes the card.
-config_version = 1
-
-[project]
-owner = "Sam"
-
 [flow]
 pull_order = ["written", "todo"]
 

@@ -74,6 +74,13 @@ If the process itself is killed part-way, the journal remains and the next apply
 neither what the apply wrote nor what was there before. Folders the migration emptied are named, not deleted. A
 finished apply is undone with git.
 
+## Gates and skip rules
+
+A flow file carries the delivery rules too: `gate`, `gate_name`, `gate_after` and `gate_until` on a column, and
+`skip_field` and `skip_values` on a step. `workflow show` lists each gate and the steps a card can skip, `validate`
+reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`.
+[docs/delivery.md](delivery.md) says what each does.
+
 ## What it does not do
 
 It does not decide what your workflow should be, move worktrees or branches, rewrite links in briefs (a link that would

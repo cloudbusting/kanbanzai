@@ -205,3 +205,52 @@ func TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies(t *testing.T) {
 		}
 	}
 }
+
+// W-13: the delivery passages quote the flow's answer (`step --for`, `gate status`) and name no shipped step or
+// column as an instruction about skipping or gating.
+func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(parts ...string) string {
+		data, err := os.ReadFile(filepath.Join(append([]string{root}, parts...)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	do := read("skills", "do", "SKILL.md")
+	for _, want := range []string{
+		"`kanbanzai step --for <ID>` says, for this card, the next step, the steps its brief makes it skip",
+		"`gate:", "`skip: … and closes`", "kanbanzai gate status <ID>", "kanbanzai gate pass <ID>",
+		"`kanbanzai move` refuses to take a card out of it while it is closed",
+		"the owner gate needs `--note", "Never record an owner's approval they have not given",
+		"a card waiting at a gate that is not open is never pulled",
+		"behind a gate that is not open",
+	} {
+		if !strings.Contains(do, want) {
+			t.Errorf("skills/do lacks %q", want)
+		}
+	}
+	for _, old := range []string{"`waits_for_owner`", "whose **Deploy** line is `None` (docs", "the card's **Deploy** line is `None`,"} {
+		if strings.Contains(do, old) {
+			t.Errorf("skills/do still says %q", old)
+		}
+	}
+	check := read("skills", "check", "SKILL.md")
+	for _, want := range []string{"Ask where the card goes next: `kanbanzai step --for <ID>`", "skips those steps and closes", "prints a `gate:`"} {
+		if !strings.Contains(check, want) {
+			t.Errorf("skills/check lacks %q", want)
+		}
+	}
+	if strings.Contains(check, "`kanbanzai step deploy-qa` says") {
+		t.Error("skills/check still names the deploy-qa step as its question")
+	}
+	release := read(".claude", "skills", "kanbanzai-release", "SKILL.md")
+	for _, want := range []string{"kanbanzai gate pass <ID> --note", "owner gate", "`kanbanzai move` will not leave the column without it"} {
+		if !strings.Contains(release, want) {
+			t.Errorf("kanbanzai-release lacks %q", want)
+		}
+	}
+}

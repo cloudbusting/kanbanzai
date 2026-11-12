@@ -28,7 +28,7 @@ var glyphs = map[string]string{"blocked": " ⛔", "waiting": " ⏳", "waiting-ow
 const (
 	interruptedMark = " ⚠"
 	unstartedMark   = " ⚑"
-	gateMark        = " ⏸"
+	gateMark        = " 🔒"
 )
 
 // Card is one brief on the board. JSON is the `board --json` contract the extension reads.
