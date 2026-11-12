@@ -1,10 +1,10 @@
 # W-17: Board view marketplace packaging and install path
 
-- **Stage:** building
+- **Stage:** checked
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** this brief's Decisions and Trust model are the record (the repository has no separate decision-record folder); proposed until the owner approves the release
-- **Next action:** tests first, then init.js/extension.js: pending plan in .kanbanzai/state, Apply item, banner lines
+- **Next action:** deploy-qa: re-package from the merged commit
 - **Where:** worktree W-17
 
 ## Goal
@@ -92,6 +92,8 @@ Publishing to the Visual Studio Marketplace or Open VSX (a release-step action t
 - 2026-11-12: fix after the owner's first editor test: a stale kanbanzai.command machine setting beat the bundled command; Init now names the command and setting when it is too old, the Output log says which command is in use (d2f313f)
 - 2026-11-12: re-checked: node 206, go test, vet, gofmt, plugin validate --strict all green; the owner's editor test of the first build passed after clearing the stale setting
 - 2026-11-12: re-packaged from 0fc6451 after the editor-test fix: .vsix 7.9 MB, five binaries with exec bit, v0.6.4, no machine path, sha256 verified; plugin bundle validates. The owner's first editor run (clean profile, Apply on vscodium-sandbox) worked once the stale kanbanzai.command setting was cleared. QA-approved, waits for the owner
+- 2026-11-12: owner's no-modal change built: pending plan in .kanbanzai/state/setup-plan.json, Kanbanzai: Apply status item, plan banner lines, Show Setup Plan and Cancel Setup; node 233, go, vet, validate green
+- 2026-11-12: re-checked: all green, diff reviewed (init.js pending-file handling refuses links, no modal, no network); real-binary run of init --plan from .kanbanzai/state and of a stale plan
 
 ## Comments
 
