@@ -188,13 +188,12 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 			return nil, err
 		}
 		text := string(data)
-		title, fields := brief.Header(text)
+		_, fields := brief.Header(text)
 		id := p.CardFileRe.FindStringSubmatch(filepath.Base(briefPath))
 		if id == nil {
 			continue
 		}
 		card := id[1]
-		_ = title
 		word := brief.StageWord(fields["Stage"])
 		oldKey := p.StageColumn[word]
 		folderBefore := filepath.Base(filepath.Dir(briefPath))

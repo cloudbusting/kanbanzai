@@ -19,7 +19,7 @@ by side in the same project.
 
 ```
 cmd/kanbanzai              the command's entry point
-internal/                  the core: config, brief, board, claim, move, number, step, context, check, sessions, wip, cli
+internal/                  the core: config, brief, board, claim, move, number, step, context, check, sessions, wip, flow, cli
 go.mod                     the Go module (Go 1.24+, standard library only, no require)
 assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
@@ -321,6 +321,25 @@ into = "doing"
 skill = "kanbanzai:build"
 ```
 
+### Change the workflow with a command
+
+Renaming or dropping a column by hand strands the cards whose Stage word no longer exists. `kanbanzai workflow` does it
+with a report first and a way back; [docs/workflow.md](docs/workflow.md) walks through a rename.
+
+```bash
+kanbanzai workflow show                       # the resolved flow: columns, steps, transitions, gates, WIP, isolation, pull order
+kanbanzai workflow export --out flow.toml     # the flow as a file (--format json|mermaid too)
+# edit flow.toml
+kanbanzai workflow validate --file flow.toml  # every problem, one message each; writes nothing
+kanbanzai workflow plan --file flow.toml --out plan.json [--map OLD=NEW]
+kanbanzai workflow apply --plan plan.json     # backup, migrate the briefs, write the config, check + doctor; undo on failure
+kanbanzai workflow apply --rollback           # undo an apply that did not finish
+```
+
+A flow file holds only `[flow]`, `[[columns]]` and `[steps.<name>]`, and **replaces** those tables in
+`.kanbanzai/config.toml`; the rest of the config is untouched. A card whose Stage word the new flow does not know is a
+blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed. Apply never commits.
+
 ## The command
 
 ```
@@ -335,6 +354,8 @@ kanbanzai sessions [--json]              the claimed cards with a live session, 
 kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
+kanbanzai workflow show|validate|plan|apply|export
+                                         show, check, plan, apply and export the flow (columns and steps)
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
