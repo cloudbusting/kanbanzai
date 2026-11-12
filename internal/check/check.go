@@ -35,7 +35,28 @@ var (
 
 // Checks are the board's checks, in the order the command reports them.
 var Checks = []func(*config.Project) []string{
-	Folders, Titles, Headers, Stages, Unique, Held, Gates, Links, Comments, Template,
+	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Comments, Template,
+}
+
+// TypedFiles checks that every brief in a board folder names a configured type. A legacy project ignores files
+// that are not its prefix, as it always has; a typed project cannot guess what an unknown prefix means.
+func TypedFiles(project *config.Project) []string {
+	if project.TypeSet == nil {
+		return nil
+	}
+	problems := []string{}
+	for _, folder := range project.Folders {
+		paths, _ := filepath.Glob(filepath.Join(project.Work, folder, "*.md"))
+		sort.Strings(paths)
+		for _, path := range paths {
+			if project.CardFileRe.MatchString(filepath.Base(path)) {
+				continue
+			}
+			problems = append(problems, fmt.Sprintf("%s: the file name is not a configured type (valid prefixes: %s)",
+				project.Rel(path), strings.Join(project.CardPrefixes(), ", ")))
+		}
+	}
+	return problems
 }
 
 // Folders checks that every column folder exists and the work folder holds no other folder.
@@ -66,7 +87,7 @@ func Folders(project *config.Project) []string {
 				return nil
 			}
 			name := entry.Name()
-			if !strings.HasPrefix(name, project.Prefix+"-") || !strings.HasSuffix(name, ".md") {
+			if !project.CardFileRe.MatchString(name) {
 				return nil
 			}
 			if !contains(project.Folders, filepath.Base(filepath.Dir(path))) {
@@ -90,8 +111,8 @@ func Titles(project *config.Project) []string {
 		first := strings.SplitN(string(data), "\n", 2)[0]
 		found := project.TitleRe.FindStringSubmatch(first)
 		if found == nil {
-			problems = append(problems, fmt.Sprintf("%s: the first line must be '# %s-NN: <the work>'",
-				project.Rel(path), project.Prefix))
+			problems = append(problems, fmt.Sprintf("%s: the first line must be '# %s: <the work>'",
+				project.Rel(path), project.IDsExample()))
 			continue
 		}
 		if !strings.HasPrefix(filepath.Base(path), found[1]+"-") {
@@ -173,10 +194,11 @@ func Stages(project *config.Project) []string {
 	return problems
 }
 
-// Unique checks that no two briefs share a number.
+// Unique checks that no two briefs share a number, and that a typed board's numbers are global across types.
 func Unique(project *config.Project) []string {
 	problems := []string{}
 	seen := map[string]string{}
+	numbers := map[int]string{}
 	for _, path := range board.Briefs(project) {
 		named := project.CardFileRe.FindStringSubmatch(filepath.Base(path))
 		card := filepath.Base(path)
@@ -188,6 +210,19 @@ func Unique(project *config.Project) []string {
 			continue
 		}
 		seen[card] = project.Rel(path)
+		if project.TypeSet == nil {
+			continue
+		}
+		number, ok := project.CardNumber(card)
+		if !ok {
+			continue
+		}
+		if other, exists := numbers[number]; exists {
+			problems = append(problems, fmt.Sprintf("%s: %s and %s share the global number %d", project.Rel(path),
+				card, other, number))
+			continue
+		}
+		numbers[number] = card
 	}
 	return problems
 }
@@ -470,7 +505,7 @@ func whereWords(project *config.Project) string {
 	vocabulary := workspace.Vocabulary(project)
 	switch workspace.Of(project) {
 	case workspace.Worktree:
-		return fmt.Sprintf("'—', 'main' or 'worktree %s-NN", project.Prefix)
+		return fmt.Sprintf("'—', 'main' or 'worktree %s", project.IDsExample())
 	case workspace.Shared:
 		return "'—' or 'main'"
 	}

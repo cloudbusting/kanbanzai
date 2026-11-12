@@ -72,7 +72,7 @@ func TestConfigVersionContract(t *testing.T) {
 }
 
 func TestExactUnknownAllowlist(t *testing.T) {
-	root := testutil.Repo(t, "config_version=1\nconfig_allow_unknown=['project.future','types']\n[project]\nfuture=42\n[[types]]\nname='bug'\n")
+	root := testutil.Repo(t, "config_version=1\nconfig_allow_unknown=['project.future','extensions']\n[project]\nfuture=42\n[extensions]\nname='bug'\n")
 	project := loadProject(t, root)
 	if project.AsDict()["config_allow_unknown"] == nil {
 		t.Fatal("allowlist is absent from resolved JSON")

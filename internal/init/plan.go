@@ -61,11 +61,15 @@ type Action struct {
 
 // Settings are the values init chose for a config it writes. They are empty when the existing config is kept.
 type Settings struct {
-	MainBranch       string `json:"main_branch"`
-	MainBranchSource string `json:"main_branch_source"`
-	Owner            string `json:"owner"`
-	OwnerSource      string `json:"owner_source"`
+	MainBranch       string   `json:"main_branch"`
+	MainBranchSource string   `json:"main_branch_source"`
+	Owner            string   `json:"owner"`
+	OwnerSource      string   `json:"owner_source"`
+	Types            []string `json:"types,omitempty"`
 }
+
+// StarterTypes are the issue types a fresh project starts with.
+var StarterTypes = []string{"task", "bug", "change", "spike", "chore"}
 
 // Plan is everything init will do. Building it writes nothing.
 type Plan struct {
@@ -165,6 +169,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 			template = DefaultTemplateRel
 		}
 		text := ConfigText(settings.Owner, branch, template, prefix, context)
+		if prefix == "" {
+			settings.Types = append([]string{}, StarterTypes...)
+		}
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
 		if err != nil {
 			return nil, fmt.Errorf("init built a config the loader rejects (a bug): %w", err)
@@ -427,7 +434,8 @@ func within(dir, path string) bool {
 func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x00") == string(data) }
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
-// template are written only when they differ from the defaults; prefix and context only when asked for.
+// template are written only when they differ from the defaults; context only when asked for. With no --prefix the
+// project starts typed (task, bug, change, spike, chore); --prefix writes the legacy single-prefix shape.
 func ConfigText(owner, mainBranch, template, prefix string, context []string) string {
 	var b strings.Builder
 	b.WriteString(`# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:
@@ -449,6 +457,8 @@ config_version = 1
 	}
 	if prefix != "" {
 		fmt.Fprintf(&b, "prefix = %s      # card ids are <prefix>-<number>\n", tomlString(prefix))
+	} else {
+		b.WriteString("default_type = \"task\"      # the type used when `kanbanzai number` names none\n")
 	}
 	if len(context) > 0 {
 		quoted := make([]string, len(context))
@@ -457,14 +467,55 @@ config_version = 1
 		}
 		fmt.Fprintf(&b, "context = [%s]      # files every skill reads first\n", strings.Join(quoted, ", "))
 	}
+	if prefix == "" {
+		b.WriteString(starterTypesText)
+	}
 	b.WriteString(`
 # More you can set (see Kanbanzai's defaults/config.toml for every key):
-#   [project]  prefix, work, claims, numbers, worktree, context = ["rules file", ...]
+#   [project]  default_type, project_key, prefix (legacy only), work, claims, numbers, worktree, context
 #   [flow]     wip_limit, pull_order, isolation = "worktree" / "branch" / "shared" / "external"
 #   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
+#   [[types]]  key, label, prefix and the optional template, colour, icon, description; one global number sequence
 `)
 	return b.String()
 }
+
+// starterTypesText is the typed starting point a fresh project gets. Every type uses the project or embedded brief
+// template until the project gives it its own (W-11).
+const starterTypesText = `
+# Issue types. Every type takes its id from ONE global number sequence: BUG-07 is the seventh item overall, not the
+# seventh bug. Add a type with another [[types]] table; see docs/types.md.
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+description = "A change to something that exists"
+
+[[types]]
+key = "spike"
+label = "Spike"
+prefix = "SPIKE"
+description = "An investigation with a time box"
+
+[[types]]
+key = "chore"
+label = "Chore"
+prefix = "CHORE"
+description = "Maintenance with no behaviour change"
+`
 
 func tomlString(text string) string {
 	var b strings.Builder
