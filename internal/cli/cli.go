@@ -41,7 +41,8 @@ commands:
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   doctor [--json]                diagnose this installation without repairs
   context                        the standing context
-  init                           set a project up
+  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--with-template]
+                                 set a project up (detect, plan, apply, verify; never commits)
 
   --version                      print the version
   --help                         this help
@@ -93,6 +94,28 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			return usageError(errOut, command, err)
 		}
 		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
+	}
+	if command == "init" {
+		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
+			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true})
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, command, err)
+		}
+		if _, planned := flags["plan"]; planned {
+			for _, name := range []string{"main-branch", "owner"} {
+				if _, given := flags[name]; given {
+					return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --%s cannot be "+
+						"combined with it", name))
+				}
+			}
+			if set["force"] || set["with-template"] {
+				return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --force and "+
+					"--with-template cannot be combined with it"))
+			}
+		}
+		return initcmd.Run("", initcmd.Options{DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
+			WithTemplate: set["with-template"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
+			Owner: flags["owner"], Out: out, Err: errOut})
 	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")
@@ -218,12 +241,6 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			return usageError(errOut, command, err)
 		}
 		return context.Run(project, out)
-	case "init":
-		positionals, _, _, err := parse(args, nil, nil)
-		if err != nil || len(positionals) != 0 {
-			return usageError(errOut, command, err)
-		}
-		return initcmd.Run(project, out)
 	}
 	fmt.Fprintf(errOut, "kanbanzai: no such command '%s' (--help)\n", command)
 	return 2

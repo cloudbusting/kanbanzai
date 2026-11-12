@@ -156,6 +156,11 @@ func Locate(start string) (root, top, common string, err error) { return locate(
 
 // New loads the configuration for a project whose main checkout is root.
 func New(root, toplevel, gitCommon string, extra map[string]any) (*Project, error) {
+	return load(root, toplevel, gitCommon, extra, true)
+}
+
+// load is New; readFile false skips the project's config file, for a text that is checked before it is written.
+func load(root, toplevel, gitCommon string, extra map[string]any, readFile bool) (*Project, error) {
 	root = absolute(root)
 	if toplevel == "" {
 		toplevel = root
@@ -169,7 +174,11 @@ func New(root, toplevel, gitCommon string, extra map[string]any) (*Project, erro
 	merged := defaults
 	configFile := ""
 	ignored := []string{}
-	for _, base := range uniqueStrings([]string{root, toplevel}) {
+	candidates := []string{}
+	if readFile {
+		candidates = uniqueStrings([]string{root, toplevel})
+	}
+	for _, base := range candidates {
 		candidate := configCandidate(base, home)
 		if _, statErr := os.Lstat(candidate); statErr == nil {
 			configFile = candidate
