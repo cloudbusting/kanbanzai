@@ -1,11 +1,11 @@
 # W-04: Harden init: detect, plan, dry-run and leave a sound board
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-12
 - **Done:** —
 - **ADR:** none
-- **Next action:** Task 1 (detection): add `internal/init/detect.go` with its tests first, per the Design below
-- **Where:** —
+- **Next action:** Task 1 (detection): add internal/init/detect.go with its tests first, per the brief's Design
+- **Where:** worktree W-04
 
 ## Goal
 
@@ -89,6 +89,7 @@ Init must never overwrite a host's board or config. A dry-run that disagrees wit
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
+- 2026-11-12: design: one detect→plan→apply→verify pipeline; plan JSON; main-branch rule; owner from git user.name (owner's choice); Deploy corrected to package and release
 
 ## Comments
 
