@@ -66,6 +66,15 @@ promise about versions that were not tested; raising a pin is a change to this t
 | OpenCode plugin | OpenCode V2 (2.2.6 tested) | OpenCode 2.2.6 in development; the fake-harness test (`opencode/server.test.mjs`) proves registration, PATH, owner, heartbeat and context in CI, not a live OpenCode session |
 | Board extension | VS Code and VSCodium 1.85 or later (`engines.vscode` in `board-view/package.json`) | The extension's JavaScript with `node --test` in CI; the editor host is not run in CI, so check the tab by hand in your editor |
 
+## Install in the editor, in one step
+
+The `.vsix` of the **Kanbanzai Board** extension carries the `kanbanzai` command for Linux and macOS (amd64, arm64)
+and Windows (amd64), so one install is enough on a machine that has nothing else. In a git project with no board
+the status bar shows **Kanbanzai: Init**. It asks which agents to set up (Claude Code, OpenCode), shows the whole
+plan in a tab, and does nothing until you click Apply; then it copies the command to a per-user folder, enables the
+plugins for the project and makes the board. [board-view/README.md](board-view/README.md) says exactly what it runs,
+reads and writes; [docs/setup.md](docs/setup.md) walks through it, and through the same setup without the editor.
+
 ## Set up a project
 
 ```bash
@@ -87,7 +96,14 @@ or `--owner NAME`), an existing config and board, and the rule files you already
 `--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
 folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
 template; `--prefix KEY` sets the card id prefix and `--context FILE[,FILE]` the files every skill reads first (both only for a config
-`init` writes; an existing one is edited by hand, or replaced with `--force`); it never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
+`init` writes; an existing one is edited by hand, or replaced with `--force`); `--plugins claude,opencode` adds the project's plugin settings to the plan: `.claude/settings.json` gets the
+marketplace and `enabledPlugins` entries (a GitHub source, or with `--plugin-source <a Kanbanzai checkout>` a local
+directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets the plugin path (OpenCode needs
+`--plugin-source` until its package is published). Settings are merged, never overwritten: only what is missing is
+added, a plugin you disabled stays disabled, and a settings file that is not plain JSON is left alone with the
+lines to add by hand. `kanbanzai install` copies the running command to `$XDG_DATA_HOME/kanbanzai/bin` (else
+`~/.local/share/kanbanzai/bin`; `%LOCALAPPDATA%\kanbanzai\bin` on Windows), where the hooks, the OpenCode adapter and
+the editor look after `PATH`. It never overwrites a file, so running it again is a no-op and an interrupted run is finished by the
 next. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
 finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
 never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
@@ -105,7 +121,7 @@ arguments, with nothing written.
 ```
 
 The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …). The hooks run the `kanbanzai`
-command from `KANBANZAI_BIN` or PATH (a local build in `bin/` is the fallback). The plugin loads in place: an edit
+command from `KANBANZAI_BIN`, PATH, the per-user folder `kanbanzai install` fills, then a local build in `bin/`. The plugin loads in place: an edit
 here reaches a project at its next session (or `/reload-plugins`). This repository is also its own public
 marketplace: `/plugin marketplace add cloudbusting/kanbanzai`, then `/plugin install kanbanzai@kanbanzai`.
 
@@ -320,8 +336,10 @@ kanbanzai config upgrade [--apply]       preview/apply a non-destructive config 
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-                                         [--context FILE[,FILE]] [--with-template]
+                                         [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
+                                         [--with-template]
                                          set a project up: detect, plan, apply, verify; never commits
+kanbanzai install [--dry-run|--where]    copy this command to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
 ```
 

@@ -1,61 +1,67 @@
 # Set up a project with Kanbanzai
 
-From a clone to a board, in the order that works. Everything runs on your machine; nothing here makes a network
-request except the downloads in step 1.
+From nothing to a board. There are two ways in: the editor extension, which installs everything with one click, and
+the command line, for a machine that does not use the editor. Everything runs on your machine; the only downloads are
+the ones you do yourself in step 1 of the command-line route and, later, Claude Code's own fetch of the plugin.
 
-## 1. Install the command
+## In VS Code or VSCodium (one install)
 
-Download the archive for your OS and architecture from
-[GitHub Releases](https://github.com/cloudbusting/kanbanzai/releases), verify it against `SHA256SUMS`, and put
-`kanbanzai` on your `PATH` (or set `KANBANZAI_BIN` to its path). Or, with Go 1.24 or later:
+1. Install the **Kanbanzai Board** extension from its `.vsix` (**Extensions: Install from VSIX…**) and reload the
+   window. The `.vsix` already contains the `kanbanzai` command for Linux, macOS and Windows.
+2. Open your project (a git checkout). With no board in it, the status bar shows **Kanbanzai: Init**.
+3. Click it. It asks which agents to set up (Claude Code, OpenCode), then opens **the whole plan** in a tab: every
+   file and folder it would make, the `config.toml`, the plugin settings it would merge, and one extra line, "copy the
+   command to `<folder>`". Nothing has been written yet.
+4. Read it, then click **Apply** (or Cancel, which changes nothing). The extension copies the command to your
+   per-user folder, applies exactly the plan you saw, and shows the files to commit.
+5. Commit them, and start a new Claude Code or OpenCode session in the project: the Kanbanzai skills are there.
+   `/kanbanzai:setup` runs the longer interview (owner, project key, context files) if you want it.
 
-```bash
-go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest
-kanbanzai --version
-```
+Before the repository is public and released, the plugins cannot come from GitHub. Set the extension's
+`kanbanzai.pluginSource` setting to a checkout of Kanbanzai on your machine and the plan will use it (in
+`.claude/settings.local.json`, which is yours alone, and `.opencode/opencode.json`, which then holds a machine path:
+do not commit it as it is).
 
-`/kanbanzai:setup` needs a release whose `kanbanzai init` accepts `--dry-run` and `--plan`; with an older command it
-stops and says so.
+## On the command line
 
-## 2. Enable the plugin
+1. **Install the command.** Download the archive for your OS and architecture from
+   [GitHub Releases](https://github.com/cloudbusting/kanbanzai/releases), verify it against `SHA256SUMS`, and put
+   `kanbanzai` on your `PATH`. Or, with Go 1.24 or later:
 
-**Claude Code:** `/plugin marketplace add cloudbusting/kanbanzai`, then `/plugin install kanbanzai@kanbanzai`.
-**OpenCode:** add the plugin's folder to `plugins` in the project's `.opencode/opencode.json`. Both snippets are in
-the [README](../README.md#set-up-a-project). Start a new session so the skills load.
+   ```bash
+   go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest
+   kanbanzai --version
+   ```
 
-## 3. Run the setup
+   Run `kanbanzai install` once if you want the plugins' hooks to find it without a `PATH` entry.
+2. **Look at the plan.** In the project:
 
-In the project, in a session with the plugin:
+   ```bash
+   kanbanzai init --dry-run --plugins claude,opencode
+   ```
 
-```
-/kanbanzai:setup
-```
+   It writes nothing. Add `--plugin-source <a Kanbanzai checkout>` while the plugins are not published.
+3. **Apply it.** `kanbanzai init --plugins claude,opencode` (same flags), or save the plan with `--dry-run --json`
+   and apply exactly that file with `kanbanzai init --plan FILE`. Init checks the board, the audit and the
+   installation, lists the files to commit and never commits.
+4. **Enable the plugins another way, if you prefer:** with Claude Code installed,
+   `claude plugin marketplace add cloudbusting/kanbanzai` then `claude plugin install kanbanzai@kanbanzai
+   --scope project`. This needs the repository to be public.
 
-It does these things, in this order, and stops before the fourth until you say so:
+## With an agent that already has the plugin
 
-1. **Looks** (reads only): the repository root and main branch, whether you are in a worktree, who the likely
-   owner is, any board already there, the languages, check commands and deploy style it can see, and the rule files
-   (`AGENTS.md`, `CLAUDE.md`, …). It shows them in one table with where each came from; "unknown" is an answer.
-2. **Asks** only what it cannot settle: your name as owner (if git has none or several), the main branch (if it
-   cannot be told), the card id prefix (`W` gives `W-01`), and which rule files the skills should read first.
-3. **Shows the plan**: every file and folder it would make, keep or append to, the `.gitignore` lines, and the
-   `config.toml` text it would write.
-4. **Applies** exactly that plan if you approve it (apply, change an answer, or stop; stopping writes nothing).
-5. **Proves it**: `kanbanzai check`, `kanbanzai wip --audit` and `kanbanzai doctor`, reported as they came.
+In a project where the plugin is enabled, `/kanbanzai:setup` does the whole thing with you: it looks at the
+repository, reports what it found with the evidence, asks only what is open (owner, main branch if unclear, project
+key, context files), shows the plan, waits for your approval, applies exactly that plan and proves it with `check`,
+`wip --audit` and `doctor`. It never commits. It needs a `kanbanzai` command new enough to have `init --dry-run` and
+`--plan`; with an older one it stops and says so. Without the plugin there is nothing to run it with: use one of the
+two routes above first.
 
-It is safe to run again: on a project that already has a board it only completes what is missing.
+## Then
 
-## 4. Commit and start
-
-Setup never commits. It lists the files to commit; for example:
-
-```bash
-git add <the files setup listed>
-git commit -m "Set up Kanbanzai"
-```
-
-Then give the board its first piece of work with `/kanbanzai:triage <the request>`, and `/kanbanzai:do <card>` to do
-it.
+Setup never commits. Commit the files it listed, for example `git add <those files> && git commit -m "Set up
+Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage <the request>`, and `/kanbanzai:do
+<card>` to do it.
 
 ## Special cases
 
@@ -66,4 +72,6 @@ it.
 - **An existing `.kanbanzai/config.toml`** is never changed. One that cannot load is reported with the command that
   repairs it (`kanbanzai config upgrade` or `kanbanzai doctor`); replacing a config is a separate question that names
   the backup it makes.
-- **Without the agent**, `kanbanzai init --dry-run`, then `kanbanzai init` (see the README) does the same work.
+- **An existing `.claude/settings.json` or `.opencode/opencode.json`** is merged into, never overwritten: only what
+  is missing is added, a plugin you switched off stays off, and a file with comments (not plain JSON) is left alone
+  with the lines to add by hand.

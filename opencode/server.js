@@ -5,7 +5,7 @@
 // It does for OpenCode what `.claude-plugin/` and `hooks/` do for Claude Code, from the same files:
 //   - registers Kanbanzai's skills (../skills/*/SKILL.md) under their own names, and the commands that run
 //     them under their bare name and `kanbanzai:<name>`;
-//   - puts `kanbanzai` (KANBANZAI_BIN, PATH, or a local build) on the PATH of every shell OpenCode starts, and
+//   - puts `kanbanzai` (KANBANZAI_BIN, PATH, the per-user folder, or a local build) on the PATH of every shell OpenCode starts, and
 //     labels the shell with its session (KANBANZAI_OWNER=opencode:<session id>) so claims are this session's;
 //   - renews this session's claims after every tool call (the heartbeat);
 //   - adds the board's standing context (`kanbanzai context`) to every model request;
@@ -39,12 +39,38 @@ function isFile(candidate) {
   }
 }
 
-// The command: KANBANZAI_BIN (an explicit path, even a wrong one), then kanbanzai on PATH, then a local build.
+// The well-known per-user folder `kanbanzai install` puts the command in (the same rule as hooks/*.sh), or null when
+// the user's home is unknown. Linux and macOS: $XDG_DATA_HOME/kanbanzai/bin when XDG_DATA_HOME is an absolute path,
+// else <home>/.local/share/kanbanzai/bin. Windows: %LOCALAPPDATA%\kanbanzai\bin, else <profile>\AppData\Local\kanbanzai\bin.
+// `home` is the user's home (HOME, or USERPROFILE on Windows); on Windows USERPROFILE in `env` fills in for it.
+export function wellKnownDir(env, platform, home) {
+  try {
+    const e = env || {}
+    if (platform === "win32") {
+      const p = path.win32
+      if (typeof e.LOCALAPPDATA === "string" && e.LOCALAPPDATA) return p.join(e.LOCALAPPDATA, "kanbanzai", "bin")
+      const profile = home || e.USERPROFILE
+      return profile ? p.join(profile, "AppData", "Local", "kanbanzai", "bin") : null
+    }
+    const p = path.posix
+    if (typeof e.XDG_DATA_HOME === "string" && p.isAbsolute(e.XDG_DATA_HOME)) return p.join(e.XDG_DATA_HOME, "kanbanzai", "bin")
+    return home ? p.join(home, ".local", "share", "kanbanzai", "bin") : null
+  } catch {
+    return null
+  }
+}
+
+// The command: KANBANZAI_BIN (an explicit path, even a wrong one), then kanbanzai on PATH, then the well-known
+// per-user folder, then a local build.
 export function resolveCommand() {
   const explicit = (process.env.KANBANZAI_BIN || "").trim()
   if (explicit) return { command: explicit, found: isFile(explicit) }
   const names = process.platform === "win32" ? ["kanbanzai.exe", "kanbanzai"] : ["kanbanzai"]
-  for (const dir of (process.env.PATH || "").split(path.delimiter)) {
+  const dirs = (process.env.PATH || "").split(path.delimiter)
+  const home = process.platform === "win32" ? process.env.USERPROFILE : process.env.HOME
+  const known = wellKnownDir(process.env, process.platform, home || "")
+  if (known) dirs.push(known)
+  for (const dir of dirs) {
     if (!dir) continue
     for (const name of names) {
       const candidate = path.join(dir, name)

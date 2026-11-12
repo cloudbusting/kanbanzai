@@ -69,6 +69,14 @@ func Preflight(plan *Plan) error {
 			if !ok || sum != action.ExpectSHA256 {
 				return stale("%s changed since the plan was made: run init --dry-run again", action.Path)
 			}
+		case OpMerge:
+			if action.ExpectSHA256 == "" {
+				if exists {
+					return stale("%s now exists: run init --dry-run again", action.Path)
+				}
+			} else if sum, ok := fileDigest(path); !ok || sum != action.ExpectSHA256 {
+				return stale("%s changed since the plan was made: run init --dry-run again", action.Path)
+			}
 		case OpBackup:
 			if exists {
 				return stale("%s already exists: run init --dry-run again", action.Path)
@@ -149,6 +157,12 @@ func execute(root string, action Action) (string, error) {
 			return fail(err)
 		}
 		return "replaced", nil
+	case OpMerge:
+		status, err := applyMerge(path, action)
+		if err != nil {
+			return fail(err)
+		}
+		return status, nil
 	case OpBackup:
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if err != nil {

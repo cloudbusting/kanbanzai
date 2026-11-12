@@ -77,7 +77,7 @@ func ValidatePlan(plan *Plan, d *Detected) error {
 		}
 		base := path.Base(action.Path)
 		switch action.Op {
-		case OpMkdir, OpKeep, OpCreate, OpAppend, OpBackup, OpReplace:
+		case OpMkdir, OpKeep, OpCreate, OpAppend, OpBackup, OpReplace, OpMerge:
 		default:
 			return bad("unknown operation")
 		}
@@ -108,6 +108,10 @@ func ValidatePlan(plan *Plan, d *Detected) error {
 					return bad("the config would not load: %v", err)
 				}
 			}
+		case WhatPlugin:
+			if err := validPluginAction(action); err != nil {
+				return bad("%v", err)
+			}
 		case WhatBackup:
 			if action.Op != OpBackup || !strings.HasPrefix(action.Path, ConfigRel+".bak-") {
 				return bad("a backup is a %s.bak-* file", ConfigRel)
@@ -115,7 +119,8 @@ func ValidatePlan(plan *Plan, d *Detected) error {
 		default:
 			return bad("unknown kind")
 		}
-		if (action.Op == OpCreate || action.Op == OpAppend || action.Op == OpReplace || action.Op == OpBackup) &&
+		if (action.Op == OpCreate || action.Op == OpAppend || action.Op == OpReplace || action.Op == OpBackup ||
+			action.Op == OpMerge) &&
 			action.Content == "" && action.What != WhatGitkeep {
 			return bad("a write needs content")
 		}

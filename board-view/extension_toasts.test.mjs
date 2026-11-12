@@ -17,7 +17,7 @@ function board(placed) {
 // Loads a fresh extension.js; `reads` is the list of boards `kanbanzai board --json` will print, one per read.
 // `answers` is the list of what `kanbanzai sessions --json` will print (the last repeats); it never consumes a board read.
 function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
-  const item = { show() {} };
+  const item = { show() {}, hide() {} };
   const panel = {
     visible: true,
     webview: { html: "", cspSource: "x", onDidReceiveMessage: (f) => { panel.message = f; return { dispose() {} }; } },
@@ -40,7 +40,7 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
     window: {
       createOutputChannel: () => ({ info() {}, warn() {}, error() {}, show() {}, dispose() {} }),
       createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
-    commands: { registerCommand: (name, f) => { vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
+    commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
     warnings: [], executed: [], choose: undefined,
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
