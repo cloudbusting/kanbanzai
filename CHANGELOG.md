@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-11-13
+
+- BUG-48: a command installed with `go install ...@vX.Y.Z` reports that module version instead of `dev`. A release
+  build's linker-stamped version still wins; builds with no module version, or `(devel)`, report `dev`; a pseudo-version
+  build reports the embedded pseudo-version. `--version`, doctor, install/refresh and adapter mismatch checks use the same
+  version. v0.12.0 and v0.12.1 binaries installed with `go install` keep reporting `dev`.
 - CHANGE-47: explicit early cancellation with `move ID close --reason` records a no-change outcome and preserves
   workspaces. `close` is now a reserved target, including when a custom column uses that key or alias.
 
