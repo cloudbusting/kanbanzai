@@ -179,6 +179,31 @@ func TestTheDoSkillMovesTheCardWithTheCommandAtEveryStep(t *testing.T) {
 	}
 }
 
+// This guards the shipped instruction, not the agent's execution of it.
+func TestTheDoSkillKeepsRelevantContextAndAsksBeforeUnrelatedWork(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "do", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{
+		"continue relevant work in the current conversation before looking for new work",
+		"prior conversation is unrelated to that card",
+		"ask the owner through the question tool whether to continue in this context",
+		"recommend a new clean session",
+		"wait for their answer before claiming or starting the card",
+		"Respect the configured cap and pull order",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/do lacks %q", want)
+		}
+	}
+}
+
 func TestDesignCheckAndNextNameTheCommand(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {
