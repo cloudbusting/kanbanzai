@@ -15,6 +15,18 @@ import (
 const exampleStart = "<!-- shipped-flow example: start -->"
 const exampleEnd = "<!-- shipped-flow example: end -->"
 
+func TestAnswerSkillProvidesQuestionConversation(t *testing.T) {
+	data, err := os.ReadFile("skills/answer/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, word := range []string{"kanbanzai answer", "question tool", "recommendation", "never claims"} {
+		if !strings.Contains(string(data), word) {
+			t.Errorf("answer skill missing %q", word)
+		}
+	}
+}
+
 // Match instructions about stages and routes, not skill names or ordinary uses of build/check/design.
 var fixedFlowInstructions = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b(?:move|moves|moving|moved|put|puts|pull|pulls|goes|go|take|takes|close|closes|leave|leaves)\b[^.\n]{0,100}\b(?:todo|designing|designed|building|built|checking|checked|in qa|qa-approved|shipping)\b`),

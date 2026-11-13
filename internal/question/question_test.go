@@ -130,3 +130,22 @@ func TestAppendRejectsOpenQuestionWithoutChangingText(t *testing.T) {
 		t.Fatalf("Append = %q, %v", result, err)
 	}
 }
+
+func TestLifecyclePreservesCRLF(t *testing.T) {
+	original := "# W-01\r\n\r\n## Comments\r\n"
+	text, err := Append(original, Entry{AskedBy: "a", Text: "Which?", Then: "go"}, "2026-11-13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.ReplaceAll(text, "\r\n", ""), "\n") {
+		t.Fatalf("mixed line endings: %q", text)
+	}
+	entries, err := Parse(text)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("Parse = %#v, %v", entries, err)
+	}
+	text, err = Close(text, "yes", "today")
+	if err != nil || strings.Contains(strings.ReplaceAll(text, "\r\n", ""), "\n") {
+		t.Fatalf("Close = %q, %v", text, err)
+	}
+}
