@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-11-13
+
 - W-40: a batch can record a question on a held card with `ask`; `/answer` records the owner's answer for a later
   pull. The board shows an open question and the extension raises an asking toast.
 
