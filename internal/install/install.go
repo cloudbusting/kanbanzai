@@ -101,7 +101,7 @@ func Run(options Options) int {
 
 	current, versionOf := options.Current, options.VersionOf
 	if current == "" {
-		current = version.Version
+		current = version.Effective()
 	}
 	if versionOf == nil {
 		versionOf = releaseOf

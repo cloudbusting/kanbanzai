@@ -184,13 +184,13 @@ func Run(start string, options Options) int {
 }
 
 func versionStatus() string {
-	if version.Version == "dev" {
+	if version.Effective() == "dev" {
 		return "warning"
 	}
 	return "pass"
 }
 func versionFix() string {
-	if version.Version == "dev" {
+	if version.Effective() == "dev" {
 		return "Use a release binary when a versioned installation is required."
 	}
 	return ""
