@@ -5,7 +5,6 @@
 - **ADR:** none identified
 - **Next action:** Once main is clean, merge BUG-49 into main and run package/install QA from that merge
 - **Where:** worktree BUG-49
-- **Held:** blocked: packaging requires a clean main checkout; unrelated TASK-45 and BUG-48 board changes are present
 
 ## Goal
 
