@@ -12,7 +12,7 @@ If there is no board, use `/setup`. A request that is not a card goes to `/triag
 
 ## Select
 
-Run `kanbanzai wip`, `kanbanzai wip --audit` and `kanbanzai wip --next`. Stop on hard audit findings. Respect the
+Run `kanbanzai wip`, `kanbanzai wip --audit` and `kanbanzai wip --next`. For the whole-board main-checkout dirty finding only, treat it as a warning for the workflow if every changed path is a configured card brief. Follow `/audit`'s verification: inspect the complete main-checkout Git status including staged, unstaged, untracked and renamed paths, both rename endpoints and untracked directory contents, against the configured work folder, column folders and card ID rules, using Git's recorded version for deleted paths. If mixed or uncertain, stop; do not rely on a truncated preview. Report the finding and preserve other sessions' changes without staging, committing, discarding or editing them. The audit command's exit status is unchanged and can still be 1; inspect its findings rather than treating that exit alone as permission to proceed. Stop on all other hard findings, including when the board-only exception applies. Respect the
 configured pull order, cap, holds and gates. For each candidate read its brief and Comments and run
 `kanbanzai step --for <ID>`, `kanbanzai claim status <ID>` and `kanbanzai workspace <ID>`. Only select a card whose
 actionable next step is the build and whose decisions and brief are settled. Do not select a skipped step, closed
@@ -44,7 +44,7 @@ Give each agent a self-contained prompt: card and Comments handover, brief, owne
 extensions, acceptance checks, and exclusions. Agents do not edit the board, claim, commit, push, ship, ask the
 owner or add dependencies. Stop an overlapping agent immediately. Wait for results rather than polling.
 
-If an agent discovers a decision during its work, it stops and returns the question, options, recommendation and
+For a deferred batch handoff, if an agent discovers a decision during its work, it stops and returns the question, options, recommendation and
 the next action needed after an answer. It never writes the board or asks the owner itself. The main session uses
 `kanbanzai ask <ID> --text "<question>"` with repeated `--option` and `--recommend` as appropriate; the command
 records the question and releases that card's claim. Mark its batch-map row paused with the question and preserve its

@@ -1,11 +1,11 @@
 # W-11: Type-aware brief templates and a configurable brief schema
 
-- **Stage:** todo
-- **Updated:** 2026-11-11
+- **Stage:** building
+- **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** design after the type model: define required fields and per-type sections
-- **Where:** —
+- **Next action:** Implement lifecycle-safe section insertion and type-template validation, then complete schema checker edge cases
+- **Where:** worktree W-11
 - **Needs:** W-09
 
 ## Goal
@@ -14,23 +14,46 @@ A bug needs a reproduction and expected/actual; a change needs a before/after; a
 
 ## Acceptance checks
 
-- [ ] Types can name a template; init and workflow create or validate it, and a missing template is a clear error rather than a silent fallback.
-- [ ] The brief schema is configurable: required and optional fields, repeatable sections, the final section and the Done/Held rules are declared in config or template metadata.
-- [ ] `kanbanzai check` validates a bug brief with reproduction fields and a task brief without them, and fails a brief that uses a field its type does not declare.
-- [ ] The shipped task, bug and change templates pass their own schemas; a minimal template for a small project also passes.
-- [ ] The Type line, filename prefix, template and schema agree, and `board --json` exposes the type for the view's filters.
-- [ ] The docs explain how to add a project-specific type and template without touching the core's Go code.
+- [ ] With an explicit type schema, `kanbanzai check` accepts a bug with reproduction, expected and actual sections and a task without them; it rejects missing required fields or sections, undeclared head fields or sections, incorrect ordering, illegal repeats and the wrong final section with paths and names in the errors.
+- [ ] Shipped task, bug and change templates and schemas, and a minimal custom schema, pass their own checks. A configured missing or unreadable type template fails clearly; init and workflow plans validate all named templates without silently overwriting them.
+- [ ] A config with no schema retains today's checker, template selection and board behavior for existing typed and legacy cards, including custom fields and sections. Tests cover old config, briefs, custom templates, `types = []`, and mixed legacy and typed boards.
+- [ ] Core Stage, Updated, Next action, Where, Done, Held, Gate, Needs, Questions and Progress operations remain safe under every allowed schema: incompatible declarations are refused before use; lifecycle, move, ask and answer tests prove their output validates.
+- [ ] ID prefix selects the type and its schema, never a separate Type line. Existing `board --json` type fields and both adapters remain compatible; tests cover keyed IDs, legacy IDs, and the view's defensive consumer.
+- [ ] The README and `docs/types.md` show a complete project-specific type, template and schema example, including opt-in, validation errors and compatibility; it works without changes to core Go code.
 
 ## Deploy
 
-None: this is Kanbanzai's own board, tooling, docs and skill text; it ships no product code.
+package and release: the command, embedded templates and shipped skills change.
 
 ## Tasks
 
-- [ ] Declare the schema — defaults/config.toml or a schema file, `internal/config` — tests cover required, optional, section order and the final section.
-- [ ] Add the templates — templates/task.md, templates/bug.md, templates/change.md, a project-specific example — each passes check.
-- [ ] Teach the checker — `internal/check`, `internal/board` — typed fixtures prove missing and extra fields are reported.
-- [ ] Document type authoring — README, docs/types.md — a new type can be added from the docs alone.
+- [ ] Define and validate the opt-in schema and type-template resolution in `internal/config/`, `internal/typeid/`, `defaults/config.toml`, and their tests; prove malformed schemas fail closed and absent schemas preserve current behavior.
+- [ ] Add embedded examples and selection in `templates/`, `assets.go`, `internal/init/`, `internal/flow/`, `skills/triage/`, and their tests; prove named templates are resolved, reported, validated and never silently replaced. Coordinate after the config contract; do not assume a card-creation CLI exists.
+- [ ] Implement schema-aware checking and invariant protection in `internal/check/`, `internal/brief/`, and lifecycle tests in `internal/move/` and `internal/question/`; prove the positive, negative, compatibility and workflow checks above. Coordinate with the config and template tasks before integration.
+- [ ] Verify JSON and harness consumers in `internal/board/`, `board-view/`, `opencode/` and skill wording tests; preserve existing fields and demonstrate both adapters consume the same core contract.
+- [ ] Document authoring and migration in `README.md`, `docs/types.md`, config comments and `CHANGELOG.md`; test the complete example against the real checker. Documentation can be drafted in parallel after the contract is fixed; shared files are integrated by the main session.
+
+## Design
+
+Keep the core as the only policy engine; both harnesses consume its resolved type and template information, and the extension continues to display optional JSON fields defensively. No dependencies, network, machine-specific paths or platform-specific runtime assumptions are introduced.
+
+Add named schema tables to project config, for example `[schemas.bug]`, selected by an optional `schema = "bug"` on `[[types]]`. Each schema declares ordered arrays `required_fields`, `optional_fields`, `required_sections`, `optional_sections`, and `repeatable_sections`, plus `final_section`. Field names are head field labels; sections are level-two headings. The order of the required and optional section arrays is not sufficient to express a combined order, so add `section_order` listing every declared section exactly once. Repeats are allowed only for a section explicitly listed as repeatable, adjacent in that order. Empty required/optional lists are valid; missing or contradictory declarations, duplicate names, unknown schema references and a final section not last in `section_order` are configuration errors. A declared required field must be nonempty, while template validation checks presence rather than placeholder values. Field/section names retain the parser's supported syntax; define and test exact case sensitivity and duplicate handling consistently.
+
+Strict validation applies only when the matched type explicitly names a schema. Otherwise the current legacy checker remains unchanged, including allowing custom fields and sections; legacy IDs always use that compatibility path. A project's explicit type `template` path resolves relative to the main project root and must exist and be readable, with no fallback on error. With no type template, retain the existing project template or embedded card template. Provide embedded task, bug and change examples and an explicit opt-in example without silently changing existing projects. Ensure the skills and CLI expose enough information for a creator to select the right template; the prefix remains the source of type, and no Type line is introduced.
+
+Schemas cannot disable the command's workflow invariants. Require Stage, Updated, Next action and Where; reserve Done, Held, Gate and Needs as permitted fields, with their existing conditional semantics. Permit Questions and Progress in an order compatible with the commands that insert them; until those commands support arbitrary final sections, require Comments as the final section. Reject incompatible declarations rather than accepting configurations that move, ask or answer would corrupt. A schema constrains presence and order, not arbitrary content, a new rules language or per-type workflows.
+
+The init and workflow plan/apply paths must account for every explicit template, including stage renames, path confinement, stale-plan verification and non-overwrite behavior. Config and JSON changes are additive; preserve old `board --json` and `config --json` fields and update fixtures. Test clean old boards before and after upgrade, and test error paths without network or data deletion.
+
+## Docs
+
+README.md, docs/types.md, defaults/config.toml and CHANGELOG.md; shipped triage skill and its wording tests explain selecting templates for both harnesses.
+
+## Decisions
+
+- 2026-11-13 — owner: keep the ID prefix as the sole type source; validate the chosen template and schema against that ID without a Type line (Q1).
+- 2026-11-13 — owner: approved opt-in named per-type schemas, existing-brief compatibility, ordered sections with explicit repeats, and Comments as the required final section.
+- 2026-11-13 — engineering: opt in to strict schemas rather than retroactively rejecting existing cards; preserve core lifecycle invariants and existing JSON fields.
 
 ## Out of scope
 
@@ -44,6 +67,27 @@ A configurable schema can become a second programming language. Keep the first v
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
 - 2026-11-11: triage: unblocked - W-20 shipped the Go command in v0.6.0, so the Held line is cleared; the brief's wording now names the Go core (`internal/…`).
+- 2026-11-13: waiting for an answer in ## Questions
+- 2026-11-13: Design: preserve prefix-derived type and opt-in strict schemas; define lifecycle invariants, template resolution and compatibility checks.
+- 2026-11-13: Design proposal recorded; awaiting owner's agreement on the public schema contract.
+- 2026-11-13: Owner approved the opt-in schema design and retained Comments as final section.
+- 2026-11-13: Began schema config parsing and validation in the worktree; targeted configuration and type ID tests pass. Template selection, schema enforcement and lifecycle integration remain unfinished.
+- 2026-11-13: Added initial typed-brief structural checks and a missing-type-template diagnostic; targeted check, config and type ID tests pass. Lifecycle integration and template plan/apply behavior are still unfinished.
+
+## Questions
+
+### Q1 — 2026-11-13
+
+- **Asked by:** opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw (W-09 and docs/types.md establish prefix-derived type. A required line breaks existing briefs.)
+- **Question:** W-11 asks for a Type line, but W-09 made the ID prefix the sole type source and existing typed briefs have no Type line. Which contract should W-11 use?
+- **Options:** Keep prefix as source: validate template and schema against the ID without a Type line.; Add a required Type line and design an explicit migration for existing typed briefs.
+- **Recommendation:** Keep prefix as source
+- **Then:** design after the type model: define required fields and per-type sections
+- **Answer:** Keep prefix as source: validate template and schema against the ID without a Type line.
+- **Answered:** 2026-11-13 by opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw
+
 
 ## Comments
 
+- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: Partial uncommitted work adds named schema parsing and initial validation, not enforcement. `go test ./internal/config ./internal/typeid` passes; extend lifecycle ordering validation and integration before treating a configured schema as safe. No full suite has run.
+- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: The checker now applies initial opt-in schema checks; `go test ./internal/check ./internal/config ./internal/typeid` passes. `ask` and progress currently insert before Comments independently, so arbitrary configured ordering is unsafe; fix and test before finishing. Main advanced four commits after this worktree's base; inspect integration without discarding work.
