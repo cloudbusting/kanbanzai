@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** Continue schema configuration: enforce lifecycle-safe section ordering and implement type-template resolution and schema-aware checking
+- **Next action:** Implement lifecycle-safe section insertion and type-template validation, then complete schema checker edge cases
 - **Where:** worktree W-11
 - **Needs:** W-09
 
@@ -72,6 +72,7 @@ A configurable schema can become a second programming language. Keep the first v
 - 2026-11-13: Design proposal recorded; awaiting owner's agreement on the public schema contract.
 - 2026-11-13: Owner approved the opt-in schema design and retained Comments as final section.
 - 2026-11-13: Began schema config parsing and validation in the worktree; targeted configuration and type ID tests pass. Template selection, schema enforcement and lifecycle integration remain unfinished.
+- 2026-11-13: Added initial typed-brief structural checks and a missing-type-template diagnostic; targeted check, config and type ID tests pass. Lifecycle integration and template plan/apply behavior are still unfinished.
 
 ## Questions
 
@@ -89,3 +90,4 @@ A configurable schema can become a second programming language. Keep the first v
 ## Comments
 
 - 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: Partial uncommitted work adds named schema parsing and initial validation, not enforcement. `go test ./internal/config ./internal/typeid` passes; extend lifecycle ordering validation and integration before treating a configured schema as safe. No full suite has run.
+- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: The checker now applies initial opt-in schema checks; `go test ./internal/check ./internal/config ./internal/typeid` passes. `ask` and progress currently insert before Comments independently, so arbitrary configured ordering is unsafe; fix and test before finishing. Main advanced four commits after this worktree's base; inspect integration without discarding work.
