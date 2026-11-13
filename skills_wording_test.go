@@ -450,6 +450,29 @@ func TestDoRecoveryKeepsTheClaimAndAuditSafeguards(t *testing.T) {
 	}
 }
 
+func TestBoardOnlyDirtyAuditWorkflow(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"audit", "next"} {
+		data, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range []string{
+			"whole-board main-checkout dirty finding", "every changed path is a configured card brief",
+			"staged, unstaged, untracked and renamed", "mixed or uncertain", "all other hard findings",
+			"exit status is unchanged", "preserve other sessions'", "warning for the workflow",
+		} {
+			if !strings.Contains(text, want) {
+				t.Errorf("skills/%s lacks %q", name, want)
+			}
+		}
+	}
+}
+
 // W-12: where a card's change is made depends on [flow] isolation, so the shipped skills carry no command that makes
 // or removes a workspace; they say to run `kanbanzai workspace <ID>` and follow it.
 func TestTheSkillsCarryNoWorkspaceCommands(t *testing.T) {

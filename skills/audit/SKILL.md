@@ -36,6 +36,8 @@ no `Held:` line is interrupted (`⚠`): a session left it mid-step. Warnings (`�
 quiet, an interrupted card, an uncarded worktree with changes, and an expired claim. `kanbanzai check` lists a brief it cannot read
 (no title, no Stage line, an unknown stage, the wrong folder) as a problem.
 
+For the whole-board main-checkout dirty finding only, treat it as a warning for the workflow if every changed path is a configured card brief. Inspect the main checkout's complete Git status, including staged, unstaged, untracked and renamed paths (both source and destination, and files within untracked directories). Resolve the configured work folder, column folders and card ID rules from `kanbanzai config`; verify each path is a card brief, including deleted or renamed paths against Git's recorded version. If paths cannot be verified, including ambiguous paths or status errors, they are mixed or uncertain and the finding remains hard. Do not infer this from a truncated audit preview. Report the paths and preserve other sessions' changes; never stage, commit, discard or edit them to clear the finding. The command's exit status is unchanged: it can still exit 1. A mixed checkout and all other hard findings still block, even alongside board-only changes.
+
 For `/do` recovery only, `wip --audit --card ID --recovery` checks an interrupted, unheld card with no live claim
 or with the caller's live claim.
 It warns about that card's matching unclaimed workspace work instead of treating that one finding as hard; all other
@@ -84,8 +86,8 @@ Hard: <orphan worktree / split card / Where drift / orphan claim, each with its 
 Claims: <card — session, until when; or none>
 Fixed: <the bookkeeping changed, if any>
 Open: <what needs the owner: a worktree to keep or drop, commits to push, a live claim to leave alone>
-Gate: /next and a batch's ship wait until the hard findings are gone.
+Gate: /next and a batch's ship wait until the blocking hard findings are gone.
 ```
 
-If a hard finding remains, `/next` does not spawn and a batch does not ship. Never make the audit pass by removing
-the check.
+If a blocking hard finding remains, `/next` does not spawn and a batch does not ship. The verified board-only
+exception above is a workflow warning, not a change to the audit command. Never make the audit pass by removing the check.
