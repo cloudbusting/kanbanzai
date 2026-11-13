@@ -90,8 +90,41 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 	look.Held = held
 
 	word := strings.ToLower(strings.TrimSpace(target))
+	earlyClose := word == "close"
+	if earlyClose {
+		if changes.Reason == nil || strings.TrimSpace(*changes.Reason) == "" {
+			return "", refused("early close needs --reason \"<why>\"")
+		}
+		if changes.Force || changes.Done != nil || changes.Next != nil || changes.Where != nil || changes.Held != nil || changes.ClearHeld || changes.Progress != nil {
+			return "", refused("early close cannot be combined with other move options")
+		}
+		if column.Kind != "open" {
+			return "", refused("early close requires an open card; parked and done cards cannot be closed")
+		}
+		if card.Held != nil {
+			return "", refused(fmt.Sprintf("%s has a Held line (%s); clear it first", cardID, *card.Held))
+		}
+		if haveRecord && !live {
+			return "", refused(fmt.Sprintf("%s has an expired claim; take it over first", cardID))
+		}
+		if column.Doing != "" && !mine {
+			return "", refused(fmt.Sprintf("%s is not claimed by you: claim it first", cardID))
+		}
+		value := "closed, no change: " + strings.TrimSpace(*changes.Reason)
+		changes.Done = &value
+	}
 	var destination string
 	switch word {
+	case "close":
+		for _, candidate := range project.Columns {
+			if candidate.Kind == "done" {
+				destination = candidate.Key
+				break
+			}
+		}
+		if destination == "" {
+			return "", refused("early close requires a done column")
+		}
 	case "start":
 		name := step.NextStep(project, &look, key)
 		if name == "" {
@@ -143,7 +176,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		return step.SkippedFor(project, briefText, name)
 	}
 	allowed := LegalTargets(project, key, &look, skipped)
-	if _, ok := allowed[destination]; !ok {
+	if _, ok := allowed[destination]; !ok && !earlyClose {
 		switch {
 		case column.Kind == "parked":
 			problems = append(problems, fmt.Sprintf("%s is Paused: only %s un-parks it", cardID, project.Owner))
@@ -156,7 +189,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 				column.Label, goal.Label, column.Label, strings.Join(labelList(project, allowed, key), ", ")))
 		}
 	}
-	if destination != key && card.Gate != nil {
+	if destination != key && card.Gate != nil && !earlyClose {
 		// A closed gate holds a card back from going forward; going back or pausing is always free.
 		if kind := allowed[destination]; kind != "back" && kind != "pause" {
 			if refusal := gate.Blocks(project, card.Gate, cardID); refusal != "" {
@@ -210,7 +243,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 			value := "—"
 			fields["Next action"] = &value
 		}
-		if _, ok := fields["Where"]; !ok {
+		if _, ok := fields["Where"]; !ok && !earlyClose {
 			value := "main"
 			fields["Where"] = &value
 		}
@@ -253,7 +286,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		"at": timeutil.ToISO(*now), "card": cardID, "from": key, "to": destination, "owner": owner,
 		"forced": forced, "reason": nil,
 	}
-	if forced {
+	if forced || earlyClose {
 		reason := ""
 		if changes.Reason != nil {
 			reason = strings.TrimSpace(*changes.Reason)
@@ -398,7 +431,7 @@ func Run(project *config.Project, opts Options) int {
 		fmt.Fprintf(errOut, "move: %v\n", err)
 		return RefusedCode
 	}
-	if opts.Reason != nil && !opts.Force {
+	if opts.Reason != nil && !opts.Force && !strings.EqualFold(strings.TrimSpace(opts.Target), "close") {
 		fmt.Fprintln(errOut, "move: --reason goes with --force")
 		return RefusedCode
 	}
