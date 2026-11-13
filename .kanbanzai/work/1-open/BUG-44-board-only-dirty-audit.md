@@ -2,9 +2,8 @@
 
 - **Stage:** checked
 - **Updated:** 2026-11-13
-- **Next action:** Once main is clean, merge the checked commit into main and run deploy-qa packaging.
+- **Next action:** Merge the checked commit into main and run deploy-qa packaging.
 - **Where:** worktree BUG-44
-- **Held:** blocked: packaging requires a clean main checkout and the reviewed change merged to main; other sessions have uncommitted board changes
 
 ## Goal
 
