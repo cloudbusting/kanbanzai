@@ -404,6 +404,28 @@ func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
 	}
 }
 
+func TestDoRecoveryKeepsTheClaimAndAuditSafeguards(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "do", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{
+		"kanbanzai wip --audit --card <ID> --recovery", "worktree or branch isolation",
+		"After a recovery claim, run both the ordinary", "stop if either has a hard finding",
+		"Do not rebase, reset or discard work", "Exit 3 means another session holds it",
+		"Exit 4 means an expired claim",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/do lacks %q", want)
+		}
+	}
+}
+
 // W-12: where a card's change is made depends on [flow] isolation, so the shipped skills carry no command that makes
 // or removes a workspace; they say to run `kanbanzai workspace <ID>` and follow it.
 func TestTheSkillsCarryNoWorkspaceCommands(t *testing.T) {
