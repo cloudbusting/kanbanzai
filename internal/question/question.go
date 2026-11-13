@@ -36,10 +36,14 @@ func Parse(text string) ([]Entry, error) {
 		if match == nil {
 			return nil, fmt.Errorf("invalid question heading: %s", lines[i])
 		}
-		if numbers[match[1]] {
+		number := strings.TrimLeft(match[1], "0")
+		if number == "" {
+			number = "0"
+		}
+		if numbers[number] {
 			return nil, fmt.Errorf("duplicate question number %s", match[1])
 		}
-		numbers[match[1]] = true
+		numbers[number] = true
 		entry := Entry{Heading: strings.TrimPrefix(lines[i], "### ")}
 		i++
 		fields := map[string]string{}
