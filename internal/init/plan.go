@@ -11,6 +11,7 @@ import (
 	"time"
 
 	kanbanzai "github.com/cloudbusting/kanbanzai"
+	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 )
 
@@ -268,7 +269,7 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 			"--force to replace the config")
 	}
 	for _, item := range project.Types {
-		if item.Template == "" {
+		if item.Template == "" || (!project.TemplateIsShipped && item.Template == project.Template) {
 			continue
 		}
 		rel, err := insideRoot(root, item.Template, "type "+item.Key+" template")
@@ -293,6 +294,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		if !found {
 			plan.Actions = append(plan.Actions, Action{Op: OpKeep, Path: rel, What: WhatTemplate, ExpectSHA256: digest(string(data))})
 		}
+	}
+	if problems := check.TypeTemplates(project); len(problems) > 0 {
+		return nil, refuse("a type template does not fit its schema:\n  %s", strings.Join(problems, "\n  "))
 	}
 
 	agents, source, err := checkPlugins(opts)

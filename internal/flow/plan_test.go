@@ -326,3 +326,103 @@ func TestAPlanFileIsStrictAndConfined(t *testing.T) {
 		t.Error("an unknown field was accepted")
 	}
 }
+
+const typedTemplateConfig = `[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "bug.md"
+`
+
+func typedTemplateProject(t *testing.T) *config.Project {
+	t.Helper()
+	p := project(t, typedTemplateConfig)
+	shipped, err := os.ReadFile(filepath.Join(mustRoot(t), "templates", "card.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, filepath.Join(p.Root, "bug.md"), string(shipped))
+	testutil.Git(t, p.Root, "add", "-A")
+	testutil.Git(t, p.Root, "commit", "-q", "-m", "bug template")
+	return p
+}
+
+func TestATypeTemplateFollowsAFirstColumnRenameAndIsAppliedWithTheBoard(t *testing.T) {
+	p := typedTemplateProject(t)
+	renamed := strings.ReplaceAll(FromProject(p).Text, `"todo"`, `"backlog"`)
+	got := plan(t, p, renamed, nil)
+	if len(got.Blockers) != 0 || len(got.TypeTemplates) != 1 || got.Template != nil {
+		t.Fatalf("plan: blockers %v type templates %+v template %+v", got.Blockers, got.TypeTemplates, got.Template)
+	}
+	change := got.TypeTemplates[0]
+	if change.Path != "bug.md" || !strings.Contains(change.Content, "- **Stage:** backlog (") {
+		t.Fatalf("type template change = %+v", change)
+	}
+	if err := ValidatePlan(got, p); err != nil {
+		t.Fatalf("a plan with a type template was refused: %v", err)
+	}
+
+	// stale: the template changed after the plan was made
+	testutil.Write(t, filepath.Join(p.Root, "bug.md"), "# changed\n")
+	if err := Preflight(p, got); err == nil || !strings.Contains(err.Error(), "bug.md changed since the plan was made") {
+		t.Fatalf("a stale type template was not refused: %v", err)
+	}
+}
+
+func TestAPlanCannotRewriteAFileThatIsNotATemplate(t *testing.T) {
+	p := typedTemplateProject(t)
+	got := plan(t, p, strings.ReplaceAll(FromProject(p).Text, `"todo"`, `"backlog"`), nil)
+	got.TypeTemplates[0].Path = "README.md"
+	if err := ValidatePlan(got, p); err == nil || !strings.Contains(err.Error(), "README.md") {
+		t.Fatalf("a plan naming another file was accepted: %v", err)
+	}
+	got = plan(t, p, strings.ReplaceAll(FromProject(p).Text, `"todo"`, `"backlog"`), nil)
+	got.TypeTemplates = append(got.TypeTemplates, got.TypeTemplates[0])
+	if err := ValidatePlan(got, p); err == nil {
+		t.Fatal("a plan listing a template twice was accepted")
+	}
+}
+
+func TestAMissingTypeTemplateBlocksTheWorkflowPlan(t *testing.T) {
+	p := typedTemplateProject(t)
+	if err := os.Remove(filepath.Join(p.Root, "bug.md")); err != nil {
+		t.Fatal(err)
+	}
+	got := plan(t, p, FromProject(p).Text, nil)
+	if !strings.Contains(strings.Join(got.Blockers, "\n"), "type bug: its template bug.md cannot be read") {
+		t.Fatalf("blockers = %v", got.Blockers)
+	}
+}
+
+func TestApplyWritesTheTypeTemplate(t *testing.T) {
+	p := typedTemplateProject(t)
+	renamed := strings.ReplaceAll(FromProject(p).Text, `"todo"`, `"backlog"`)
+	got := plan(t, p, renamed, nil)
+	if _, err := Apply(p, got, ApplyOptions{Doctor: fine}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	data, _ := os.ReadFile(filepath.Join(p.Root, "bug.md"))
+	if !strings.Contains(string(data), "- **Stage:** backlog (") {
+		t.Fatalf("bug.md was not rewritten:\n%s", data)
+	}
+}
+
+func TestATypeTemplateThatBreaksItsSchemaBlocksTheWorkflowPlan(t *testing.T) {
+	p := project(t, strings.Replace(typedTemplateConfig, `template = "bug.md"`, `template = "bug.md"
+schema = "bug"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Comments"]
+optional_sections = ["Progress", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Progress", "Questions", "Comments"]
+final_section = "Comments"`, 1))
+	testutil.Write(t, filepath.Join(p.Root, "bug.md"), "# BUG-NN: Work\n\n- **Stage:** todo\n- **Updated:** YYYY-MM-DD\n- **Next action:** n\n- **Where:** —\n\n## Goal\n\n## Comments\n")
+	got := plan(t, p, FromProject(p).Text, nil)
+	if !strings.Contains(strings.Join(got.Blockers, "\n"), "Reproduction") {
+		t.Fatalf("blockers = %v", got.Blockers)
+	}
+}

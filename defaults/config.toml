@@ -45,8 +45,11 @@ project_key = ""                  # optional upper-case component, e.g. KANZ for
 # Each type may also set template = "templates/bug.md", colour = "#C43B3B" and icon = "bug"; colour is #rrggbb,
 # icon is a local symbolic name, never a URL.
 # A type may opt into schema = "bug" with a [schemas.bug] table. Declare required_fields, optional_fields,
-# required_sections, optional_sections, repeatable_sections, section_order and final_section. This is opt-in;
-# schemas are not applied to types that do not select one. Comments is the required final section.
+# required_sections, optional_sections, repeatable_sections, section_order (every section once) and final_section.
+# This is opt-in; schemas are not applied to types that do not select one. A schema must require Stage, Updated,
+# Next action and Where, permit Done, Held, Gate, Needs, Progress and Questions, and end with Comments.
+# `kanbanzai template --example schemas` prints a complete example for task, bug and change, and
+# `kanbanzai template --example bug` the matching template. See docs/types.md.
 
 [[types]]
 key = "task"

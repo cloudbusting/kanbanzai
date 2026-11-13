@@ -347,6 +347,9 @@ func planText(plan *flow.Plan, out string) string {
 	if plan.Template != nil {
 		fmt.Fprintf(&b, "Template: %s (first Stage word)\n", plan.Template.Path)
 	}
+	for _, template := range plan.TypeTemplates {
+		fmt.Fprintf(&b, "Type template: %s (first Stage word)\n", template.Path)
+	}
 	for _, folder := range plan.Folders {
 		fmt.Fprintf(&b, "Folder:   create %s\n", folder)
 	}

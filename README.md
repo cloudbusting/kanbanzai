@@ -26,6 +26,7 @@ go.mod                     the Go module (Go 1.24+, standard library only, no re
 assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
+templates/{task,bug,change}.md, schemas.example.toml   opt-in per-type examples (embedded; see "Type templates and brief schemas")
 skills/                    setup, triage, design, do, next, answer, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
@@ -205,8 +206,8 @@ prefix = "TASK"
 `kanbanzai number --type bug` allocates the next number for that type; `kanbanzai number` uses `default_type`. The
 ledger is one file, `.kanbanzai/state/numbers/_ledger.json`, holding every issued number and each live reservation's
 item, type, owner and time; `kanbanzai number --status` prints it. Type keys are lower-case; prefixes and the project
-key are upper-case letters and digits. The optional `template`, `colour`, `icon` and `description` on a type are
-metadata for the board and the brief schema.
+key are upper-case letters and digits. The optional `template`, `schema`, `colour`, `icon` and `description` on a type
+select its brief template and schema (below) and are metadata for the board.
 
 **The old cards stay.** `project.prefix` is the legacy prefix: a card called `W-01` remains a valid card with no type,
 is not rewritten, and can be claimed, moved and closed like any other. On the first typed allocation the ledger is
@@ -221,6 +222,50 @@ config, which restores the single-prefix shape and its `<prefix>.json` ledger.
 The type is the id's prefix and nothing else: there is no separate Type field to disagree with it, and changing a
 card's type in place is not supported. [docs/types.md](docs/types.md) has the model, the grammar, the seed and the
 legacy boundary.
+
+### Type templates and brief schemas
+
+A type can have its own brief template and, separately, opt into a brief schema. Both are optional and per type; a
+project that sets neither behaves exactly as before: one template, and a checker that requires the head fields
+(Stage, Updated, Next action, Where) and a final `## Comments` section while allowing any other field or section.
+
+```toml
+[project]
+default_type = "bug"            # [[types]] replace the shipped list: list every type you use
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "templates/bug.md"   # relative to the main project root; must exist and be readable (no fallback)
+schema = "bug"                  # opt in: names [schemas.bug]; without it the legacy checker applies
+
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
+optional_sections = ["Design", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"]
+final_section = "Comments"
+```
+
+A schema constrains presence and order only: required head fields, declared fields, required and declared `##`
+sections in `section_order`, sections that may repeat, and one final section. `kanbanzai check` names the brief, the
+field or section and what is wrong (missing, undeclared, out of order, duplicated, not last). It cannot disable the
+command's own invariants: a schema must require Stage, Updated, Next action and Where, permit Done, Held, Gate and
+Needs, permit Progress and Questions, and end with a required Comments section, or the config is refused before any
+command uses it. `move`, `ask` and `answer` insert Progress and Questions where `section_order` puts them.
+
+The card's type comes from its id prefix; there is no Type line. `kanbanzai template <type|ID>` prints the template a
+new card of that type starts from (`--where` names its file and schema); a type with no `template` gets the project
+template or the embedded card template, and a named template that is missing or unreadable is an error, not a silent
+fallback. `kanbanzai template --example task|bug|change|schemas` prints the embedded task, bug and change templates
+and an opt-in schema example for them. `kanbanzai init` and `workflow plan` check every named type template (it must
+exist, stay inside the project and fit its schema) and never create, replace or overwrite one; a workflow plan that
+renames the first column rewrites each template's Stage word like the project template. `board --json` and
+`config --json` add an optional `schema` to a type; nothing else changed. [docs/types.md](docs/types.md) has a full
+example, the validation errors and the compatibility rules.
 
 ### Config contract and upgrades
 
@@ -240,7 +285,7 @@ and a repeated apply on version 1 changes nothing. Keep the backup until you hav
 can contain private project settings. Do not edit the source concurrently with an upgrade. A newer version is
 always refused: install a compatible newer binary, never lower the file's version to bypass validation.
 
-Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, each `[[types]]`, and each
+Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, each `[[types]]`, each `[schemas.<name>]`, and each
 `[steps.<name>]` (step names remain user-defined). Errors identify the source file and key and suggest a repair or
 the nearest valid key. Values are not coerced: strings, booleans, integers and lists of strings must have their
 declared types. `digits` is an integer from 1 through 18; `wip_limit` and `stale_days` are positive integers;

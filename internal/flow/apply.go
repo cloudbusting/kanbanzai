@@ -144,10 +144,10 @@ func Preflight(p *config.Project, plan *Plan) error {
 		return refuse("%s changed since the plan was made: plan again", plan.Config.Path)
 	}
 	touched := []string{plan.Config.Path}
-	if plan.Template != nil {
-		touched = append(touched, plan.Template.Path)
-		if text, ok := readText(abs(p, plan.Template.Path)); !ok || Digest(text) != plan.Template.ExpectSHA256 {
-			return refuse("%s changed since the plan was made: plan again", plan.Template.Path)
+	for _, template := range plan.AllTemplates() {
+		touched = append(touched, template.Path)
+		if text, ok := readText(abs(p, template.Path)); !ok || Digest(text) != template.ExpectSHA256 {
+			return refuse("%s changed since the plan was made: plan again", template.Path)
 		}
 	}
 	claims := board.LiveClaims(p)
@@ -243,12 +243,12 @@ func Apply(p *config.Project, plan *Plan, options ApplyOptions) (*Result, error)
 		}
 		journal.Steps = append(journal.Steps, Step{Kind: StepBrief, Path: c.Path, NewPath: c.NewPath, Backup: name, BeforeSHA: sum, AfterSHA: c.AfterSHA256})
 	}
-	if plan.Template != nil {
-		name, sum, err := backup(plan.Template.Path)
+	for _, template := range plan.AllTemplates() {
+		name, sum, err := backup(template.Path)
 		if err != nil {
 			return nil, err
 		}
-		journal.Steps = append(journal.Steps, Step{Kind: StepTemplate, Path: plan.Template.Path, Backup: name, BeforeSHA: sum, AfterSHA: plan.Template.AfterSHA256})
+		journal.Steps = append(journal.Steps, Step{Kind: StepTemplate, Path: template.Path, Backup: name, BeforeSHA: sum, AfterSHA: template.AfterSHA256})
 	}
 	name, sum, err := backup(plan.Config.Path)
 	if err != nil {
@@ -350,7 +350,12 @@ func execute(p *config.Project, plan *Plan, step *Step) error {
 		}
 		return nil
 	case StepTemplate:
-		return fsutil.WriteFileAtomic(abs(p, step.Path), []byte(plan.Template.Content), 0o644)
+		for _, template := range plan.AllTemplates() {
+			if template.Path == step.Path {
+				return fsutil.WriteFileAtomic(abs(p, step.Path), []byte(template.Content), 0o644)
+			}
+		}
+		return fmt.Errorf("the plan has no template %s", step.Path)
 	case StepConfig:
 		return fsutil.WriteFileAtomic(abs(p, step.Path), []byte(plan.Config.Content), 0o644)
 	}
