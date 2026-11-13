@@ -276,6 +276,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 
 	text := brief.SetFields(string(original), fields)
 	if changes.Progress != nil {
+		text = brief.EnsureSection(text, "Progress", project.BriefSectionOrder(cardID))
 		text = brief.AddProgress(text, fmt.Sprintf("- %s: %s", today, *changes.Progress))
 	}
 	destinationPath := filepath.Join(project.Work, goal.Folder, filepath.Base(source))

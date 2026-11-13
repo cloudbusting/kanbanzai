@@ -85,6 +85,11 @@ func Preflight(plan *Plan) error {
 				return stale("%s changed since the plan was made: run init --dry-run again", ConfigRel)
 			}
 		case OpKeep:
+			if action.ExpectSHA256 != "" {
+				if sum, ok := fileDigest(path); !ok || sum != action.ExpectSHA256 {
+					return stale("%s changed since the plan was made: run init --dry-run again", action.Path)
+				}
+			}
 		}
 	}
 	return nil

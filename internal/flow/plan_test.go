@@ -130,6 +130,43 @@ func TestAMergeAndARemovalGoWhereTheyAreMapped(t *testing.T) {
 	}
 }
 
+func TestMigrationProgressRespectsTypeSchema(t *testing.T) {
+	configText := `[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+schema = "bug"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Comments"]
+optional_sections = ["Progress", "Details", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Progress", "Details", "Questions", "Comments"]
+final_section = "Comments"
+`
+	p := shippedBoard(t, configText, map[string]string{"BUG-01": "built"})
+	path := filepath.Join(p.Work, "1-open", "BUG-01-card.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, path, strings.Replace(string(data), "## Comments", "## Details\n\nDetails\n\n## Comments", 1))
+	renamed := strings.ReplaceAll(FromProject(p).Text, `"built"`, `"implemented"`)
+	got := plan(t, p, renamed, map[string]string{"built": "implemented"})
+	if len(got.Cards) != 1 {
+		t.Fatalf("cards: %+v blockers: %v", got.Cards, got.Blockers)
+	}
+	card := got.Cards[0]
+	text, _ := os.ReadFile(path)
+	migrated := Migrate(strings.Replace(string(text), "## Details", "## Progress\n\n## Details", 1), card)
+	if Digest(migrated) != card.AfterSHA256 {
+		t.Fatal("plan digest did not include schema order")
+	}
+}
+
 func TestARenameKeepsTheCardsWordsOnlyThroughAMap(t *testing.T) {
 	p := shippedBoard(t, "", map[string]string{"W-01": "todo", "W-02": "built"})
 	renamed := strings.ReplaceAll(FromProject(p).Text, `"built"`, `"implemented"`)
