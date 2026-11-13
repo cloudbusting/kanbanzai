@@ -10,7 +10,7 @@ Runs in the main session, with this session's claim on the card. The checks are 
 this skill runs them in order and then reviews the diff. Subagents may run an individual check when the project's
 check skill hands it to one, but the review and the completion move are the main session's.
 
-This skill is step-scoped: run on its own it stops at the end of this step and reports; `/do` is what carries a card on to its next step.
+This skill is step-scoped: run on its own it stops at the end of this step and reports; when `/do` runs this step, `/do` carries the card on to its next step.
 
 ## Start: the step and its extensions
 

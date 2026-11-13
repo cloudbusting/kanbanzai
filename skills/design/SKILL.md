@@ -9,7 +9,7 @@ argument-hint: "<the card id, or the question>"
 Runs in the main session: it needs the conversation and the owner's answers. The owner is `project.owner` in
 `kanbanzai config`.
 
-This skill is step-scoped: run on its own it stops at the end of this step and reports; `/do` is what carries a card on to its next step.
+This skill is step-scoped: run on its own it stops at the end of this step and reports; when `/do` runs this step, `/do` carries the card on to its next step.
 
 ## Start: the step and its extensions
 
