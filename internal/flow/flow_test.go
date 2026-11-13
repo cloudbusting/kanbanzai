@@ -305,3 +305,73 @@ func TestAnOldWaitsForOwnerOnAColumnNoGateCanSitOnSurvivesShowAndExport(t *testi
 		t.Fatalf("export:\n%s", doc.Text)
 	}
 }
+
+const noDoingFlow = `[project]
+owner = "Sam"
+[flow]
+pull_order = ["queue"]
+[[columns]]
+key = "queue"
+label = "Queue"
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "write"
+[[columns]]
+key = "review"
+label = "Review"
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+[[columns]]
+key = "after"
+label = "After"
+folder = "1-open"
+kind = "open"
+started = true
+next = "polish"
+[[columns]]
+key = "parked"
+label = "Parked"
+folder = "x-paused"
+kind = "parked"
+[[columns]]
+key = "done"
+label = "Done"
+folder = "10-done"
+kind = "done"
+[steps.write]
+into = "review"
+skill = "kanbanzai:build"
+[steps.check]
+into = "after"
+skill = ""
+[steps.polish]
+into = "done"
+skill = "kanbanzai:check"
+`
+
+func TestAFlowWithoutDoingColumnsHasFinishAndSkipTransitions(t *testing.T) {
+	got := map[Transition]bool{}
+	for _, tr := range Transitions(project(t, noDoingFlow)) {
+		got[tr] = true
+	}
+	for _, want := range []Transition{{"queue", "review", "finish"}, {"review", "after", "skip"}} {
+		if !got[want] {
+			t.Errorf("missing transition %+v in %v", want, got)
+		}
+	}
+}
+
+func TestTheShippedFlowFinishesOnlyFromDoingColumns(t *testing.T) {
+	p := project(t, "")
+	for _, tr := range Transitions(p) {
+		if tr.Kind == "finish" && p.ByKey[tr.From].Doing == "" {
+			t.Errorf("finish from a column with no Doing column: %+v", tr)
+		}
+		if tr.Kind == "skip" {
+			t.Errorf("the shipped flow has no skip hop: %+v", tr)
+		}
+	}
+}

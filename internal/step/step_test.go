@@ -403,7 +403,7 @@ func TestCardRouteNoDoingAndWorkspaceMode(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &found); err != nil {
 		t.Fatal(err)
 	}
-	if found.Route.Action != "stop" || found.Route.Step != "build" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no Doing column") {
+	if found.Route.Action != "step" || found.Route.Step != "build" || found.Route.Target != "" || found.Route.Finish != "built" || found.Route.Blocked || found.Route.Reason != "" {
 		t.Fatalf("no Doing: %+v", found.Route)
 	}
 	build.During = "building"
@@ -436,7 +436,7 @@ func TestCardRouteResumeNeedsCurrentColumnWorkspace(t *testing.T) {
 	}
 }
 
-func TestCardRouteSkipToNextStepAndNoSkillStop(t *testing.T) {
+func TestCardRouteSkipToNextStepAndNoSkillHop(t *testing.T) {
 	project := testProject(t, deployStepConfig)
 	putCard(t, project, "W-01", "partial skip", "checked", "- **Deploy:** None")
 	ship := project.Steps["ship"]
@@ -459,7 +459,55 @@ func TestCardRouteSkipToNextStepAndNoSkillStop(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &found); err != nil {
 		t.Fatal(err)
 	}
-	if found.Route.Action != "stop" || found.Route.Target != "" || !strings.Contains(found.Route.Reason, "no skill") {
-		t.Fatalf("no skill: %+v", found.Route)
+	if found.Route.Action != "skip" || found.Route.Target != "qa-approved" || found.Route.Step != "ship" {
+		t.Fatalf("no skill hops to the next skilled step: %+v", found.Route)
+	}
+}
+
+func TestRouteFinishIsReportedForStepAndResume(t *testing.T) {
+	project := testProject(t, "")
+	putCard(t, project, "W-01", "to build", "designed")
+	putCard(t, project, "W-02", "building", "building")
+	for id, want := range map[string]string{"W-01": "built", "W-02": "built"} {
+		_, out, _ := runStep(t, project, Options{For: id, JSON: true})
+		var found struct {
+			Route Route `json:"route"`
+		}
+		if err := json.Unmarshal([]byte(out), &found); err != nil {
+			t.Fatal(err)
+		}
+		if found.Route.Finish != want {
+			t.Errorf("%s route finish = %q, want %q", id, found.Route.Finish, want)
+		}
+	}
+	_, text, _ := runStep(t, project, Options{For: "W-01"})
+	if !strings.Contains(text, "route: step; step: build; target: building; finish: built") {
+		t.Errorf("text: %s", text)
+	}
+}
+
+func TestRouteNoDoingTextSaysTheClaimIsTheDoing(t *testing.T) {
+	project := testProject(t, "")
+	putCard(t, project, "W-01", "one column", "designed")
+	build := project.Steps["build"]
+	build.During = ""
+	project.Steps["build"] = build
+	_, text, _ := runStep(t, project, Options{For: "W-01"})
+	if !strings.Contains(text, "route: step; step: build; finish: built") || !strings.Contains(text, "no Doing column") {
+		t.Errorf("text: %s", text)
+	}
+}
+
+func TestInsteadStillClosesPastTheOwnerGate(t *testing.T) {
+	project := testProject(t, "")
+	deploy := project.Steps["deploy-qa"]
+	deploy.Skill = ""
+	project.Steps["deploy-qa"] = deploy
+	ship := project.Steps["ship"]
+	ship.Skill = ""
+	project.Steps["ship"] = ship
+	// qa-approved has the owner gate and ship has no skill: the shipped no-deploy close is unchanged.
+	if got := InsteadOf(project, deploy); got.Action != "close" {
+		t.Fatalf("the close must still pass the owner gate: %+v", got)
 	}
 }
