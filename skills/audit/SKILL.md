@@ -36,6 +36,13 @@ no `Held:` line is interrupted (`âš `): a session left it mid-step. Warnings (`Â
 quiet, an interrupted card, an uncarded worktree with changes, and an expired claim. `kanbanzai check` lists a brief it cannot read
 (no title, no Stage line, an unknown stage, the wrong folder) as a problem.
 
+For `/do` recovery only, `wip --audit --card ID --recovery` checks an interrupted, unheld card with no live claim
+or with the caller's live claim.
+It warns about that card's matching unclaimed workspace work instead of treating that one finding as hard; all other
+findings still block. It supports worktree and branch isolation, not shared or external. It does not claim or modify
+work. After claiming, run both the ordinary card audit and the recovery audit again to detect competing branch claims;
+the ordinary and whole-board audit contracts are unchanged.
+
 Anything else the project keeps that can drift (a deploy queue, leases): its context files (`project.context`) say
 how to check it. Run those checks too.
 
