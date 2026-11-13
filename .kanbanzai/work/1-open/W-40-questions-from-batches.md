@@ -1,10 +1,10 @@
 # W-40: Pause a batch card on its question and answer it later
 
-- **Stage:** designed
-- **Updated:** 2026-11-12
+- **Stage:** building
+- **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** build the question record in internal/question, then the ask/answer commands (task 1 of the brief)
+- **Next action:** complete question record edge cases and tests, then implement ask/answer commands
 - **Where:** worktree W-40
 
 ## Goal
@@ -63,7 +63,8 @@ kanbanzai answer ID --text T [--next T]
 
 `ask` records a question and stops the card. `answer` without `--text` prints the open question in the words the skill
 re-asks; with `--text` it records the answer, clears the Held line and returns the card. Both refuse a card another
-live session holds (exit 3) and a card with no claim or a malformed state as the message says (exit 2). `answer`
+live session holds (exit 3) and a malformed state as the message says (exit 2). `ask` also refuses a card with no claim;
+`answer` permits an unclaimed card. `answer`
 refuses a card with no open question. Neither command prompts; `/answer` is the conversation.
 
 **The board.** `board --json` adds an optional `question` object to a card (`text`, `options`,
@@ -126,12 +127,17 @@ parallel with task 5 on separate files; task 8 last.
 - **2026-11-12 — who resumes:** a later `/next` or `/do`, not the answering session and not the original lease holder. `/answer` records only; the card returns to the done column before the interrupted step so the next pull has the brief and the workspace as its context. This avoids depending on a session that may be gone and avoids a lease on stopped work.
 - **2026-11-12 — `/next` scope:** design stays in the main session. `/next` still refuses a card flagged "design it"; a Designed or settled card that raises a question during the build pauses that card only.
 - **2026-11-12 — board display:** the mark, the tooltip (question, options, recommendation) and one sticky asking toast. The command-line `wip`/board text does not print the question; `kanbanzai answer <ID>` and the brief do.
+- **2026-11-13 — answer authorization:** `ask` requires the caller's claim; `answer` allows an unclaimed card and refuses another session's live claim. The owner chose this because `ask` releases its claim and `/answer` never claims.
 - **Engineer decisions:** a `## Questions` section with append-only entries; the `Held: waiting: <owner> — answer in ## Questions` marker; top-level `ask` and `answer` commands (the command writes, `/answer` talks); the additive `question` JSON field; the return to the previous done column; the existing workspace is reused, not remade. No separate decision record: this repository keeps the record in the brief.
 
 ## Progress
 
 - 2026-11-12: captured from the owner's request during the W-40 triage.
 - 2026-11-12: designed; the owner chose the resume-by-next/do, main-session design and mark/tooltip/toast answers.
+- 2026-11-13: Build stopped before implementation: ask releases the claim and /answer never claims, but the brief also requires both commands to refuse a card with no claim.
+- 2026-11-13: Owner resolved answer authorization: ask requires a claim; answer permits an unclaimed card and refuses another session's live claim.
+- 2026-11-13: Owner decision recorded; no implementation or checks yet. The existing clean W-40 worktree was fast-forwarded to main (9421395).
+- 2026-11-13: Started internal/question with append, parse and close plus test-first lifecycle tests; partial commit 62de4f1; CLI and remaining acceptance checks not started.
 
 ## Out of scope
 
@@ -147,3 +153,5 @@ session that keeps working after it would be working unclaimed; the skills must 
 must not duplicate an asking toast for a live session and a recorded question on the same card.
 
 ## Comments
+
+- 2026-11-13: Partial question-record implementation committed as 62de4f1 in W-40. `go test ./internal/question` passes after test-first red runs; it is not yet integrated or fully reviewed. Complete task 1, including multiline input and malformed/duplicate-entry edge cases, before implementing CLI commands. No other acceptance checks have been run.
