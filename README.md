@@ -545,6 +545,7 @@ node --test board-view/*.test.mjs opencode/*.test.mjs
 go run ./tools/icon                        # icon/kanbanzai.svg → the plugin and extension PNGs
 go run ./tools/icon -check                 # prove the committed PNGs are the source's render
 go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
+go run ./tools/packageset                  # which Checked cards one package run includes, and why not the rest
 go run ./tools/release -check              # the manifests and CHANGELOG.md agree
 go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
 KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
@@ -554,6 +555,12 @@ The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the cod
 five archives from a tag, and `tools/vsix` builds the editor package. CI validates the plugin and marketplace with
 `claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
 `CHANGELOG.md` and the version agree; a tag runs the same version check before it builds.
+
+This repository's package skill (`.claude/skills/kanbanzai-package/`) packages every Checked card that is ready in
+one run: one claim per card, one build from the main commit, and a record on each card naming the cards packaged with
+it. `tools/packageset` chooses the set from the board and git, read-only. A card it is unsure about is left out and
+reported, never asked about, and a left-out card whose code is already merged is reported as in the artifact but not
+packaged. Releasing the packaged cards stays one card and one owner approval at a time.
 
 ## Support and security
 

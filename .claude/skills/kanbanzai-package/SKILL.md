@@ -1,35 +1,65 @@
 ---
 name: kanbanzai-package
-description: Build and prove the distributable Kanbanzai artifacts for a checked card — the editor extension .vsix and the Claude Code and OpenCode plugin bundles — record their versions and checksums, and install-test them in throwaway projects. This is the QA step; it never publishes or tags.
-argument-hint: "<the card id>"
+description: Build and prove the distributable Kanbanzai artifacts for every checked card that is ready, in one run with one claim per card — the editor extension .vsix and the Claude Code and OpenCode plugin bundles — record their versions, checksums and the set of cards on each card, and install-test them in throwaway projects. A card it is unsure about is left out, never asked about. This is the QA step; it never publishes or tags.
+argument-hint: "[card ids to restrict the run to]"
 ---
 
 # Package
 
-This is the card's QA step (`deploy-qa` in the shipped flow). It turns a Checked card's commit into the files the
-release step publishes, proves they are complete and installable, and records what was built. It never pushes,
-tags, creates a remote or publishes to a marketplace.
+This is the cards' QA step (`deploy-qa` in the shipped flow). It takes **every Checked card that is ready**, builds
+the files the release step publishes once from the main commit, proves them, and records on each included card what
+was built and with which other cards. It never pushes, tags, creates a remote or publishes to a marketplace.
 
 Run `kanbanzai step deploy-qa` first. When its `skill` is not `kanbanzai-package`, follow that skill instead.
-Read the card's brief, its **Comments** and `README.md`.
+`README.md` and each included card's brief and **Comments** are the background.
 
-## Board first
+Artifacts are built from the main commit, so one build already contains every card merged there. Packaging a set is
+one build and one proof run, with a claim, a move and a record for each card.
 
-The card must be **Checked**, with this session's claim. Move it into the step's Doing column
-(`kanbanzai move <ID> start`) before the first artifact, and to its Done column (`kanbanzai move <ID> finish`) when
-every artifact and smoke test passes. A card whose **Deploy** line is `None` is not packaged; it closes from
-Checked.
+## Select the set
 
-If the card says `package and release`, package it. If the change is docs, the board, tests or the project skills
-only, stop and say the card's Deploy line is None.
+From the main checkout, on its main branch:
+
+```bash
+go run ./tools/packageset
+```
+
+It is read-only and prints JSON: `head`, `branch`, `clean`, `include` (card ids) and `exclude` (each with `id`,
+`reason` and `in_head`). It includes a card only when the board and `kanbanzai step --for <ID> --json` say the card
+is Checked, its next step is `deploy-qa`, it is not held, blocked or claimed, its Deploy is not None, and its branch
+is merged into `HEAD`. It exits non-zero, including nothing, when the board cannot be read or the checkout is not on
+the main branch: stop and report that.
+
+**When unsure, leave the card out.** Never ask the owner whether to include a card and never include one the tool
+excluded. If the invocation names card ids, package only those of them that `include` lists; the rest are left out.
+A card the tool excludes is not claimed and not touched. If `include` is empty, report "nothing to package" with the
+excluded cards and their reasons, and stop before building anything.
+
+## Claim and start each card
+
+For each id in `include`, one at a time:
+
+1. `kanbanzai claim claim <ID>`. Exit 3 (another session holds it) or exit 4 (an expired claim) leaves the card out.
+   Never use `--takeover` here: taking over needs the workspace inspection that "leave it out when unsure" does not
+   allow.
+2. Re-read `kanbanzai step --for <ID>`, because the claim may already have moved the card. If it is still Checked,
+   run the start move that `kanbanzai workspace <ID>` prints in its `then:` line (`kanbanzai move <ID> start`, with
+   `--where "<the card's workspace record>"` when the column needs a workspace). A refusal, such as the
+   work-in-progress cap or a missing workspace, leaves the card out: release its claim and never force the move.
+
+The included set is the cards that now hold this session's claim and sit in the step's Doing column. If none are
+left, report "nothing to package" and stop. Every tool call renews a claim. If a later `move` is refused, report it and leave
+that card truthful; never force it.
 
 ## Before building
 
-- The card's checks are green and the main session has reviewed the diff.
-- The check step merged the card's branch into the main branch, because this project has a deploy step. Package
-  from the main checkout at that merge commit, not from the card's worktree: the release tags the main branch and
-  the artifact must match it.
-- The main checkout is clean and on its main branch. Note the commit: `git rev-parse HEAD`.
+- Each included card's checks are green and the main session has reviewed its diff.
+- The check step merged each card's branch into the main branch, because this project has a deploy step. Package
+  from the main checkout, not from a card's worktree: the release tags the main branch and the artifact must match it.
+- **The clean-main requirement lives in this bullet only.** The main checkout is clean and on its main branch.
+  Note the commit: `git rev-parse HEAD`. The selector's `clean` field reports it and never decides it; read it when
+  the set is selected, because this session's own claims and moves then edit only the included cards' briefs. The
+  artifacts are archived from the commit, never the working tree.
 - This package is the rehearsal and the proof of the procedure. If the release commit later differs because the
   version metadata changed, the release step rebuilds the final artifacts from its tag; the package step does not
   publish.
@@ -42,10 +72,10 @@ only, stop and say the card's Deploy line is None.
 
 ## Build the artifacts
 
-Use a fresh directory outside the repository, named for the card and version:
+Use a fresh directory outside the repository, named for the first included card (the lead) and the version:
 
 ```bash
-OUT="${TMPDIR:-/tmp}/kanbanzai-package-<ID>-<version>"
+OUT="${TMPDIR:-/tmp}/kanbanzai-package-<lead ID>-<version>"
 mkdir -p "$OUT"
 ```
 
@@ -69,7 +99,7 @@ there, and no state or secret may be.
 Rehearse the release builder from the main checkout, and keep the raw binaries for the extension:
 
 ```bash
-BINS="${TMPDIR:-/tmp}/kanbanzai-package-<ID>-<version>-bins"
+BINS="${TMPDIR:-/tmp}/kanbanzai-package-<lead ID>-<version>-bins"
 go run ./tools/release -version "v<version>" -out "$OUT" -bins "$BINS"
 ```
 
@@ -173,23 +203,43 @@ install and a look at the Board tab is the owner's check; name the screen and th
 
 ## Record and finish
 
-Report:
+### One report
 
 ```
-Package: <ID> — <version> at <sha>
+Package: <lead ID> — <version> at <sha>
+Cards: <included IDs, each with its claim and move result>
+Left out: <ID — reason, one line each; "in the artifact, not packaged" where in_head is true>
 Artifacts: <names, sizes, sha256 each, directory>
 Proof: command <pass> · claude validate <pass/warnings> · opencode <pass> · extension listing <pass>
 Known limits: <a manual editor check, a missing publisher/licence>
 ```
 
-Then move the card to the step's Done column with the release as the next action, and release the claim because
-the card waits for the owner:
+A card in `Left out` with `in_head: true` has its code in the artifact because its branch is merged into `<sha>`, but
+it was not claimed, moved or recorded as packaged. Say that, and never say or imply the artifact was packaged for it.
+
+### Each included card, when every proof passes
+
+Append to the card's **Progress**, then move it on, then release its claim; the card waits for the owner:
 
 ```bash
-kanbanzai move <ID> finish --next "release: <version> after the owner approves"
+kanbanzai move <ID> finish --next "release: <version> after the owner approves; package artifacts at <dir> from main <sha>" \
+  --progress "Package QA passed at <sha> with <the other included IDs, or: alone>: artifacts <dir>, sha256 <each>"
 kanbanzai claim release <ID>
 ```
 
 Say what the owner must approve: the version, the licence and publisher, the public release, and any manual
-editor check. Never publish, tag, push, create the public remote or attach an artifact to a release from this
-step.
+editor check. The release step stays per card; releasing several of these as one version is the owner's decision.
+Never publish, tag, push, create the public remote or attach an artifact to a release from this step.
+
+### When the build or a proof fails
+
+No card finishes: the artifact is one thing at one commit, and the flow has no In QA to Checked move. Each included
+card stays In QA. For each one, edit the brief's **Next action** line and add a dated **Progress** line (never the
+Stage line) to say `package failed at <sha>: <why>; rerun package`, then release its claim:
+
+```bash
+kanbanzai claim release <ID>
+```
+
+Releasing the claims leaves the cards truthfully interrupted, and the board pulls them first on the next run, which
+resumes them. Report the failing command and its shortest output.
