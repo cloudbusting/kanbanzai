@@ -6,7 +6,6 @@
 - **ADR:** none identified
 - **Next action:** Once main is clean, merge release/TASK-45, push main, and wait for green CI before tagging 0.12.0
 - **Where:** worktree TASK-45
-- **Held:** blocked: main has uncommitted board changes belonging to other work; release requires a clean checkout before merge and push
 
 ## Goal
 
