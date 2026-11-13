@@ -300,5 +300,4 @@ func TestAStepWithADoingColumnKeepsItsStartMove(t *testing.T) {
 	if code, _, _ := runMove(t, project, "W-01", "finish", nil); code != 2 {
 		t.Fatalf("finish on a built card = %d", code)
 	}
-	_ = step.NextStep
 }
