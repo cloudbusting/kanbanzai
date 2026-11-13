@@ -11,6 +11,8 @@
 
 For agents working in either harness and projects using Kanbanzai, address the owner's request: “A dirty working copy that contains only kanbanzai changes should not block the merge. Multiple agent sessions are continuously updating cards. This means everything gets blocked. Update the skills and tools to exclude work item changes”. Preserve other sessions' changes while allowing safe progress on integration and subsequent packaging.
 
+The owner also asks: “why does packaging require a clean main? The only card on main working copy are kanbanzai work items BUG-44 is tacking this for board audit.” Address the packaging requirement for board-only changes as well as integration; BUG-44 covers board audit, not packaging.
+
 This concerns shipped workflow skills and command tooling, and this repository's package and release skills where applicable. BUG-44 addresses the separate whole-board audit/next behavior and explicitly excludes changing command audit classification; coordinate without duplicating or rewriting that card.
 
 ## Acceptance checks
@@ -35,5 +37,6 @@ Discarding or committing another session's work, or silently overriding a genuin
 ## Progress
 
 - 2026-11-13: Triaged after BUG-48 package QA was blocked by another card's main-checkout brief; design the broader integration and tooling behavior.
+- 2026-11-13: Folded in the owner's question about the clean-main packaging requirement; BUG-44 covers the separate board audit case. Multi-card packaging is tracked in CHANGE-53.
 
 ## Comments

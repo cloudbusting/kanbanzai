@@ -64,10 +64,16 @@ session title. Follow any configured check skill in order; a red check or failed
 in scope and rerun affected checks; triage unrelated work. Never fabricate a backward transition if the command
 does not support it: report the blocker and leave the card truthful.
 
-Keep the claim between steps while proceeding. Stop for the owner's decision or approval, a failure, a hold, a
-closed gate, a parked card, an unsupported route, a finished card or the turn limit. Ask owner decisions through
-the question tool with the recommended option and real alternatives. Do not skip checks, approvals or shipping
-safeguards; run configured release actions in the main session, not a subagent.
+Keep the claim between steps while proceeding. For a main-session decision, ask the owner directly through the question tool
+with the recommended option and real alternatives, and wait for the answer. Once answered, continue the configured route
+when permitted; do not call `kanbanzai ask`, do not release the claim, and do not require `/answer` solely for that
+decision. When useful, record the decision durably in the brief or the project's decision record without creating an open
+question. If the question tool is unavailable or the question is a deferred batch handoff, use the recorded-question,
+hold and `/answer` workflow; existing open questions still use the recovery instructions above.
+
+Stop if a decision or approval remains unanswered, or for a failure, a hold, a closed gate, a parked card, an
+unsupported route, a finished card or the turn limit. Do not skip checks, approvals or shipping safeguards; run
+configured release actions in the main session, not a subagent.
 
 ## Delegation
 

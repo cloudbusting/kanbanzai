@@ -5,6 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.14.1] — 2026-11-13
+
+- BUG-44: `/audit` and `/next` can proceed past a verified board-only main-checkout dirty finding while preserving other work and blocking other hard findings.
+- BUG-52: main sessions continue after direct owner answers without an unnecessary recorded-question handoff; deferred questions retain `/answer`.
+
 ## [0.14.0] — 2026-11-13
 
 - W-40: a batch can record a question on a held card with `ask`; `/answer` records the owner's answer for a later
