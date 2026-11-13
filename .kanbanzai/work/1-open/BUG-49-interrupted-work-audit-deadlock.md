@@ -3,8 +3,9 @@
 - **Stage:** shipping
 - **Updated:** 2026-11-13
 - **ADR:** none identified
-- **Next action:** Prepare approved 0.12.1 release metadata; validate, merge, push main and wait for CI
+- **Next action:** Resolve BUG-48 and determine how to complete release verification; then finish remaining public plugin and editor proofs
 - **Where:** worktree BUG-49
+- **Held:** blocked: BUG-48 causes the required versioned go install verification for v0.12.1 to report dev instead of v0.12.1
 
 ## Goal
 
@@ -57,6 +58,7 @@ Incorrect classification could hide a real workspace conflict or allow concurren
 - 2026-11-13: Integrated at 0427bfd; package rehearsal 0.12.0 built from that merge, checksums and fresh-project command, isolated Claude install, OpenCode entry and VSIX listings passed. The editor Board-tab check is manual; no release, push or tag.
 - 2026-11-13: Package rehearsal 0.12.0 at 0427bfd passed checksum, command, isolated Claude, OpenCode and VSIX proofs; editor Board check remains manual.
 - 2026-11-13: Owner approved public release and selected 0.12.1. BUG-48 remains open: a local source `go install` reports dev and final versioned-install verification must not be skipped.
+- 2026-11-13: Published https://github.com/cloudbusting/kanbanzai/releases/tag/v0.12.1 at 892e59e after CI and Release workflows passed on Linux, macOS and Windows. Both tags point to that commit, seven assets pass fresh-download SHA256SUMS and the packaged Linux command reports v0.12.1. Required `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@v0.12.1` succeeds but reports `kanbanzai dev`; BUG-48 blocks release verification. Public Claude plugin proof, fresh init and editor installation remain; stop on the red verification.
 
 ## Package QA
 
@@ -73,6 +75,8 @@ Rehearsal only: version 0.12.0 from merge `0427bfd6d6b18e2261ef113a8a3be103f0281
 | kanbanzai-board-0.12.0.vsix | 8910313 | 06cb5cb21cee8612362eb9c51bab6b77523db8a101da07487ec6731d8f945bfc |
 
 The extracted source built and initialized a fresh git project; `check` and JSON board passed. The extracted Claude plugin validated and installed in an isolated configuration; its list showed 0.12.0 enabled. The extracted OpenCode entry passed syntax and carried all skills; source fake-harness tests passed. The VSIX listing contains five binaries and no bin.json. An actual editor install and Board-tab check remain manual. The rehearsal version is not a release decision.
+
+Published 0.12.1: CI run 43359381631 and Release run 43360349353 passed; final assets and SHA256SUMS verified in `/tmp/kanbanzai-verify-BUG-49-fRyoFV`. Final VSIX SHA-256 `3147e59956ede0c501c534284cbbf97e8c441656005402ba9a39724b77967158`; source SHA-256 `83d02b3d0c71b92b4ee59d03716494a6fd454a4b15e411a5b7c8358d8ebe6173`. Release notes explicitly disclose BUG-48. The remaining proofs have not been completed.
 - 2026-11-13: Designed scoped pre-claim recovery audit with ordinary post-claim audit; existing audit contract remains unchanged.
 - 2026-11-13: Built e7cf2ad: scoped recovery checks, post-claim race guard, regression coverage and shared skill guidance.
 - 2026-11-13: Configured QA passed: Go tests/vet, 247 Node tests, hooks, JS syntax, Claude validation, board/card audit; reviewed diff and fixed workspace-free interrupted design (c2dec64).
@@ -86,3 +90,4 @@ Implementing CHANGE-47 or removing a worktree to make an audit pass.
 - 2026-11-13 — opencode:ses_e2d5637bcffeLYcYYpEuo4s67S: Uncommitted internal/cli/recovery_test.go proves the normal audit blocks unclaimed dirty work and specifies recovery then claim and normal audit. The targeted test is red on unknown --recovery; implement the core and remaining cases without discarding the test.
 - 2026-11-13 — opencode:ses_e2d5637bcffeLYcYYpEuo4s67S: First implementation is uncommitted in BUG-49. Recovery checks all live claims in branch mode before claim, but normal scoped post-claim audit filters them, leaving a race; fix and test without weakening default audit compatibility. Additional matrix and harness contract tests remain; do not mark build complete.
 - 2026-11-13 — opencode:ses_e2d5637bcffeLYcYYpEuo4s67S: Build and review are committed in e7cf2ad and c2dec64; post-claim recovery audit checks competing branch claims. Main has other sessions' TASK-45 and BUG-48 changes; don't stage or discard them to integrate.
+- 2026-11-13 — opencode:ses_e2d5637bcffeLYcYYpEuo4s67S: v0.12.1 is public; do not retag or republish it. Final verification stopped on BUG-48 (`go install ...@v0.12.1` reports dev). Follow the release policy for a fix-forward version and remaining proofs; owner approval must be reconfirmed before resuming production.
