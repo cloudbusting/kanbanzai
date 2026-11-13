@@ -107,6 +107,16 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
     assert.match(prompts[0].text, /# Build/);
     assert.match(prompts[0].text, /do the thing/);
 
+    for (const [name, patterns] of [
+      ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/]],
+      ["next", [/batch handoff/, /kanbanzai ask <ID>/, /releases that card's claim/, /`\/answer`/]],
+    ]) {
+      const entry = commands.find((item) => item.name === name);
+      await entry.execute({ sessionID: "ses_test1", prompt: { text: "" }, delivery: "steer" });
+      const text = prompts.at(-1).text.replace(/\s+/g, " ");
+      for (const pattern of patterns) assert.match(text, pattern);
+    }
+
     const command = "kanbanzai claim owner";
     await hooks["tool.execute.before"]({ tool: "bash", sessionID: "ses_test1", input: { command } });
     const shell = { command, cwd: project, timeout: 0, shell: "/bin/sh", env: { PATH: "/usr/bin:/bin" } };
