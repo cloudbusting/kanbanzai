@@ -76,6 +76,12 @@ finished apply is undone with git.
 
 ## Gates and skip rules
 
+`workflow show` lists conditional `early-close` transitions separately from normal completion. Use
+`kanbanzai move ID close --reason "<why>"` only to cancel work with no change: it records the reason, not delivery,
+and retains the workspace. It can leave the current gate but cannot override a hold, parking or claim safeguards.
+`close` is reserved as a move target even when a custom column uses that key or alias; select the column by another
+key or label, or rename it. `step --for ID` reports this option separately from the next configured action.
+
 A flow file carries the delivery rules too: `gate`, `gate_name`, `gate_after` and `gate_until` on a column, and
 `skip_field` and `skip_values` on a step. `workflow show` lists each gate and the steps a card can skip, `validate`
 reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`.

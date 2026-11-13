@@ -5,6 +5,9 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-47: explicit early cancellation with `move ID close --reason` records a no-change outcome and preserves
+  workspaces. `close` is now a reserved target, including when a custom column uses that key or alias.
+
 ## [0.12.1] — 2026-11-13
 
 - BUG-49: a scoped pre-claim recovery audit allows interrupted work to be reclaimed without weakening the normal
