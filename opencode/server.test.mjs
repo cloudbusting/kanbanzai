@@ -89,6 +89,8 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       .filter((name) => existsSync(path.join(ROOT, "skills", name, "SKILL.md")))
       .sort();
     assert.deepEqual(added.map((skill) => skill.id).sort(), expected);
+    assert.ok(added.some((skill) => skill.id === "answer"), "the answer skill was not registered");
+    assert.ok(commands.some((entry) => entry.name === "answer"), "the /answer command was not registered");
     const prefixed = expected.map((name) => `kanbanzai:${name}`);
     assert.deepEqual(commands.map((entry) => entry.name).sort(), [...expected, ...prefixed].sort());
     const setupSkill = added.find((skill) => skill.id === "setup");

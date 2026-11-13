@@ -15,6 +15,18 @@ import (
 const exampleStart = "<!-- shipped-flow example: start -->"
 const exampleEnd = "<!-- shipped-flow example: end -->"
 
+func TestAnswerSkillProvidesQuestionConversation(t *testing.T) {
+	data, err := os.ReadFile("skills/answer/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, word := range []string{"kanbanzai answer", "question tool", "recommendation", "never claims"} {
+		if !strings.Contains(string(data), word) {
+			t.Errorf("answer skill missing %q", word)
+		}
+	}
+}
+
 func TestEarlyCloseInstructionsInSharedSkills(t *testing.T) {
 	for _, name := range []string{"do", "triage"} {
 		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))

@@ -19,6 +19,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
@@ -50,10 +51,21 @@ type Card struct {
 	ClaimedNotStarted bool             `json:"claimed_not_started"`
 	Path              string           `json:"path"`
 	Gate              *gate.Status     `json:"gate"`
+	Question          *Question        `json:"question,omitempty"`
 
 	column   string
 	gateLine string
 	needs    []string
+}
+
+// Question is the optional, read-only open question shown on a card.
+type Question struct {
+	Text           string   `json:"text"`
+	Options        []string `json:"options"`
+	Recommendation string   `json:"recommendation"`
+	Asked          string   `json:"asked"`
+	By             string   `json:"by"`
+	Entry          string   `json:"entry"`
 }
 
 // WaitsAtGate is true for a card whose column has a gate that is closed or failed: it cannot move forward yet.
@@ -260,6 +272,14 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 		Mark: brief.MarkOf(project, stage, held), Interrupted: false, Session: nil, ClaimedNotStarted: false,
 		Path: rel, column: key, gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
+	if entries, err := question.Parse(string(data)); err == nil {
+		for _, entry := range entries {
+			if entry.Answer == "" || entry.Answer == "—" {
+				_, date, _ := strings.Cut(entry.Heading, " — ")
+				card.Question = &Question{Text: entry.Text, Options: entry.Options, Recommendation: entry.Recommendation, Asked: date, By: entry.AskedBy, Entry: entry.Heading}
+			}
+		}
+	}
 	return card, problems
 }
 
@@ -411,7 +431,7 @@ func cardText(card *Card) string {
 	if card.Owner != nil {
 		builder.WriteString(" ●")
 	}
-	if card.Session != nil && card.Session.State == "waiting" {
+	if card.Question != nil || (card.Session != nil && card.Session.State == "waiting") {
 		builder.WriteString(" ❓")
 	}
 	return builder.String()

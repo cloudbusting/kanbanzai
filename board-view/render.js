@@ -90,8 +90,16 @@ function cardHtml(card, colKey, ownerName, now) {
   const session = owner ? sessionOf(c.session) : null;
   if (session) hover.push(`Session${session.name ? ` ${session.name}` : ''}: ${SESSION_WORD[session.state]} for ${elapsed(session.since, now)}`);
 
+  const question = obj(c.question);
+  const hasQuestion = typeof question.text === 'string' && question.text.length > 0;
+  if (hasQuestion) {
+    hover.push(`Question: ${question.text}`);
+    if (Array.isArray(question.options)) hover.push(`Options: ${question.options.filter((v) => typeof v === 'string').join('; ')}`);
+    if (typeof question.recommendation === 'string' && question.recommendation) hover.push(`Recommendation: ${question.recommendation}`);
+  }
+
   const classes = ['card'];
-  if (session && session.state === 'waiting') classes.push('asking');
+  if (hasQuestion || (session && session.state === 'waiting')) classes.push('asking');
   if (mark) classes.push(`mark-${mark}`);
   if (owner) classes.push('claimed');
   if (gateWaits) classes.push('gated');
@@ -110,6 +118,7 @@ function cardHtml(card, colKey, ownerName, now) {
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
   if (c.claimed_not_started === true) glyphs += `<span class="glyph glyph-unstarted" title="${esc(UNSTARTED_TEXT)}">⚑</span>`;
   if (gateWaits) glyphs += `<span class="glyph glyph-gate" title="${esc(`Waiting at a ${gate.type} gate: ${gate.state}`)}">🔒</span>`;
+  if (hasQuestion && !(session && session.state === 'waiting')) glyphs += '<span class="glyph glyph-asking">❓</span>';
   if (session) {
     const label = session.state === 'waiting' ? `❓ ${SESSION_WORD.waiting}` : `${CLAIMED_GLYPH} ${SESSION_WORD[session.state]}`;
     const kind = session.state === 'waiting' ? 'glyph-asking' : `glyph-claimed glyph-${session.state}`;

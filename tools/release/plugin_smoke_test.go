@@ -98,7 +98,7 @@ func TestThePackagedPluginInstallsInAFreshProject(t *testing.T) {
 	if plugin.Version != want {
 		t.Fatalf("installed version = %q, want the artifact's %q", plugin.Version, want)
 	}
-	for _, relative := range []string{".claude-plugin/plugin.json", "skills", "hooks/hooks.json"} {
+	for _, relative := range []string{".claude-plugin/plugin.json", "skills", "skills/answer/SKILL.md", "hooks/hooks.json"} {
 		if _, err := os.Stat(filepath.Join(plugin.InstallPath, filepath.FromSlash(relative))); err != nil {
 			t.Fatalf("the installed copy has no %s: %v", relative, err)
 		}
