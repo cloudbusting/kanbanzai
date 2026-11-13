@@ -1,9 +1,9 @@
 # BUG-52: Avoid unnecessary question handoff in the main session
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
 - **Done:** —
-- **Next action:** Merge checked change into main and package.
+- **Next action:** Release combined BUG-44 and BUG-52 after version and publication approval.
 - **Where:** worktree BUG-52
 
 ## Goal
@@ -31,5 +31,6 @@ Changing harness question tools, bypassing owner approvals or altering W-11's sc
 - 2026-11-13: Direct and deferred question guidance updated; Go wording suite and OpenCode tests pass after red regression tests.
 - 2026-11-13: QA passed: Go tests and vet, 241 board and 8 OpenCode tests, syntax checks, plugin validation, board check and audit; full diff reviewed; commit 2af042a.
 - 2026-11-13: Packaging prerequisite blocked: main checkout contains other sessions' board changes; no merge attempted.
+- 2026-11-13: Combined 0.14.0 rehearsal at fa849f5; artifacts and SHA256SUMS in /tmp/kanbanzai-package-BUG-44-BUG-52-0.14.0-AiHkam; Go, vet, 249 Node tests, plugin validation, fresh-project and plugin install proofs passed; editor visual check remains manual.
 
 ## Comments
