@@ -57,6 +57,8 @@ type Changes struct {
 	Done      *string
 	Force     bool
 	Reason    *string
+	// QuestionReturn is used only after recording an answer, to return to the preceding step's source.
+	QuestionReturn bool
 }
 
 // Apply makes the move and returns its one-line report. The caller holds the claims lock.
@@ -177,6 +179,16 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		return step.SkippedFor(project, briefText, name)
 	}
 	allowed := LegalTargets(project, key, &look, skipped)
+	if changes.QuestionReturn && column.Doing != "" && goal.Kind == "open" && goal.Doing == "" {
+		for _, earlier := range project.Columns {
+			if earlier.Key == key {
+				break
+			}
+			if earlier.Key == destination && (earlier.Next == column.Doing || earlier.SettledNext == column.Doing) {
+				allowed[destination] = "back"
+			}
+		}
+	}
 	if _, ok := allowed[destination]; !ok && !earlyClose {
 		switch {
 		case column.Kind == "parked":
@@ -206,7 +218,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		problems = append(problems, fmt.Sprintf("%s has a Held line (%s): clear it in this move with --clear-held",
 			cardID, *held))
 	}
-	if goal.Worktree && workspace.Needs(project) && mine && destination != key && !earlyClose {
+	if goal.Worktree && workspace.Needs(project) && (mine || changes.QuestionReturn) && destination != key && !earlyClose {
 		where := card.Where
 		if changes.Where != nil {
 			where = *changes.Where

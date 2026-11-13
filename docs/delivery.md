@@ -100,3 +100,11 @@ ahead along the one list), no second entry column, no flow that differs by card 
 different list of columns), no transition out of Done, no recurring schedule (a train is opened by hand; a date gate
 names one date), no condition written as an expression, and no call to CI, a store or a deploy service. A project whose
 work genuinely branches needs a different tool, or a decision record for a bigger model.
+
+## Questions that pause a batch card
+
+When a build agent needs an owner decision it reports the question to its main session, which records it with
+`kanbanzai ask ID --text "..." --option "..." --recommend "..."`. The card remains held in its current step and
+the claim is released; the rest of the batch continues. `/answer ID` re-asks it and records the owner's answer using
+`kanbanzai answer ID --text "..."`. It does not start work. The command attempts the preceding column without
+forcing a move; if refused the card remains interrupted for `/do`. The next pull reuses the existing workspace.

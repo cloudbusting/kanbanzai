@@ -445,7 +445,7 @@ func findCycle(forward map[string][]string, columns []col) []string {
 
 // ShippedSkills are the skills the plugin ships: `kanbanzai:<name>`. A test fails when skills/ and this list
 // disagree.
-var ShippedSkills = []string{"audit", "build", "check", "cleanup", "design", "do", "next", "setup", "triage", "wip"}
+var ShippedSkills = []string{"answer", "audit", "build", "check", "cleanup", "design", "do", "next", "setup", "triage", "wip"}
 
 func checkSkills(r *Report, root string, steps []stp) {
 	seen := map[string]bool{}

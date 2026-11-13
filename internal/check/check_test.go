@@ -101,6 +101,37 @@ func TestASoundBoardPasses(t *testing.T) {
 	}
 }
 
+func TestQuestionSectionValidation(t *testing.T) {
+	entry := "\n\n## Questions\n\n### Q1 — 2026-11-13\n- **Asked by:** agent\n- **Question:** Which?\n- **Then:** build\n- **Answer:** —\n- **Answered:** —"
+	for _, tc := range []struct {
+		name, extra, held string
+		bad               bool
+	}{
+		{"absent", "", "", false},
+		{"open held", entry, "waiting: Sam — answer in ## Questions", false},
+		{"open without hold", entry, "", true},
+		{"missing question", strings.Replace(entry, "- **Question:** Which?\n", "", 1), "waiting: Sam — answer", true},
+		{"missing answered", strings.Replace(entry, "- **Answered:** —", "", 1), "waiting: Sam — answer", true},
+		{"answered", strings.Replace(strings.Replace(entry, "- **Answer:** —", "- **Answer:** yes", 1), "- **Answered:** —", "- **Answered:** today", 1), "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			project := testProject(t)
+			put(t, project, "1-open", "W-01-work.md", goodBrief("W-01", "building", tc.extra, tc.held))
+			var output bytes.Buffer
+			code := Run(project, &output)
+			if (code != 0) != tc.bad {
+				t.Fatalf("check = %d %s", code, output.String())
+			}
+		})
+	}
+	project := testProject(t)
+	put(t, project, "1-open", "W-01-work.md", goodBrief("W-01", "building", "", "waiting: Sam — answer")+entry+"\n")
+	var output bytes.Buffer
+	if code := Run(project, &output); code == 0 {
+		t.Fatalf("accepted Questions after Comments: %s", output.String())
+	}
+}
+
 func TestTheCommandPrintsTheProblemsAndExitsOne(t *testing.T) {
 	project := soundProject(t)
 	put(t, project, "1-open", "W-06-x.md", "Some work\n\n## Comments\n")

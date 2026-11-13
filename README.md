@@ -26,7 +26,7 @@ go.mod                     the Go module (Go 1.24+, standard library only, no re
 assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
-skills/                    setup, triage, design, do, next, wip, audit, cleanup, build, check
+skills/                    setup, triage, design, do, next, answer, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
@@ -331,6 +331,11 @@ brief (an In QA card held `waiting:` for the owner's own test, for example). A h
 stale or interrupted, but it still counts toward the cap. Delete the line when the blocker clears. Paused is a column
 of its own: only the owner un-parks a card.
 
+A batch agent that needs a decision reports its question to the main session, which uses `kanbanzai ask` to record it
+in `## Questions`, hold the card and release its claim. The board marks the question. `/answer ID` re-asks it and
+records the owner's answer without starting work; a later pull resumes the card and reuses its workspace. If a return
+to the preceding column is refused, the card remains interrupted rather than forcing the move.
+
 ## Extending it
 
 Neither tool can override a plugin's skill, so Kanbanzai does it the same way in both: every step skill starts by
@@ -404,6 +409,8 @@ kanbanzai board [--json]                 the board
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
+kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
+kanbanzai answer ID [--text T] [--next T]
 kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
 kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
