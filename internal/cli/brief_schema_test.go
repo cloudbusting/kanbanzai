@@ -82,7 +82,7 @@ func TestTypeSchemasAcceptABugWithReproductionAndATaskWithout(t *testing.T) {
 			}},
 		{"illegal repeat", "TASK-05", "task.md", `duplicate section "Goal"`,
 			func(s string) string { return strings.Replace(s, "## Docs", "## Goal\n\n## Docs", 1) }},
-		{"wrong final section", "TASK-05", "task.md", "Comments",
+		{"wrong final section", "TASK-05", "task.md", `section "Risk" out of order`,
 			func(s string) string { return s + "\n## Risk\n" }},
 	}
 	for _, tc := range cases {
