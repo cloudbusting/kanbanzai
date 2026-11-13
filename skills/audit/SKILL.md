@@ -31,7 +31,10 @@ warning when sessions share the one tree. `kanbanzai workspace <ID>` says what a
 it to one card, so another session's work does not hold that card — including the main checkout, which the card
 scope leaves to the whole-board run. A card in the first column, or in a column that waits for the owner, with no
 claim is at rest, not drift; a card in a Done column with no claim is finished with its step and waiting to be
-pulled, and is drift only when it goes quiet (see the stale warning). A card in a Doing column with no live claim and
+pulled, and is drift only when it goes quiet (see the stale warning). A finished card's worktree that is clean and has no
+commits missing from the main branch is a warning, not a hard finding, even though closing wrote `Where: main`:
+`/cleanup` removes it. A finished card's worktree that is dirty, holds unmerged commits or belongs to an early close
+stays hard. A card in a Doing column with no live claim and
 no `Held:` line is interrupted (`⚠`): a session left it mid-step. Warnings (`·`) are work not pushed, a card gone
 quiet, an interrupted card, an uncarded worktree with changes, and an expired claim. `kanbanzai check` lists a brief it cannot read
 (no title, no Stage line, an unknown stage, the wrong folder) as a problem.

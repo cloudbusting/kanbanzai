@@ -433,6 +433,20 @@ func DaysSince(date string) (int, bool) {
 	return int(today.Sub(updated).Hours() / 24), true
 }
 
+// closedCards is the cards that finished (a Done column) and were not early-closed: the only cards whose workspace
+// the audit offers for cleanup.
+func closedCards(project *config.Project, cards CardsByColumn) map[string]bool {
+	closed := map[string]bool{}
+	for key, rows := range cards {
+		if column, ok := project.ByKey[key]; ok && column.Kind == "done" {
+			for _, row := range rows {
+				closed[row.Item] = !row.Cancelled
+			}
+		}
+	}
+	return closed
+}
+
 // Reconcile is (hard, soft, cleanup): board/work/claim mismatches, warnings, and removable worktrees.
 func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, held map[string]map[string]any,
 	only string, onHold map[string]bool) ([]string, []string, []string) {
@@ -482,6 +496,7 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			}
 		}
 	}
+	closed := closedCards(project, cards)
 	mapped := map[string][]string{}
 	mode := workspace.Of(project)
 	perWorktree := mode == workspace.Worktree
@@ -539,13 +554,20 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		if card != "" && project.IsCardID(card) {
 			mapped[card] = append(mapped[card], wt.Path)
 			if where[card] != "worktree "+card {
-				hard = append(hard, fmt.Sprintf("%s holds %s, but the board's Where says '%s'", wt.Path, card,
-					where[card]))
+				if closed[card] && wt.Dirty == 0 && wt.Ahead == 0 {
+					// Closing a card records Where: main, so a closed card's worktree is expected to disagree with the
+					// board. Nothing in it is missing from the main branch: /cleanup removes it, so it is no hazard.
+					soft = append(soft, fmt.Sprintf("%s holds %s, which is closed; the worktree is clean and merged — "+
+						"/cleanup removes it", wt.Path, card))
+				} else {
+					hard = append(hard, fmt.Sprintf("%s holds %s, but the board's Where says '%s'", wt.Path, card,
+						where[card]))
+				}
 			}
 		} else if card == "" {
 			hard = append(hard, fmt.Sprintf("%s: a worktree with no card (branch %s)", wt.Path, wt.Branch))
 		}
-		if wt.Dirty == 0 && wt.Ahead == 0 && !cancelled[card] {
+		if wt.Dirty == 0 && wt.Ahead == 0 && !cancelled[card] && (closed[card] || !project.IsCardID(card)) {
 			cleanup = append(cleanup, fmt.Sprintf("%s (branch %s, clean and merged)", wt.Path, wt.Branch))
 		} else if wt.Ahead > 0 {
 			soft = append(soft, fmt.Sprintf("%s: %d commit(s) not on %s (push when %s asks)", wt.Path, wt.Ahead,
