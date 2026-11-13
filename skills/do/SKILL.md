@@ -89,6 +89,10 @@ decisions remain in the main session. Parallel tasks must not share files.
 
 ## Close or stop
 
+If the owner decides no further work is needed, `kanbanzai move <ID> close --reason "<why>"` records a no change
+cancellation, not completed delivery. This explicit cancellation may leave a closed current-column gate, but never
+overrides a hold, parking or claim safeguards. Preserve and inspect any workspace; cancellation is not cleanup.
+
 Close only when the card-specific route says it can close and all required work, checks, approvals and delivery are
 complete. Merge only when the configured workspace and project rules require it, into the configured integration
 branch; pushing requires the owner's approval unless an approved delivery step authorizes it. Use the destination

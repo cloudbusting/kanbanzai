@@ -93,6 +93,9 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 		}
 		got := map[Transition]bool{}
 		for _, tr := range Transitions(p) {
+			if tr.Kind == "early-close" {
+				continue // conditional cancellation is not an ordinary LegalTargets move
+			}
 			got[tr] = true
 		}
 		if !reflect.DeepEqual(got, want) || len(got) == 0 {
@@ -107,6 +110,20 @@ func TestTransitionsAreWhatMoveAllows(t *testing.T) {
 		{"checked", "done", "close"}, {"building", "designing", "back"}, {"todo", "paused", "pause"}} {
 		if !got[want] {
 			t.Errorf("missing transition %+v", want)
+		}
+	}
+}
+
+func TestWorkflowShowsConditionalEarlyClose(t *testing.T) {
+	p := project(t, "")
+	got := map[Transition]bool{}
+	for _, tr := range Transitions(p) {
+		got[tr] = true
+	}
+	for _, c := range p.Columns {
+		want := Transition{From: c.Key, To: "done", Kind: "early-close"}
+		if got[want] != (c.Kind == "open") {
+			t.Errorf("transition %+v present = %t", want, got[want])
 		}
 	}
 }
