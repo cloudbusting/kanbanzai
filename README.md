@@ -482,7 +482,8 @@ kanbanzai --version                      the command's version
 
 **Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
 `TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done
-column of the step it is in). `kanbanzai move ID close --reason "<why>"` instead cancels an open card with no
+column of the step it is in; for a step with no Doing column, the column the step moves a card into, which needs your
+live claim because the claim is the only proof the step ran). `kanbanzai move ID close --reason "<why>"` instead cancels an open card with no
 change, not a delivery. It records the reason without `--force` and preserves the workspace and its work. It may
 leave a closed current-column gate, but not a hold or parked card; another live or an expired claim refuses, and a
 Doing card requires your live claim. Inspect retained work before cleanup. `close` is reserved even if a custom
@@ -502,11 +503,12 @@ closed gate and `wip --next` does not offer it; `gate pass ID` records the resul
 their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it.
 
 `kanbanzai step --for <ID> --json` also includes a `route` object describing the immediate action, step, target,
-whether a gate or hold blocks it, workspace facts, and whether closing needs `--done`. Its text output includes the
-same route. A route does not grant a claim or override a gate: check its blocked flag and reason before acting.
-`workflow show` describes the whole project; `workspace <ID>` describes the selected isolation mode. Some routes
-cannot yet be executed safely by the move command, including steps without Doing columns: the route says `stop` and
-why instead of suggesting a forced move.
+whether a gate or hold blocks it, workspace facts, the column `finish` lands in (`finish`), and whether closing needs
+`--done`. Its text output includes the same route. A route does not grant a claim or override a gate: check its blocked
+flag and reason before acting. `workflow show` describes the whole project; `workspace <ID>` describes the selected
+isolation mode. A step with no Doing column routes as `step` with no `target`: keep your claim while you work, then
+`move <ID> finish`. A step with no skill that is followed by a skilled step routes as `skip` to the column the card
+lands in (stopping at the first gated column on the way), and `move <ID> <that column>` makes the hop.
 [docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
 release, dependent work) and says what the flow cannot express.
 

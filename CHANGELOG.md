@@ -5,6 +5,13 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-37: a custom flow whose step has no Doing column (no `during`) now progresses: `move ID finish`, or the step's
+  `into` column by name, moves the claimed card out of the step, and needs this session's live claim. A step with no
+  skill that is followed by a skilled step is a legal `skip` hop to the column the card lands in, stopping at the first
+  gated column on the way. `step --for ID` reports the first as `route: step` with no `target` and a new `finish`
+  column (also set for step and resume routes), the second as `route: skip`; `workflow show` lists the `finish` and
+  `skip` transitions. The shipped flow's transitions are unchanged.
+
 ## [0.15.0] — 2026-11-13
 
 - BUG-54: `wip --audit --card ID --recovery` also accepts an unheld card stopped between steps (Designed, Built, Checked or
