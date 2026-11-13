@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** complete question record edge cases and tests, then implement ask/answer commands
+- **Next action:** implement ask/answer commands against the red lifecycle test, then complete their authorization and failure tests
 - **Where:** worktree W-40
 
 ## Goal
@@ -138,6 +138,8 @@ parallel with task 5 on separate files; task 8 last.
 - 2026-11-13: Owner resolved answer authorization: ask requires a claim; answer permits an unclaimed card and refuses another session's live claim.
 - 2026-11-13: Owner decision recorded; no implementation or checks yet. The existing clean W-40 worktree was fast-forwarded to main (9421395).
 - 2026-11-13: Started internal/question with append, parse and close plus test-first lifecycle tests; partial commit 62de4f1; CLI and remaining acceptance checks not started.
+- 2026-11-13: Added multiline question writing and duplicate-number rejection with test-first coverage in partial commit 841fb3e; question package tests pass. Remaining tasks are not started.
+- 2026-11-13: Added malformed-record and normalized duplicate-number coverage in 5fdfa96; question package tests pass. Started the CLI lifecycle test, which is red because ask is not implemented.
 
 ## Out of scope
 
@@ -155,3 +157,5 @@ must not duplicate an asking toast for a live session and a recorded question on
 ## Comments
 
 - 2026-11-13: Partial question-record implementation committed as 62de4f1 in W-40. `go test ./internal/question` passes after test-first red runs; it is not yet integrated or fully reviewed. Complete task 1, including multiline input and malformed/duplicate-entry edge cases, before implementing CLI commands. No other acceptance checks have been run.
+- 2026-11-13: Resumed and added multiline question input and duplicate-number rejection in 841fb3e; their tests failed before the fix and `go test ./internal/question` now passes. Review remaining malformed/duplicate-entry cases before marking task 1 complete; CLI integration and all other acceptance checks remain. Worktree diverges from main; do not rebase as part of recovery.
+- 2026-11-13: Parser edge cases in 5fdfa96; `go test ./internal/question` passes (the empty-answer and malformed-record tests already passed before the parser fix). Uncommitted `internal/cli/question_test.go` is a test-first lifecycle and currently fails because `ask` is unknown. Default `move.LegalTargets` refuses Building -> Designed; the test expects the brief's interrupted-in-place fallback, not a forced move. Implement and test commands, including concurrency and claim authorization, before proceeding; do not treat this partial test as full acceptance coverage.
