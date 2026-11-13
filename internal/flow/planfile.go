@@ -120,15 +120,26 @@ func ValidatePlan(plan *Plan, p *config.Project) error {
 			return refuse("--plan: card %s has a line break in a single-line field", c.ID)
 		}
 	}
-	if plan.Template != nil {
-		if p.TemplateIsShipped || plan.Template.Path != slash(p.Root, p.Template) {
-			return refuse("--plan: the template change is not for this project's template")
+	allowed := map[string]bool{}
+	if !p.TemplateIsShipped {
+		allowed[slash(p.Root, p.Template)] = true
+	}
+	for _, item := range p.Types {
+		if item.Template != "" {
+			allowed[slash(p.Root, item.Template)] = true
 		}
-		if err := confined(p.Root, plan.Template.Path); err != nil {
-			return refuse("--plan: %s: %v", plan.Template.Path, err)
+	}
+	paths := map[string]bool{}
+	for _, template := range plan.AllTemplates() {
+		if !allowed[template.Path] || paths[template.Path] {
+			return refuse("--plan: the template change %s is not for one of this project's templates, or is listed twice", template.Path)
 		}
-		if Digest(plan.Template.Content) != plan.Template.AfterSHA256 {
-			return refuse("--plan: the template text does not match its digest")
+		paths[template.Path] = true
+		if err := confined(p.Root, template.Path); err != nil {
+			return refuse("--plan: %s: %v", template.Path, err)
+		}
+		if Digest(template.Content) != template.AfterSHA256 {
+			return refuse("--plan: the template text for %s does not match its digest", template.Path)
 		}
 	}
 	return nil

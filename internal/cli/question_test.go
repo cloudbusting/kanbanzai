@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -62,6 +63,60 @@ func TestQuestionCommandsLifecycle(t *testing.T) {
 	}
 	if code, out, err := runCLI(t, "wip", "--next"); code != 0 || !strings.Contains(out, "W-01") {
 		t.Fatalf("answered wip next = %d %q %q", code, out, err)
+	}
+}
+
+func TestQuestionLifecycleHonoursSchemaSectionOrder(t *testing.T) {
+	for _, order := range []string{`"Goal", "Progress", "Details", "Questions", "Comments"`, `"Goal", "Questions", "Details", "Progress", "Comments"`} {
+		t.Run(order, func(t *testing.T) {
+			configText := `[project]
+owner = "Sam"
+default_type = "bug"
+[flow]
+isolation = "shared"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+schema = "bug"
+template = "bug.md"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Comments"]
+optional_sections = ["Progress", "Details", "Questions"]
+repeatable_sections = []
+section_order = [` + order + `]
+final_section = "Comments"
+`
+			p := newProject(t, configText)
+			if err := os.WriteFile(filepath.Join(p.Root, "bug.md"), []byte("# BUG-NN: Work\n\n- **Stage:** todo\n- **Updated:** YYYY-MM-DD\n- **Next action:** next\n- **Where:** —\n\n## Goal\n\n## Comments\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			path := writeCard(t, p, "BUG-01", "Work", "building", "")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(strings.Replace(string(data), "## Comments", "## Details\n\nDetails\n\n## Comments", 1)), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if code, _, err := runCLI(t, "claim", "claim", "BUG-01", "--no-move"); code != 0 {
+				t.Fatal(err)
+			}
+			if code, out, err := runCLI(t, "ask", "BUG-01", "--text", "How?"); code != 0 {
+				t.Fatalf("ask %d %s %s", code, out, err)
+			}
+			if code, out, err := runCLI(t, "check"); code != 0 {
+				t.Fatalf("held check %d %s %s", code, out, err)
+			}
+			if code, out, err := runCLI(t, "answer", "BUG-01", "--text", "Yes"); code != 0 {
+				t.Fatalf("answer %d %s %s", code, out, err)
+			}
+			if code, out, err := runCLI(t, "check"); code != 0 {
+				t.Fatalf("answered check %d %s %s", code, out, err)
+			}
+		})
 	}
 }
 

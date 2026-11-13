@@ -104,6 +104,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		if flags["note"] != "" {
 			by += " (" + flags["note"] + ")"
 		}
+		text = brief.EnsureSection(text, "Questions", project.BriefSectionOrder(cardID))
 		text, err = question.Append(text, question.Entry{AskedBy: by, Text: flags["text"], Options: options, Recommendation: flags["recommend"], Then: fields["Next action"]}, today)
 		if err != nil {
 			fmt.Fprintf(errOut, "ask: %v\n", err)
@@ -112,6 +113,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		held := "waiting: " + project.Owner + " — answer in ## Questions"
 		next := "answer the question in ## Questions"
 		text = brief.SetFields(text, map[string]*string{"Held": &held, "Next action": &next, "Updated": &today})
+		text = brief.EnsureSection(text, "Progress", project.BriefSectionOrder(cardID))
 		text = brief.AddProgress(text, "- "+today+": waiting for an answer in ## Questions")
 		if err := writeQuestionBrief(path, text); err != nil {
 			fmt.Fprintln(errOut, err)

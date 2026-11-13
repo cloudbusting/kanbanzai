@@ -169,6 +169,41 @@ func SetFields(text string, changes map[string]*string) string {
 	return strings.Join(append(head, lines[end:]...), "\n")
 }
 
+// EnsureSection inserts a missing section before the first existing later section in order.
+// With no declared order, it leaves the text unchanged for the legacy insertion behavior.
+func EnsureSection(text, name string, order []string) string {
+	if len(order) == 0 {
+		return text
+	}
+	position := -1
+	indices := make(map[string]int, len(order))
+	for i, section := range order {
+		indices[section] = i
+		if section == name {
+			position = i
+		}
+	}
+	if position < 0 {
+		return text
+	}
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		if strings.TrimSuffix(line, "\r") == "## "+name {
+			return text
+		}
+	}
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "## ") {
+			continue
+		}
+		if index, ok := indices[strings.TrimSuffix(strings.TrimPrefix(line, "## "), "\r")]; ok && index > position {
+			lines = append(lines[:i], append([]string{"## " + name, ""}, lines[i:]...)...)
+			return strings.Join(lines, "\n")
+		}
+	}
+	return text
+}
+
 // AddProgress puts a dated line at the end of the Progress section, making the section before Comments when there
 // is none.
 func AddProgress(text, line string) string {

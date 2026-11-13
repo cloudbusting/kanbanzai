@@ -113,6 +113,7 @@ type Project struct {
 	TypeSet            *typeid.Set
 	DefaultType        string
 	ProjectKey         string
+	BriefSchemas       map[string]BriefSchema
 	Owner              string
 	MainBranch         string
 	Isolation          string // worktree, branch, shared or external: how a card's change is kept apart
@@ -369,6 +370,9 @@ func (p *Project) build() error {
 		p.DefaultType = set.Default
 		p.ProjectKey = set.ProjectKey
 	}
+	if err := p.loadBriefSchemas(); err != nil {
+		return err
+	}
 	p.Owner = asString(project["owner"], "the user")
 	p.MainBranch = asString(project["main_branch"], "main")
 	p.WorktreePattern = asString(project["worktree"], "../worktrees/{repo}/{id}")
@@ -512,6 +516,7 @@ func (p *Project) types() ([]typeid.Type, error) {
 			Key:         asString(entry["key"], ""),
 			Label:       asString(entry["label"], ""),
 			Prefix:      asString(entry["prefix"], ""),
+			Schema:      asString(entry["schema"], ""),
 			Colour:      asString(entry["colour"], ""),
 			Icon:        asString(entry["icon"], ""),
 			Description: asString(entry["description"], ""),
@@ -978,6 +983,9 @@ func (p *Project) TypeInfos() []any {
 		if info.Template != "" {
 			entry["template"] = info.Template
 		}
+		if info.Schema != "" {
+			entry["schema"] = info.Schema
+		}
 		if info.Colour != "" {
 			entry["colour"] = info.Colour
 		}
@@ -1016,6 +1024,24 @@ func (p *Project) TemplateText() (string, error) {
 		return "", err
 	}
 	return strings.ReplaceAll(string(data), "\r\n", "\n"), nil
+}
+
+// TemplateTextFor is the template for a new card of the given type: the type's own template when it names one
+// (never replaced by another when it cannot be read), otherwise the project template or the shipped card template.
+// The second result says where it came from.
+func (p *Project) TemplateTextFor(item typeid.Type) (text, source string, err error) {
+	if item.Template != "" {
+		data, err := os.ReadFile(item.Template)
+		if err != nil {
+			return "", "", errf("type %s: its template %s cannot be read: %v", item.Key, p.Rel(item.Template), err)
+		}
+		return strings.ReplaceAll(string(data), "\r\n", "\n"), p.Rel(item.Template), nil
+	}
+	text, err = p.TemplateText()
+	if p.TemplateIsShipped {
+		return text, "templates/card.md (shipped)", err
+	}
+	return text, p.Rel(p.Template), err
 }
 
 // ContextFiles is the project's context files, absolute.

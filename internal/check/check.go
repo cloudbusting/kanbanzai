@@ -36,7 +36,7 @@ var (
 
 // Checks are the board's checks, in the order the command reports them.
 var Checks = []func(*config.Project) []string{
-	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Questions, Comments, Template,
+	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Questions, Comments, Template, BriefSchemas,
 }
 
 // Questions validates optional question records and the hold on an open question.
@@ -436,24 +436,52 @@ func Comments(project *config.Project) []string {
 	return problems
 }
 
+// TypeTemplates checks every explicit type template: it must be readable and, when its type opts into a schema,
+// fit that schema. A fallback to another template is never silent.
+func TypeTemplates(project *config.Project) []string {
+	problems := []string{}
+	for _, item := range project.Types {
+		if item.Template == "" {
+			continue
+		}
+		data, err := os.ReadFile(item.Template)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s: template for type %s cannot be read: %v", project.Rel(item.Template), item.Key, err))
+			continue
+		}
+		if schema, ok := project.BriefSchemas[item.Schema]; ok {
+			problems = append(problems, checkBriefSchema(project.Rel(item.Template), strings.ReplaceAll(string(data), "\r\n", "\n"), schema, true)...)
+		}
+	}
+	return problems
+}
+
 // Template checks that the card template exists, has the head's fields and ends in ## Comments.
 func Template(project *config.Project) []string {
+	problems := TypeTemplates(project)
 	shipped := project.TemplateIsShipped
 	name := "templates/card.md"
 	if !shipped {
 		name = project.Rel(project.Template)
 		if _, err := os.Stat(project.Template); err != nil {
-			return []string{fmt.Sprintf("%s: the card template is missing", name)}
+			return append(problems, fmt.Sprintf("%s: the card template is missing", name))
 		}
 	}
 	text, err := project.TemplateText()
 	if err != nil {
 		if shipped {
-			return nil
+			return problems
 		}
-		return []string{fmt.Sprintf("%s: the card template is missing", name)}
+		return append(problems, fmt.Sprintf("%s: the card template is missing", name))
 	}
-	problems := []string{}
+	for _, item := range project.Types {
+		if item.Template != "" || item.Schema == "" {
+			continue
+		}
+		if schema, ok := project.BriefSchemas[item.Schema]; ok {
+			problems = append(problems, checkBriefSchema(name+" (type "+item.Key+")", text, schema, true)...)
+		}
+	}
 	_, fields := brief.Header(text)
 	for _, field := range HeadFields {
 		if _, ok := fields[field]; !ok {
