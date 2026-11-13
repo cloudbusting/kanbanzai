@@ -30,6 +30,7 @@ type Type struct {
 	Label       string
 	Prefix      string
 	Template    string
+	Schema      string
 	Colour      string
 	Icon        string
 	Description string
@@ -302,6 +303,7 @@ type TypeInfo struct {
 	Label       string `json:"label"`
 	Prefix      string `json:"prefix"`
 	Template    string `json:"template,omitempty"`
+	Schema      string `json:"schema,omitempty"`
 	Colour      string `json:"colour,omitempty"`
 	Icon        string `json:"icon,omitempty"`
 	Description string `json:"description,omitempty"`
@@ -309,6 +311,6 @@ type TypeInfo struct {
 
 // Info is the type's JSON shape.
 func (t Type) Info() TypeInfo {
-	return TypeInfo{Key: t.Key, Label: t.Label, Prefix: t.Prefix, Template: t.Template, Colour: t.Colour,
+	return TypeInfo{Key: t.Key, Label: t.Label, Prefix: t.Prefix, Template: t.Template, Schema: t.Schema, Colour: t.Colour,
 		Icon: t.Icon, Description: t.Description}
 }

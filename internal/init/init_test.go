@@ -582,6 +582,38 @@ func TestWithTemplateNeedsAConfigThatNamesOne(t *testing.T) {
 	}
 }
 
+func TestInitRejectsMissingTypeTemplate(t *testing.T) {
+	root := repo(t, "main")
+	configText := `config_version = 1
+[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "missing-bug.md"
+`
+	testutil.Write(t, filepath.Join(root, ConfigRel), configText)
+	code, out, errOut := initRun(root, Options{DryRun: true})
+	if code != 2 || !strings.Contains(errOut, "missing-bug.md") {
+		t.Fatalf("missing template: %d %s %s", code, out, errOut)
+	}
+}
+
+func TestKeptTypeTemplateIsCheckedForStaleness(t *testing.T) {
+	root := repo(t, "main")
+	path := filepath.Join(root, "bug.md")
+	testutil.Write(t, path, "original")
+	plan := &Plan{Root: root, Actions: []Action{{Op: OpKeep, What: WhatTemplate, Path: "bug.md", ExpectSHA256: digest("original")}}}
+	if err := Preflight(plan); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, path, "changed")
+	if err := Preflight(plan); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("stale preflight = %v", err)
+	}
+}
+
 func TestAnExistingConfigIsNeverChangedWithoutForce(t *testing.T) {
 	root := repo(t, "main")
 	mine := "config_version = 1\n# mine\n[project]\nowner = \"Me\"\n"
@@ -929,5 +961,45 @@ func TestAFreshProjectStartsTypedAndPrefixKeepsTheLegacyShape(t *testing.T) {
 	}
 	if legacy.Typed || legacy.Prefix != "W" {
 		t.Fatalf("--prefix wrote a typed project: typed = %v, prefix = %q", legacy.Typed, legacy.Prefix)
+	}
+}
+
+const schemaTypeConfig = `config_version = 1
+[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "bug.md"
+schema = "bug"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Comments"]
+optional_sections = ["Progress", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+`
+
+const bugTemplate = "# BUG-NN: Work\n\n- **Stage:** todo\n- **Updated:** YYYY-MM-DD\n- **Next action:** next\n- **Where:** —\n\n## Goal\n\n## Reproduction\n\n## Comments\n"
+
+func TestInitChecksATypeTemplateAgainstItsSchemaAndNeverChangesIt(t *testing.T) {
+	root := repo(t, "main")
+	testutil.Write(t, filepath.Join(root, ConfigRel), schemaTypeConfig)
+	bad := strings.Replace(bugTemplate, "## Reproduction\n\n", "", 1)
+	testutil.Write(t, filepath.Join(root, "bug.md"), bad)
+	code, out, errOut := initRun(root, Options{DryRun: true})
+	if code != 2 || !strings.Contains(errOut, "Reproduction") || !strings.Contains(errOut, "bug.md") {
+		t.Fatalf("a template that breaks its schema: %d %s %s", code, out, errOut)
+	}
+	testutil.Write(t, filepath.Join(root, "bug.md"), bugTemplate)
+	if code, out, errOut = initRun(root, Options{}); code != 0 {
+		t.Fatalf("a valid template: %d %s %s", code, out, errOut)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "bug.md"))
+	if err != nil || string(data) != bugTemplate {
+		t.Fatalf("init changed the type template: %v\n%s", err, data)
 	}
 }

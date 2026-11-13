@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
+	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 )
 
@@ -69,6 +70,7 @@ type Plan struct {
 	Source        string            `json:"source"`
 	Config        ConfigChange      `json:"config"`
 	Template      *TemplateChange   `json:"template,omitempty"`
+	TypeTemplates []TemplateChange  `json:"type_templates,omitempty"`
 	Folders       []string          `json:"folders"`
 	Cards         []CardChange      `json:"cards"`
 	Map           map[string]string `json:"map"`
@@ -247,7 +249,7 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 		} else {
 			change.Progress = fmt.Sprintf("- %s: workflow: folder %s -> %s", change.Updated, change.FolderBefore, change.FolderAfter)
 		}
-		newText := Migrate(text, change)
+		newText := Migrate(text, change, p.BriefSectionOrder(change.ID))
 		change.AfterSHA256 = Digest(newText)
 		if _, err := os.Lstat(filepath.Join(p.Root, filepath.FromSlash(change.NewPath))); err == nil && change.NewPath != change.Path {
 			plan.Blockers = append(plan.Blockers, fmt.Sprintf("%s: %s already exists", card, change.NewPath))
@@ -300,7 +302,7 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 }
 
 // Migrate is the brief after its change.
-func Migrate(text string, c CardChange) string {
+func Migrate(text string, c CardChange, sectionOrder ...[]string) string {
 	fields := map[string]*string{"Stage": &c.StageAfter, "Updated": &c.Updated}
 	if c.ClearDone {
 		fields["Done"] = nil
@@ -308,10 +310,25 @@ func Migrate(text string, c CardChange) string {
 	if c.ClearHeld {
 		fields["Held"] = nil
 	}
-	return brief.AddProgress(brief.SetFields(text, fields), c.Progress)
+	text = brief.SetFields(text, fields)
+	if len(sectionOrder) > 0 {
+		text = brief.EnsureSection(text, "Progress", sectionOrder[0])
+	}
+	return brief.AddProgress(text, c.Progress)
+}
+
+// AllTemplates are the template changes of a plan: the project's own template, then each type's, in a stable order.
+func (plan *Plan) AllTemplates() []TemplateChange {
+	var out []TemplateChange
+	if plan.Template != nil {
+		out = append(out, *plan.Template)
+	}
+	return append(out, plan.TypeTemplates...)
 }
 
 // templateChange keeps new cards in the first column: a card is written from the template with its Stage word.
+// Every explicit type template is read and renamed the same way, and none is skipped silently: an unreadable one
+// is a blocker.
 func (plan *Plan) templateChange(p, next *config.Project) {
 	first := next.Columns[0]
 	if p.TemplateIsShipped {
@@ -320,22 +337,46 @@ func (plan *Plan) templateChange(p, next *config.Project) {
 				"'todo', which is not a word of the first column '%s': add \"todo\" to that column's `words`, or give the "+
 				"project a template (project.template) whose Stage starts with '%s'", first.Key, first.Key))
 		}
-		return
+	} else if data, err := os.ReadFile(p.Template); err == nil {
+		plan.Template = plan.renameStage(p, next, p.Template, string(data), "the project template")
 	}
-	data, err := os.ReadFile(p.Template)
-	if err != nil {
-		return
+	for _, problem := range check.TypeTemplates(p) {
+		if !strings.Contains(problem, "cannot be read") { // an unreadable one is named below, with its type
+			plan.Blockers = append(plan.Blockers, "a type template does not fit its schema: "+problem)
+		}
 	}
-	text := string(data)
+	seen := map[string]bool{}
+	if !p.TemplateIsShipped {
+		seen[p.Template] = true
+	}
+	for _, item := range p.Types {
+		if item.Template == "" || seen[item.Template] {
+			continue
+		}
+		seen[item.Template] = true
+		data, err := os.ReadFile(item.Template)
+		if err != nil {
+			plan.Blockers = append(plan.Blockers, fmt.Sprintf("type %s: its template %s cannot be read: %v", item.Key, slash(p.Root, item.Template), err))
+			continue
+		}
+		if change := plan.renameStage(p, next, item.Template, string(data), "the "+item.Key+" template"); change != nil {
+			plan.TypeTemplates = append(plan.TypeTemplates, *change)
+		}
+	}
+}
+
+// renameStage is the template with its Stage word moved to the new first column, or nil when it already fits.
+func (plan *Plan) renameStage(p, next *config.Project, file, text, what string) *TemplateChange {
+	first := next.Columns[0]
 	_, fields := brief.Header(text)
 	word := brief.StageWord(fields["Stage"])
 	if next.StageColumn[word] == first.Key {
-		return
+		return nil
 	}
 	if p.StageColumn[word] != p.Columns[0].Key {
-		plan.Warnings = append(plan.Warnings, fmt.Sprintf("the project template's Stage starts with '%s', which is not a word of the first "+
-			"column '%s' of the new flow: edit it by hand", word, first.Key))
-		return
+		plan.Warnings = append(plan.Warnings, fmt.Sprintf("%s's Stage starts with '%s', which is not a word of the first "+
+			"column '%s' of the new flow: edit it by hand", what, word, first.Key))
+		return nil
 	}
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
@@ -346,7 +387,7 @@ func (plan *Plan) templateChange(p, next *config.Project) {
 	}
 	after := strings.Join(lines, "\n")
 	if after == text {
-		return
+		return nil
 	}
-	plan.Template = &TemplateChange{Path: slash(p.Root, p.Template), ExpectSHA256: Digest(text), AfterSHA256: Digest(after), Content: after}
+	return &TemplateChange{Path: slash(p.Root, file), ExpectSHA256: Digest(text), AfterSHA256: Digest(after), Content: after}
 }

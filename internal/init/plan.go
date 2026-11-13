@@ -11,6 +11,7 @@ import (
 	"time"
 
 	kanbanzai "github.com/cloudbusting/kanbanzai"
+	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 )
 
@@ -266,6 +267,36 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	} else if opts.WithTemplate {
 		return nil, refuse("--with-template: the existing config sets no project.template; add one, or use " +
 			"--force to replace the config")
+	}
+	for _, item := range project.Types {
+		if item.Template == "" || (!project.TemplateIsShipped && item.Template == project.Template) {
+			continue
+		}
+		rel, err := insideRoot(root, item.Template, "type "+item.Key+" template")
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Lstat(item.Template)
+		if err != nil || !info.Mode().IsRegular() {
+			return nil, refuse("type %s template %s is missing or not a regular file", item.Key, rel)
+		}
+		data, err := os.ReadFile(item.Template)
+		if err != nil {
+			return nil, refuse("type %s template %s cannot be read: %v", item.Key, rel, err)
+		}
+		found := false
+		for i := range plan.Actions {
+			if plan.Actions[i].Path == rel && plan.Actions[i].What == WhatTemplate {
+				plan.Actions[i].ExpectSHA256 = digest(string(data))
+				found = true
+			}
+		}
+		if !found {
+			plan.Actions = append(plan.Actions, Action{Op: OpKeep, Path: rel, What: WhatTemplate, ExpectSHA256: digest(string(data))})
+		}
+	}
+	if problems := check.TypeTemplates(project); len(problems) > 0 {
+		return nil, refuse("a type template does not fit its schema:\n  %s", strings.Join(problems, "\n  "))
 	}
 
 	agents, source, err := checkPlugins(opts)

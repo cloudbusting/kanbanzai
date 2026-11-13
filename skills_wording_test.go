@@ -557,3 +557,26 @@ func TestTheReleaseSkillInstallsTheReleasedVsix(t *testing.T) {
 		t.Error("kanbanzai-release still leaves the released .vsix install to the owner")
 	}
 }
+
+func TestTheTriageSkillSelectsTheTemplateByIDPrefixWithTheCommand(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "triage", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{"`kanbanzai template <ID or type>`", "`--where`", "its prefix is the card's type",
+		"no separate Type line", "never a silent fallback", "`kanbanzai check` names what is missing"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/triage lacks %q", want)
+		}
+	}
+	// both harnesses load the same shipped skills folder, so one wording serves both
+	server, err := os.ReadFile(filepath.Join(root, "opencode", "server.js"))
+	if err != nil || !strings.Contains(string(server), `path.join(ROOT, "skills")`) {
+		t.Fatalf("the OpenCode adapter does not load the shipped skills folder: %v", err)
+	}
+}

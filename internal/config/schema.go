@@ -17,15 +17,16 @@ var IsolationModes = map[string]bool{"worktree": true, "branch": true, "shared":
 // schemaKeys is the single allowlist for all supported configuration tables. Step names are user-defined.
 func schemaKeys() map[string]map[string]string {
 	return map[string]map[string]string{
-		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types"},
+		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas"},
 		"project": {
 			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
-		"claims":  {"lease_minutes": "positive number", "owner_env": "string"},
-		"flow":    {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation"},
-		"columns": {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string", "gate": "string", "gate_name": "string", "gate_after": "string", "gate_until": "string"},
-		"types":   {"key": "string", "label": "string", "prefix": "string", "template": "string", "colour": "string", "icon": "string", "description": "string"},
-		"step":    {"into": "string", "during": "string", "skill": "string", "extend": "strings", "context": "strings", "checks": "strings", "skip_field": "string", "skip_values": "strings"},
+		"claims":       {"lease_minutes": "positive number", "owner_env": "string"},
+		"flow":         {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation"},
+		"columns":      {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string", "gate": "string", "gate_name": "string", "gate_after": "string", "gate_until": "string"},
+		"types":        {"key": "string", "label": "string", "prefix": "string", "template": "string", "schema": "string", "colour": "string", "icon": "string", "description": "string"},
+		"brief_schema": {"required_fields": "strings", "optional_fields": "strings", "required_sections": "strings", "optional_sections": "strings", "repeatable_sections": "strings", "section_order": "strings", "final_section": "string"},
+		"step":         {"into": "string", "during": "string", "skill": "string", "extend": "strings", "context": "strings", "checks": "strings", "skip_field": "string", "skip_values": "strings"},
 	}
 }
 
@@ -130,6 +131,16 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 						return err
 					}
 				}
+			case "schemas":
+				for _, name := range sortedKeys(value.(map[string]any)) {
+					entry, ok := value.(map[string]any)[name].(map[string]any)
+					if !ok {
+						return errf("%s: [schemas.%s] must be a table", source, name)
+					}
+					if err := table(entry, "brief_schema", "schemas."+name); err != nil {
+						return err
+					}
+				}
 			case "columns":
 				for _, item := range value.([]any) {
 					if err := table(item.(map[string]any), "columns", "columns"); err != nil {
@@ -170,7 +181,7 @@ func validType(value any, typ string) bool {
 			return true
 		}
 		return value == "claimed"
-	case "table", "steps":
+	case "table", "steps", "schemas":
 		_, ok := value.(map[string]any)
 		return ok
 	case "strings":

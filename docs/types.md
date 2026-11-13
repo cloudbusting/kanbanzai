@@ -51,14 +51,133 @@ Rules, enforced before a command runs:
   case for uniqueness, so two types cannot share a prefix or a key.
 - `default_type` names a configured type. When it is omitted, a type keyed `task` is used; a project with exactly one
   type uses that type. Otherwise the config asks for `default_type`.
-- `template` (optional) names a brief template; per-type templates and schemas are a later card (W-11). `colour` is
-  `#` plus six hexadecimal digits. `icon` is a local symbolic name, not a path or a URL.
+- `template` (optional) names the type's brief template and `schema` (optional) opts it into a brief schema; both are
+  described under "Templates and brief schemas" below. `colour` is `#` plus six hexadecimal digits. `icon` is a local symbolic name, not a path or a URL.
 - `prefix` is the **legacy** prefix, not a type. A project with `types = []` at the root of its config opts out of
   typed ids and uses `prefix` as its only card id (`W-01`, `W-02`) and its `<prefix>.json` ledger.
 
 `kanbanzai init` writes a typed config for a fresh project with task, bug, change, spike and chore, `default_type =
 "task"` and `prefix = ""` (no legacy alias). `kanbanzai init --prefix W` writes a single-prefix config (`types = []`)
 instead.
+
+## Templates and brief schemas
+
+A type may name its own brief template and may opt into a brief schema. Both are settings of the type and neither
+adds a Type line: the id's prefix is still the only source of type.
+
+**Template.** `template = "templates/incident.md"` is resolved from the main project root, must exist and be readable,
+and is what `kanbanzai template <type|ID>` prints. If a named template is missing or unreadable that is an error
+(`check`, `init`, `workflow plan` and `template` all say so); no other template is used instead. A type with no
+`template` gets the project's `[project] template`, or the embedded `templates/card.md`.
+
+**Schema.** `schema = "incident"` names a `[schemas.incident]` table. Without it the legacy checker applies to the type's
+cards unchanged (the head fields and a final Comments, with any other field or section allowed), and legacy ids
+(`W-01`) always use it. With it the checker is strict, per card:
+
+| key | meaning |
+|---|---|
+| `required_fields` / `optional_fields` | the head's `- **Name:** value` labels. A required field must be present and non-empty in a brief and present in the template; any field not listed is an error. |
+| `required_sections` / `optional_sections` | the level-two `## Name` headings. A required one must appear; one not listed is an error. |
+| `section_order` | every declared section exactly once, in the order they must appear. A section out of that order is an error. |
+| `repeatable_sections` | sections that may appear more than once, adjacent in that order. Any other section appearing twice is an error. |
+| `final_section` | the last section. It is `Comments`. |
+
+Names are case-sensitive and exact, a field is letters and single spaces, and a duplicate name or an unknown schema
+reference is a configuration error. Every error names the brief (or the template), and the field or section.
+
+Schemas cannot disable the command's own workflow. They must require `Stage`, `Updated`, `Next action` and `Where`;
+permit `Done`, `Held`, `Gate` and `Needs` (which keep their conditional meaning: `Done` for a finished card, `Held`
+for a hold, `Gate` and `Needs` for the gates); permit `Progress` and `Questions` (inserted by `move`, `ask` and
+`answer` at the place `section_order` gives them); and end with a required `Comments`. A config that does otherwise
+is refused when it is loaded, before anything is written.
+
+### The shipped examples
+
+The binary embeds task, bug and change templates and a schema example for them. They are not applied to any project:
+
+```bash
+kanbanzai template --example bug > templates/bug.md      # also task, change
+kanbanzai template --example schemas                     # the [[types]] and [schemas.*] to paste into config.toml
+```
+
+A bug's template adds Reproduction, Expected and Actual; a change's adds Before and After; a task's is the plain
+card. Each passes its own schema's check, and `kanbanzai check` validates the template against the schema as well.
+
+### A complete project-specific example
+
+An incident type with its own template and schema. Nothing in the Go core changes.
+
+Config (`.kanbanzai/config.toml`):
+
+```toml title="incident-config"
+[project]
+default_type = "task"           # [[types]] replace the shipped list: list every type you use
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+
+[[types]]
+key = "incident"
+label = "Incident"
+prefix = "INC"
+template = "templates/incident.md"
+schema = "incident"
+
+[schemas.incident]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Severity"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Timeline", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = ["Timeline"]
+section_order = ["Goal", "Timeline", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+```
+
+Template (`templates/incident.md`):
+
+```markdown title="incident-template"
+# INC-NN: <the incident, in a few words>
+
+- **Stage:** todo
+- **Updated:** YYYY-MM-DD
+- **Severity:** <sev1, sev2 or sev3>
+- **Next action:** <one concrete step>
+- **Where:** —
+
+## Goal
+
+What is restored, for whom.
+
+## Timeline
+
+- <time>: <what happened>
+
+## Progress
+
+## Comments
+```
+
+With that, `kanbanzai template INC` prints the template, and `kanbanzai check` accepts an `INC-` brief that has the
+`Severity` field and a Timeline (it may repeat the Timeline section). It rejects, with the brief's path and the name:
+
+```
+.kanbanzai/work/1-open/INC-07-db-down.md: missing required field "Severity"
+.kanbanzai/work/1-open/INC-07-db-down.md: missing required section "Timeline"
+.kanbanzai/work/1-open/INC-07-db-down.md: undeclared section "Impact"
+.kanbanzai/work/1-open/INC-07-db-down.md: section "Goal" out of order
+.kanbanzai/work/1-open/INC-07-db-down.md: duplicate section "Goal"
+.kanbanzai/work/1-open/INC-07-db-down.md: undeclared field "Priority"
+```
+
+### Opting in and compatibility
+
+Opting in is per type and changes nothing else: a project with no `schema` keeps today's checker, template choice and
+board behaviour, including custom fields and sections, `types = []`, and a board that mixes legacy and typed cards.
+Adding a `schema` makes `check` hold that type's existing briefs to it, so bring them into line (or leave the type
+without a schema). The config, `board --json` and `config --json` changes are additive: `schema` appears on a type only
+when set. `init` and `workflow plan/apply` never overwrite a type template.
 
 ## The id grammar
 
@@ -112,7 +231,8 @@ ledger.
 Branches and worktree paths use the id (`TASK-07`, `W-41`), and a worktree on another branch is counted as taken by
 `number` and `wip`. `board --json` exposes a typed card's type under `type`, a legacy card's as null, and the
 configured types under the top-level `types`; `config --json` exposes `project.types`, `project.default_type` and
-`project.project_key`. The fields are additive: a consumer must treat them as optional.
+`project.project_key`. A type that opts into a schema also shows `schema`. The fields are additive: a consumer must
+treat them as optional.
 
 `kanbanzai check` fails a typed board when a brief's file name uses neither a configured prefix nor the legacy prefix,
 when its title id disagrees with its file name, and when two cards share one global number (`TASK-07` and `W-07`).
@@ -125,5 +245,5 @@ worktree. There is no implicit rename and no re-key command; a card whose file n
 
 ## What this does not do
 
-Per-type templates and brief schemas are W-11. Per-type flows, columns or gates are not part of the model: a type
-selects an identity, not a workflow. A remote backing store is a separate card.
+Per-type flows, columns or gates are not part of the model: a type selects an identity, a template and an optional
+brief shape, not a workflow. A schema checks presence and order, never content, and is not a rules language. A remote backing store is a separate card.

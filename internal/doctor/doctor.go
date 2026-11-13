@@ -140,6 +140,16 @@ func Run(start string, options Options) int {
 		} else {
 			r.add("template", "pass", "Card template is readable.", "")
 		}
+		for _, item := range p.Types {
+			if item.Template == "" {
+				continue
+			}
+			if err := readableFile(item.Template); err != nil {
+				r.add("template."+item.Key, "error", "Template for type "+item.Key+" is unreadable: "+err.Error(), "Restore the file or clear the type's template; no other template is used instead.")
+			} else {
+				r.add("template."+item.Key, "pass", "Template for type "+item.Key+" is readable.", "")
+			}
+		}
 		for _, item := range []struct{ name, path string }{{"state", p.State}, {"claims", p.Claims}, {"numbers", p.Numbers}} {
 			r.state(p.Root, p.GitCommon, item.name, item.path, gitErr == nil)
 		}

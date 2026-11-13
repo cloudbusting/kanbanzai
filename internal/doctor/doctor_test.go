@@ -260,6 +260,17 @@ func TestMissingTemplateAndMainBranch(t *testing.T) {
 	finding(t, report, "git.main_branch", "error")
 }
 
+func TestMissingTypeTemplateIsAnErrorAndNeverFallsBack(t *testing.T) {
+	root := initialized(t, "")
+	testutil.Write(t, filepath.Join(root, ".kanbanzai", "config.toml"), "config_version = 1\n[project]\ndefault_type = \"bug\"\n[[types]]\nkey = \"bug\"\nlabel = \"Bug\"\nprefix = \"BUG\"\ntemplate = \"bug.md\"\n")
+	report, _, _ := diagnose(t, root)
+	finding(t, report, "template.bug", "error")
+	finding(t, report, "template", "pass")
+	testutil.Write(t, filepath.Join(root, "bug.md"), "# BUG-NN\n")
+	report, _, _ = diagnose(t, root)
+	finding(t, report, "template.bug", "pass")
+}
+
 func TestTrackedAndUnignoredState(t *testing.T) {
 	root := initialized(t, "")
 	testutil.Write(t, filepath.Join(root, ".kanbanzai", "state", "claims", "live.json"), "{}")
