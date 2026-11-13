@@ -26,14 +26,20 @@ func Parse(text string) ([]Entry, error) {
 		return nil, err
 	}
 	var result []Entry
+	numbers := map[string]bool{}
 	for i := start + 1; i < end; {
 		if strings.TrimSpace(lines[i]) == "" {
 			i++
 			continue
 		}
-		if !headingRE.MatchString(lines[i]) {
+		match := headingRE.FindStringSubmatch(lines[i])
+		if match == nil {
 			return nil, fmt.Errorf("invalid question heading: %s", lines[i])
 		}
+		if numbers[match[1]] {
+			return nil, fmt.Errorf("duplicate question number %s", match[1])
+		}
+		numbers[match[1]] = true
 		entry := Entry{Heading: strings.TrimPrefix(lines[i], "### ")}
 		i++
 		fields := map[string]string{}
@@ -114,11 +120,18 @@ func Append(text string, entry Entry, date string) (string, error) {
 	if strings.TrimSpace(entry.Text) == "" || strings.TrimSpace(entry.AskedBy) == "" || strings.TrimSpace(entry.Then) == "" {
 		return text, fmt.Errorf("question, asker and next action are required")
 	}
-	values := append([]string{entry.Text, entry.AskedBy, entry.Then, entry.Recommendation, date}, entry.Options...)
+	values := append([]string{entry.AskedBy, entry.Then, entry.Recommendation, date}, entry.Options...)
 	for _, s := range values {
 		if strings.ContainsAny(s, "\r\n") {
 			return text, fmt.Errorf("question fields must be single-line")
 		}
+	}
+	questionLines := strings.Split(strings.ReplaceAll(entry.Text, "\r\n", "\n"), "\n")
+	for i, line := range questionLines {
+		if strings.TrimSpace(line) == "" || strings.ContainsRune(line, '\r') {
+			return text, fmt.Errorf("invalid question line")
+		}
+		questionLines[i] = strings.TrimSpace(line)
 	}
 	for _, option := range entry.Options {
 		if strings.Contains(option, ";") || strings.TrimSpace(option) == "" {
@@ -158,7 +171,10 @@ func Append(text string, entry Entry, date string) (string, error) {
 	if !headingRE.MatchString(fmt.Sprintf("### Q%d — %s", next, date)) {
 		return text, fmt.Errorf("invalid question date")
 	}
-	insert := []string{"", fmt.Sprintf("### Q%d — %s", next, date), "", "- **Asked by:** " + entry.AskedBy, "- **Question:** " + entry.Text}
+	insert := []string{"", fmt.Sprintf("### Q%d — %s", next, date), "", "- **Asked by:** " + entry.AskedBy, "- **Question:** " + questionLines[0]}
+	for _, line := range questionLines[1:] {
+		insert = append(insert, "  "+line)
+	}
 	if len(entry.Options) > 0 {
 		insert = append(insert, "- **Options:** "+strings.Join(entry.Options, "; "))
 	}
