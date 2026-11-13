@@ -113,7 +113,9 @@ overrides a hold, parking or claim safeguards. Preserve and inspect any workspac
 
 Close only when the card-specific route says it can close and all required work, checks, approvals and delivery are
 complete. Merge only when the configured workspace and project rules require it, into the configured integration
-branch; pushing requires the owner's approval unless an approved delivery step authorizes it. Use the destination
+branch, after `kanbanzai tree --merge <ID>` exactly as `/check` describes: board-only changes by other sessions in the
+main checkout do not stop it; a `blocked` answer, a refused merge or a conflict does, and no other session's file is
+staged, committed, stashed, reset, discarded or edited to clear it. Pushing requires the owner's approval unless an approved delivery step authorizes it. Use the destination
 and close instructions from `kanbanzai step --for <ID>` and `kanbanzai workflow show`, supplying `--done` with date,
 commit and delivery outcome where required. If the move command cannot perform the reported route, stop and report
 the limitation; do not claim it succeeded or force around it. Release the claim and use `/cleanup` only after proving
@@ -136,7 +138,7 @@ Every stop ends with the same block, last, in plain language. The stage word is 
 **<ID> — <actual column>** · Where: <the card's workspace record, or the configured trunk when closed>
 Owner: <claim label> · claim until <YYYY-MM-DD HH:MM UTC> | released
 Committed: none | <sha> "<ID>: …" (pushed: no|yes) · Shipped: none | <what, where, which sha>
-Tree: clean | <n> uncommitted files (named below)
+Tree: clean | <n> uncommitted files (named below); board changes by other sessions in the main checkout are theirs, not counted
 Next: <the one step the next turn starts with>
 Yours: nothing | decide <the question> | approve <the step that waits on the owner>
 ```
