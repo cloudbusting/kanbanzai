@@ -55,6 +55,8 @@ kanbanzai init
 Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
 prerequisite) and makes no network request. A Go developer can build it instead with
 `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
+`kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
+build. An explicitly stamped release-build version takes precedence over module metadata.
 
 ## Compatibility
 
