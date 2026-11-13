@@ -418,7 +418,7 @@ func TestDoRecoveryKeepsTheClaimAndAuditSafeguards(t *testing.T) {
 		"kanbanzai wip --audit --card <ID> --recovery", "worktree or branch isolation",
 		"After a recovery claim, run both the ordinary", "stop if either has a hard finding",
 		"Do not rebase, reset or discard work", "Exit 3 means another session holds it",
-		"Exit 4 means an expired claim",
+		"Exit 4 means an expired claim", "interrupted before a workspace was recorded uses the ordinary audit",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("skills/do lacks %q", want)

@@ -21,8 +21,9 @@ because a session has context: a related request or resumed card belongs in this
 
 Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai claim status <ID>`,
 `kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For an interrupted resume with no live claim in
-worktree or branch isolation, run `kanbanzai wip --audit --card <ID> --recovery`; otherwise run
-`kanbanzai wip --audit --card <ID>`. Recovery is a
+worktree or branch isolation, when the brief records that card's worktree or branch, run
+`kanbanzai wip --audit --card <ID> --recovery`; otherwise run `kanbanzai wip --audit --card <ID>`. A design
+interrupted before a workspace was recorded uses the ordinary audit. Recovery is a
 pre-claim diagnostic, not a claim, and does not change the whole-board audit. Stop on a hard audit finding, another
 session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
 clear a hold only when its blocker has actually gone. Report what must happen next.
