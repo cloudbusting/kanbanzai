@@ -141,6 +141,34 @@ func TestBranchModeRecordRules(t *testing.T) {
 	requireHas(t, "no record", hard, "W-09 (Built): claimed by tester:b but no branch")
 }
 
+func TestEarlyClosedBranchIsNotSuggestedForCleanup(t *testing.T) {
+	project := testProject(t, modeConfig("branch"))
+	putCard(t, project, cardSpec{ID: "W-07", Title: "work", Stage: "done", Folder: "10-done",
+		Where: "branch W-07", Done: "2026-11-13 — closed, no change: not needed"})
+	commitAll(t, project)
+	testutil.Git(t, project.Root, "branch", "W-07")
+	_, soft, cleanup := audit(t, project)
+	requireHas(t, "retained branch", soft, "retained")
+	if has(cleanup, "W-07") {
+		t.Fatalf("cancellation suggested branch cleanup: %v", cleanup)
+	}
+}
+
+func TestEarlyClosedHostOwnedWorkIsNotAssumedClean(t *testing.T) {
+	for mode, where := range map[string]string{"shared": "main", "external": "external host-workspace"} {
+		t.Run(mode, func(t *testing.T) {
+			project := testProject(t, modeConfig(mode))
+			putCard(t, project, cardSpec{ID: "W-07", Title: "work", Stage: "done", Folder: "10-done",
+				Where: where, Done: "2026-11-13 — closed, no change: not needed"})
+			_, soft, cleanup := audit(t, project)
+			requireHas(t, "unverified work", soft, "inspect any remaining work")
+			if has(cleanup, "W-07") {
+				t.Fatalf("cancellation suggested cleanup: %v", cleanup)
+			}
+		})
+	}
+}
+
 func TestBranchModeHasOneHead(t *testing.T) {
 	project := testProject(t, modeConfig("branch"))
 	putCard(t, project, cardSpec{ID: "W-07", Title: "The fork", Stage: "building", Where: "branch W-07"})

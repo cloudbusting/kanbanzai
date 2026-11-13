@@ -32,7 +32,7 @@ const usage = `usage: kanbanzai <command> [options]
 
 commands:
   board [--json]                 the board
-  wip [--next|--title ID|--audit [--card ID]|--cleanup]
+  wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   ask ID --text T [--option O] [--recommend R] [--note T]  record a question and release the claim
@@ -152,7 +152,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	mismatch := ""
 	if command == "context" {
 		if _, flags, _, perr := parse(rest, nil, map[string]bool{"adapter-version": true}); perr == nil {
-			mismatch = context.Mismatch(version.Version, flags["adapter-version"])
+			mismatch = context.Mismatch(version.Effective(), flags["adapter-version"])
 		}
 	}
 	project, err := config.Find("")
@@ -201,12 +201,12 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		_ = flags
 		return 0
 	case "wip":
-		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true},
+		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true, "recovery": true},
 			map[string]bool{"title": true, "card": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		return wip.Run(project, wip.Options{Audit: set["audit"], Cleanup: set["cleanup"], Next: set["next"],
+		return wip.Run(project, wip.Options{Audit: set["audit"], Recovery: set["recovery"], Cleanup: set["cleanup"], Next: set["next"],
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
@@ -295,7 +295,7 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		if line := context.Mismatch(version.Version, flags["adapter-version"]); line != "" {
+		if line := context.Mismatch(version.Effective(), flags["adapter-version"]); line != "" {
 			fmt.Fprintln(out, line)
 		}
 		return context.Run(project, out)

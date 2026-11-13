@@ -77,6 +77,22 @@ func stageOf(t *testing.T, id string) string {
 	return cardStage(parsed, id)
 }
 
+func TestEarlyCloseThroughCLI(t *testing.T) {
+	project := newProject(t, "config_version = 1\n[project]\nowner = \"Sam\"\n")
+	putDeliveryCard(t, project, "W-01", "")
+	refused(t, "needs --reason", "move", "W-01", "close")
+	ok(t, "move", "W-01", "close", "--reason", "false positive: reload needed")
+	atStage(t, "W-01", "done")
+	data, err := os.ReadFile(filepath.Join(project.Work, "10-done", "W-01-x.md"))
+	if err != nil || !strings.Contains(string(data), "closed, no change: false positive: reload needed") {
+		t.Fatalf("brief: %s %v", data, err)
+	}
+	log, err := os.ReadFile(filepath.Join(project.State, "moves.jsonl"))
+	if err != nil || !strings.Contains(string(log), `"forced":false`) || !strings.Contains(string(log), `"reason":"false positive: reload needed"`) {
+		t.Fatalf("move log: %s %v", log, err)
+	}
+}
+
 func atStage(t *testing.T, id, want string) {
 	t.Helper()
 	if got := stageOf(t, id); got != want {

@@ -8,6 +8,25 @@ and the editor extension carry the same version.
 - W-40: a batch can record a question on a held card with `ask`; `/answer` records the owner's answer for a later
   pull. The board shows an open question and the extension raises an asking toast.
 
+## [0.13.0] — 2026-11-13
+
+- BUG-48: a command installed with `go install ...@vX.Y.Z` reports that module version instead of `dev`. A release
+  build's linker-stamped version still wins; builds with no module version, or `(devel)`, report `dev`; a pseudo-version
+  build reports the embedded pseudo-version. `--version`, doctor, install/refresh and adapter mismatch checks use the same
+  version. v0.12.0 and v0.12.1 binaries installed with `go install` keep reporting `dev`.
+- CHANGE-47: explicit early cancellation with `move ID close --reason` records a no-change outcome and preserves
+  workspaces. `close` is now a reserved target, including when a custom column uses that key or alias.
+
+## [0.12.1] — 2026-11-13
+
+- BUG-49: a scoped pre-claim recovery audit allows interrupted work to be reclaimed without weakening the normal
+  audit; `/do` runs the ordinary audit again after claiming and never rebases or discards work during recovery.
+
+## [0.12.0] — 2026-11-13
+
+- TASK-45: `/do` continues relevant work in the current conversation before seeking new work. Before picking up a
+  new card unrelated to the prior conversation, it asks whether to continue and recommends a clean session.
+
 ## [0.11.0] — 2026-11-12
 
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped

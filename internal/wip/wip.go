@@ -29,11 +29,12 @@ import (
 
 // CardRow is one card as the wip report needs it.
 type CardRow struct {
-	Item    string
-	Work    string
-	Where   string
-	Owner   string
-	Updated string
+	Item      string
+	Work      string
+	Where     string
+	Owner     string
+	Updated   string
+	Cancelled bool
 }
 
 // CardsByColumn is {column key: cards in board order}.
@@ -85,8 +86,9 @@ func Cards(project *config.Project, held map[string]map[string]any) CardsByColum
 			if card.Owner != nil {
 				owner = *card.Owner
 			}
+			cancelled := card.Done != nil && strings.Contains(*card.Done, " — closed, no change: ")
 			rows = append(rows, CardRow{Item: card.ID, Work: card.Title, Where: WhereOf(card.Where),
-				Owner: owner, Updated: card.Updated})
+				Owner: owner, Updated: card.Updated, Cancelled: cancelled})
 		}
 		out[column.Key] = rows
 	}
@@ -434,6 +436,11 @@ func DaysSince(date string) (int, bool) {
 // Reconcile is (hard, soft, cleanup): board/work/claim mismatches, warnings, and removable worktrees.
 func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, held map[string]map[string]any,
 	only string, onHold map[string]bool) ([]string, []string, []string) {
+	return reconcile(project, cards, wts, held, only, onHold, false)
+}
+
+func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, held map[string]map[string]any,
+	only string, onHold map[string]bool, recovery bool) ([]string, []string, []string) {
 	hard := []string{}
 	soft := []string{}
 	cleanup := []string{}
@@ -457,6 +464,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		held = filteredHeld
 	}
 	where := map[string]string{}
+	cancelled := map[string]bool{}
 	owners := map[string]string{}
 	liveCards := map[string]bool{}
 	for card, record := range held {
@@ -468,6 +476,10 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		for _, row := range rows {
 			where[row.Item] = row.Where
 			owners[row.Item] = row.Owner
+			cancelled[row.Item] = row.Cancelled
+			if row.Cancelled {
+				soft = append(soft, fmt.Sprintf("%s: early close retained workspace record '%s'; inspect any remaining work before cleanup", row.Item, row.Where))
+			}
 		}
 	}
 	mapped := map[string][]string{}
@@ -533,7 +545,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		} else if card == "" {
 			hard = append(hard, fmt.Sprintf("%s: a worktree with no card (branch %s)", wt.Path, wt.Branch))
 		}
-		if wt.Dirty == 0 && wt.Ahead == 0 {
+		if wt.Dirty == 0 && wt.Ahead == 0 && !cancelled[card] {
 			cleanup = append(cleanup, fmt.Sprintf("%s (branch %s, clean and merged)", wt.Path, wt.Branch))
 		} else if wt.Ahead > 0 {
 			soft = append(soft, fmt.Sprintf("%s: %d commit(s) not on %s (push when %s asks)", wt.Path, wt.Ahead,
@@ -566,7 +578,9 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			continue
 		}
 		record, hasRecord := held[card]
-		if !hasRecord {
+		if !hasRecord && recovery && card == only {
+			soft = append(soft, fmt.Sprintf("%s holds unclaimed work for %s; recovery requires a claim", wt.Path, card))
+		} else if !hasRecord {
 			hard = append(hard, fmt.Sprintf("%s holds unclaimed work for %s; claim it or remove the worktree",
 				wt.Path, card))
 		} else if !isLive(record) {
@@ -654,7 +668,7 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		}
 	}
 	if !perWorktree {
-		h, sf, c := isolationFindings(project, cards, allTrees, held, only)
+		h, sf, c := isolationFindings(project, cards, allTrees, held, only, recovery)
 		hard, soft, cleanup = append(hard, h...), append(soft, sf...), append(cleanup, c...)
 	}
 	return hard, soft, cleanup
@@ -662,18 +676,23 @@ func Reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 
 // Options is one wip command.
 type Options struct {
-	Audit   bool
-	Cleanup bool
-	Next    bool
-	Title   string
-	Card    string
-	Out     io.Writer
-	Err     io.Writer
+	Audit    bool
+	Recovery bool
+	Cleanup  bool
+	Next     bool
+	Title    string
+	Card     string
+	Out      io.Writer
+	Err      io.Writer
 }
 
 // Run is the wip command.
 func Run(project *config.Project, opts Options) int {
 	out, errOut := writers(opts.Out, opts.Err)
+	if opts.Recovery && (!opts.Audit || opts.Card == "" || opts.Next || opts.Cleanup || opts.Title != "") {
+		fmt.Fprintln(errOut, "--recovery requires --audit and --card ID only")
+		return 2
+	}
 	if opts.Title != "" {
 		title, ok := TitleFor(project, opts.Title)
 		if !ok {
@@ -690,6 +709,7 @@ func Run(project *config.Project, opts Options) int {
 func Report(project *config.Project, opts Options, out, errOut io.Writer) int {
 	only := opts.Card
 	held := Claims(project)
+	allHeld := held
 	liveAll := LiveOwners(held)
 	cards := Cards(project, held)
 	if only != "" {
@@ -742,7 +762,12 @@ func Report(project *config.Project, opts Options, out, errOut io.Writer) int {
 
 	batches := Batches(project)
 	worktrees := Worktrees(project)
-	hard, soft, cleanup := Reconcile(project, cards, worktrees, held, only, OnHold(project))
+	onHold := OnHold(project)
+	recovery := opts.Recovery && recoveryEligible(project, cards, worktrees, allHeld, only, onHold)
+	hard, soft, cleanup := reconcile(project, cards, worktrees, held, only, onHold, recovery)
+	if opts.Recovery && !recovery {
+		hard = append(hard, fmt.Sprintf("%s: recovery eligibility could not be established", only))
+	}
 	fmt.Fprintf(out, "WIP — %s\n", time.Now().Format("2006-01-02"))
 	if line := IsolationLine(project); line != "" {
 		fmt.Fprintln(out, line)

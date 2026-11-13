@@ -29,14 +29,16 @@ func IsolationLine(project *config.Project) string {
 // isolationFindings are the audit rules of the modes other than worktree: the vocabulary of Where, the workspace
 // record of a claimed card, and (per mode) the checkout, the branches and the extra worktrees.
 func isolationFindings(project *config.Project, cards CardsByColumn, wts []Worktree, held map[string]map[string]any,
-	only string) (hard, soft, cleanup []string) {
+	only string, recovery bool) (hard, soft, cleanup []string) {
 	mode := workspace.Of(project)
 	var liveWork []string
 	rowWhere := map[string]string{}
+	cancelled := map[string]bool{}
 	for _, column := range project.Columns {
 		if column.Kind == "done" {
 			for _, row := range cards[column.Key] {
 				rowWhere[row.Item] = row.Where
+				cancelled[row.Item] = row.Cancelled
 			}
 			continue
 		}
@@ -92,7 +94,7 @@ func isolationFindings(project *config.Project, cards CardsByColumn, wts []Workt
 		soft = append(soft, extraWorktrees(project, wts)...)
 	case workspace.Branch:
 		soft = append(soft, extraWorktrees(project, wts)...)
-		h, s, c := branchFindings(project, checkout, liveWork, rowWhere, held, only)
+		h, s, c := branchFindings(project, checkout, liveWork, rowWhere, cancelled, held, only, recovery)
 		hard, soft, cleanup = append(hard, h...), append(soft, s...), append(cleanup, c...)
 	}
 	return hard, soft, cleanup
@@ -120,7 +122,7 @@ func extraWorktrees(project *config.Project, wts []Worktree) []string {
 // branchFindings are the rules that tie the one checkout to the claimed card's branch, and the card branches to the
 // board.
 func branchFindings(project *config.Project, checkout *Worktree, liveWork []string, where map[string]string,
-	held map[string]map[string]any, only string) (hard, soft, cleanup []string) {
+	cancelled map[string]bool, held map[string]map[string]any, only string, recovery bool) (hard, soft, cleanup []string) {
 	exists := map[string]bool{}
 	var names []string
 	if listing, err := gitutil.Git(project.Root, "for-each-ref", "--format=%(refname:short)", "refs/heads"); err == nil {
@@ -179,10 +181,12 @@ func branchFindings(project *config.Project, checkout *Worktree, liveWork []stri
 		record, hasRecord := held[card]
 		switch {
 		case ahead == 0 && dirty == 0:
-			if name != head && !(hasRecord && isLive(record)) {
+			if name != head && !cancelled[card] && !(hasRecord && isLive(record)) {
 				cleanup = append(cleanup, fmt.Sprintf("branch %s (clean and merged)", name))
 			}
 			continue
+		case !hasRecord && recovery && card == only:
+			soft = append(soft, fmt.Sprintf("branch %s holds unclaimed work for %s; recovery requires a claim", name, card))
 		case !hasRecord:
 			hard = append(hard, fmt.Sprintf("branch %s holds unclaimed work for %s; claim it or remove the branch", name, card))
 		case !isLive(record):
