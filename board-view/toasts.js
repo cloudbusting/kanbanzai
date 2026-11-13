@@ -38,7 +38,7 @@ function flatten(board) {
         held: k.held ? String(k.held) : '',
         title: String(k.title || ''),
         path: String(k.path || ''),
-        asking: obj(k.session).state === 'waiting',
+        asking: obj(k.session).state === 'waiting' || (typeof obj(k.question).text === 'string' && obj(k.question).text.length > 0),
         name: typeof obj(k.session).name === 'string' ? k.session.name : '',
       });
     }

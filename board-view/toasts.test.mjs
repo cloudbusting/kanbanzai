@@ -17,6 +17,18 @@ function card(id, extra = {}) {
 const NOW = 1_000_000;
 const empty = () => ({ stack: [], seq: 0 });
 
+test("recorded questions raise one asking toast and close when answered", () => {
+  const before = board({ building: [card('W-12')] });
+  const asked = board({ building: [card('W-12', { question: { text: 'Which?' } })] });
+  const events = T.diffBoards(before, asked, 'Sam');
+  assert.equal(events.filter((e) => e.level === 'asking').length, 1);
+  const state = T.applyEvents(empty(), events, NOW);
+  assert.equal(state.stack.filter((e) => e.level === 'asking').length, 1);
+  assert.equal(T.diffBoards(asked, asked, 'Sam').length, 0);
+  const closed = T.applyEvents(state, T.diffBoards(asked, before, 'Sam'), NOW);
+  assert.equal(closed.stack.filter((e) => e.level === 'asking').length, 0);
+});
+
 test("the timings are Sam's: progress 5 s, done 15 s", () => {
   assert.equal(T.PROGRESS_MS, 5000);
   assert.equal(T.DONE_MS, 15000);

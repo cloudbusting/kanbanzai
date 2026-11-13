@@ -31,7 +31,9 @@ agent, workspace, stage and last result. Keep it current at every handoff. The m
 `kanbanzai claim claim <ID> --note "batch <batch ID>"`; exit 3 means drop it, and exit 4 requires a reasoned
 `--takeover` after inspecting the existing work. Agents never claim or release. Renew claims at handoffs.
 
-Follow each `kanbanzai workspace <ID>` output for the workspace and Where record. Follow the current
+Follow each `kanbanzai workspace <ID>` output for the workspace and Where record. When **Where** already records a
+workspace, verify it exists and belongs to the card and reuse it; do not run its make instructions again. Stop if
+the record and workspace disagree. Follow the current
 `kanbanzai step --for <ID>` route; when a start move is needed use `kanbanzai move` as reported, including the
 workspace's `then:` instruction where applicable. Claim may already have moved the card; a resumed or no-Doing
 route must not be forced into an invented column. Stop if the command cannot perform the reported transition.
@@ -41,6 +43,12 @@ route must not be forced into an invented column. Stop if the command cannot per
 Give each agent a self-contained prompt: card and Comments handover, brief, owned files, workspace, step skill and
 extensions, acceptance checks, and exclusions. Agents do not edit the board, claim, commit, push, ship, ask the
 owner or add dependencies. Stop an overlapping agent immediately. Wait for results rather than polling.
+
+If an agent discovers a decision during its work, it stops and returns the question, options, recommendation and
+the next action needed after an answer. It never writes the board or asks the owner itself. The main session uses
+`kanbanzai ask <ID> --text "<question>"` with repeated `--option` and `--recommend` as appropriate; the command
+records the question and releases that card's claim. Mark its batch-map row paused with the question and preserve its
+workspace. Other independent agents continue. An owner answers later with `/answer`; a later pull resumes the card.
 
 For each return, review its full diff and tests, check file ownership, record the result in the map, append a
 handover Comment only if needed, and renew the claim. After successful verification, finish the step with the

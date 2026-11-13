@@ -19,6 +19,16 @@ const html = renderHtml(board, { nonce: NONCE, cspSource: "vscode-webview://x", 
 const ORDER = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"];
 const COUNTS = [2, 2, 2, 1, 1, 1, 1];
 
+test("a recorded question marks the card and escapes tooltip fields", () => {
+  const fixture = { columns: [{ key: 'building', name: 'Building', cards: [{ id: 'W-01', title: 'Work', path: 'x.md', question: { text: 'Which <store>?', options: ['SQLite', 'Memory'], recommendation: 'SQLite' } }] }] };
+  const output = renderHtml(fixture, { nonce: NONCE });
+  assert.match(output, /class="card asking/);
+  assert.match(output, /Which &lt;store&gt;\?/);
+  assert.match(output, /SQLite; Memory/);
+  assert.match(output, /Recommendation: SQLite/);
+  assert.match(output, /glyph-asking[^>]*>❓/);
+});
+
 function sections() {
   return [...html.matchAll(/<section class="col col-([a-z-]+)( empty)?"[^>]*>(.*?)<\/section>/gs)].map((m) => ({
     key: m[1],

@@ -20,6 +20,7 @@ var headingRE = regexp.MustCompile(`^### Q([0-9]+) — (\d{4}-\d{2}-\d{2})$`)
 
 // Parse returns all entries in order, rejecting incomplete or ambiguous records.
 func Parse(text string) ([]Entry, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
 	lines := strings.Split(text, "\n")
 	start, end, err := section(lines)
 	if err != nil || start < 0 {
@@ -112,6 +113,10 @@ func section(lines []string) (int, int, error) {
 
 // Append adds a new entry immediately before the next section.
 func Append(text string, entry Entry, date string) (string, error) {
+	return editLines(text, func(normal string) (string, error) { return appendLF(normal, entry, date) })
+}
+
+func appendLF(text string, entry Entry, date string) (string, error) {
 	entries, err := Parse(text)
 	if err != nil {
 		return text, err
@@ -192,6 +197,10 @@ func Append(text string, entry Entry, date string) (string, error) {
 
 // Close fills the last open entry without changing other sections.
 func Close(text, answer, answered string) (string, error) {
+	return editLines(text, func(normal string) (string, error) { return closeLF(normal, answer, answered) })
+}
+
+func closeLF(text, answer, answered string) (string, error) {
 	entries, err := Parse(text)
 	if err != nil {
 		return text, err
@@ -224,4 +233,16 @@ func Close(text, answer, answered string) (string, error) {
 		}
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+func editLines(text string, edit func(string) (string, error)) (string, error) {
+	crlf := strings.Contains(text, "\r\n") && !strings.Contains(strings.ReplaceAll(text, "\r\n", ""), "\n")
+	result, err := edit(strings.ReplaceAll(text, "\r\n", "\n"))
+	if err != nil {
+		return text, err
+	}
+	if crlf {
+		result = strings.ReplaceAll(result, "\n", "\r\n")
+	}
+	return result, nil
 }

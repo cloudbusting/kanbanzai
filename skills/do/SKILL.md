@@ -17,6 +17,8 @@ Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai
 `kanbanzai claim status <ID>`, `kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. Stop on a hard audit
 finding, another session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
 clear a hold only when its blocker has actually gone. Report what must happen next.
+If the hold points to an open question in `## Questions`, direct the owner to `/answer <ID>`; do not claim or
+clear it yourself. After the answer, use the card's route and audit to decide how it can resume.
 
 The card-specific route distinguishes a fresh start, an interrupted step to resume, a skipped step, a gate and
 close. A named step alone is not permission to execute it. Use `kanbanzai gate status <ID>` for the gate. Record an

@@ -37,6 +37,8 @@ to the main session, which `/triage`s it; don't fix it in passing.
   one yourself, report to the main session instead.
 - If the brief's goal or acceptance check is unclear, or it needs a decision it doesn't make, stop and report the
   question; don't guess.
+- A batch agent reports the question, options, recommendation and next action to its main session; it never writes
+  the card or calls `kanbanzai ask` itself. Stop work on that card and preserve the workspace.
 - Work in the card's workspace (the brief's **Where** line records it; `kanbanzai workspace <ID>` says where). Where
   the project keeps the board apart from the change (`worktree`, `external`), never change files in the main
   checkout: it holds the board.

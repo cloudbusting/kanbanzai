@@ -5,6 +5,9 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-40: a batch can record a question on a held card with `ask`; `/answer` records the owner's answer for a later
+  pull. The board shows an open question and the extension raises an asking toast.
+
 ## [0.11.0] — 2026-11-12
 
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped

@@ -35,6 +35,8 @@ commands:
   wip [--next|--title ID|--audit [--card ID]|--cleanup]
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
+  ask ID --text T [--option O] [--recommend R] [--note T]  record a question and release the claim
+  answer ID [--text T] [--next T] show or record the answer to a question
   gate pass|fail|status [ID...]  record a card's gate result, or say where its gate stands
   number [PREFIX] [--type KEY] [--peek|--status|--release ID|--mark ID]   allocate the next card number
   check                          validate every brief
@@ -212,6 +214,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		return runWorkspace(project, args, out, errOut)
 	case "claim":
 		return runClaim(project, args, in, out, errOut)
+	case "ask", "answer":
+		return runQuestion(project, command, args, out, errOut)
 	case "move":
 		positionals, flags, set, err := parse(args, map[string]bool{"clear-held": true, "force": true},
 			map[string]bool{"owner": true, "next": true, "where": true, "held": true, "progress": true,

@@ -111,6 +111,26 @@ func cardMap(t *testing.T, card *Card) map[string]any {
 	return decoded
 }
 
+func TestOpenQuestionOnBoard(t *testing.T) {
+	project := testProject(t, "types = []\n"+defaultConfig)
+	text := briefText("W-01", "Store", "building", cardOptions{Held: "waiting: Sam — answer"})
+	entry := "## Questions\n\n### Q1 — 2026-11-13\n- **Asked by:** agent\n- **Question:** Which store?\n- **Options:** SQLite; Memory\n- **Recommendation:** SQLite\n- **Then:** build\n- **Answer:** —\n- **Answered:** —\n\n"
+	text = strings.Replace(text, "## Comments", entry+"## Comments", 1)
+	putRaw(t, project, "1-open", "W-01-x.md", text)
+	result := Load(project, map[string]string{}, nil)
+	card := column(result, "building")[0]
+	value, ok := cardMap(t, card)["question"].(map[string]any)
+	if !ok || value["text"] != "Which store?" || value["by"] != "agent" || value["recommendation"] != "SQLite" {
+		t.Fatalf("question = %#v", value)
+	}
+	if opts, ok := value["options"].([]any); !ok || len(opts) != 2 {
+		t.Fatalf("options = %#v", value["options"])
+	}
+	if n := strings.Count(AsText(result, project.Owner), "❓"); n != 1 {
+		t.Fatalf("question marks = %d", n)
+	}
+}
+
 func TestColumnsInOrder(t *testing.T) {
 	project := testProject(t, defaultConfig)
 	result := Load(project, map[string]string{}, nil)

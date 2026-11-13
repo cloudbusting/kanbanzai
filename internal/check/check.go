@@ -21,6 +21,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
 
@@ -35,7 +36,32 @@ var (
 
 // Checks are the board's checks, in the order the command reports them.
 var Checks = []func(*config.Project) []string{
-	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Comments, Template,
+	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Questions, Comments, Template,
+}
+
+// Questions validates optional question records and the hold on an open question.
+func Questions(project *config.Project) []string {
+	var problems []string
+	for _, path := range board.Briefs(project) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		text := string(data)
+		entries, err := question.Parse(text)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s: Questions: %v", project.Rel(path), err))
+			continue
+		}
+		_, fields := brief.Header(text)
+		for _, entry := range entries {
+			if (entry.Answer == "" || entry.Answer == "—") && brief.StageWord(fields["Held"]) != "waiting" {
+				problems = append(problems, fmt.Sprintf("%s: an open question needs a Held: waiting line", project.Rel(path)))
+				break
+			}
+		}
+	}
+	return problems
 }
 
 // TypedFiles checks that every brief in a board folder names a configured type. A legacy project ignores files
