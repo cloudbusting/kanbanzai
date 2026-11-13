@@ -9,7 +9,13 @@ argument-hint: "[request or card id]"
 The main session owns the conversation, board, claims, decisions, review and close. Run `kanbanzai context` and
 read its files, then `kanbanzai workflow show` for the configured columns, steps, gates, pull order and isolation.
 If there is no board, stop and use `/setup`. A new request goes to `/triage` first. For an existing card use its ID;
-without one use this session's claim or `kanbanzai wip --next`. Respect the configured cap and pull order.
+without one, continue relevant work in the current conversation before looking for new work, using this session's
+claim or the relevant card when known. Otherwise use `kanbanzai wip --next`. Respect the configured cap and pull order.
+
+Before picking up a new card, if the prior conversation is unrelated to that card, ask the owner through the question
+tool whether to continue in this context and recommend a new clean session; wait for their answer before claiming or
+starting the card. If they choose a new session, stop and hand over the card ID and next action. Do not ask merely
+because a session has context: a related request or resumed card belongs in this conversation.
 
 ## Pick up or resume
 
