@@ -436,8 +436,9 @@ func Comments(project *config.Project) []string {
 	return problems
 }
 
-// Template checks that the card template exists, has the head's fields and ends in ## Comments.
-func Template(project *config.Project) []string {
+// TypeTemplates checks every explicit type template: it must be readable and, when its type opts into a schema,
+// fit that schema. A fallback to another template is never silent.
+func TypeTemplates(project *config.Project) []string {
 	problems := []string{}
 	for _, item := range project.Types {
 		if item.Template == "" {
@@ -449,9 +450,15 @@ func Template(project *config.Project) []string {
 			continue
 		}
 		if schema, ok := project.BriefSchemas[item.Schema]; ok {
-			problems = append(problems, checkBriefSchema(project.Rel(item.Template), string(data), schema, true)...)
+			problems = append(problems, checkBriefSchema(project.Rel(item.Template), strings.ReplaceAll(string(data), "\r\n", "\n"), schema, true)...)
 		}
 	}
+	return problems
+}
+
+// Template checks that the card template exists, has the head's fields and ends in ## Comments.
+func Template(project *config.Project) []string {
+	problems := TypeTemplates(project)
 	shipped := project.TemplateIsShipped
 	name := "templates/card.md"
 	if !shipped {

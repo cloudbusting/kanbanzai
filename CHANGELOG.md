@@ -5,6 +5,17 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-11: a type can name its own brief template (`template`) and opt into a brief schema (`schema = "bug"` with a
+  `[schemas.bug]` table of required and optional fields and sections, their order, repeatable sections and a final
+  Comments). `kanbanzai check` validates a schema's cards and templates with the brief and field or section named;
+  a project with no schema behaves exactly as before, including `types = []` and legacy ids. `move`, `ask`, `answer`
+  and `workflow` insert Progress and Questions where the schema orders them; a schema that would break the command's
+  own fields or sections is refused when the config loads. `kanbanzai template [TYPE|ID] [--where|--example NAME]`
+  prints the template for a type (an unreadable named template is an error, not a fallback) and the embedded task,
+  bug and change examples. `init` and `workflow plan` check every named type template and never overwrite one; a
+  workflow plan renames each template's Stage word. `board --json` and `config --json` add an optional `schema` to a
+  type.
+
 ## [0.14.1] — 2026-11-13
 
 - BUG-44: `/audit` and `/next` can proceed past a verified board-only main-checkout dirty finding while preserving other work and blocking other hard findings.

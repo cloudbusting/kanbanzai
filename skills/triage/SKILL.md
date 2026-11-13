@@ -21,9 +21,12 @@ new request differs. Do not rewrite another card's design or tasks.
 
 ## Make or size a card
 
-For a new item, obtain its ID with `kanbanzai number`, never by guessing. Start from the configured template and
-write its brief in the initial column's configured folder, with title, Stage, Updated, Goal, Next action and Where;
-include acceptance checks, scope and files when known. Keep Comments as the append-only handover. A small settled
+For a new item, obtain its ID with `kanbanzai number`, never by guessing; its prefix is the card's type, and there
+is no separate Type line. Start from the template for that type: `kanbanzai template <ID or type>` prints it, and
+`--where` names its file and schema (a type with no template of its own gets the project's, and an unreadable named
+template is an error, never a silent fallback). Write its brief in the initial column's configured folder, with title, Stage, Updated, Goal, Next action and Where;
+include acceptance checks, scope and files when known. A type that has a schema also needs its required fields and
+sections (a bug's reproduction, a change's before and after): `kanbanzai check` names what is missing. Keep Comments as the append-only handover. A small settled
 item needs enough detail for a builder; a choice needs a clear question for the owner. Do not write the owner's
 decision, full design or task list here. If a blocker exists, add `Held: blocked: <what>` or `Held: waiting: <whom>`.
 

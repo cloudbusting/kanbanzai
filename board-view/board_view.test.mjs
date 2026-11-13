@@ -523,3 +523,14 @@ test("a typed card and the board's types render without a legacy prefix", () => 
   assert.match(out, /A typed bug/);
   assert.match(out, /data-path="docs\/work\/1-open\/BUG-07-x.md"/);
 });
+
+test("typed cards and the additive schema field never change or break the view", () => {
+  const card = { id: 'BUG-02', title: 'A <b>bug</b>', path: 'x.md', type: { key: 'bug', label: 'Bug', prefix: 'BUG', template: '/p/bug.md', schema: 'bug' } };
+  const withType = renderHtml({ columns: [{ key: 'todo', name: 'Todo', cards: [card] }], types: [card.type] }, { nonce: NONCE });
+  const bare = renderHtml({ columns: [{ key: 'todo', name: 'Todo', cards: [{ ...card, type: undefined }] }] }, { nonce: NONCE });
+  assert.equal(withType, bare);
+  assert.match(withType, /A &lt;b&gt;bug&lt;\/b&gt;/);
+  for (const odd of [null, 'bug', 7, [], { schema: { a: 1 } }]) {
+    assert.doesNotThrow(() => renderHtml({ columns: [{ key: 'todo', name: 'Todo', cards: [{ ...card, type: odd }] }], types: odd }, { nonce: NONCE }));
+  }
+});

@@ -47,6 +47,7 @@ commands:
   doctor [--json]                diagnose this installation without repairs
   context [--adapter-version V] the standing context
   workflow <verb> ...            show, validate, plan, apply and export the flow (columns and steps)
+  template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
   workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
   init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
        [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
@@ -210,6 +211,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
+	case "template":
+		return runTemplate(project, args, out, errOut)
 	case "workspace":
 		return runWorkspace(project, args, out, errOut)
 	case "claim":

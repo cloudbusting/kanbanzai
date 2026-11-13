@@ -963,3 +963,43 @@ func TestAFreshProjectStartsTypedAndPrefixKeepsTheLegacyShape(t *testing.T) {
 		t.Fatalf("--prefix wrote a typed project: typed = %v, prefix = %q", legacy.Typed, legacy.Prefix)
 	}
 }
+
+const schemaTypeConfig = `config_version = 1
+[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "bug.md"
+schema = "bug"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Comments"]
+optional_sections = ["Progress", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+`
+
+const bugTemplate = "# BUG-NN: Work\n\n- **Stage:** todo\n- **Updated:** YYYY-MM-DD\n- **Next action:** next\n- **Where:** —\n\n## Goal\n\n## Reproduction\n\n## Comments\n"
+
+func TestInitChecksATypeTemplateAgainstItsSchemaAndNeverChangesIt(t *testing.T) {
+	root := repo(t, "main")
+	testutil.Write(t, filepath.Join(root, ConfigRel), schemaTypeConfig)
+	bad := strings.Replace(bugTemplate, "## Reproduction\n\n", "", 1)
+	testutil.Write(t, filepath.Join(root, "bug.md"), bad)
+	code, out, errOut := initRun(root, Options{DryRun: true})
+	if code != 2 || !strings.Contains(errOut, "Reproduction") || !strings.Contains(errOut, "bug.md") {
+		t.Fatalf("a template that breaks its schema: %d %s %s", code, out, errOut)
+	}
+	testutil.Write(t, filepath.Join(root, "bug.md"), bugTemplate)
+	if code, out, errOut = initRun(root, Options{}); code != 0 {
+		t.Fatalf("a valid template: %d %s %s", code, out, errOut)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "bug.md"))
+	if err != nil || string(data) != bugTemplate {
+		t.Fatalf("init changed the type template: %v\n%s", err, data)
+	}
+}

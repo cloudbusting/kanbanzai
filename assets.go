@@ -8,7 +8,8 @@ package kanbanzai
 
 import "embed"
 
-// Files holds defaults/config.toml and templates/card.md.
+// Files holds defaults/config.toml, templates/card.md and the opt-in per-type examples: templates/task.md, bug.md,
+// change.md and schemas.example.toml. The examples are never applied to a project unless it copies and names them.
 //
-//go:embed defaults/config.toml templates/card.md
+//go:embed defaults/config.toml templates/card.md templates/task.md templates/bug.md templates/change.md templates/schemas.example.toml
 var Files embed.FS
