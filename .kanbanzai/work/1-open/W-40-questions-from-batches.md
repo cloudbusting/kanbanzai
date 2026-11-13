@@ -1,10 +1,10 @@
 # W-40: Pause a batch card on its question and answer it later
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** package the card: build and install-test the artifacts (kanbanzai-package)
+- **Next action:** release: 0.14.0 after the owner approves (bump manifests and CHANGELOG from 0.13.0)
 - **Where:** worktree W-40
 
 ## Goal
@@ -142,6 +142,7 @@ parallel with task 5 on separate files; task 8 last.
 - 2026-11-13: Added malformed-record and normalized duplicate-number coverage in 5fdfa96; question package tests pass. Started the CLI lifecycle test, which is red because ask is not implemented.
 - 2026-11-13: 2026-11-13: ask/answer commands, Questions check, board question and toast, /answer skill, docs and adapter tests done; go test, go vet, node tests and release -check pass
 - 2026-11-13: 2026-11-13: checked; go test, vet, node 249, hooks, plugin validate, vsix dry run, release -check, board check and audit pass; QA fixed a doc heading and added a held-audit assertion
+- 2026-11-13: 2026-11-13: package QA passed at e089dd7 (rehearsed as 0.14.0): source bundle, 5 binary archives, vsix with 5 bundled commands, fresh-project init/check/board, plugin validate and throwaway install, opencode check; artifacts in /tmp/kanbanzai-package-W-40-0.14.0; owner editor check of the Board tab (asking toast and tooltip) not run
 
 ## Out of scope
 
