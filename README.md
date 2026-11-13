@@ -331,6 +331,10 @@ brief (an In QA card held `waiting:` for the owner's own test, for example). A h
 stale or interrupted, but it still counts toward the cap. Delete the line when the blocker clears. Paused is a column
 of its own: only the owner un-parks a card.
 
+A main session with a question tool asks the owner directly and, once answered, continues the permitted route while
+keeping its claim. It may record the decision in the brief without opening a question. An existing open question still
+uses `/answer`.
+
 A batch agent that needs a decision reports its question to the main session, which uses `kanbanzai ask` to record it
 in `## Questions`, hold the card and release its claim. The board marks the question. `/answer ID` re-asks it and
 records the owner's answer without starting work; a later pull resumes the card and reuses its workspace. If a return
