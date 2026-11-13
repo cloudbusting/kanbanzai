@@ -5,6 +5,15 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-51: new `kanbanzai tree [--merge ID] [--json]`, a read-only report of what the main checkout holds. Every
+  changed path is a card brief or batch record (board), something else, or uncertain; the verdict is `clean`,
+  `board-only` or `blocked` (exit 0, 0, 1). `--merge ID` also lists the files a card's merge would overwrite, stops on
+  staged changes, a merge already under way or the wrong branch, and prints the `git merge` to run. `/check` and `/do`
+  merge through it, so brief edits by other sessions in the main checkout no longer stop an integration merge, while
+  changes outside the board, staged changes, an overlap or a genuine conflict still do and are reported, never
+  cleared. `/audit` and `/next` use its verdict for the board-only dirty finding. `wip --audit` and its exit status are
+  unchanged.
+
 ## [0.15.0] — 2026-11-13
 
 - BUG-54: `wip --audit --card ID --recovery` also accepts an unheld card stopped between steps (Designed, Built, Checked or
