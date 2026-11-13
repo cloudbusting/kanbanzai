@@ -1,9 +1,9 @@
 # BUG-49: Interrupted work audit blocks its own recovery
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **ADR:** none identified
-- **Next action:** release: select a version and publish only after owner approval
+- **Next action:** Prepare approved 0.12.1 release metadata; validate, merge, push main and wait for CI
 - **Where:** worktree BUG-49
 
 ## Goal
@@ -56,6 +56,7 @@ Incorrect classification could hide a real workspace conflict or allow concurren
 - 2026-11-13: Configured check and diff review passed; c2dec64 handles interrupted design before workspace creation. Packaging requires integration into clean main, currently blocked by unrelated board changes.
 - 2026-11-13: Integrated at 0427bfd; package rehearsal 0.12.0 built from that merge, checksums and fresh-project command, isolated Claude install, OpenCode entry and VSIX listings passed. The editor Board-tab check is manual; no release, push or tag.
 - 2026-11-13: Package rehearsal 0.12.0 at 0427bfd passed checksum, command, isolated Claude, OpenCode and VSIX proofs; editor Board check remains manual.
+- 2026-11-13: Owner approved public release and selected 0.12.1. BUG-48 remains open: a local source `go install` reports dev and final versioned-install verification must not be skipped.
 
 ## Package QA
 
