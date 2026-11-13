@@ -1,10 +1,10 @@
 # CHANGE-51: Allow safe integration with concurrent board changes
 
-- **Stage:** checked
-- **Updated:** 2026-11-13
+- **Stage:** qa-approved
+- **Updated:** 2026-11-14
 - **Done:** —
 - **ADR:** none (this repository records decisions in the brief)
-- **Next action:** package: merge branch CHANGE-51 into main with kanbanzai tree --merge, then run the package step
+- **Next action:** release: v0.16.0 (a minor: new tree command) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-51-0.15.0-1oLdGl from main 1957a4b
 - **Where:** worktree CHANGE-51
 
 ## Goal
@@ -100,6 +100,7 @@ README (command list and the `tree` JSON shape), `docs/isolation.md`, `docs/work
 - 2026-11-13: designed: new read-only kanbanzai tree command, six tasks
 - 2026-11-13: Built: internal/tree, kanbanzai tree, shipped skills, packageset, package/release skills, docs; go test, vet, node 242+8, plugin validate pass; snapshot binaries identical to a clean clone
 - 2026-11-13: Checked: QA green (go test ./..., vet, node 242+8, hooks, JS, plugin validate, steps, check, audit); review found one gap (own-brief overlap) fixed in d7e542b; all acceptance checks hold; binaries from an export are byte-identical to a clean clone
+- 2026-11-14: Package QA passed at 1957a4b alone: artifacts /tmp/kanbanzai-package-CHANGE-51-0.15.0-1oLdGl (bundle, 5 binary archives, .vsix, SHA256SUMS; built from git archive of the commit, no .git); command init/check/board/tree, claude plugin validate+install, opencode entry and skills listing, vsix listing (5 platform commands, no bin.json), no leaks. Version metadata still 0.15.0: the release step bumps it. Editor look at the Board tab is the owner's manual check. Finding for triage: tree's text output lists every path (a repo with no commits printed 220); cap it.
 
 ## Out of scope
 
