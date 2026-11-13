@@ -32,7 +32,7 @@ const usage = `usage: kanbanzai <command> [options]
 
 commands:
   board [--json]                 the board
-  wip [--next|--title ID|--audit [--card ID]|--cleanup]
+  wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   gate pass|fail|status [ID...]  record a card's gate result, or say where its gate stands
@@ -199,12 +199,12 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		_ = flags
 		return 0
 	case "wip":
-		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true},
+		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true, "recovery": true},
 			map[string]bool{"title": true, "card": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		return wip.Run(project, wip.Options{Audit: set["audit"], Cleanup: set["cleanup"], Next: set["next"],
+		return wip.Run(project, wip.Options{Audit: set["audit"], Recovery: set["recovery"], Cleanup: set["cleanup"], Next: set["next"],
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
