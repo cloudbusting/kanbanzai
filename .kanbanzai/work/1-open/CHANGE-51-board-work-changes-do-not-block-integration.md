@@ -1,11 +1,11 @@
 # CHANGE-51: Allow safe integration with concurrent board changes
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none (this repository records decisions in the brief)
-- **Next action:** build task 1: the `internal/tree` classifier and merge preflight, tests first
-- **Where:** —
+- **Next action:** build task 1: the internal/tree classifier and merge preflight, tests first
+- **Where:** worktree CHANGE-51
 
 ## Goal
 
@@ -97,6 +97,7 @@ README (command list and the `tree` JSON shape), `docs/isolation.md`, `docs/work
 - 2026-11-13: Triaged after BUG-48 package QA was blocked by another card's main-checkout brief; design the broader integration and tooling behavior.
 - 2026-11-13: Folded in the owner's question about the clean-main packaging requirement; BUG-44 covers the separate board audit case. Multi-card packaging is tracked in CHANGE-53.
 - 2026-11-13: Designed. Tested what git does with a dirty main on a merge (preserves unrelated unstaged and untracked edits; refuses on overlap and on staged changes). The owner chose a new read-only `kanbanzai tree` command; six tasks, snapshot-built packaging.
+- 2026-11-13: designed: new read-only kanbanzai tree command, six tasks
 
 ## Out of scope
 
