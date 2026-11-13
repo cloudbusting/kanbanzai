@@ -36,6 +36,9 @@ func TestQuestionCommandsLifecycle(t *testing.T) {
 	if code, out, err := runCLI(t, "wip", "--next"); code != 0 || strings.Contains(out, "W-01") {
 		t.Fatalf("held wip next = %d %q %q", code, out, err)
 	}
+	if code, out, err := runCLI(t, "wip", "--audit"); code != 0 || !strings.Contains(out, "Audit: pass") {
+		t.Fatalf("held audit = %d %q %q", code, out, err)
+	}
 	if code, out, err := runCLI(t, "answer", "W-01"); code != 0 || !strings.Contains(out, "Which store?") || !strings.Contains(out, "Memory") {
 		t.Fatalf("answer read = %d %q %q", code, out, err)
 	}
