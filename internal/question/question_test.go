@@ -61,3 +61,24 @@ func TestAppendPreservesQuestionNumbers(t *testing.T) {
 		t.Fatalf("append reused a number: %s %v", text, err)
 	}
 }
+
+func TestAppendMultilineQuestion(t *testing.T) {
+	text, err := Append("## Comments\n", Entry{AskedBy: "agent", Text: "Which store?\nConsider durability.", Then: "build"}, "2026-11-13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "- **Question:** Which store?\n  Consider durability.") {
+		t.Fatalf("question not wrapped: %s", text)
+	}
+	entries, err := Parse(text)
+	if err != nil || len(entries) != 1 || entries[0].Text != "Which store? Consider durability." {
+		t.Fatalf("Parse = %#v, %v", entries, err)
+	}
+}
+
+func TestParseRejectsDuplicateQuestionNumbers(t *testing.T) {
+	entry := "### Q1 — 2026-11-13\n- **Asked by:** a\n- **Question:** Hi\n- **Then:** go\n- **Answer:** yes\n- **Answered:** today\n"
+	if _, err := Parse("## Questions\n" + entry + entry + "\n## Comments\n"); err == nil {
+		t.Fatal("accepted duplicate question numbers")
+	}
+}
