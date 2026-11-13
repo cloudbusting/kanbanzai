@@ -1,12 +1,11 @@
 # TASK-45: Keep /do work in context before pulling a new card
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-13
-- **Done:** —
+- **Done:** 2026-11-13 — shipped in v0.12.0 at 5833390; closed with the v0.14.0 release: the go install @v0.12.0 check can never pass (that tag reports dev; fixed by BUG-48 from v0.13.0), the owner accepted this; the v0.14.0 release verified the public Claude install and VSIX install
 - **ADR:** none identified
-- **Next action:** Investigate and resolve release verification: go install @v0.12.0 reports version dev; then complete release verification and close
-- **Where:** worktree TASK-45
-- **Held:** blocked: BUG-48 tracks go install verification reporting kanbanzai dev instead of v0.12.0
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -38,6 +37,7 @@ The shipped `/do` skill; other documentation if needed for consistency.
 - 2026-11-13: CI run 43337447070 passed all jobs, including Windows; resuming release of commit 5833390.
 - 2026-11-13: Published v0.12.0 at commit 5833390; release workflow passed, seven asset checksums verified, packaged Linux binary reports v0.12.0 and fresh init/check passed, isolated public Claude install reports 0.12.0, and released VSIX installed in VSCodium as 0.12.0. However go install @v0.12.0 succeeds but its binary reports kanbanzai dev; release verification remains blocked. Clean-profile Board tab check remains manual.
 - 2026-11-13: Triaged the go install version-reporting fix as BUG-48; this card remains blocked on the release verification finding.
+- 2026-11-13: 2026-11-13: owner asked to close with the v0.14.0 release; v0.12.0 is public (release workflow, checksums and packaged command verified earlier); go install @v0.12.0 reports dev and is not fixable on a published tag; remaining proofs were redone for v0.14.0 only, not for v0.12.0
 
 ## Package QA
 
