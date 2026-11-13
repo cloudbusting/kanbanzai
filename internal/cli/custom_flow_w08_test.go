@@ -106,20 +106,27 @@ func TestW08WorkspaceUsesConfiguredTrunk(t *testing.T) {
 	}
 }
 
-func TestW08NoDoingColumnsReportMoveLimit(t *testing.T) {
+func TestW08NoDoingColumnsFinishThroughTheClaim(t *testing.T) {
 	flow := strings.Replace(w08Flow, `doing = "write"`, ``, 1)
 	flow = strings.Replace(flow, `doing = "review"`, ``, 1)
 	flow = strings.Replace(flow, `during = "writing"`, ``, 1)
 	flow = strings.Replace(flow, `during = "reviewing"`, ``, 1)
+	flow = strings.Replace(flow, "gate = \"owner\"\n", "", 1)
 	project := newProject(t, flow)
 	putDeliveryCard(t, project, "W-01", "")
+	refused(t, "not claimed by you", "move", "W-01", "finish")
 	ok(t, "claim", "claim", "W-01")
 	atStage(t, "W-01", "queue")
-	code, out, errOut := runCLI(t, "move", "W-01", "finish")
-	if code != 2 || !strings.Contains(errOut, "not in a Doing column") {
-		t.Fatalf("finish without Doing: exit %d: %s%s", code, out, errOut)
+	if route := ok(t, "step", "--for", "W-01"); !strings.Contains(route, "route: step; step: write; finish: review") {
+		t.Fatalf("no-Doing route: %s", route)
 	}
-	t.Logf("no-Doing finish limitation: exit %d: %s%s", code, out, errOut)
+	ok(t, "move", "W-01", "finish")
+	atStage(t, "W-01", "review")
+	refused(t, "--done", "move", "W-01", "finish")
+	ok(t, "move", "W-01", "finish", "--done", "review complete")
+	atStage(t, "W-01", "done")
+	ok(t, "claim", "release", "W-01")
+	ok(t, "check")
 }
 
 func TestW08SkippedReviewClosesWithoutRunningIt(t *testing.T) {

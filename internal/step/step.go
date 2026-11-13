@@ -57,6 +57,7 @@ type Route struct {
 	Action             string `json:"action"`
 	Step               string `json:"step"`
 	Target             string `json:"target"`
+	Finish             string `json:"finish"`
 	Blocked            bool   `json:"blocked"`
 	Reason             string `json:"reason"`
 	WorkspaceRequired  bool   `json:"workspace_required"`
@@ -91,24 +92,27 @@ func CardRoute(p *config.Project, key string, card *board.Card, name, blocked st
 		}
 	case p.Steps[name].Skill == "":
 		instead := InsteadOf(p, p.Steps[name])
-		if instead.Action == "close" {
+		landing, hops := p.ByKey[instead.Column]
+		switch {
+		case instead.Action == "close":
 			r.Action, r.Target = "close", instead.Column
-		} else if r.Reason == "" {
+		case (instead.Action == "step" || instead.Action == "stop") && hops && landing.Kind == "open" && landing.Key != key:
+			r.Action, r.Target, r.Step = "skip", instead.Column, instead.Step
+		case r.Reason == "":
 			r.Reason = "no skill and no direct close; inspect the configured workflow before moving"
 		}
 	default:
 		words := Moves(p, key, name)
-		r.Step = name
+		r.Step, r.Finish = name, words.Finish
 		r.FinishRequiresDone = p.ByKey[words.Finish].Kind == "done"
-		if words.Resume {
+		switch {
+		case words.Resume:
 			r.Action, r.Target = "resume", words.Finish
-		} else if words.Start != "" {
+		case words.Start != "":
 			r.Action, r.Target = "step", words.Start
-		} else {
-			r.Action = "stop"
-			if r.Reason == "" {
-				r.Reason = "no Doing column; claim is the doing, but there is no normal forward finish move"
-			}
+		default:
+			// No Doing column: the claim is the doing, and `move finish` is the way out of the step.
+			r.Action = "step"
 		}
 	}
 	if target, ok := p.ByKey[r.Target]; ok {
@@ -139,6 +143,7 @@ func InsteadOf(project *config.Project, step config.Step) *Instead {
 	if !ok {
 		return &Instead{Action: "stop", Column: step.Into, From: from}
 	}
+	var gated *config.Column // the first column on the way, past which a card must not hop unevaluated
 	for count := 0; count <= len(project.Columns); count++ {
 		if column.Kind == "done" {
 			return &Instead{Action: "close", Column: column.Key, Label: column.Label, From: from}
@@ -148,8 +153,15 @@ func InsteadOf(project *config.Project, step config.Step) *Instead {
 			return &Instead{Action: "stop", Column: column.Key, Label: column.Label, From: from}
 		}
 		if following.Skill != "" {
+			if gated != nil {
+				return &Instead{Action: "stop", Column: gated.Key, Label: gated.Label, From: from}
+			}
 			return &Instead{Action: "step", Step: following.Name, Column: column.Key, Label: column.Label,
 				From: from}
+		}
+		if gated == nil && (column.Gate.Set() || column.WaitsForOwner) {
+			held := column
+			gated = &held
 		}
 		next, ok := project.ByKey[following.Into]
 		if !ok {
@@ -487,6 +499,9 @@ func printRoute(out io.Writer, id string, r Route) {
 	if r.Target != "" {
 		fmt.Fprintf(out, "; target: %s", r.Target)
 	}
+	if r.Finish != "" {
+		fmt.Fprintf(out, "; finish: %s", r.Finish)
+	}
 	if r.Blocked {
 		fmt.Fprint(out, "; blocked")
 	}
@@ -494,6 +509,9 @@ func printRoute(out io.Writer, id string, r Route) {
 		fmt.Fprintf(out, "; %s", r.Reason)
 	}
 	fmt.Fprintln(out)
+	if r.Action == "step" && r.Target == "" && r.Finish != "" && !r.Blocked {
+		fmt.Fprintf(out, "no Doing column for this step: keep your claim while you work, then kanbanzai move %s finish\n", id)
+	}
 	if r.WorkspaceRequired {
 		fmt.Fprintf(out, "workspace: required for this route (recorded: %t, exists: %t); kanbanzai workspace %s\n", r.WorkspaceRecorded, r.WorkspaceExists, id)
 	}
