@@ -1,11 +1,11 @@
 # BUG-50: Keep /do progressing beyond each completed step
 
-- **Stage:** todo
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** package (deploy-qa)
+- **Where:** worktree BUG-50
 
 ## Goal
 
@@ -26,5 +26,7 @@ Bypassing workflow gates, owner approvals or release safeguards; changing card s
 ## Progress
 
 - 2026-11-13: Triaged. W-08 shipped flow-agnostic routing; TASK-45 concerns context-aware selection and W-40 concerns held questions, not this step-boundary behavior. All touch related skill instructions and should be reconciled if needed.
+- 2026-11-13: do skill continues through steps; step skills marked step-scoped; wording test added, go test/vet and opencode tests green
+- 2026-11-13: check: go/vet/node/opencode/hooks/plugin validate/audit green; diff reviewed, wording only
 
 ## Comments
