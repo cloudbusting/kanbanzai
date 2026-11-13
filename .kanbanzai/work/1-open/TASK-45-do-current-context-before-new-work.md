@@ -4,8 +4,9 @@
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none identified
-- **Next action:** Check CI run 43337447070 for commit 5833390906c3670d2661ae13ae13a5527bbfdc4d; only if every job passes, resume the 0.12.0 tag and publication procedure
+- **Next action:** Investigate and resolve release verification: go install @v0.12.0 reports version dev; then complete release verification and close
 - **Where:** worktree TASK-45
+- **Held:** blocked: BUG-48 tracks go install verification reporting kanbanzai dev instead of v0.12.0
 
 ## Goal
 
@@ -35,6 +36,8 @@ The shipped `/do` skill; other documentation if needed for consistency.
 - 2026-11-13: Owner requested release, publish and install and chose 0.12.0; gate passed. Release metadata prepared in commit a861b1e on release/TASK-45; Claude validation and release version check passed. Waiting for clean main before merge and push.
 - 2026-11-13: Release commit 5833390 merged and pushed to main. CI run 43337447070: Linux, macOS, adapters and plugin passed; Windows still running after over six minutes. No tags, publication or installation yet.
 - 2026-11-13: CI run 43337447070 passed all jobs, including Windows; resuming release of commit 5833390.
+- 2026-11-13: Published v0.12.0 at commit 5833390; release workflow passed, seven asset checksums verified, packaged Linux binary reports v0.12.0 and fresh init/check passed, isolated public Claude install reports 0.12.0, and released VSIX installed in VSCodium as 0.12.0. However go install @v0.12.0 succeeds but its binary reports kanbanzai dev; release verification remains blocked. Clean-profile Board tab check remains manual.
+- 2026-11-13: Triaged the go install version-reporting fix as BUG-48; this card remains blocked on the release verification finding.
 
 ## Package QA
 
