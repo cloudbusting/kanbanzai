@@ -1,9 +1,9 @@
 # BUG-49: Interrupted work audit blocks its own recovery
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
 - **ADR:** none identified
-- **Next action:** Once main is clean, merge BUG-49 into main and run package/install QA from that merge
+- **Next action:** release: select a version and publish only after owner approval
 - **Where:** worktree BUG-49
 
 ## Goal
@@ -54,6 +54,24 @@ Incorrect classification could hide a real workspace conflict or allow concurren
 - 2026-11-13: Implemented a first recovery audit and workflow wording; focused Go tests, full Go suite, vet and 247 Node tests passed. Review found that branch mode can acquire another live claim between recovery audit and the post-claim scoped audit, which filters other claims; stop until the race is addressed and tested.
 - 2026-11-13: Branch-mode competing claims are checked again after claim by repeating the recovery audit; regression tests pass. Built commit e7cf2ad. Full serial Go suite, vet, Node suites, hooks, plugin validation and board check passed; concurrent Go/Node tests hit the shared test-binary race, then Go passed serially.
 - 2026-11-13: Configured check and diff review passed; c2dec64 handles interrupted design before workspace creation. Packaging requires integration into clean main, currently blocked by unrelated board changes.
+- 2026-11-13: Integrated at 0427bfd; package rehearsal 0.12.0 built from that merge, checksums and fresh-project command, isolated Claude install, OpenCode entry and VSIX listings passed. The editor Board-tab check is manual; no release, push or tag.
+- 2026-11-13: Package rehearsal 0.12.0 at 0427bfd passed checksum, command, isolated Claude, OpenCode and VSIX proofs; editor Board check remains manual.
+
+## Package QA
+
+Rehearsal only: version 0.12.0 from merge `0427bfd6d6b18e2261ef113a8a3be103f0281d11`; artifacts and verified `SHA256SUMS` in `/tmp/kanbanzai-package-BUG-49-0.12.0-xK6kBV`.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| kanbanzai-0.12.0.tar.gz | 427383 | caad07f37d9607317e979d1a9a1564e234c72a3f05a26507f505db8088858f57 |
+| kanbanzai_0.12.0_darwin_amd64.tar.gz | 1808477 | 09fece0d6f3d787e8e9de793e8a326b49a9a7f45768d29d1f48f1627243d8b4e |
+| kanbanzai_0.12.0_darwin_arm64.tar.gz | 1668725 | be3b5cb3819ebdbefbb5def5e0ed25754edcd335903d986d183bef9af807e6d4 |
+| kanbanzai_0.12.0_linux_amd64.tar.gz | 1822778 | 15c8cb135531f21e8abbbd25b054e5ac437986d3a49f84cfd76db3153bdc5c75 |
+| kanbanzai_0.12.0_linux_arm64.tar.gz | 1648077 | d7afabf6283321c9acec43af7416d5b841d5e402d37740ad59a7f46adc8c814f |
+| kanbanzai_0.12.0_windows_amd64.zip | 1889494 | 61a4214dfcef8d285a3cb7cb1fa29df5365354d66604331f4c43c8aec67415a5 |
+| kanbanzai-board-0.12.0.vsix | 8910313 | 06cb5cb21cee8612362eb9c51bab6b77523db8a101da07487ec6731d8f945bfc |
+
+The extracted source built and initialized a fresh git project; `check` and JSON board passed. The extracted Claude plugin validated and installed in an isolated configuration; its list showed 0.12.0 enabled. The extracted OpenCode entry passed syntax and carried all skills; source fake-harness tests passed. The VSIX listing contains five binaries and no bin.json. An actual editor install and Board-tab check remain manual. The rehearsal version is not a release decision.
 - 2026-11-13: Designed scoped pre-claim recovery audit with ordinary post-claim audit; existing audit contract remains unchanged.
 - 2026-11-13: Built e7cf2ad: scoped recovery checks, post-claim race guard, regression coverage and shared skill guidance.
 - 2026-11-13: Configured QA passed: Go tests/vet, 247 Node tests, hooks, JS syntax, Claude validation, board/card audit; reviewed diff and fixed workspace-free interrupted design (c2dec64).
