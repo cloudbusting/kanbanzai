@@ -1,9 +1,9 @@
 # CHANGE-47: Early close with a transition reason
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-13
 - **ADR:** decisions recorded in this brief
-- **Next action:** Review checked diff and proceed to packaging
+- **Next action:** Integrate checked branch into main and package from the integrated commit
 - **Where:** worktree CHANGE-47
 
 ## Goal
@@ -65,6 +65,9 @@ Improper gate handling could authorize delivery, or closing could hide unmerged 
 - 2026-11-13: Merged current main into the card branch; bfe111f normalizes direct Apply reasons and warns on retained early-close workspace records, with focused tests passing.
 - 2026-11-13: Implemented and tested early cancellation, route and retained-workspace reporting, shared skills and docs; build checks passed at 264ac06.
 - 2026-11-13: kanbanzai-qa: Go, vet, Node (247), hooks, JS syntax, Claude validation, config/steps, card audit and board check passed. Gate/workspace/CLI compatibility tests were added after the initial implementation; red-first tests cover normalization, route, audit and missing workspace.
+- 2026-11-13: QA checks and whole diff review passed; no network or dependency changes. Custom close target reservation is documented.
+- 2026-11-13: Check passed: Go, vet, Node, plugin validation, hooks, JS syntax, card audit and board validation; packaging requires clean main checkout.
+- 2026-11-13: Other board changes are now committed; only this card bookkeeping remains in main.
 
 ## Out of scope
 
@@ -75,3 +78,4 @@ Implementing a fix for BUG-46's original false-positive report.
 - 2026-11-13 — opencode:ses_e2dc44bdaffe9i7bwEvbE38cxe: WIP commit 3957603 adds the initial core path and focused tests; the first test failed before implementation and `go test ./internal/move` now passes. Complete all remaining acceptance checks, including workspace/audit reporting, gate tests, route output and skills. Check compatibility if a configured column is named `close`; the new reserved target may collide. No full suite or review has run.
 - 2026-11-13 — Recovery: owner chose to reserve `close`, including custom-column collisions; the acceptance check now records this compatibility exception. The clean worktree at 3957603 is 16 commits behind main, including BUG-49 recovery changes in `internal/wip/` and shared skill changes. Integrate or otherwise account for that divergence without losing either change before implementing overlapping reporting and skills. No code or tests changed in this session.
 - 2026-11-13 — Continued: merged main into the card branch without rewriting the WIP. Commit bfe111f normalizes reasons through the core Apply API and adds an early-close retained-workspace audit warning, suppressing worktree cleanup suggestions; each change had a failing test first, then `go test ./internal/move ./internal/wip` passed. Audit work is incomplete: address branch-mode cleanup, missing records, dirty/unmerged work and external/shared reporting. Complete other acceptance checks, route outputs, documentation, full checks and review. No release or integration performed.
+- 2026-11-13 — Build and check complete at 264ac06: Go suite and vet, 247 Node tests, plugin validation, hook and JS syntax checks, card audit and board validation passed; reviewed whole diff. Gate, CLI and workspace compatibility tests were added after the implementation and therefore had no pre-implementation red run. Packaging requires integrating the branch and a clean main checkout; main currently has this card's board edit and other sessions' board changes, which were left untouched. No packaging, push or release performed.
