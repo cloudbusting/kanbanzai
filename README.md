@@ -399,7 +399,7 @@ blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed
 
 ```
 kanbanzai board [--json]                 the board
-kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
+kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
@@ -465,6 +465,13 @@ in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `s
 with no session id falls back to `claude:<process id>`, which a restart changes.
 
 Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
+
+For an interrupted, unheld card without a live claim, `kanbanzai wip --audit --card ID --recovery` is a pre-claim
+check in worktree or branch isolation. It reports the matching unclaimed workspace work as a warning while leaving
+all other hard findings in place. It does not claim, rebase or modify work. Claim or take over normally, then run both
+the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a
+competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
+Normal and whole-board audit behavior is unchanged.
 
 ## Development
 

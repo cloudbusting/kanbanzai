@@ -19,9 +19,12 @@ because a session has context: a related request or resumed card belongs in this
 
 ## Pick up or resume
 
-Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai wip --audit --card <ID>`,
-`kanbanzai claim status <ID>`, `kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. Stop on a hard audit
-finding, another session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
+Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai claim status <ID>`,
+`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For an interrupted resume with no live claim in
+worktree or branch isolation, run `kanbanzai wip --audit --card <ID> --recovery`; otherwise run
+`kanbanzai wip --audit --card <ID>`. Recovery is a
+pre-claim diagnostic, not a claim, and does not change the whole-board audit. Stop on a hard audit finding, another
+session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
 clear a hold only when its blocker has actually gone. Report what must happen next.
 
 The card-specific route distinguishes a fresh start, an interrupted step to resume, a skipped step, a gate and
@@ -34,6 +37,10 @@ Claim before work: `kanbanzai claim claim <ID>`. Exit 3 means another session ho
 expired claim: take over only with `kanbanzai claim claim <ID> --takeover "<reason>"`; inspect the workspace status,
 last commit, brief and handover before resuming. The claim may move the card automatically; `--no-move` records a
 claim without starting the step. Re-read `kanbanzai step --for <ID>` after claiming, since the card may have moved.
+After a recovery claim, run both the ordinary `kanbanzai wip --audit --card <ID>` and the recovery audit again;
+stop if either has a hard finding, before touching the work. The second recovery audit checks for competing branch
+claims that may have appeared since the first. Do not rebase, reset or discard work as part of recovery; inspect
+divergence separately.
 
 ## Run the configured route
 
