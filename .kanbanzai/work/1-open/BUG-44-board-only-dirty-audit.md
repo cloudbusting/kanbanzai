@@ -1,8 +1,8 @@
 # BUG-44: Allow board-only main checkout changes during batch audit
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
-- **Next action:** Resume packaging from clean main checkout.
+- **Next action:** Release combined BUG-44 and BUG-52 after version and publication approval.
 - **Where:** worktree BUG-44
 
 ## Goal
@@ -30,5 +30,6 @@ Changing the command's audit classification or exit code; committing or discardi
 
 - 2026-11-13: Updated audit and next guidance; regression wording test red then green, go test ./... passed.
 - 2026-11-13: QA and review passed: Go, vet, 241 board tests, 8 OpenCode tests, syntax, plugin validation, card audit and board check; commit 38c41a6.
+- 2026-11-13: Combined 0.14.0 rehearsal at fa849f5; artifacts and SHA256SUMS in /tmp/kanbanzai-package-BUG-44-BUG-52-0.14.0-AiHkam; Go, vet, 249 Node tests, plugin validation, fresh-project and plugin install proofs passed; editor visual check remains manual.
 
 ## Comments
