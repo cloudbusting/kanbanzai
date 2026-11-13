@@ -1,10 +1,10 @@
 # W-11: Type-aware brief templates and a configurable brief schema
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** Package: kanbanzai-package builds and install-tests the artifacts for W-11 (branch W-11, tip 5abe897)
+- **Next action:** release: 0.15.0 (proposed minor; metadata still 0.14.1) after the owner approves; package artifacts at /tmp/kanbanzai-package-W-11-0.15.0 from main 8dc6636
 - **Where:** worktree W-11
 - **Needs:** W-09
 
@@ -78,6 +78,7 @@ A configurable schema can become a second programming language. Keep the first v
 - 2026-11-13: Schema checks now include inherited templates. Init rejects a missing explicit type template and checks kept type-template digests for staleness; the full Go suite passes with new files marked intent-to-add.
 - 2026-11-13: Build complete: workflow plan/apply and init handle every type template (stage rename, path confinement, stale digests, schema fit); kanbanzai template command and embedded task/bug/change templates and schema example; schema field in board/config JSON; doctor checks type templates; triage skill, README, docs/types.md, CHANGELOG, config comments; full Go suite, vet, node tests, Win/mac cross-builds, plugin validate and vsix dry run pass
 - 2026-11-13: Check: QA green (go vet, 28 Go packages, node 242+8, hooks, plugin validate, vsix, kanbanzai check, audit); whole-diff review found one weak test assertion, tightened; all six acceptance checks hold
+- 2026-11-13: Package QA at main 8dc6636 (merge of W-11 12605b0): source bundle, 5 binary archives, vsix (5 platform commands, no bin.json), SHA256SUMS in /tmp/kanbanzai-package-W-11-0.15.0; fresh-project init/check/board/template, opt-in schema via packaged binary, plugin validate and throwaway install, opencode check pass; editor Board tab check remains manual
 
 ## Questions
 
