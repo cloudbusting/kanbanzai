@@ -1,6 +1,6 @@
 {
   "name": "kanbanzai",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "description": "A kanban of work-item cards built for coding agents: cards as briefs in git, a pull system, leases so parallel sessions never collide, and a workflow each project configures.",
   "author": {
     "name": "cloudbusting",

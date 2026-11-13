@@ -33,9 +33,10 @@ owner rather than assuming a design route. Triage does not claim or start work. 
 claim and follows `kanbanzai workspace <ID>` and the card-specific route.
 
 For deliberate parking, use `kanbanzai workflow show` to identify the parked column and `kanbanzai move` to move
-the card there with the reason; only the owner may unpark it. For a duplicate, already delivered item, or work the
-owner has declined, close with `kanbanzai move` to the configured closed column and a `--done` reason, subject to
-the command's requirements. If the move is refused, stop and report it; never force a gate or invent a transition.
+the card there with the reason; only the owner may unpark it. For a duplicate or work the owner has declined, use
+`kanbanzai move <ID> close --reason "<why>"` for a no change cancellation, not a delivery. It can bypass the current
+gate but not holds, parking or claim safeguards, and preserves the workspace for inspection. For completed delivery,
+follow the configured close route and its `--done` requirement. If refused, stop; never force a gate or transition.
 When the decision belongs to the owner, hold the card for their answer rather than closing it yourself.
 
 ## Check and report

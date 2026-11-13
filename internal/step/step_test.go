@@ -65,6 +65,24 @@ func runStep(t *testing.T, project *config.Project, options Options) (int, strin
 	return code, out.String(), errOut.String()
 }
 
+func TestCardRouteReportsEarlyCloseSeparately(t *testing.T) {
+	project := testProject(t, stepConfig)
+	putCard(t, project, "W-01", "work", "todo")
+	_, text, _ := runStep(t, project, Options{For: "W-01"})
+	if !strings.Contains(text, "early-close:") || !strings.Contains(text, "--reason") {
+		t.Fatalf("missing conditional cancellation: %s", text)
+	}
+	_, data, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var result map[string]any
+	if err := json.Unmarshal([]byte(data), &result); err != nil {
+		t.Fatal(err)
+	}
+	early, ok := result["early_close"].(map[string]any)
+	if !ok || early["target"] != "done" || early["available"] != true {
+		t.Fatalf("early_close = %#v", result["early_close"])
+	}
+}
+
 func TestAStepShowsItsSkillExtensionsContextAndChecks(t *testing.T) {
 	project := testProject(t, stepConfig)
 	code, out, errOut := runStep(t, project, Options{Name: "design", JSON: true})

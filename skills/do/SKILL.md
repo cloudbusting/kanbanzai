@@ -9,13 +9,23 @@ argument-hint: "[request or card id]"
 The main session owns the conversation, board, claims, decisions, review and close. Run `kanbanzai context` and
 read its files, then `kanbanzai workflow show` for the configured columns, steps, gates, pull order and isolation.
 If there is no board, stop and use `/setup`. A new request goes to `/triage` first. For an existing card use its ID;
-without one use this session's claim or `kanbanzai wip --next`. Respect the configured cap and pull order.
+without one, continue relevant work in the current conversation before looking for new work, using this session's
+claim or the relevant card when known. Otherwise use `kanbanzai wip --next`. Respect the configured cap and pull order.
+
+Before picking up a new card, if the prior conversation is unrelated to that card, ask the owner through the question
+tool whether to continue in this context and recommend a new clean session; wait for their answer before claiming or
+starting the card. If they choose a new session, stop and hand over the card ID and next action. Do not ask merely
+because a session has context: a related request or resumed card belongs in this conversation.
 
 ## Pick up or resume
 
-Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai wip --audit --card <ID>`,
-`kanbanzai claim status <ID>`, `kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. Stop on a hard audit
-finding, another session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
+Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai claim status <ID>`,
+`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For an interrupted resume with no live claim in
+worktree or branch isolation, when the brief records that card's worktree or branch, run
+`kanbanzai wip --audit --card <ID> --recovery`; otherwise run `kanbanzai wip --audit --card <ID>`. A design
+interrupted before a workspace was recorded uses the ordinary audit. Recovery is a
+pre-claim diagnostic, not a claim, and does not change the whole-board audit. Stop on a hard audit finding, another
+session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
 clear a hold only when its blocker has actually gone. Report what must happen next.
 If the hold points to an open question in `## Questions`, direct the owner to `/answer <ID>`; do not claim or
 clear it yourself. After the answer, use the card's route and audit to decide how it can resume.
@@ -30,6 +40,10 @@ Claim before work: `kanbanzai claim claim <ID>`. Exit 3 means another session ho
 expired claim: take over only with `kanbanzai claim claim <ID> --takeover "<reason>"`; inspect the workspace status,
 last commit, brief and handover before resuming. The claim may move the card automatically; `--no-move` records a
 claim without starting the step. Re-read `kanbanzai step --for <ID>` after claiming, since the card may have moved.
+After a recovery claim, run both the ordinary `kanbanzai wip --audit --card <ID>` and the recovery audit again;
+stop if either has a hard finding, before touching the work. The second recovery audit checks for competing branch
+claims that may have appeared since the first. Do not rebase, reset or discard work as part of recovery; inspect
+divergence separately.
 
 ## Run the configured route
 
@@ -76,6 +90,10 @@ The main session reviews each diff and test result; a subagent's completion repo
 decisions remain in the main session. Parallel tasks must not share files.
 
 ## Close or stop
+
+If the owner decides no further work is needed, `kanbanzai move <ID> close --reason "<why>"` records a no change
+cancellation, not completed delivery. This explicit cancellation may leave a closed current-column gate, but never
+overrides a hold, parking or claim safeguards. Preserve and inspect any workspace; cancellation is not cleanup.
 
 Close only when the card-specific route says it can close and all required work, checks, approvals and delivery are
 complete. Merge only when the configured workspace and project rules require it, into the configured integration

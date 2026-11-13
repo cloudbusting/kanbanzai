@@ -65,7 +65,7 @@ func Binary(t *testing.T) string {
 			name += ".exe"
 		}
 		out := filepath.Join(root, "bin", name)
-		cmd := exec.Command("go", "build", "-trimpath", "-o", out, "./cmd/kanbanzai")
+		cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", out, "./cmd/kanbanzai")
 		cmd.Dir = root
 		var stderr bytes.Buffer
 		cmd.Stderr = &stderr

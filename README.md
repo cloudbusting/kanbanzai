@@ -55,6 +55,8 @@ kanbanzai init
 Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
 prerequisite) and makes no network request. A Go developer can build it instead with
 `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
+`kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
+build. An explicitly stamped release-build version takes precedence over module metadata.
 
 ## Compatibility
 
@@ -404,7 +406,7 @@ blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed
 
 ```
 kanbanzai board [--json]                 the board
-kanbanzai wip [--next|--title ID|--audit [--card ID]|--cleanup]
+kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
@@ -431,7 +433,11 @@ kanbanzai --version                      the command's version
 
 **Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
 `TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done
-column of the step it is in). One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
+column of the step it is in). `kanbanzai move ID close --reason "<why>"` instead cancels an open card with no
+change, not a delivery. It records the reason without `--force` and preserves the workspace and its work. It may
+leave a closed current-column gate, but not a hold or parked card; another live or an expired claim refuses, and a
+Doing card requires your live claim. Inspect retained work before cleanup. `close` is reserved even if a custom
+column uses that key or alias; use another key or label, or rename the column. One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
 **Where**, **Held**, a dated **Progress** line, **Done**), in one atomic rewrite of the brief, moving its folder for
 Paused and Done. It refuses (exit 2) an unknown column or card, a skipped step, a move into a Doing column without
 your claim, a Held card (add `--clear-held`), a column that needs a workspace the card has not got (a worktree, a branch or an external record, as the isolation
@@ -472,6 +478,13 @@ in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `s
 with no session id falls back to `claude:<process id>`, which a restart changes.
 
 Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
+
+For an interrupted, unheld card without a live claim, `kanbanzai wip --audit --card ID --recovery` is a pre-claim
+check in worktree or branch isolation. It reports the matching unclaimed workspace work as a warning while leaving
+all other hard findings in place. It does not claim, rebase or modify work. Claim or take over normally, then run both
+the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a
+competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
+Normal and whole-board audit behavior is unchanged.
 
 ## Development
 

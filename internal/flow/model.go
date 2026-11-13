@@ -53,7 +53,7 @@ type StepInfo struct {
 }
 
 // Transition is a move a card may make without --force: From and To are column keys, Kind says why it is legal
-// (start, finish, back, pause, close or skip).
+// (start, finish, back, pause, close, skip or conditional early-close).
 type Transition struct {
 	From string `json:"from"`
 	To   string `json:"to"`
@@ -166,7 +166,17 @@ func Build(p *config.Project) *Model {
 func Transitions(p *config.Project) []Transition {
 	found := []Transition{}
 	seen := map[Transition]bool{}
+	done := ""
 	for _, c := range p.Columns {
+		if c.Kind == "done" {
+			done = c.Key
+			break
+		}
+	}
+	for _, c := range p.Columns {
+		if c.Kind == "open" && done != "" {
+			found = append(found, Transition{From: c.Key, To: done, Kind: "early-close"})
+		}
 		for _, settled := range []bool{false, true} {
 			for _, skips := range []bool{false, true} {
 				card := &board.Card{}

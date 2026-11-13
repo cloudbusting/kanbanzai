@@ -27,6 +27,18 @@ func TestAnswerSkillProvidesQuestionConversation(t *testing.T) {
 	}
 }
 
+func TestEarlyCloseInstructionsInSharedSkills(t *testing.T) {
+	for _, name := range []string{"do", "triage"} {
+		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "close --reason") || !strings.Contains(string(data), "no change") {
+			t.Errorf("%s does not describe explicit no change cancellation", name)
+		}
+	}
+}
+
 // Match instructions about stages and routes, not skill names or ordinary uses of build/check/design.
 var fixedFlowInstructions = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b(?:move|moves|moving|moved|put|puts|pull|pulls|goes|go|take|takes|close|closes|leave|leaves)\b[^.\n]{0,100}\b(?:todo|designing|designed|building|built|checking|checked|in qa|qa-approved|shipping)\b`),
@@ -187,6 +199,31 @@ func TestTheDoSkillMovesTheCardWithTheCommandAtEveryStep(t *testing.T) {
 	for _, words := range []string{"Close only when the card-specific route says it can close", "destination and close instructions from `kanbanzai step --for <ID>` and `kanbanzai workflow show`", "--done"} {
 		if !strings.Contains(flat, words) {
 			t.Errorf("skills/do lacks configured close instruction %q", words)
+		}
+	}
+}
+
+// This guards the shipped instruction, not the agent's execution of it.
+func TestTheDoSkillKeepsRelevantContextAndAsksBeforeUnrelatedWork(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "do", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{
+		"continue relevant work in the current conversation before looking for new work",
+		"prior conversation is unrelated to that card",
+		"ask the owner through the question tool whether to continue in this context",
+		"recommend a new clean session",
+		"wait for their answer before claiming or starting the card",
+		"Respect the configured cap and pull order",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/do lacks %q", want)
 		}
 	}
 }
@@ -387,6 +424,28 @@ func TestTheDeliverySkillsQuoteTheFlowsAnswer(t *testing.T) {
 	for _, want := range []string{"kanbanzai gate pass <ID> --note", "owner gate", "`kanbanzai move` will not leave the column without it"} {
 		if !strings.Contains(release, want) {
 			t.Errorf("kanbanzai-release lacks %q", want)
+		}
+	}
+}
+
+func TestDoRecoveryKeepsTheClaimAndAuditSafeguards(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "do", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{
+		"kanbanzai wip --audit --card <ID> --recovery", "worktree or branch isolation",
+		"After a recovery claim, run both the ordinary", "stop if either has a hard finding",
+		"Do not rebase, reset or discard work", "Exit 3 means another session holds it",
+		"Exit 4 means an expired claim", "interrupted before a workspace was recorded uses the ordinary audit",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/do lacks %q", want)
 		}
 	}
 }
