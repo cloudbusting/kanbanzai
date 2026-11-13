@@ -1,10 +1,10 @@
 # BUG-55: Investigate closed-card worktree audit findings
 
-- **Stage:** checked
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none (the brief's Decisions are the record)
-- **Next action:** Package with BUG-54 (kanbanzai-package) once BUG-54 is checked; BUG-55 is checked at 9ebc94e
+- **Next action:** release: version to be set by the owner at release; package artifacts at /tmp/kanbanzai-package-BUG-54-0.14.1 from main 8b784ef
 - **Where:** worktree BUG-55
 
 ## Goal
@@ -77,6 +77,7 @@ No new dependency, network call, path or persisted schema. Both adapters use the
 - 2026-11-13: Built at the BUG-55 branch head: failing wip tests first, audit soft for a clean merged closed-card worktree, Cleanup list only Done cards, skills/docs/release skill updated, wording test; go test, vet, Node suites, hooks, plugin validate and kanbanzai check pass
 - 2026-11-13: Checked (kanbanzai-qa): go test ./... 28 packages ok, go vet, node board-view 242 and opencode 8 pass, hooks and JS syntax ok, claude plugin validate ok, all five steps resolve, kanbanzai check ok, card audit pass under the claim. Built command on the real board: BUG-44, BUG-49, BUG-52, CHANGE-53 and TASK-45 are warnings; Cleanup lists only those Done cards, not W-11. Review: no findings. No manual step.
 - 2026-11-13: Checked: QA green, review clean, commit 9ebc94e
+- 2026-11-13: Package QA passed at 8b784ef with BUG-54: artifacts /tmp/kanbanzai-package-BUG-54-0.14.1 (bundle d3c4e2b4…, vsix c1a27a5c…, SHA256SUMS there); rehearsal built at metadata 0.14.1; fresh-project command, claude validate and isolated install, opencode entry and vsix listing (5 platforms, no bin.json) passed; editor Board tab is a manual check
 
 ## Out of scope
 
