@@ -1,11 +1,11 @@
 # BUG-48: Report the release version after go install
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-13
-- **Done:** —
+- **Done:** 2026-11-13 — v0.13.0, aad969d, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.13.0
 - **ADR:** none identified; assess whether a record is needed
-- **Next action:** release 0.13.0 (BUG-48 with CHANGE-47) per the owner
-- **Where:** worktree BUG-48
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
