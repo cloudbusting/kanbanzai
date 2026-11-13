@@ -1,9 +1,10 @@
 # BUG-44: Allow board-only main checkout changes during batch audit
 
-- **Stage:** todo
+- **Stage:** checked
 - **Updated:** 2026-11-13
-- **Next action:** settled: build it
-- **Where:** —
+- **Next action:** Once main is clean, merge the checked commit into main and run deploy-qa packaging.
+- **Where:** worktree BUG-44
+- **Held:** blocked: packaging requires a clean main checkout and the reviewed change merged to main; other sessions have uncommitted board changes
 
 ## Goal
 
@@ -11,8 +12,8 @@ For agents using the shipped audit and next skills, address the owner's request:
 
 ## Acceptance checks
 
-- [ ] The audit and next skills treat a whole-board main-checkout dirty finding as a warning for the workflow only when every changed path is a configured card brief; mixed or uncertain changes and all other hard findings still block. Explain that the command's exit status is unchanged.
-- [ ] Preserve other sessions' board changes, and test the skills' instructions against board-only, mixed, and unrelated hard-finding scenarios.
+- [x] The audit and next skills treat a whole-board main-checkout dirty finding as a warning for the workflow only when every changed path is a configured card brief; mixed or uncertain changes and all other hard findings still block. Explain that the command's exit status is unchanged.
+- [x] Preserve other sessions' board changes, and test the skills' instructions against board-only, mixed, and unrelated hard-finding scenarios.
 
 ## Files
 
@@ -25,5 +26,10 @@ package and release — shipped skills change.
 ## Out of scope
 
 Changing the command's audit classification or exit code; committing or discarding other sessions' work.
+
+## Progress
+
+- 2026-11-13: Updated audit and next guidance; regression wording test red then green, go test ./... passed.
+- 2026-11-13: QA and review passed: Go, vet, 241 board tests, 8 OpenCode tests, syntax, plugin validation, card audit and board check; commit 38c41a6.
 
 ## Comments
