@@ -97,10 +97,11 @@ The binary embeds task, bug and change templates and a schema example for them. 
 
 ```bash
 kanbanzai template --example bug > templates/bug.md      # also task, change
-kanbanzai template --example schemas                     # the [[types]] and [schemas.*] to paste into config.toml
+kanbanzai template --example schemas                     # the [schemas.*] tables, and the template/schema lines for each type
 ```
 
-A bug's template adds Reproduction, Expected and Actual; a change's adds Before and After; a task's is the plain
+Add the `[schemas.*]` tables to `config.toml` and the `template` and `schema` lines to your existing `task`, `bug` and
+`change` types; do not repeat a type, because a repeated key is refused. A bug's template adds Reproduction, Expected and Actual; a change's adds Before and After; a task's is the plain
 card. Each passes its own schema's check, and `kanbanzai check` validates the template against the schema as well.
 
 ### A complete project-specific example
