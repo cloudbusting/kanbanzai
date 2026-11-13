@@ -113,6 +113,7 @@ type Project struct {
 	TypeSet            *typeid.Set
 	DefaultType        string
 	ProjectKey         string
+	BriefSchemas       map[string]BriefSchema
 	Owner              string
 	MainBranch         string
 	Isolation          string // worktree, branch, shared or external: how a card's change is kept apart
@@ -369,6 +370,9 @@ func (p *Project) build() error {
 		p.DefaultType = set.Default
 		p.ProjectKey = set.ProjectKey
 	}
+	if err := p.loadBriefSchemas(); err != nil {
+		return err
+	}
 	p.Owner = asString(project["owner"], "the user")
 	p.MainBranch = asString(project["main_branch"], "main")
 	p.WorktreePattern = asString(project["worktree"], "../worktrees/{repo}/{id}")
@@ -512,6 +516,7 @@ func (p *Project) types() ([]typeid.Type, error) {
 			Key:         asString(entry["key"], ""),
 			Label:       asString(entry["label"], ""),
 			Prefix:      asString(entry["prefix"], ""),
+			Schema:      asString(entry["schema"], ""),
 			Colour:      asString(entry["colour"], ""),
 			Icon:        asString(entry["icon"], ""),
 			Description: asString(entry["description"], ""),

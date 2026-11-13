@@ -247,7 +247,7 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 		} else {
 			change.Progress = fmt.Sprintf("- %s: workflow: folder %s -> %s", change.Updated, change.FolderBefore, change.FolderAfter)
 		}
-		newText := Migrate(text, change)
+		newText := Migrate(text, change, p.BriefSectionOrder(change.ID))
 		change.AfterSHA256 = Digest(newText)
 		if _, err := os.Lstat(filepath.Join(p.Root, filepath.FromSlash(change.NewPath))); err == nil && change.NewPath != change.Path {
 			plan.Blockers = append(plan.Blockers, fmt.Sprintf("%s: %s already exists", card, change.NewPath))
@@ -300,7 +300,7 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 }
 
 // Migrate is the brief after its change.
-func Migrate(text string, c CardChange) string {
+func Migrate(text string, c CardChange, sectionOrder ...[]string) string {
 	fields := map[string]*string{"Stage": &c.StageAfter, "Updated": &c.Updated}
 	if c.ClearDone {
 		fields["Done"] = nil
@@ -308,7 +308,11 @@ func Migrate(text string, c CardChange) string {
 	if c.ClearHeld {
 		fields["Held"] = nil
 	}
-	return brief.AddProgress(brief.SetFields(text, fields), c.Progress)
+	text = brief.SetFields(text, fields)
+	if len(sectionOrder) > 0 {
+		text = brief.EnsureSection(text, "Progress", sectionOrder[0])
+	}
+	return brief.AddProgress(text, c.Progress)
 }
 
 // templateChange keeps new cards in the first column: a card is written from the template with its Stage word.

@@ -30,6 +30,7 @@ type Type struct {
 	Label       string
 	Prefix      string
 	Template    string
+	Schema      string
 	Colour      string
 	Icon        string
 	Description string

@@ -159,7 +159,7 @@ func Preflight(p *config.Project, plan *Plan) error {
 		if !ok || Digest(text) != c.ExpectSHA256 {
 			return refuse("%s changed since the plan was made: plan again", c.Path)
 		}
-		if Digest(Migrate(text, c)) != c.AfterSHA256 {
+		if Digest(Migrate(text, c, p.BriefSectionOrder(c.ID))) != c.AfterSHA256 {
 			return refuse("%s: the migration does not give the text the plan promised", c.Path)
 		}
 		if c.NewPath != c.Path {
@@ -338,7 +338,7 @@ func execute(p *config.Project, plan *Plan, step *Step) error {
 		if !ok || Digest(text) != change.ExpectSHA256 {
 			return fmt.Errorf("it changed during the apply")
 		}
-		migrated := Migrate(text, change)
+		migrated := Migrate(text, change, p.BriefSectionOrder(change.ID))
 		if Digest(migrated) != change.AfterSHA256 {
 			return fmt.Errorf("the migration does not give the text the plan promised")
 		}

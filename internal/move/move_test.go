@@ -333,6 +333,37 @@ func TestNextWhereAndProgressInOneWrite(t *testing.T) {
 	}
 }
 
+func TestProgressRespectsTypeSchemaSectionOrder(t *testing.T) {
+	project := testProject(t, `[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+schema = "bug"
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Comments"]
+optional_sections = ["Progress", "Questions", "Details"]
+repeatable_sections = []
+section_order = ["Goal", "Progress", "Details", "Questions", "Comments"]
+final_section = "Comments"
+`)
+	path := putCard(t, project, "BUG-01", "work", "designing", cardOptions{})
+	text := strings.Replace(readText(t, path), "## Comments", "## Details\n\nDetail.\n\n## Comments", 1)
+	testutil.Write(t, path, text)
+	claimCard(t, project, "BUG-01", "tester:me")
+	code, _, errOut := runMove(t, project, "BUG-01", "designing", func(o *Options) { o.Progress = str("update") })
+	if code != 0 {
+		t.Fatalf("move: %d %s", code, errOut)
+	}
+	text = readText(t, path)
+	if strings.Index(text, "## Progress") > strings.Index(text, "## Details") {
+		t.Fatalf("wrong section order:\n%s", text)
+	}
+}
+
 func TestHeldCanBeSetByAMove(t *testing.T) {
 	project := testProject(t, defaultConfig)
 	path := putCard(t, project, "W-01", "the work", "designing", cardOptions{})

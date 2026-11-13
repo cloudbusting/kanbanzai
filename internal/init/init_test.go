@@ -582,6 +582,38 @@ func TestWithTemplateNeedsAConfigThatNamesOne(t *testing.T) {
 	}
 }
 
+func TestInitRejectsMissingTypeTemplate(t *testing.T) {
+	root := repo(t, "main")
+	configText := `config_version = 1
+[project]
+default_type = "bug"
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "missing-bug.md"
+`
+	testutil.Write(t, filepath.Join(root, ConfigRel), configText)
+	code, out, errOut := initRun(root, Options{DryRun: true})
+	if code != 2 || !strings.Contains(errOut, "missing-bug.md") {
+		t.Fatalf("missing template: %d %s %s", code, out, errOut)
+	}
+}
+
+func TestKeptTypeTemplateIsCheckedForStaleness(t *testing.T) {
+	root := repo(t, "main")
+	path := filepath.Join(root, "bug.md")
+	testutil.Write(t, path, "original")
+	plan := &Plan{Root: root, Actions: []Action{{Op: OpKeep, What: WhatTemplate, Path: "bug.md", ExpectSHA256: digest("original")}}}
+	if err := Preflight(plan); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, path, "changed")
+	if err := Preflight(plan); err == nil || !strings.Contains(err.Error(), "changed") {
+		t.Fatalf("stale preflight = %v", err)
+	}
+}
+
 func TestAnExistingConfigIsNeverChangedWithoutForce(t *testing.T) {
 	root := repo(t, "main")
 	mine := "config_version = 1\n# mine\n[project]\nowner = \"Me\"\n"
