@@ -1,6 +1,6 @@
 # BUG-44: Allow board-only main checkout changes during batch audit
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Next action:** Release combined BUG-44 and BUG-52 after version and publication approval.
 - **Where:** worktree BUG-44

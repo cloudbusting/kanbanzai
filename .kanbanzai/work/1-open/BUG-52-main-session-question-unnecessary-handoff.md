@@ -1,6 +1,6 @@
 # BUG-52: Avoid unnecessary question handoff in the main session
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **Next action:** Release combined BUG-44 and BUG-52 after version and publication approval.
