@@ -108,8 +108,11 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
     assert.match(prompts[0].text, /do the thing/);
 
     for (const [name, patterns] of [
-      ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/]],
-      ["next", [/batch handoff/, /kanbanzai ask <ID>/, /releases that card's claim/, /`\/answer`/]],
+      ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/,
+        /after `kanbanzai tree --merge <ID>`/]],
+      ["next", [/batch handoff/, /kanbanzai ask <ID>/, /releases that card's claim/, /`\/answer`/, /`kanbanzai tree --json`/]],
+      ["audit", [/`kanbanzai tree --json`/, /`board-only`/]],
+      ["check", [/### The integration merge/, /`kanbanzai tree --merge <ID>`/, /Exit 1 \(`blocked`\)/, /Never stash, stage, commit, reset, discard/]],
     ]) {
       const entry = commands.find((item) => item.name === name);
       await entry.execute({ sessionID: "ses_test1", prompt: { text: "" }, delivery: "steer" });
