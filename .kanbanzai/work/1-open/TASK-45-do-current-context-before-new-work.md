@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none identified
-- **Next action:** Once main is clean, merge release/TASK-45, push main, and wait for green CI before tagging 0.12.0
+- **Next action:** Check CI run 43337447070 for commit 5833390906c3670d2661ae13ae13a5527bbfdc4d; only if every job passes, resume the 0.12.0 tag and publication procedure
 - **Where:** worktree TASK-45
 
 ## Goal
@@ -33,6 +33,8 @@ The shipped `/do` skill; other documentation if needed for consistency.
 - 2026-11-13: Merged TASK-45 into clean main after the blocker cleared; starting package QA.
 - 2026-11-13: Package rehearsal 0.11.0 from fd513bf passed artifact checks, command and isolated Claude install proofs; editor check remains manual.
 - 2026-11-13: Owner requested release, publish and install and chose 0.12.0; gate passed. Release metadata prepared in commit a861b1e on release/TASK-45; Claude validation and release version check passed. Waiting for clean main before merge and push.
+- 2026-11-13: Release commit 5833390 merged and pushed to main. CI run 43337447070: Linux, macOS, adapters and plugin passed; Windows still running after over six minutes. No tags, publication or installation yet.
+- 2026-11-13: CI run 43337447070 passed all jobs, including Windows; resuming release of commit 5833390.
 
 ## Package QA
 
