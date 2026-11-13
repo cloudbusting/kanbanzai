@@ -82,3 +82,51 @@ func TestParseRejectsDuplicateQuestionNumbers(t *testing.T) {
 		t.Fatal("accepted duplicate question numbers")
 	}
 }
+
+func TestCloseReplacesWrappedEmptyAnswer(t *testing.T) {
+	text := "## Questions\n### Q1 — 2026-11-13\n- **Asked by:** a\n- **Question:** Hi\n- **Then:** go\n- **Answer:**\n- **Answered:**\n\n## Comments\n"
+	closed, err := Close(text, "yes", "today")
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := Parse(closed)
+	if err != nil || len(entries) != 1 || entries[0].Answer != "yes" || entries[0].Answered != "today" {
+		t.Fatalf("Parse = %#v, %v; text: %s", entries, err, closed)
+	}
+}
+
+func TestParseRejectsNumericallyDuplicateNumbers(t *testing.T) {
+	entry := func(n string) string {
+		return "### Q" + n + " — 2026-11-13\n- **Asked by:** a\n- **Question:** Hi\n- **Then:** go\n- **Answer:** yes\n- **Answered:** today\n"
+	}
+	if _, err := Parse("## Questions\n" + entry("1") + entry("01") + "\n## Comments\n"); err == nil {
+		t.Fatal("accepted numerically duplicate question numbers")
+	}
+}
+
+func TestParseRejectsAmbiguousRecords(t *testing.T) {
+	entry := "### Q1 — 2026-11-13\n- **Asked by:** a\n- **Question:** Hi\n- **Then:** go\n- **Answer:** yes\n- **Answered:** today\n"
+	for name, body := range map[string]string{
+		"duplicate field":     strings.Replace(entry, "- **Question:** Hi\n", "- **Question:** Hi\n- **Question:** Again\n", 1),
+		"missing question":    strings.Replace(entry, "- **Question:** Hi\n", "", 1),
+		"missing answered":    strings.Replace(entry, "- **Answered:** today\n", "", 1),
+		"inconsistent answer": strings.Replace(entry, "- **Answered:** today", "- **Answered:** —", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Parse("## Questions\n" + body + "\n## Comments\n"); err == nil {
+				t.Fatal("accepted malformed question")
+			}
+		})
+	}
+}
+
+func TestAppendRejectsOpenQuestionWithoutChangingText(t *testing.T) {
+	original, err := Append("## Comments\n", Entry{AskedBy: "a", Text: "Hi", Then: "go"}, "2026-11-13")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Append(original, Entry{AskedBy: "a", Text: "Next", Then: "go"}, "2026-11-13")
+	if err == nil || result != original {
+		t.Fatalf("Append = %q, %v", result, err)
+	}
+}
