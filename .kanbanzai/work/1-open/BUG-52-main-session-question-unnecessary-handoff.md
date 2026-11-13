@@ -1,11 +1,10 @@
 # BUG-52: Avoid unnecessary question handoff in the main session
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **Done:** —
-- **Next action:** Once main is clean, merge BUG-52 into main and run kanbanzai-package.
+- **Next action:** Merge checked change into main and package.
 - **Where:** worktree BUG-52
-- **Held:** blocked: packaging requires merging into a clean main checkout; unrelated board changes are present
 
 ## Goal
 
