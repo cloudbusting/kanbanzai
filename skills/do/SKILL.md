@@ -20,11 +20,13 @@ because a session has context: a related request or resumed card belongs in this
 ## Pick up or resume
 
 Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai claim status <ID>`,
-`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For an interrupted resume with no live claim in
-worktree or branch isolation, when the brief records that card's worktree or branch, run
+`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For a resume with no live claim (an interrupted Doing
+step, or a card stopped between steps with its work preserved in a column that needs a workspace) in worktree or
+branch isolation, when the brief records that card's worktree or branch, run
 `kanbanzai wip --audit --card <ID> --recovery`; otherwise run `kanbanzai wip --audit --card <ID>`. A design
 interrupted before a workspace was recorded uses the ordinary audit. Recovery is a
-pre-claim diagnostic, not a claim, and does not change the whole-board audit. Stop on a hard audit finding, another
+pre-claim diagnostic, not a claim, and does not change the whole-board audit. A held card is never eligible: clear
+the hold first, and only when its blocker has actually gone. Stop on a hard audit finding, another
 session's live claim, a held or parked card, or a closed gate. Only the owner can unpark a card;
 clear a hold only when its blocker has actually gone. Report what must happen next.
 If the hold points to an open question in `## Questions`, direct the owner to `/answer <ID>`; do not claim or
@@ -112,7 +114,10 @@ the workspace clean, merged and safe to remove.
 At every stop make the brief true: current Next action, progress, hold if blocked or waiting, and a handover Comment
 only if needed. Commit only this session's files by path when project rules and authorization permit; never stage
 another session's work. Renew then release the claim when stopping, including at a turn limit, after preserving the
-work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. If unfinished
+work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. A stop on an
+audit finding must not leave a second blocker: record that finding as the Held line and the Next action, preserve the
+work, and release the claim; once the blocker has gone and the hold is cleared, the next `/do` resumes it through the
+recovery audit, whose warning about that card's own unclaimed work is not a new stop. If unfinished
 work cannot safely be committed or a workspace removed, preserve it and say so. Do not delete another session's work.
 
 Every stop ends with the same block, last, in plain language. The stage word is the card's actual column
