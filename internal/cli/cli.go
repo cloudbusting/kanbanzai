@@ -33,6 +33,7 @@ const usage = `usage: kanbanzai <command> [options]
 commands:
   board [--json]                 the board
   wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
+  tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   ask ID --text T [--option O] [--recommend R] [--note T]  record a question and release the claim
@@ -209,6 +210,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		}
 		return wip.Run(project, wip.Options{Audit: set["audit"], Recovery: set["recovery"], Cleanup: set["cleanup"], Next: set["next"],
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
+	case "tree":
+		return runTree(project, args, out, errOut)
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
 	case "template":

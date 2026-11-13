@@ -456,6 +456,7 @@ blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed
 ```
 kanbanzai board [--json]                 the board
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
+kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
@@ -541,6 +542,21 @@ the audit reports one that is clean and has no commits missing from the main bra
 and `wip --cleanup` lists it (never an open card's, nor an early-closed card's) for `/cleanup`, which removes it after
 proving it clean, merged and Done. A finished card's worktree that is dirty, holds unmerged commits or belongs to an
 early close stays a hard finding.
+
+**The main checkout while others work.** Sessions keep editing card briefs in the main checkout, and that must not stop
+a merge, a package or a release. `kanbanzai tree` reads `git status` there and sorts every changed path: **board** (a
+card brief or batch record in a configured folder, a regular file whose first heading is the card's own), **other**
+(anything else) or **uncertain** (a symlink, an unmerged entry, a file that is shaped like a brief but is not one, a
+git failure). The verdict is `clean`, `board-only` or `blocked`; it is also `blocked` while a merge, rebase,
+cherry-pick, revert or bisect is under way, or when the checkout is off the integration branch. Exit 0 means go ahead,
+1 means stop, 2 is a usage error. `--merge ID` also checks the card's branch: it lists the files the merge brings
+that are changed or untracked in the checkout (`overlap`), stops on staged changes, and prints the plan
+(`fast-forward`, `merge`, `up-to-date`, `not-applicable` in shared or external isolation) and the `git merge` to run.
+Git still refuses a merge that would overwrite a changed file; it leaves unstaged and untracked board edits alone.
+`--json` prints `{verdict, branch, head, board[], other[], uncertain[], staged[], in_progress, reasons[], merge?}`
+with `merge` = `{card, branch, plan, overlap[], command}`; every list is present, never null. The command writes
+nothing: it never stages, commits, stashes, resets or edits another session's files, and `wip --audit` and its exit
+status are unchanged.
 
 ## Development
 
