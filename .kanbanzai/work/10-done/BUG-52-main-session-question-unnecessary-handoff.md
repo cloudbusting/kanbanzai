@@ -1,10 +1,10 @@
 # BUG-52: Avoid unnecessary question handoff in the main session
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-13
-- **Done:** —
-- **Next action:** Release combined BUG-44 and BUG-52 after version and publication approval.
-- **Where:** worktree BUG-52
+- **Done:** 2026-11-13 — v0.14.1, 7e362fa7da070ac9f14a221d8f66f885abe535b1, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.14.1
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -32,5 +32,6 @@ Changing harness question tools, bypassing owner approvals or altering W-11's sc
 - 2026-11-13: QA passed: Go tests and vet, 241 board and 8 OpenCode tests, syntax checks, plugin validation, board check and audit; full diff reviewed; commit 2af042a.
 - 2026-11-13: Packaging prerequisite blocked: main checkout contains other sessions' board changes; no merge attempted.
 - 2026-11-13: Combined 0.14.0 rehearsal at fa849f5; artifacts and SHA256SUMS in /tmp/kanbanzai-package-BUG-44-BUG-52-0.14.0-AiHkam; Go, vet, 249 Node tests, plugin validation, fresh-project and plugin install proofs passed; editor visual check remains manual.
+- 2026-11-13: Published and verified release, checksums, marketplace plugin and VSIX install; clean-profile editor board check remains manual.
 
 ## Comments
