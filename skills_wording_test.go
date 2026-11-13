@@ -644,3 +644,42 @@ func TestFinishedCardWorkspacesAreClearedAfterProofsNotAskedAgain(t *testing.T) 
 		}
 	}
 }
+
+// This guards the shipped instruction, not the agent's execution of it. The one
+// shared skills/do/SKILL.md serves Claude Code and OpenCode (the OpenCode plugin
+// registers ../skills/*/SKILL.md), so one test covers both harnesses.
+func TestTheDoSkillContinuesThroughTheRouteAndOnlyTheStepSkillsStopAtAStep(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(parts ...string) string {
+		data, err := os.ReadFile(filepath.Join(append([]string{root}, parts...)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	do := read("skills", "do", "SKILL.md")
+	for _, want := range []string{
+		"`/do` is an instruction to get the card done",
+		"does not stop when a step completes",
+		"After each successful step, re-read `kanbanzai step --for <ID>` and run the next actionable step in the same turn",
+		"Only the individual step commands (`/design`, `/build`, `/check`) stop at the end of their own step",
+		"Stop only for",
+		"a decision or approval that waits on the owner",
+		"a red check or failure",
+		"a closed gate",
+		"never to bypass them",
+	} {
+		if !strings.Contains(do, want) {
+			t.Errorf("skills/do lacks %q", want)
+		}
+	}
+	for _, name := range []string{"design", "build", "check"} {
+		step := read("skills", name, "SKILL.md")
+		if !strings.Contains(step, "step-scoped") {
+			t.Errorf("skills/%s does not say it stops at the end of its own step", name)
+		}
+	}
+}
