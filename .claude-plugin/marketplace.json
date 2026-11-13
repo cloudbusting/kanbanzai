@@ -1,6 +1,6 @@
 {
   "name": "kanbanzai",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "owner": {
     "name": "cloudbusting",
     "url": "https://github.com/cloudbusting"
@@ -11,7 +11,7 @@
       "name": "kanbanzai",
       "source": "./",
       "description": "A kanban of work-item cards built for coding agents.",
-      "version": "0.12.0",
+      "version": "0.12.1",
       "author": {
         "name": "cloudbusting",
         "url": "https://github.com/cloudbusting"

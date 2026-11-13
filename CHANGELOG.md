@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-11-13
+
 - BUG-49: a scoped pre-claim recovery audit allows interrupted work to be reclaimed without weakening the normal
   audit; `/do` runs the ordinary audit again after claiming and never rebases or discards work during recovery.
 
