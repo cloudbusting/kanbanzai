@@ -189,8 +189,10 @@ func TestBranchModeUnclaimedExpiredAndMergedBranches(t *testing.T) {
 	putCard(t, project, cardSpec{ID: "W-07", Title: "The fork", Stage: "built", Where: "branch W-07"})
 	putCard(t, project, cardSpec{ID: "W-08", Title: "The spoon", Stage: "built", Where: "branch W-08"})
 	putCard(t, project, cardSpec{ID: "W-09", Title: "The knife", Stage: "built", Where: "branch W-09"})
+	putCard(t, project, cardSpec{ID: "W-10", Title: "The ladle", Stage: "done", Folder: "10-done", Where: "main",
+		Done: "2026-11-13 — v1.0.0, abc1234"})
 	commitAll(t, project)
-	for _, card := range []string{"W-07", "W-08", "W-09"} {
+	for _, card := range []string{"W-07", "W-08", "W-09", "W-10"} {
 		testutil.Git(t, project.Root, "branch", card)
 	}
 	commitOn(t, project, "W-07", "a.txt")
@@ -201,7 +203,10 @@ func TestBranchModeUnclaimedExpiredAndMergedBranches(t *testing.T) {
 	requireHas(t, "unclaimed", hard, "branch W-07 holds unclaimed work for W-07")
 	requireHas(t, "expired", soft, "branch W-08 holds W-08 past its claim")
 	requireHas(t, "unpushed", soft, "branch W-07: 1 commit(s) not on main")
-	requireHas(t, "merged", cleanup, "branch W-09 (clean and merged)")
+	requireHas(t, "merged", cleanup, "branch W-10 (clean and merged)")
+	if has(cleanup, "W-09") {
+		t.Fatalf("an open card's merged branch was offered for cleanup: %v", cleanup)
+	}
 	if has(hard, "W-08: ") && has(hard, "unclaimed work for W-08") {
 		t.Fatalf("an expired claim is hard: %v", hard)
 	}

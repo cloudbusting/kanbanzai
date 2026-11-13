@@ -240,14 +240,75 @@ func TestABatchWorkspaceUnderAnExplicitSiblingPattern(t *testing.T) {
 	}
 }
 
-func TestReconcileFlagsWhereDriftAndCleanup(t *testing.T) {
+func TestReconcileFlagsWhereDriftOfAnOpenCardAndNeverOffersItForCleanup(t *testing.T) {
 	project := testProject(t, defaultConfig)
 	cards := CardsByColumn{"built": {{Item: "W-07", Work: "The fork", Where: "—", Owner: "—",
 		Updated: "2026-11-08"}}}
 	hard, _, cleanup := Reconcile(project, cards, []Worktree{tree("/x/proj-W-07", "W-07", 0, 0, "W-07")},
 		nil, "", nil)
-	if !has(hard, "Where says") || len(cleanup) != 1 {
+	if !has(hard, "Where says") || len(cleanup) != 0 {
 		t.Fatalf("hard = %v cleanup = %v", hard, cleanup)
+	}
+}
+
+// BUG-55: closing a card writes Where: main, so a closed card's worktree always disagreed with the board and stopped
+// every later batch, although the same worktree was on the cleanup list as safe to remove.
+func TestAClosedCardsCleanMergedWorktreeIsSoftAndListedForCleanup(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, cardSpec{ID: "W-07", Title: "work", Stage: "done", Folder: "10-done", Where: "main",
+		Done: "2026-11-13 — v1.0.0, abc1234"})
+	hard, soft, cleanup := Reconcile(project, Cards(project, nil),
+		[]Worktree{tree("/x/proj-W-07", "W-07", 0, 0, "release/W-07")}, nil, "", nil)
+	requireNone(t, "hard", hard)
+	if !has(soft, "W-07, which is closed") || !has(soft, "/cleanup") {
+		t.Fatalf("soft = %v", soft)
+	}
+	if len(cleanup) != 1 || !has(cleanup, "branch release/W-07") {
+		t.Fatalf("cleanup = %v", cleanup)
+	}
+}
+
+func TestAClosedCardsUnfinishedWorktreeStaysHard(t *testing.T) {
+	cases := map[string]struct {
+		done  string
+		where string
+		tree  Worktree
+	}{
+		"dirty":     {"2026-11-13 — v1.0.0, abc1234", "main", tree("/x/proj-W-07", "W-07", 1, 0, "W-07")},
+		"unmerged":  {"2026-11-13 — v1.0.0, abc1234", "main", tree("/x/proj-W-07", "W-07", 0, 2, "W-07")},
+		"cancelled": {"2026-11-13 — closed, no change: not needed", "main", tree("/x/proj-W-07", "W-07", 0, 0, "W-07")},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			project := testProject(t, defaultConfig)
+			putCard(t, project, cardSpec{ID: "W-07", Title: "work", Stage: "done", Folder: "10-done", Where: c.where,
+				Done: c.done})
+			hard, _, cleanup := Reconcile(project, Cards(project, nil), []Worktree{c.tree}, nil, "", nil)
+			if !has(hard, "board's Where says 'main'") {
+				t.Fatalf("hard = %v", hard)
+			}
+			if len(cleanup) != 0 {
+				t.Fatalf("cleanup = %v", cleanup)
+			}
+		})
+	}
+}
+
+func TestAClosedWorktreeAuditPassesOnARealRepository(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, cardSpec{ID: "W-07", Title: "The fork", Stage: "done", Folder: "10-done", Where: "main",
+		Done: "2026-11-13 — v1.0.0, abc1234"})
+	commitAll(t, project)
+	other := filepath.Join(t.TempDir(), "proj-W-07")
+	testutil.Git(t, project.Root, "worktree", "add", "-q", "-b", "release/W-07", other)
+	code, out, _ := runWip(t, project, Options{Audit: true})
+	if code != 0 || !strings.Contains(out, "Audit: pass") || !strings.Contains(out, "W-07, which is closed") {
+		t.Fatalf("audit = %d\n%s", code, out)
+	}
+	testutil.Write(t, filepath.Join(other, "scratch.txt"), "work\n")
+	code, out, _ = runWip(t, project, Options{Audit: true})
+	if code != 1 || !strings.Contains(out, "board's Where says 'main'") {
+		t.Fatalf("dirty audit = %d\n%s", code, out)
 	}
 }
 
@@ -563,13 +624,19 @@ func TestWipNextAndAuditAndCleanup(t *testing.T) {
 
 func TestCleanupListsAMergedWorktree(t *testing.T) {
 	project := testProject(t, defaultConfig)
-	putCard(t, project, cardSpec{ID: "W-07", Title: "The fork", Stage: "designed", Where: "worktree W-07"})
+	putCard(t, project, cardSpec{ID: "W-07", Title: "The fork", Stage: "done", Folder: "10-done", Where: "main",
+		Done: "2026-11-13 — v1.0.0, abc1234"})
+	putCard(t, project, cardSpec{ID: "W-08", Title: "The spoon", Stage: "qa-approved", Where: "worktree W-08"})
 	commitAll(t, project)
-	other := filepath.Join(t.TempDir(), "proj-W-07")
-	testutil.Git(t, project.Root, "worktree", "add", "-q", "-b", "W-07", other)
+	for _, card := range []string{"W-07", "W-08"} {
+		testutil.Git(t, project.Root, "worktree", "add", "-q", "-b", card, filepath.Join(t.TempDir(), "proj-"+card))
+	}
 	code, out, _ := runWip(t, project, Options{Cleanup: true})
-	if code != 0 || !strings.Contains(out, "clean and merged") {
+	if code != 0 || !strings.Contains(out, "branch W-07, clean and merged") {
 		t.Fatalf("cleanup = %d\n%s", code, out)
+	}
+	if strings.Contains(out, "branch W-08, clean and merged") {
+		t.Fatalf("an open card's worktree was offered for cleanup:\n%s", out)
 	}
 }
 

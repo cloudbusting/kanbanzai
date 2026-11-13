@@ -609,3 +609,38 @@ func TestTheTriageSkillSelectsTheTemplateByIDPrefixWithTheCommand(t *testing.T) 
 		t.Fatalf("the OpenCode adapter does not load the shipped skills folder: %v", err)
 	}
 }
+
+// BUG-55: closing a card records Where: main, so a finished card's clean, merged worktree is a warning that /cleanup
+// clears, not a hard finding that stops a batch; the removal is proved first and never forced.
+func TestFinishedCardWorkspacesAreClearedAfterProofsNotAskedAgain(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(parts ...string) string {
+		data, err := os.ReadFile(filepath.Join(append([]string{root}, parts...)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	for path, wants := range map[string][]string{
+		"skills/cleanup/SKILL.md": {"without asking the owner again", "git -C <path> status --porcelain",
+			"the exact branch the worktree is on", "`release/<ID>`", "`git branch -d`, never `-D`",
+			"An open card's workspace is never listed", "An early-closed card"},
+		"skills/audit/SKILL.md": {"is a warning, not a hard finding", "`/cleanup` removes it",
+			"belongs to an early close stays hard"},
+		"skills/next/SKILL.md": {"only a warning", "Stop on all other hard findings"},
+		"skills/do/SKILL.md":   {"removes a workspace that passes those proofs without asking again"},
+		".claude/skills/kanbanzai-release/SKILL.md": {"`release/<ID>`", "never `-D` or `--force`",
+			"not an early close", "A failed proof stops at that worktree"},
+		"docs/isolation.md": {"only warns and lists it for `/cleanup`"},
+	} {
+		text := read(strings.Split(path, "/")...)
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s lacks %q", path, want)
+			}
+		}
+	}
+}

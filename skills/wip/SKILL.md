@@ -29,7 +29,7 @@ with its branch, commit, dirty files and the card it belongs to. Then it flags t
 
 `kanbanzai wip --audit` makes it a gate: it exits 1 on a hard finding, so `/next` does not spawn and a batch does not
 ship until the board is true. `/audit` runs that and reads the briefs. `--cleanup` lists the worktrees and branches
-that are safe to remove; `/cleanup` proves it again and removes them. `--next` lists the cards a session can pull,
+of finished cards that are safe to remove (never an open card's); `/cleanup` proves it again and removes them. `--next` lists the cards a session can pull,
 furthest along first with interrupted cards before them (the batch skips those: `/do` resumes them). `--title <ID>` prints the session title for a card.
 
 ## Report

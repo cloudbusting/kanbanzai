@@ -536,6 +536,12 @@ the ordinary card audit and the recovery audit again before resuming; the second
 competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
 Normal and whole-board audit behavior is unchanged.
 
+Closing a card records `Where: main`, so a finished card's worktree is expected to outlive it. In worktree isolation
+the audit reports one that is clean and has no commits missing from the main branch as a warning, not a hard finding,
+and `wip --cleanup` lists it (never an open card's, nor an early-closed card's) for `/cleanup`, which removes it after
+proving it clean, merged and Done. A finished card's worktree that is dirty, holds unmerged commits or belongs to an
+early close stays a hard finding.
+
 ## Development
 
 ```bash
