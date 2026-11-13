@@ -5,6 +5,13 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-55: a finished card's worktree that is clean and has no commits missing from the main branch is now an audit
+  warning, not a hard finding, so it no longer stops `/next` or a batch because closing a card records `Where: main`;
+  a dirty, unmerged or early-closed card's worktree stays hard. `wip --cleanup` lists only finished (not early-closed)
+  cards' worktrees and branches, never an open card's. `/cleanup` removes a finished card's workspace that proves
+  clean, merged and Done without a further question, and removes the branch the worktree is actually on (a release
+  branch included).
+
 - W-11: a type can name its own brief template (`template`) and opt into a brief schema (`schema = "bug"` with a
   `[schemas.bug]` table of required and optional fields and sections, their order, repeatable sections and a final
   Comments). `kanbanzai check` validates a schema's cards and templates with the brief and field or section named;

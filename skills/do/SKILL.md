@@ -107,7 +107,8 @@ branch; pushing requires the owner's approval unless an approved delivery step a
 and close instructions from `kanbanzai step --for <ID>` and `kanbanzai workflow show`, supplying `--done` with date,
 commit and delivery outcome where required. If the move command cannot perform the reported route, stop and report
 the limitation; do not claim it succeeded or force around it. Release the claim and use `/cleanup` only after proving
-the workspace clean, merged and safe to remove.
+the workspace clean, merged and safe to remove; once the card is Done and not an early close, `/cleanup` removes a
+workspace that passes those proofs without asking again, and keeps and reports any that does not.
 
 At every stop make the brief true: current Next action, progress, hold if blocked or waiting, and a handover Comment
 only if needed. Commit only this session's files by path when project rules and authorization permit; never stage

@@ -314,8 +314,14 @@ codium --list-extensions --show-versions | grep kanbanzai
   command, the source bundle and a `SHA256SUMS` over all seven (`sha256sum -c` passes on a fresh download).
 - The card moves to Done:
   `kanbanzai move <ID> done --done "YYYY-MM-DD — v<version>, <sha>, <release URL>"`.
-- Release the claim, merge the card's branch, remove the worktree and branch, and report to the owner: what was
-  published, where, the checksums, whether step 8 installed the `.vsix` (and which version `--list-extensions`
+- Release the claim and merge the card's branch. Then remove the card's workspace: its worktree and every branch it
+  used, including the `release/<ID>` branch of the release prep. The owner's approval of this release is the approval
+  for it, but prove it first, for each worktree: the card is Done and not an early close, `git -C <path> status
+  --porcelain` is empty, and `git branch --merged <integration-branch>` lists the exact branch it is on. Remove the
+  worktree (`git worktree remove <path>`) and each merged branch with `git branch -d`, never `-D` or `--force`. A
+  failed proof stops at that worktree: keep it and say why in the report; `kanbanzai wip --audit` shows it as a
+  warning or a hard finding. Never remove the main checkout or a path outside the worktrees folder. Report to the
+  owner: what was published, where, the checksums, whether step 8 installed the `.vsix` (and which version `--list-extensions`
   read back), and what they must still try by hand (the clean-profile look at a fixture board). If the install did
   not happen, say so and why, with the lines to run. When the `.vsix` was installed, do not tell the owner to
   install it; end the report by asking them to run **Developer: Reload Window**.

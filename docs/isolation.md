@@ -28,7 +28,10 @@ in, and the commands that remove it. The skills run it instead of carrying git c
 
 Each card gets `../<repo>-<ID>` (the `[project] worktree` pattern) on its own branch; the main checkout holds only the
 board. `wip --audit` fails on a card working in `main`, a claimed card with no worktree, a worktree with no card or
-holding unclaimed work, and a dirty or off-branch main checkout.
+holding unclaimed work, and a dirty or off-branch main checkout. A finished card's worktree is expected to outlive
+its card (closing records `Where: main`): when it is clean and has no commits missing from the main branch the audit
+only warns and lists it for `/cleanup`, which removes it; when it is dirty, holds unmerged commits or belongs to an
+early close, it stays a hard finding. An open card's workspace is never offered for cleanup.
 
 ### branch
 
@@ -38,7 +41,7 @@ the board a session sees is the checked-out branch's, so another branch's view o
 fails when the checkout is not on the claimed card's branch, when two cards hold live claims (one HEAD cannot hold both),
 when the checkout has uncommitted files on the main branch while a card is claimed, when `Where` says `main` or names a
 branch that does not exist, and when a card branch has commits and no claim. It warns about commits not pushed and an
-expired claim, and lists merged, clean card branches for `/cleanup`.
+expired claim, and lists the merged, clean branches of finished cards for `/cleanup`.
 
 ### shared
 
@@ -68,7 +71,7 @@ archive.
 
 Set the key. Nothing is rewritten for you: open cards whose `Where` is another mode's word are hard audit findings that
 name the card; fix each (`kanbanzai workspace <ID>` prints the right record) or finish it first. Remove old worktrees
-with `/cleanup` once their cards are merged.
+with `/cleanup` once their cards are finished.
 
 ## What the modes do not do
 

@@ -16,8 +16,11 @@ kanbanzai wip --cleanup
 kanbanzai claim status
 ```
 
-The **Cleanup** list is worktrees (or, under `isolation = "branch"`, card branches) that are clean and have no commits
-the main branch doesn't already have. The **Keep** list is work that still lives only there. Under `shared` and
+The **Cleanup** list is the worktrees (or, under `isolation = "branch"`, card branches) of **finished cards** (in a
+Done column, not early-closed) that are clean and have no commits the main branch doesn't already have. An open
+card's workspace is never listed. The **Keep** list is work that still lives only there. The whole-board audit reports
+a finished card's clean, merged worktree as a warning, not a hard finding, so it never stops a batch; this skill is
+what clears it. Under `shared` and
 `external` there is nothing to list: the audit does not own those workspaces, so skip to the batches and claims.
 Read `kanbanzai context` and `kanbanzai workflow show`; for each card consult `kanbanzai step --for <ID>` and
 `kanbanzai workspace <ID>` for its actual close and workspace requirements. Get the integration branch from
@@ -25,17 +28,24 @@ Read `kanbanzai context` and `kanbanzai workflow show`; for each card consult `k
 
 ## 2. Remove, one at a time
 
-For each cleanup candidate, prove it, then remove it with the steps the project's mode prints:
+A finished card's workspace that passes all three proofs is removed without asking the owner again: the owner's
+approval of the card's delivery covers it, and git refuses the removals that would lose work. For each candidate on
+the Cleanup list, prove it, then remove it:
 
 ```bash
+kanbanzai step --for <ID>                         # the card is in a Done column, not an early close (no "closed, no change" Done line)
 git -C <path> status --porcelain                  # must be empty (for a branch: the checkout must not be on it)
-git branch --merged <integration-branch>          # verify the exact branch is listed (or it is detached)
+git branch --merged <integration-branch>          # the exact branch the worktree is on (from the Cleanup list) must be listed, or it is detached
 kanbanzai workspace <ID>                          # its "remove" steps: the commands that take the workspace away
 ```
 
-Run the `remove` steps it prints, in order; they never force (`git branch -d`, never `-D`).
-`git branch -d` refuses an unmerged branch; that refusal is the rule working, so stop
-and report it. A detached worktree has no branch to delete. Never remove the main checkout.
+Run the `remove` steps it prints, in order, on the exact path the Cleanup list names; they never force. Then remove the
+branch the worktree was actually on, if it is not the card's own branch (a release worktree sits on `release/<ID>`; the
+printed steps name only `<ID>`), and the card's branch if it still exists and is merged: `git branch -d`, never `-D`.
+`git branch -d` and the worktree removal refuse an unmerged branch or a dirty tree; that refusal is the rule working,
+so stop and report it. A detached worktree has no branch to delete. Never remove the main checkout, a path outside
+the configured worktrees folder, or a workspace that fails any proof; keep it and ask the owner through the question
+tool only if removal is still wanted.
 
 ## 3. Keep, and say why
 
@@ -43,6 +53,7 @@ and report it. A detached worktree has no branch to delete. Never remove the mai
 - **Ahead** — commits the main branch doesn't have: never remove or delete the branch. Say how many and ask whether
   to merge, push or drop.
 - **A card still open** — its workspace stays until the card is done or dropped, even if the branch looks merged.
+- **An early-closed card** — `close` records a cancellation, not delivery: its workspace is kept, and the owner decides.
 
 ## 4. Batches
 
@@ -50,8 +61,7 @@ and report it. A detached worktree has no branch to delete. Never remove the mai
 - A batch marked **running** with no live agent is a dead session: say so, and ask the owner before closing it; a
   worktree it holds is kept or removed by the rules above.
 - When a batch closes, its cards follow their configured close route, not here; the briefs stay.
-- A closed card may retain a workspace — report it, then remove it once clean and
-  merged, as above.
+- A closed card may retain a workspace — remove it once it passes the proofs in step 2, as above.
 
 ## 5. Claims
 
