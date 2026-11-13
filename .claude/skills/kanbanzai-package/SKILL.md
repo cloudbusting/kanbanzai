@@ -24,7 +24,8 @@ From the main checkout, on its main branch:
 go run ./tools/packageset
 ```
 
-It is read-only and prints JSON: `head`, `branch`, `clean`, `include` (card ids) and `exclude` (each with `id`,
+It is read-only and prints JSON: `head`, `branch`, `clean`, `tree` (the core's `kanbanzai tree --json` verdict and
+paths), `include` (card ids) and `exclude` (each with `id`,
 `reason` and `in_head`). It includes a card only when the board and `kanbanzai step --for <ID> --json` say the card
 is Checked, its next step is `deploy-qa`, it is not held, blocked or claimed, its Deploy is not None, and its branch
 is merged into `HEAD`. It exits non-zero, including nothing, when the board cannot be read or the checkout is not on
@@ -56,10 +57,16 @@ that card truthful; never force it.
 - Each included card's checks are green and the main session has reviewed its diff.
 - The check step merged each card's branch into the main branch, because this project has a deploy step. Package
   from the main checkout, not from a card's worktree: the release tags the main branch and the artifact must match it.
-- **The clean-main requirement lives in this bullet only.** The main checkout is clean and on its main branch.
-  Note the commit: `git rev-parse HEAD`. The selector's `clean` field reports it and never decides it; read it when
-  the set is selected, because this session's own claims and moves then edit only the included cards' briefs. The
-  artifacts are archived from the commit, never the working tree.
+- **The main-checkout requirement lives in this bullet only.** The main checkout is on its main branch and need not
+  be clean: other sessions keep editing card briefs there, and board files are not an input to any artifact. Read the
+  selector's `tree.verdict` (it is `kanbanzai tree`'s, so there is one definition of "board-only"). Go ahead on
+  `clean` or `board-only`. On `blocked` (a change outside the board, a path that cannot be verified, a merge or
+  rebase under way, or the wrong branch) stop and report its `reasons`; never stash, stage, commit, reset or edit
+  another session's files to clear it. Read it when the set is selected and again just before the build. Note the
+  commit: `SHA=$(git rev-parse HEAD)`. Every artifact is built from an export of exactly that commit
+  (`git archive "$SHA"`, below), never from the working tree, so what the main checkout holds cannot reach one.
+  This session's own claims and moves edit only the included cards' briefs; commit them, if the project's rules
+  allow, by path (`git commit --only -- <those briefs>`), never `-A`, leaving every other session's change alone.
 - This package is the rehearsal and the proof of the procedure. If the release commit later differs because the
   version metadata changed, the release step rebuilds the final artifacts from its tag; the package step does not
   publish.
@@ -85,7 +92,7 @@ The Claude Code marketplace, the OpenCode plugin and the command all live in thi
 paths from the committed tree, never the working directory:
 
 ```bash
-git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" HEAD \
+git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" "$SHA" \
   .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
 ```
 
@@ -96,7 +103,16 @@ there, and no state or secret may be.
 
 ### 2. The binary archives
 
-Rehearse the release builder from the main checkout, and keep the raw binaries for the extension:
+The binaries are built from the commit too. Export it into a new, empty directory outside the repository and build
+there; the export has no `.git`, and `tools/release` and `tools/vsix` read nothing from it:
+
+```bash
+SRC="${TMPDIR:-/tmp}/kanbanzai-package-<lead ID>-<version>-src"
+mkdir -p "$SRC" && git archive "$SHA" | tar -x -C "$SRC"
+cd "$SRC"
+```
+
+Rehearse the release builder from `$SRC`, and keep the raw binaries for the extension:
 
 ```bash
 BINS="${TMPDIR:-/tmp}/kanbanzai-package-<lead ID>-<version>-bins"
@@ -111,7 +127,7 @@ run proves the procedure.
 ### 3. The editor extension
 
 The `.vsix` carries the `kanbanzai` command for the five platforms, so the editor works with nothing installed.
-Build it from the binaries of the step above, never without `-bin`:
+Build it from the binaries of the step above, still from `$SRC`, never without `-bin`:
 
 ```bash
 go run ./tools/vsix -bin "$BINS" -o "$OUT/kanbanzai-board-<extension-version>.vsix"
@@ -199,7 +215,8 @@ install and a look at the Board tab is the owner's check; name the screen and th
 - `tar -tzf`, `unzip -l` and the five binary archives contain no `.git`, `.kanbanzai/state`, `.env`, key, token or
   local absolute path.
 - No network call was added to build the artifacts. The commands above use only local tools.
-- The artifacts were built from the committed SHA, not from uncommitted work.
+- The artifacts were built from an export of the committed SHA, not from uncommitted work, and not from a working
+  tree that other sessions are editing.
 
 ## Record and finish
 
