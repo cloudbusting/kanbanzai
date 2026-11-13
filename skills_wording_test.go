@@ -705,6 +705,8 @@ func TestIntegrationUsesTheTreePreflight(t *testing.T) {
 		"`kanbanzai tree --merge <ID>`", "Exit 0 (`clean` or `board-only`)", "run the merge it prints",
 		"Exit 1 (`blocked`)", "staged changes", "`overlap`", "a merge or rebase already under way",
 		"Mixed and uncertain changes block even alongside board-only ones",
+		"An `overlap` on this card's own brief", "commit that brief by path (`git commit --only -- <brief>`)",
+		"An overlap on any other file is another session's",
 		"Never stash, stage, commit, reset, discard or edit another session's files", "never force the merge",
 		"not resolved silently", "`git merge --abort` restores the state before the merge and keeps other sessions' unstaged briefs",
 	} {

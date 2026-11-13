@@ -99,6 +99,9 @@ files the merge would bring against them.
 - Exit 1 (`blocked`): stop and report the reasons and paths: changes outside the board, a path that cannot be
   verified, staged changes, a file the merge would overwrite (`overlap`), a merge or rebase already under way, the
   wrong branch, or a missing card branch. Mixed and uncertain changes block even alongside board-only ones.
+- An `overlap` on this card's own brief (changed on its branch and also changed in the main checkout) is this
+  session's to settle: commit that brief by path (`git commit --only -- <brief>`), run the preflight again, and merge
+  only on exit 0. An overlap on any other file is another session's: stop and report it.
 - Never stash, stage, commit, reset, discard or edit another session's files to make it pass, and never force the
   merge. If git refuses (a session changed a file after the preflight), stop and report it: nothing was changed.
 - A merge that starts and hits a genuine conflict is not resolved silently: stop and report the conflicting paths
