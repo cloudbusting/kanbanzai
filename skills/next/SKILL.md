@@ -44,7 +44,7 @@ Give each agent a self-contained prompt: card and Comments handover, brief, owne
 extensions, acceptance checks, and exclusions. Agents do not edit the board, claim, commit, push, ship, ask the
 owner or add dependencies. Stop an overlapping agent immediately. Wait for results rather than polling.
 
-If an agent discovers a decision during its work, it stops and returns the question, options, recommendation and
+For a deferred batch handoff, if an agent discovers a decision during its work, it stops and returns the question, options, recommendation and
 the next action needed after an answer. It never writes the board or asks the owner itself. The main session uses
 `kanbanzai ask <ID> --text "<question>"` with repeated `--option` and `--recommend` as appropriate; the command
 records the question and releases that card's claim. Mark its batch-map row paused with the question and preserve its

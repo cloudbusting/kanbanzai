@@ -15,6 +15,24 @@ import (
 const exampleStart = "<!-- shipped-flow example: start -->"
 const exampleEnd = "<!-- shipped-flow example: end -->"
 
+func TestDirectAndDeferredQuestionInstructions(t *testing.T) {
+	for name, wants := range map[string][]string{
+		"do":   {"ask the owner directly through the question tool", "continue the configured route", "do not call `kanbanzai ask`", "do not release the claim", "do not require `/answer`", "record the decision", "open question in `## Questions`", "direct the owner to `/answer <ID>`"},
+		"next": {"batch handoff", "kanbanzai ask <ID>", "releases that card's claim", "`/answer`"},
+	} {
+		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("skills/%s lacks %q", name, want)
+			}
+		}
+	}
+}
+
 func TestAnswerSkillProvidesQuestionConversation(t *testing.T) {
 	data, err := os.ReadFile("skills/answer/SKILL.md")
 	if err != nil {
