@@ -71,3 +71,19 @@ func TestEarlyClosePreservesWorkspaceRecord(t *testing.T) {
 		t.Fatalf("workspace lost: %s", text)
 	}
 }
+
+func TestEarlyCloseApplyNormalizesReason(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, "W-01", "work", "todo", cardOptions{})
+	reason := "false positive:\n  reload needed"
+	if _, err := Apply(project, "W-01", "close", "tester:me", Changes{Reason: &reason}, nil); err != nil {
+		t.Fatal(err)
+	}
+	text := readText(t, filepath.Join(project.Work, "10-done", "W-01-x.md"))
+	if !strings.Contains(text, "closed, no change: false positive: reload needed") {
+		t.Fatalf("reason was not normalized in brief: %s", text)
+	}
+	if got := movesOf(t, project)[0]["reason"]; got != "false positive: reload needed" {
+		t.Fatalf("reason in log = %#v", got)
+	}
+}
