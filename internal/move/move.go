@@ -92,6 +92,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 	word := strings.ToLower(strings.TrimSpace(target))
 	earlyClose := word == "close"
 	if earlyClose {
+		changes.Reason = oneLine(changes.Reason)
 		if changes.Reason == nil || strings.TrimSpace(*changes.Reason) == "" {
 			return "", refused("early close needs --reason \"<why>\"")
 		}

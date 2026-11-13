@@ -29,11 +29,12 @@ import (
 
 // CardRow is one card as the wip report needs it.
 type CardRow struct {
-	Item    string
-	Work    string
-	Where   string
-	Owner   string
-	Updated string
+	Item      string
+	Work      string
+	Where     string
+	Owner     string
+	Updated   string
+	Cancelled bool
 }
 
 // CardsByColumn is {column key: cards in board order}.
@@ -85,8 +86,9 @@ func Cards(project *config.Project, held map[string]map[string]any) CardsByColum
 			if card.Owner != nil {
 				owner = *card.Owner
 			}
+			cancelled := card.Done != nil && strings.Contains(*card.Done, " — closed, no change: ")
 			rows = append(rows, CardRow{Item: card.ID, Work: card.Title, Where: WhereOf(card.Where),
-				Owner: owner, Updated: card.Updated})
+				Owner: owner, Updated: card.Updated, Cancelled: cancelled})
 		}
 		out[column.Key] = rows
 	}
@@ -462,6 +464,7 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		held = filteredHeld
 	}
 	where := map[string]string{}
+	cancelled := map[string]bool{}
 	owners := map[string]string{}
 	liveCards := map[string]bool{}
 	for card, record := range held {
@@ -473,6 +476,10 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		for _, row := range rows {
 			where[row.Item] = row.Where
 			owners[row.Item] = row.Owner
+			cancelled[row.Item] = row.Cancelled
+			if row.Cancelled {
+				soft = append(soft, fmt.Sprintf("%s: early close retained workspace record '%s'; inspect any remaining work before cleanup", row.Item, row.Where))
+			}
 		}
 	}
 	mapped := map[string][]string{}
@@ -538,7 +545,7 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		} else if card == "" {
 			hard = append(hard, fmt.Sprintf("%s: a worktree with no card (branch %s)", wt.Path, wt.Branch))
 		}
-		if wt.Dirty == 0 && wt.Ahead == 0 {
+		if wt.Dirty == 0 && wt.Ahead == 0 && !cancelled[card] {
 			cleanup = append(cleanup, fmt.Sprintf("%s (branch %s, clean and merged)", wt.Path, wt.Branch))
 		} else if wt.Ahead > 0 {
 			soft = append(soft, fmt.Sprintf("%s: %d commit(s) not on %s (push when %s asks)", wt.Path, wt.Ahead,
