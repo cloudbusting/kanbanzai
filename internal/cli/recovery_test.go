@@ -41,7 +41,8 @@ func TestRecoveryAuditAllowsClaimThenRequiresOrdinaryAudit(t *testing.T) {
 
 func TestRecoveryAuditRejectsIneligibleCardsAndArguments(t *testing.T) {
 	for _, tc := range []struct{ name, stage, where string }{
-		{"not interrupted", "built", "worktree W-01"},
+		{"done card", "done", "worktree W-01"},
+		{"unstarted card", "todo", "worktree W-01"},
 		{"wrong where", "building", "worktree W-02"},
 		{"missing where", "building", "—"},
 	} {
@@ -190,4 +191,82 @@ func TestRecoveryModeDoesNotPretendToInspectSharedOrExternalWork(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The BUG-52 shape: the card stopped in a finished-step column with its work committed and its claim released.
+func TestRecoveryAuditFinishedStepColumnWithPreservedWork(t *testing.T) {
+	for _, stage := range []string{"designed", "built", "checked"} {
+		t.Run(stage, func(t *testing.T) {
+			project := isolationProject(t, "")
+			putIsolationCard(t, project, "W-01", stage, "resume", "worktree W-01")
+			commitBoard(t, project)
+			workspace := filepath.Join(t.TempDir(), "W-01")
+			testutil.Git(t, project.Root, "worktree", "add", "-b", "W-01", workspace, "main")
+			testutil.Write(t, filepath.Join(workspace, "committed.txt"), "preserved work\n")
+			testutil.Git(t, workspace, "add", "committed.txt")
+			testutil.Git(t, workspace, "commit", "-m", "preserved when the step stopped")
+
+			code, out, _ := runCLI(t, "wip", "--audit", "--card", "W-01")
+			if code != 1 || !strings.Contains(out, "holds unclaimed work") {
+				t.Fatalf("ordinary audit = %d\n%s", code, out)
+			}
+			code, out, errOut := runCLI(t, "wip", "--audit", "--card", "W-01", "--recovery")
+			if code != 0 || !strings.Contains(out, "recovery requires a claim") || strings.Contains(out, "could not be established") {
+				t.Fatalf("recovery audit = %d\n%s%s", code, out, errOut)
+			}
+			ok(t, "claim", "claim", "W-01", "--no-move")
+			for _, args := range [][]string{{"wip", "--audit", "--card", "W-01"}, {"wip", "--audit", "--card", "W-01", "--recovery"}} {
+				code, out, errOut = runCLI(t, args...)
+				if code != 0 {
+					t.Fatalf("%v after claim = %d\n%s%s", args, code, out, errOut)
+				}
+			}
+		})
+	}
+}
+
+func TestRecoveryAuditFinishedStepColumnStaysFailClosed(t *testing.T) {
+	for _, tc := range []struct{ name, where string }{
+		{"wrong where", "worktree W-02"},
+		{"main", "main"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			project := isolationProject(t, "")
+			putIsolationCard(t, project, "W-01", "checked", "resume", tc.where)
+			commitBoard(t, project)
+			testutil.Git(t, project.Root, "worktree", "add", "-b", "W-01", filepath.Join(t.TempDir(), "W-01"), "main")
+			code, out, _ := runCLI(t, "wip", "--audit", "--card", "W-01", "--recovery")
+			if code != 1 || !strings.Contains(out, "recovery eligibility could not be established") {
+				t.Fatalf("recovery audit = %d\n%s", code, out)
+			}
+		})
+	}
+	t.Run("held", func(t *testing.T) {
+		project := isolationProject(t, "")
+		putIsolationCard(t, project, "W-01", "checked", "resume", "worktree W-01")
+		path := filepath.Join(project.Work, "1-open", "W-01-x.md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		testutil.Write(t, path, strings.Replace(string(data), "- **Where:** worktree W-01", "- **Where:** worktree W-01\n- **Held:** blocked: waiting", 1))
+		commitBoard(t, project)
+		testutil.Git(t, project.Root, "worktree", "add", "-b", "W-01", filepath.Join(t.TempDir(), "W-01"), "main")
+		code, out, _ := runCLI(t, "wip", "--audit", "--card", "W-01", "--recovery")
+		if code != 1 || !strings.Contains(out, "recovery eligibility could not be established") {
+			t.Fatalf("held recovery = %d\n%s", code, out)
+		}
+	})
+	t.Run("another session's live claim", func(t *testing.T) {
+		project := isolationProject(t, "")
+		putIsolationCard(t, project, "W-01", "checked", "resume", "worktree W-01")
+		commitBoard(t, project)
+		testutil.Git(t, project.Root, "worktree", "add", "-b", "W-01", filepath.Join(t.TempDir(), "W-01"), "main")
+		ok(t, "claim", "claim", "W-01", "--no-move")
+		t.Setenv("KANBANZAI_OWNER", "another-session")
+		code, out, _ := runCLI(t, "wip", "--audit", "--card", "W-01", "--recovery")
+		if code != 1 || !strings.Contains(out, "recovery eligibility could not be established") {
+			t.Fatalf("recovery with live claim = %d\n%s", code, out)
+		}
+	})
 }

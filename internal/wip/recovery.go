@@ -7,6 +7,8 @@ import (
 )
 
 // recoveryEligible checks only facts needed to classify unclaimed work. Reconcile still checks every other finding.
+// An open card qualifies in a Doing column (interrupted) or a column that needs a workspace (a stopped step whose
+// work was preserved and whose claim was released); the recorded Where and the one matching workspace are the guard.
 func recoveryEligible(project *config.Project, cards CardsByColumn, wts []Worktree, held map[string]map[string]any, card string, onHold map[string]bool) bool {
 	if card == "" || onHold[card] {
 		return false
@@ -31,7 +33,7 @@ func recoveryEligible(project *config.Project, cards CardsByColumn, wts []Worktr
 		for _, row := range rows {
 			if row.Item == card {
 				column, ok := project.ByKey[key]
-				if found || !ok || column.Kind != "open" || column.Doing == "" {
+				if found || !ok || column.Kind != "open" || (column.Doing == "" && !column.Worktree) {
 					return false
 				}
 				found, where = true, row.Where
