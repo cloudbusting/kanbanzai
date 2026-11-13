@@ -1,12 +1,11 @@
 # TASK-45: Keep /do work in context before pulling a new card
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none identified
-- **Next action:** Once main is clean, merge TASK-45 into main and package and install-test the checked change
+- **Next action:** Build and install-test package from the merged main commit
 - **Where:** worktree TASK-45
-- **Held:** blocked: packaging requires a clean main checkout and the checked branch merged into main; main contains uncommitted board work
 
 ## Goal
 
@@ -31,6 +30,7 @@ The shipped `/do` skill; other documentation if needed for consistency.
 - 2026-11-13: Triaged; W-40 also touches `/do` for held questions but does not cover context-aware selection.
 - 2026-11-13: Built context-aware /do wording and regression test; commit 420c8cd; wording and OpenCode registration tests pass.
 - 2026-11-13: QA and review passed: Go tests and vet, 239 board and 8 OpenCode tests, hooks, syntax, Claude validation, config, card audit and board check.
+- 2026-11-13: Merged TASK-45 into clean main after the blocker cleared; starting package QA.
 
 ## Out of scope
 
