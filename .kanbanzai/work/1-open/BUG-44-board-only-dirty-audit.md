@@ -2,9 +2,8 @@
 
 - **Stage:** in-qa
 - **Updated:** 2026-11-13
-- **Next action:** When main is clean, resume deploy-qa packaging from the committed main checkout.
+- **Next action:** Resume packaging from clean main checkout.
 - **Where:** worktree BUG-44
-- **Held:** blocked: packaging requires a clean main checkout; other sessions have uncommitted board changes
 
 ## Goal
 
