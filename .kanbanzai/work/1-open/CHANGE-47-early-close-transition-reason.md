@@ -1,9 +1,9 @@
 # CHANGE-47: Early close with a transition reason
 
-- **Stage:** building
+- **Stage:** checking
 - **Updated:** 2026-11-13
 - **ADR:** decisions recorded in this brief
-- **Next action:** Continue early-close safety tests, workspace audit and route reporting; review reserved close target compatibility
+- **Next action:** Review checked diff and proceed to packaging
 - **Where:** worktree CHANGE-47
 
 ## Goal
@@ -12,11 +12,11 @@ For users of the Kanbanzai command and board workflow, provide an early close pa
 
 ## Acceptance checks
 
-- [ ] `kanbanzai move ID close --reason "false positive: window needed a reload"` closes an open Todo card without `--force`, records a dated no-change outcome and the reason in its brief, and records the reason with `forced: false` in moves.jsonl. No design, build, check or delivery is claimed.
-- [ ] A closed current-column gate does not prevent this explicit cancellation; another session's live claim, a Held card and a parked or already closed card refuse it. A held card requires the blocker to be cleared by its normal process before closing. Empty reasons refuse with no change.
-- [ ] Closing preserves any recorded workspace and its files, branch and commits; it never deletes, resets, merges, pushes or declares work shipped. Tests cover a dirty and an unmerged workspace, including a missing workspace record. The resulting card and audit make remaining work discoverable rather than implying it was integrated.
-- [ ] Normal close, finish, `--force --reason`, skip, gate, existing brief/config and move-log behavior remain compatible; a reason without force or explicit early close still refuses. Test custom flows and a project with more than one done column.
-- [ ] Workflow and card-specific output distinguish the conditional early-close route from completed delivery; both harnesses receive matching skill instructions and defensive extension consumers remain compatible.
+- [x] `kanbanzai move ID close --reason "false positive: window needed a reload"` closes an open Todo card without `--force`, records a dated no-change outcome and the reason in its brief, and records the reason with `forced: false` in moves.jsonl. No design, build, check or delivery is claimed.
+- [x] A closed current-column gate does not prevent this explicit cancellation; another session's live claim, a Held card and a parked or already closed card refuse it. A held card requires the blocker to be cleared by its normal process before closing. Empty reasons refuse with no change.
+- [x] Closing preserves any recorded workspace and its files, branch and commits; it never deletes, resets, merges, pushes or declares work shipped. Tests cover a dirty and an unmerged workspace, including a missing workspace record. The resulting card and audit make remaining work discoverable rather than implying it was integrated.
+- [x] Normal close, finish, `--force --reason`, skip, gate, existing brief/config and move-log behavior remain compatible, except that `close` is reserved for early cancellation even when a custom column uses that key or alias; users must select that column by another key or label, or rename it. A reason without force or explicit early close still refuses. Test custom flows and a project with more than one done column.
+- [x] Workflow and card-specific output distinguish the conditional early-close route from completed delivery; both harnesses receive matching skill instructions and defensive extension consumers remain compatible.
 
 ## Deploy
 
@@ -34,10 +34,10 @@ Keep rules in the Go core; expose a conditional `early-close` transition in work
 
 ## Tasks
 
-- [ ] Core cancellation and tests — `internal/move/`, relevant `internal/cli/` — implement the explicit target, validation, recorded outcome and safe workspace preservation; run `go test ./internal/move/... ./internal/cli/...`.
-- [ ] Reporting and audit — `internal/flow/`, `internal/step/`, `internal/wip/` and relevant tests — expose the conditional route and retained-workspace findings; run their Go tests and custom-flow fixtures. Coordinate with core task on its interface; no parallel edits to shared files.
-- [ ] Harness and documentation — `skills/triage/`, `skills/do/`, `README.md`, `docs/workflow.md`, `CHANGELOG.md`, corresponding tests/fixtures in `opencode/`, `hooks/`, `board-view/` — document and exercise the same safe route for both harnesses and defensive consumers; run `node --test board-view/*.test.mjs opencode/*.test.mjs` and relevant Go contract tests. Can proceed alongside reporting if files do not overlap.
-- [ ] Run `go test ./...`, `go vet ./...`, board validation and full diff review; then follow configured check and release route.
+- [x] Core cancellation and tests — `internal/move/`, relevant `internal/cli/` — implement the explicit target, validation, recorded outcome and safe workspace preservation; run `go test ./internal/move/... ./internal/cli/...`.
+- [x] Reporting and audit — `internal/flow/`, `internal/step/`, `internal/wip/` and relevant tests — expose the conditional route and retained-workspace findings; run their Go tests and custom-flow fixtures. Coordinate with core task on its interface; no parallel edits to shared files.
+- [x] Harness and documentation — `skills/triage/`, `skills/do/`, `README.md`, `docs/workflow.md`, `CHANGELOG.md`, corresponding tests/fixtures in `opencode/`, `hooks/`, `board-view/` — document and exercise the same safe route for both harnesses and defensive consumers; run `node --test board-view/*.test.mjs opencode/*.test.mjs` and relevant Go contract tests. Can proceed alongside reporting if files do not overlap.
+- [x] Run `go test ./...`, `go vet ./...`, board validation and full diff review; then follow configured check and release route.
 
 ## Docs
 
@@ -46,6 +46,7 @@ README, workflow guide, shared skills and changelog; update other user-facing co
 ## Decisions
 
 - 2026-11-13: Owner requested an early-close path with a transition reason, and chose to allow explicit no-work cancellation despite the current gate, retaining claim, hold, parking and workspace safeguards.
+- 2026-11-13: Owner chose to reserve `close` for early cancellation even when it collides with an existing custom column key or alias; document the compatibility exception.
 - Engineering: use an explicit target and free-text reason, not a new column or a forced move; retain the existing Done column and distinguish the cancellation in the durable brief and log.
 
 ## Risk
@@ -59,6 +60,11 @@ Improper gate handling could authorize delivery, or closing could hide unmerged 
 - 2026-11-13: Owner chose to allow explicit no-work closure despite the current gate, retaining claim, hold, parking and workspace safeguards.
 - 2026-11-13: Design recorded: explicit cancellation with a reason, gate policy, workspace safeguards, tests and tasks.
 - 2026-11-13: WIP commit 3957603 adds initial explicit close and focused tests; full acceptance, reporting, documentation and review remain.
+- 2026-11-13: Recovery audits passed; identified ambiguous close target in existing custom workflows and branch divergence from main.
+- 2026-11-13: Owner chose to reserve close for early cancellation, including custom-column collisions.
+- 2026-11-13: Merged current main into the card branch; bfe111f normalizes direct Apply reasons and warns on retained early-close workspace records, with focused tests passing.
+- 2026-11-13: Implemented and tested early cancellation, route and retained-workspace reporting, shared skills and docs; build checks passed at 264ac06.
+- 2026-11-13: kanbanzai-qa: Go, vet, Node (247), hooks, JS syntax, Claude validation, config/steps, card audit and board check passed. Gate/workspace/CLI compatibility tests were added after the initial implementation; red-first tests cover normalization, route, audit and missing workspace.
 
 ## Out of scope
 
@@ -67,3 +73,5 @@ Implementing a fix for BUG-46's original false-positive report.
 ## Comments
 
 - 2026-11-13 — opencode:ses_e2dc44bdaffe9i7bwEvbE38cxe: WIP commit 3957603 adds the initial core path and focused tests; the first test failed before implementation and `go test ./internal/move` now passes. Complete all remaining acceptance checks, including workspace/audit reporting, gate tests, route output and skills. Check compatibility if a configured column is named `close`; the new reserved target may collide. No full suite or review has run.
+- 2026-11-13 — Recovery: owner chose to reserve `close`, including custom-column collisions; the acceptance check now records this compatibility exception. The clean worktree at 3957603 is 16 commits behind main, including BUG-49 recovery changes in `internal/wip/` and shared skill changes. Integrate or otherwise account for that divergence without losing either change before implementing overlapping reporting and skills. No code or tests changed in this session.
+- 2026-11-13 — Continued: merged main into the card branch without rewriting the WIP. Commit bfe111f normalizes reasons through the core Apply API and adds an early-close retained-workspace audit warning, suppressing worktree cleanup suggestions; each change had a failing test first, then `go test ./internal/move ./internal/wip` passed. Audit work is incomplete: address branch-mode cleanup, missing records, dirty/unmerged work and external/shared reporting. Complete other acceptance checks, route outputs, documentation, full checks and review. No release or integration performed.
