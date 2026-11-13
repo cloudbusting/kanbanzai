@@ -528,7 +528,8 @@ with no session id falls back to `claude:<process id>`, which a restart changes.
 
 Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
 
-For an interrupted, unheld card without a live claim, `kanbanzai wip --audit --card ID --recovery` is a pre-claim
+For an unheld card without a live claim that is interrupted in a Doing column, or stopped between steps in a column
+that needs a workspace (a built or checked card whose work was preserved when its claim was released), `kanbanzai wip --audit --card ID --recovery` is a pre-claim
 check in worktree or branch isolation. It reports the matching unclaimed workspace work as a warning while leaving
 all other hard findings in place. It does not claim, rebase or modify work. Claim or take over normally, then run both
 the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a

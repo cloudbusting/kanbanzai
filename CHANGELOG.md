@@ -5,6 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-54: `wip --audit --card ID --recovery` also accepts an unheld card stopped between steps (Designed, Built, Checked or
+  another column that needs a workspace) whose work was preserved when its claim was released, so a stop on an audit
+  finding no longer leaves the card unclaimable. Held cards, another session's live claim, a mismatched, missing or
+  split workspace and every other hard finding still stop it; the ordinary and whole-board audits are unchanged. `/do`
+  and `/audit` describe the resume.
 - W-11: a type can name its own brief template (`template`) and opt into a brief schema (`schema = "bug"` with a
   `[schemas.bug]` table of required and optional fields and sections, their order, repeatable sections and a final
   Comments). `kanbanzai check` validates a schema's cards and templates with the brief and field or section named;

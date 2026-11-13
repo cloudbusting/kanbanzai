@@ -468,6 +468,35 @@ func TestDoRecoveryKeepsTheClaimAndAuditSafeguards(t *testing.T) {
 	}
 }
 
+func TestRecoveryCoversStoppedCardBetweenSteps(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for file, wants := range map[string][]string{
+		"skills/do/SKILL.md": {
+			"a card stopped between steps with its work preserved",
+			"A stop on an audit finding must not leave a second blocker",
+			"the next `/do` resumes it through the recovery audit",
+			"A held card is never eligible",
+		},
+		"skills/audit/SKILL.md": {
+			"an interrupted card, or a card stopped between steps in a column that needs a workspace",
+		},
+	} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s lacks %q", file, want)
+			}
+		}
+	}
+}
+
 func TestBoardOnlyDirtyAuditWorkflow(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {
