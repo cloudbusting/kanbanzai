@@ -5,7 +5,7 @@ description: Build one well-defined change under its card, to its brief, followi
 
 # Build
 
-This skill is step-scoped: run on its own it stops at the end of this step and reports; `/do` is what carries a card on to its next step.
+This skill is step-scoped: run on its own it stops at the end of this step and reports; when `/do` runs this step, `/do` carries the card on to its next step.
 
 ## Start: the step and its extensions
 
