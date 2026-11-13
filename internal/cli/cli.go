@@ -150,7 +150,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	mismatch := ""
 	if command == "context" {
 		if _, flags, _, perr := parse(rest, nil, map[string]bool{"adapter-version": true}); perr == nil {
-			mismatch = context.Mismatch(version.Version, flags["adapter-version"])
+			mismatch = context.Mismatch(version.Effective(), flags["adapter-version"])
 		}
 	}
 	project, err := config.Find("")
@@ -291,7 +291,7 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		if line := context.Mismatch(version.Version, flags["adapter-version"]); line != "" {
+		if line := context.Mismatch(version.Effective(), flags["adapter-version"]); line != "" {
 			fmt.Fprintln(out, line)
 		}
 		return context.Run(project, out)
