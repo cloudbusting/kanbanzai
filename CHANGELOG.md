@@ -5,6 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-11-13
+
+- TASK-45: `/do` continues relevant work in the current conversation before seeking new work. Before picking up a
+  new card unrelated to the prior conversation, it asks whether to continue and recommends a clean session.
+
 ## [0.11.0] — 2026-11-12
 
 - W-08: the shared skills consult the configured workflow, card route and workspace rather than assuming the shipped
