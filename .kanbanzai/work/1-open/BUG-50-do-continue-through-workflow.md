@@ -1,10 +1,10 @@
 # BUG-50: Keep /do progressing beyond each completed step
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** package (deploy-qa)
+- **Next action:** release: after the owner approves; version needs a bump past 0.15.0 (metadata still 0.15.0); package artifacts at /tmp/kanbanzai-package-BUG-50-0.15.0 from main 39003c0
 - **Where:** worktree BUG-50
 
 ## Goal
@@ -28,5 +28,6 @@ Bypassing workflow gates, owner approvals or release safeguards; changing card s
 - 2026-11-13: Triaged. W-08 shipped flow-agnostic routing; TASK-45 concerns context-aware selection and W-40 concerns held questions, not this step-boundary behavior. All touch related skill instructions and should be reconciled if needed.
 - 2026-11-13: do skill continues through steps; step skills marked step-scoped; wording test added, go test/vet and opencode tests green
 - 2026-11-13: check: go/vet/node/opencode/hooks/plugin validate/audit green; diff reviewed, wording only
+- 2026-11-13: Package QA passed at 39003c0 alone: artifacts /tmp/kanbanzai-package-BUG-50-0.15.0 (source tar.gz d65482f8…, vsix 051d911d…, five binary archives; SHA256SUMS in dir); fresh-project build, plugin validate and throwaway install, opencode entry, vsix listing all pass; no state or machine path in archives
 
 ## Comments
