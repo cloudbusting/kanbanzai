@@ -21,13 +21,15 @@ import (
 	"strings"
 )
 
-// Report is the selector's answer. Clean is information for the package skill, which owns the rule about it.
+// Report is the selector's answer. Tree is the core's reading of the main checkout (`kanbanzai tree --json`) and Clean
+// is true only when that verdict is "clean"; both are information for the package skill, which owns the rule.
 // InHead on an excluded card means its branch is already inside HEAD, so the artifact carries its code although
 // the card is not packaged.
 type Report struct {
 	Head    string     `json:"head"`
 	Branch  string     `json:"branch"`
 	Clean   bool       `json:"clean"`
+	Tree    Tree       `json:"tree"`
 	Include []string   `json:"include"`
 	Exclude []Excluded `json:"exclude"`
 }
@@ -35,6 +37,7 @@ type Report struct {
 // MarshalJSON writes empty lists, never null, so a consumer can always iterate.
 func (r Report) MarshalJSON() ([]byte, error) {
 	type plain Report
+	r.Tree = r.Tree.lists()
 	if r.Include == nil {
 		r.Include = []string{}
 	}
@@ -42,6 +45,36 @@ func (r Report) MarshalJSON() ([]byte, error) {
 		r.Exclude = []Excluded{}
 	}
 	return json.Marshal(plain(r))
+}
+
+// Tree is what `kanbanzai tree --json` said. A verdict of "blocked" with a reason is also what an unreadable answer
+// becomes: the selector never reports a tree it could not read as clean.
+type Tree struct {
+	Verdict    string   `json:"verdict"`
+	Board      []string `json:"board"`
+	Other      []string `json:"other"`
+	Uncertain  []string `json:"uncertain"`
+	InProgress string   `json:"in_progress"`
+	Reasons    []string `json:"reasons"`
+}
+
+func (t Tree) lists() Tree {
+	for _, list := range []*[]string{&t.Board, &t.Other, &t.Uncertain, &t.Reasons} {
+		if *list == nil {
+			*list = []string{}
+		}
+	}
+	return t
+}
+
+func readTree(r Runner) Tree {
+	out, code, err := r.Run("kanbanzai", "tree", "--json")
+	var tree Tree
+	// Exit 0 is go ahead and 1 is blocked, and both print the report; anything else is not an answer.
+	if err != nil || (code != 0 && code != 1) || json.Unmarshal(out, &tree) != nil || tree.Verdict == "" {
+		return Tree{Verdict: "blocked", Reasons: []string{fmt.Sprintf("kanbanzai tree --json gave no answer (exit %d, %v)", code, err)}}.lists()
+	}
+	return tree.lists()
 }
 
 type Excluded struct {
@@ -111,11 +144,8 @@ func Select(r Runner, column, main string) (Report, error) {
 	if report.Branch, err = gitLine(r, "rev-parse", "--abbrev-ref", "HEAD"); err != nil {
 		return report, err
 	}
-	status, code, err := r.Run("git", "status", "--porcelain")
-	if err != nil || code != 0 {
-		return report, fmt.Errorf("git status failed (exit %d, %v)", code, err)
-	}
-	report.Clean = len(bytes.TrimSpace(status)) == 0
+	report.Tree = readTree(r)
+	report.Clean = report.Tree.Verdict == "clean"
 	if report.Branch != main {
 		return report, fmt.Errorf("the checkout is on %q, not the main branch %q", report.Branch, main)
 	}

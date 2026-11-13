@@ -12,6 +12,10 @@ import (
 	"testing"
 )
 
+const cleanTree = `{"verdict":"clean","branch":"main","head":"abc","board":[],"other":[],"uncertain":[],"staged":[],"in_progress":"","reasons":[]}`
+const boardOnlyTree = `{"verdict":"board-only","branch":"main","head":"abc","board":[".kanbanzai/work/1-open/BUG-9-x.md"],"other":[],"uncertain":[],"staged":[],"in_progress":"","reasons":[]}`
+const blockedTree = `{"verdict":"blocked","branch":"main","head":"abc","board":[],"other":["src/a.go"],"uncertain":["link.md"],"staged":[],"in_progress":"merge","reasons":["changes outside the board: src/a.go"]}`
+
 const checkedStep = `{"card":"%s","column":"checked","route":{"action":"step","step":"deploy-qa","target":"in-qa","blocked":false,"reason":""},"skipped_steps":[]}`
 const noneStep = `{"card":"%s","column":"checked","route":{"action":"close","step":"","target":"done","blocked":false,"reason":""},"skipped_steps":["deploy-qa","ship"]}`
 
@@ -40,6 +44,9 @@ func (f fake) Run(name string, args ...string) ([]byte, int, error) {
 		return nil, 2, nil
 	}
 	out, ok := f.canned[key]
+	if !ok && key == "kanbanzai tree --json" {
+		out, ok = cleanTree, true // a test that is not about the tree sees a clean one
+	}
 	if !ok {
 		return nil, 0, errors.New("unexpected command: " + key)
 	}
@@ -204,16 +211,59 @@ func TestSelectBoardFailureIncludesNothing(t *testing.T) {
 	}
 }
 
-func TestSelectReportsADirtyTreeWithoutDecidingOnIt(t *testing.T) {
+// The tree's verdict is the core's (`kanbanzai tree --json`), not a second reading of `git status`: the selector
+// reports it and still selects, because the package skill owns what to do about it.
+func TestSelectReportsTheTreeVerdictWithoutDecidingOnIt(t *testing.T) {
+	for name, tc := range map[string]struct {
+		tree  string
+		clean bool
+		want  string
+	}{
+		"clean":      {cleanTree, true, "clean"},
+		"board-only": {boardOnlyTree, false, "board-only"},
+		"blocked":    {blockedTree, false, "blocked"},
+	} {
+		dir := repo(t, []string{"BUG-1"}, "BUG-3")
+		os.WriteFile(filepath.Join(dir, "scratch"), []byte("x"), 0o644) // untracked: only the core's verdict counts
+		f := fake{dir: dir, canned: map[string]string{
+			"kanbanzai board --json":            board(card("BUG-1", "worktree BUG-1", "", "")),
+			"kanbanzai step --for BUG-1 --json": step("BUG-1", checkedStep),
+			"kanbanzai tree --json":             tc.tree,
+		}}
+		got, err := Select(f, "checked", "main")
+		if err != nil || got.Clean != tc.clean || got.Tree.Verdict != tc.want || !reflect.DeepEqual(got.Include, []string{"BUG-1"}) {
+			t.Fatalf("%s: %+v %v", name, got, err)
+		}
+	}
 	dir := repo(t, []string{"BUG-1"}, "BUG-3")
-	os.WriteFile(filepath.Join(dir, "scratch"), []byte("x"), 0o644)
 	f := fake{dir: dir, canned: map[string]string{
 		"kanbanzai board --json":            board(card("BUG-1", "worktree BUG-1", "", "")),
 		"kanbanzai step --for BUG-1 --json": step("BUG-1", checkedStep),
+		"kanbanzai tree --json":             blockedTree,
 	}}
-	got, err := Select(f, "checked", "main")
-	if err != nil || got.Clean || !reflect.DeepEqual(got.Include, []string{"BUG-1"}) {
-		t.Fatalf("%+v %v", got, err)
+	got, _ := Select(f, "checked", "main")
+	if !reflect.DeepEqual(got.Tree.Board, []string{}) || !reflect.DeepEqual(got.Tree.Other, []string{"src/a.go"}) ||
+		!reflect.DeepEqual(got.Tree.Uncertain, []string{"link.md"}) || got.Tree.InProgress != "merge" || len(got.Tree.Reasons) != 1 {
+		t.Errorf("tree = %+v", got.Tree)
+	}
+}
+
+func TestSelectTreatsAnUnreadableTreeAsBlockedNotClean(t *testing.T) {
+	for name, f := range map[string]fake{
+		"fails":    {fail: map[string]bool{"kanbanzai tree --json": true}},
+		"not json": {canned: map[string]string{"kanbanzai tree --json": "nope"}},
+	} {
+		dir := repo(t, []string{"BUG-1"}, "BUG-3")
+		f.dir = dir
+		if f.canned == nil {
+			f.canned = map[string]string{}
+		}
+		f.canned["kanbanzai board --json"] = board(card("BUG-1", "worktree BUG-1", "", ""))
+		f.canned["kanbanzai step --for BUG-1 --json"] = step("BUG-1", checkedStep)
+		got, err := Select(f, "checked", "main")
+		if err != nil || got.Clean || got.Tree.Verdict != "blocked" || len(got.Tree.Reasons) == 0 {
+			t.Errorf("%s: %+v %v", name, got, err)
+		}
 	}
 }
 
