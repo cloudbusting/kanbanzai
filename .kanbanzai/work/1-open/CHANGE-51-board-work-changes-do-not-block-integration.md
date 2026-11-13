@@ -1,10 +1,10 @@
 # CHANGE-51: Allow safe integration with concurrent board changes
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none (this repository records decisions in the brief)
-- **Next action:** build task 1: the internal/tree classifier and merge preflight, tests first
+- **Next action:** check: run kanbanzai-qa and review the diff on branch CHANGE-51 (4 commits)
 - **Where:** worktree CHANGE-51
 
 ## Goal
@@ -58,7 +58,7 @@ This concerns shipped workflow skills and command tooling, and this repository's
 - [ ] `kanbanzai tree --json` is a stable, documented shape (README), and `kanbanzai wip --audit` output and exit codes are unchanged (the existing wip tests pass unmodified).
 - [ ] The shipped `check` and `do` skills tell a session to run `kanbanzai tree --merge <ID>` before an integration merge, to merge only on exit 0 with the command it prints, and to stop and report on `blocked`, a refused merge or a conflict; never to stage, commit, stash, reset, discard or resolve another session's files. `audit` and `next` use the command for the board-only decision. `skills_wording_test.go` asserts each of these phrases and fails on the old wording; both adapters list the skills with the new text.
 - [ ] `go run ./tools/packageset` on a checkout with only board changes reports `tree.verdict: board-only` and still selects the same cards; on a mixed checkout it reports `blocked`. The package skill states one gate (the `tree` verdict) and builds from `git archive <sha>` in a new directory; the project skill test checks both.
-- [ ] A rehearsal build from a snapshot of a commit, run while a brief is dirty in the main checkout, gives the same `SHA256SUMS` as a build from a clean checkout of that commit (`tools/release` and `tools/vsix` need nothing from `.git`).
+- [ ] A rehearsal build from a snapshot of a commit (no `.git`) gives raw binaries with the same sha256 for all five platforms as a build from a clean clone of that commit, and `tools/vsix` builds from the snapshot. (The archives and their `SHA256SUMS` embed timestamps and differ between two builds of the same tree, so the raw binaries are the comparison. Measured 2026-11-13: all five identical.)
 - [ ] The release skill no longer requires a clean main checkout to merge, push or tag; it requires `tree` not blocked for the main checkout and a clean release worktree. Docs say the same.
 - [ ] `go test ./...`, `go vet ./...`, the board-view and OpenCode node tests and `kanbanzai check` pass.
 
@@ -70,12 +70,12 @@ Package and release: `cmd/`, `internal/` and `skills/` change, so the command an
 
 Order: 1, then 2; 3 and 4 in parallel once 2 fixes the output shape; 5 after 4; 6 last. Tests first in every task.
 
-- [ ] 1. Classifier and preflight — owns `internal/tree/tree.go`, `internal/tree/merge.go`, `internal/tree/tree_test.go`, `internal/tree/merge_test.go` — `Classify(project)` and `Preflight(project, card)` as designed, using scratch git repositories in the tests; cover every case in the acceptance checks, the real `git merge` that preserves dirty briefs, and the conflict-then-abort case. Check: `go test ./internal/tree`, red without the change.
-- [ ] 2. The command — owns `internal/cli/cli.go` (the `tree` case, usage text), `internal/cli/tree_test.go`, `README.md` (command list and one paragraph with the JSON shape) — flag parsing, text and `--json` output, exit codes 0/1/2, and a project with no board. Check: `go test ./internal/cli`; `kanbanzai tree --json` in this repository prints the verdict.
-- [ ] 3. Shipped skills — owns `skills/check/SKILL.md`, `skills/do/SKILL.md`, `skills/audit/SKILL.md`, `skills/next/SKILL.md`, `skills_wording_test.go` — merge step with the preflight, the stop rules, the `Tree:` stop-block line and the audit/next paragraph pointing at the command (keep the BUG-44 safeguards: report the paths, preserve others' changes, mixed and uncertain still block, the audit exit status is unchanged). Update `TestBoardOnlyDirtyAuditWorkflow` and add `TestIntegrationUsesTheTreePreflight`. Check: `go test .`, plus the OpenCode and `claude plugin validate` listings in task 6.
-- [ ] 4. Packaging tool — owns `tools/packageset/main.go`, `tools/packageset/main_test.go` — replace the raw `git status` with `kanbanzai tree --json` through the existing `Runner`, add `tree`, keep `clean`; a blocked verdict is reported, not fatal. Check: `go test ./tools/packageset`, including board-only and mixed fixtures.
-- [ ] 5. Project skills — owns `.claude/skills/kanbanzai-package/SKILL.md`, `.claude/skills/kanbanzai-release/SKILL.md`, `tools/packageset/skill_test.go` — the one gate and snapshot build in the package skill (also the commit-by-path of the briefs it edits); the release skill's merge, push and tag wording. Check: the skill test, and the snapshot-versus-clean checksum rehearsal in the acceptance checks.
-- [ ] 6. Docs, changelog and parity proof — owns `docs/isolation.md` (the "must be clean" lines for external isolation and the audit paragraph), `docs/workflow.md`, `CHANGELOG.md` (Unreleased: the command and the skill changes) — Check: `go test ./...` (the docs tests), `go vet ./...`, `node --test` in `board-view/` and `opencode/`, `claude plugin validate`, `kanbanzai check`, and a recorded run of the OpenCode fake harness listing the four skills.
+- [x] 1. Classifier and preflight — owns `internal/tree/tree.go`, `internal/tree/merge.go`, `internal/tree/tree_test.go`, `internal/tree/merge_test.go` — `Classify(project)` and `Preflight(project, card)` as designed, using scratch git repositories in the tests; cover every case in the acceptance checks, the real `git merge` that preserves dirty briefs, and the conflict-then-abort case. Check: `go test ./internal/tree`, red without the change.
+- [x] 2. The command — owns `internal/cli/cli.go` (the `tree` case, usage text), `internal/cli/tree_test.go`, `README.md` (command list and one paragraph with the JSON shape) — flag parsing, text and `--json` output, exit codes 0/1/2, and a project with no board. Check: `go test ./internal/cli`; `kanbanzai tree --json` in this repository prints the verdict.
+- [x] 3. Shipped skills — owns `skills/check/SKILL.md`, `skills/do/SKILL.md`, `skills/audit/SKILL.md`, `skills/next/SKILL.md`, `skills_wording_test.go` — merge step with the preflight, the stop rules, the `Tree:` stop-block line and the audit/next paragraph pointing at the command (keep the BUG-44 safeguards: report the paths, preserve others' changes, mixed and uncertain still block, the audit exit status is unchanged). Update `TestBoardOnlyDirtyAuditWorkflow` and add `TestIntegrationUsesTheTreePreflight`. Check: `go test .`, plus the OpenCode and `claude plugin validate` listings in task 6.
+- [x] 4. Packaging tool — owns `tools/packageset/main.go`, `tools/packageset/main_test.go` — replace the raw `git status` with `kanbanzai tree --json` through the existing `Runner`, add `tree`, keep `clean`; a blocked verdict is reported, not fatal. Check: `go test ./tools/packageset`, including board-only and mixed fixtures.
+- [x] 5. Project skills — owns `.claude/skills/kanbanzai-package/SKILL.md`, `.claude/skills/kanbanzai-release/SKILL.md`, `tools/packageset/skill_test.go` — the one gate and snapshot build in the package skill (also the commit-by-path of the briefs it edits); the release skill's merge, push and tag wording. Check: the skill test, and the snapshot-versus-clean checksum rehearsal in the acceptance checks.
+- [x] 6. Docs, changelog and parity proof — owns `docs/isolation.md` (the "must be clean" lines for external isolation and the audit paragraph), `docs/workflow.md`, `CHANGELOG.md` (Unreleased: the command and the skill changes) — Check: `go test ./...` (the docs tests), `go vet ./...`, `node --test` in `board-view/` and `opencode/`, `claude plugin validate`, `kanbanzai check`, and a recorded run of the OpenCode fake harness listing the four skills.
 
 ## Docs
 
@@ -98,6 +98,7 @@ README (command list and the `tree` JSON shape), `docs/isolation.md`, `docs/work
 - 2026-11-13: Folded in the owner's question about the clean-main packaging requirement; BUG-44 covers the separate board audit case. Multi-card packaging is tracked in CHANGE-53.
 - 2026-11-13: Designed. Tested what git does with a dirty main on a merge (preserves unrelated unstaged and untracked edits; refuses on overlap and on staged changes). The owner chose a new read-only `kanbanzai tree` command; six tasks, snapshot-built packaging.
 - 2026-11-13: designed: new read-only kanbanzai tree command, six tasks
+- 2026-11-13: Built: internal/tree, kanbanzai tree, shipped skills, packageset, package/release skills, docs; go test, vet, node 242+8, plugin validate pass; snapshot binaries identical to a clean clone
 
 ## Out of scope
 
