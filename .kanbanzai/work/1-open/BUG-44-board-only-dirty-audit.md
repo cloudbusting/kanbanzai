@@ -1,9 +1,10 @@
 # BUG-44: Allow board-only main checkout changes during batch audit
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
-- **Next action:** Merge the checked commit into main and run deploy-qa packaging.
+- **Next action:** When main is clean, resume deploy-qa packaging from the committed main checkout.
 - **Where:** worktree BUG-44
+- **Held:** blocked: packaging requires a clean main checkout; other sessions have uncommitted board changes
 
 ## Goal
 
