@@ -1,10 +1,10 @@
 # W-40: Pause a batch card on its question and answer it later
 
-- **Stage:** building
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
-- **Next action:** implement ask/answer commands against the red lifecycle test, then complete their authorization and failure tests
+- **Next action:** package the card: build and install-test the artifacts (kanbanzai-package)
 - **Where:** worktree W-40
 
 ## Goal
@@ -87,16 +87,16 @@ that card, not the batch.
 
 ## Acceptance checks
 
-- [ ] On a claimed, Building card, `kanbanzai ask W-01 --text "Which store?" --option "SQLite" --option "Memory" --recommend "SQLite"` exits 0, appends a `## Questions` entry with the question and options, sets `Held: waiting: <owner> — answer in ## Questions`, sets Next action to the question, releases the claim, and `kanbanzai check` passes.
-- [ ] `kanbanzai board` shows `W-01` with the `❓` mark; `kanbanzai board --json` carries `question.text`, `question.options`, `question.recommendation` and `question.by`; `kanbanzai wip --next` does not offer W-01; `kanbanzai wip --audit` exits 0.
-- [ ] `kanbanzai answer W-01` prints the recorded question, its options and its recommendation; `kanbanzai answer W-01 --text "SQLite"` records the answer and the date, clears the Held line, restores the entry's **Then** as Next action, moves the card back to the column before the interrupted step, and `kanbanzai check` passes.
-- [ ] After the answer, `kanbanzai wip --next` offers the card again (in Designed for a build question, in Todo for a design question); a card whose return move is refused stays in its Doing column and is reported as interrupted for `/do`.
-- [ ] `kanbanzai check` fails a `## Questions` entry with no `Question`, an open entry with no `Held: waiting:` line, an answered entry with no `Answer` or `Answered`, and a `## Questions` section that is not before `## Comments`; a brief with no section still passes.
-- [ ] A board-view fixture with `question` shows the `asking` class, `❓` and the question, options and recommendation in the tooltip; it raises one asking toast, and answers the card's question closes it; a card without `question` and a card whose `question` fields are missing render unchanged.
-- [ ] `/answer` is registered by both adapters, re-asks the recorded question through the question tool with the recommendation first, records a free-form answer, never claims or builds, and says the card is ready for `/next` or `/do`.
-- [ ] `/next` still refuses a "design it" Todo card; a Designed card that raises a build question is recorded on the card, its claim released, its batch-map row marked paused with the question, and the other agents continue.
-- [ ] A card resumed after a question keeps its existing workspace: `/next` reads **Where**, verifies the workspace and reuses it instead of running the workspace's `make` steps again.
-- [ ] The README command table and workflow text name `ask`, `answer` and `/answer`; `docs/delivery.md` has the question flow; the changelog has the entry; `go test ./...`, `go vet ./...`, `node --test board-view/*.test.mjs opencode/*.test.mjs` and `go run ./tools/release -check` pass; both adapters register the new skill.
+- [x] On a claimed, Building card, `kanbanzai ask W-01 --text "Which store?" --option "SQLite" --option "Memory" --recommend "SQLite"` exits 0, appends a `## Questions` entry with the question and options, sets `Held: waiting: <owner> — answer in ## Questions`, sets Next action to the question, releases the claim, and `kanbanzai check` passes.
+- [x] `kanbanzai board` shows `W-01` with the `❓` mark; `kanbanzai board --json` carries `question.text`, `question.options`, `question.recommendation` and `question.by`; `kanbanzai wip --next` does not offer W-01; `kanbanzai wip --audit` exits 0.
+- [x] `kanbanzai answer W-01` prints the recorded question, its options and its recommendation; `kanbanzai answer W-01 --text "SQLite"` records the answer and the date, clears the Held line, restores the entry's **Then** as Next action, moves the card back to the column before the interrupted step, and `kanbanzai check` passes.
+- [x] After the answer, `kanbanzai wip --next` offers the card again (in Designed for a build question, in Todo for a design question); a card whose return move is refused stays in its Doing column and is reported as interrupted for `/do`.
+- [x] `kanbanzai check` fails a `## Questions` entry with no `Question`, an open entry with no `Held: waiting:` line, an answered entry with no `Answer` or `Answered`, and a `## Questions` section that is not before `## Comments`; a brief with no section still passes.
+- [x] A board-view fixture with `question` shows the `asking` class, `❓` and the question, options and recommendation in the tooltip; it raises one asking toast, and answers the card's question closes it; a card without `question` and a card whose `question` fields are missing render unchanged.
+- [x] `/answer` is registered by both adapters, re-asks the recorded question through the question tool with the recommendation first, records a free-form answer, never claims or builds, and says the card is ready for `/next` or `/do`.
+- [x] `/next` still refuses a "design it" Todo card; a Designed card that raises a build question is recorded on the card, its claim released, its batch-map row marked paused with the question, and the other agents continue.
+- [x] A card resumed after a question keeps its existing workspace: `/next` reads **Where**, verifies the workspace and reuses it instead of running the workspace's `make` steps again.
+- [x] The README command table and workflow text name `ask`, `answer` and `/answer`; `docs/delivery.md` has the question flow; the changelog has the entry; `go test ./...`, `go vet ./...`, `node --test board-view/*.test.mjs opencode/*.test.mjs` and `go run ./tools/release -check` pass; both adapters register the new skill.
 
 ## Deploy
 
@@ -104,14 +104,14 @@ Package and release: this changes the command, both skill bundles and the board 
 
 ## Tasks
 
-- [ ] Question record — `internal/question/question.go`, `internal/question/question_test.go`: parse the last open entry, append an entry, close it, and preserve the `Then` value and the surrounding sections. Tests cover open/answered, multiple entries, missing fields, and comments after the section.
-- [ ] Ask and answer commands — `internal/cli/cli.go`, `internal/cli/cli_test.go` (or a new `internal/cli/question_test.go`): the `ask` and `answer` usage, owner and claim checks, the Held/Progress/Next-action writes, the return move, and exit codes 0/2/3. Tests use a fixture board and a claim.
-- [ ] Check the section — `internal/check/check.go`, `internal/check/check_test.go`: an optional `Questions` check for the entry fields, the open-entry Held rule, and the section before `## Comments`; every failure has a test, and a brief with no section still passes.
-- [ ] Board JSON and mark — `internal/board/board.go`, `internal/board/board_test.go`: the additive `question` field, the `❓` text mark (once), and the `cardMap` shape; a fixture with no question stays unchanged.
-- [ ] Board view — `board-view/render.js`, `board-view/toasts.js`, `board-view/board_view.test.mjs`, `board-view/extension_toasts.test.mjs`: the asking class, glyph, tooltip lines, one sticky toast, and closing it on answer; every JSON field is optional and escaped.
-- [ ] The skills — `skills/answer/SKILL.md`, `skills/next/SKILL.md`, `skills/do/SKILL.md`, `skills/build/SKILL.md`: the `/answer` flow, the `/next` pause and map row, `/do`'s held-question entry, and `/build`'s report-don't-write rule; update `internal/flow/validate.go` (`ShippedSkills`) and the wording/registration tests.
-- [ ] Adapters and docs — `opencode/server.test.mjs`, `tools/release/plugin_smoke_test.go`, `README.md`, `docs/delivery.md`, `CHANGELOG.md`: both harnesses register `/answer`, the command table and workflow text describe the flow, and the packaged plugin still validates.
-- [ ] Final proof — `go test ./...`, `go vet ./...`, `node --test board-view/*.test.mjs opencode/*.test.mjs`, `go run ./tools/release -check`; fix the code, never the checks.
+- [x] Question record — `internal/question/question.go`, `internal/question/question_test.go`: parse the last open entry, append an entry, close it, and preserve the `Then` value and the surrounding sections. Tests cover open/answered, multiple entries, missing fields, and comments after the section.
+- [x] Ask and answer commands — `internal/cli/cli.go`, `internal/cli/cli_test.go` (or a new `internal/cli/question_test.go`): the `ask` and `answer` usage, owner and claim checks, the Held/Progress/Next-action writes, the return move, and exit codes 0/2/3. Tests use a fixture board and a claim.
+- [x] Check the section — `internal/check/check.go`, `internal/check/check_test.go`: an optional `Questions` check for the entry fields, the open-entry Held rule, and the section before `## Comments`; every failure has a test, and a brief with no section still passes.
+- [x] Board JSON and mark — `internal/board/board.go`, `internal/board/board_test.go`: the additive `question` field, the `❓` text mark (once), and the `cardMap` shape; a fixture with no question stays unchanged.
+- [x] Board view — `board-view/render.js`, `board-view/toasts.js`, `board-view/board_view.test.mjs`, `board-view/extension_toasts.test.mjs`: the asking class, glyph, tooltip lines, one sticky toast, and closing it on answer; every JSON field is optional and escaped.
+- [x] The skills — `skills/answer/SKILL.md`, `skills/next/SKILL.md`, `skills/do/SKILL.md`, `skills/build/SKILL.md`: the `/answer` flow, the `/next` pause and map row, `/do`'s held-question entry, and `/build`'s report-don't-write rule; update `internal/flow/validate.go` (`ShippedSkills`) and the wording/registration tests.
+- [x] Adapters and docs — `opencode/server.test.mjs`, `tools/release/plugin_smoke_test.go`, `README.md`, `docs/delivery.md`, `CHANGELOG.md`: both harnesses register `/answer`, the command table and workflow text describe the flow, and the packaged plugin still validates.
+- [x] Final proof — `go test ./...`, `go vet ./...`, `node --test board-view/*.test.mjs opencode/*.test.mjs`, `go run ./tools/release -check`; fix the code, never the checks.
 
 Tasks 1–4 share the core and run in order; task 5 follows the board JSON; tasks 6–7 follow the command and can run in
 parallel with task 5 on separate files; task 8 last.
@@ -140,6 +140,8 @@ parallel with task 5 on separate files; task 8 last.
 - 2026-11-13: Started internal/question with append, parse and close plus test-first lifecycle tests; partial commit 62de4f1; CLI and remaining acceptance checks not started.
 - 2026-11-13: Added multiline question writing and duplicate-number rejection with test-first coverage in partial commit 841fb3e; question package tests pass. Remaining tasks are not started.
 - 2026-11-13: Added malformed-record and normalized duplicate-number coverage in 5fdfa96; question package tests pass. Started the CLI lifecycle test, which is red because ask is not implemented.
+- 2026-11-13: 2026-11-13: ask/answer commands, Questions check, board question and toast, /answer skill, docs and adapter tests done; go test, go vet, node tests and release -check pass
+- 2026-11-13: 2026-11-13: checked; go test, vet, node 249, hooks, plugin validate, vsix dry run, release -check, board check and audit pass; QA fixed a doc heading and added a held-audit assertion
 
 ## Out of scope
 
