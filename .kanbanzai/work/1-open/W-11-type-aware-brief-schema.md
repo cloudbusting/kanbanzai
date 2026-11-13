@@ -1,6 +1,6 @@
 # W-11: Type-aware brief templates and a configurable brief schema
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none

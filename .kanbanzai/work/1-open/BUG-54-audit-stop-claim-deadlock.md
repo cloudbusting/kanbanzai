@@ -1,10 +1,10 @@
 # BUG-54: Resume safely after an audit stop without creating a claim deadlock
 
-- **Stage:** checked
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none (the brief's Decisions are the record)
-- **Next action:** Package: run kanbanzai-package on BUG-54 (integrate 62a85d8 into main, build artifacts, install-test)
+- **Next action:** release: version to be set by the owner at release; package artifacts at /tmp/kanbanzai-package-BUG-54-0.14.1 from main 8b784ef
 - **Where:** worktree BUG-54
 
 ## Goal
@@ -65,5 +65,6 @@ Discarding another session's work, bypassing owner approvals, or changing BUG-52
 - 2026-11-13: Designed: widen --recovery to finished-step columns; owner chose recovery-only
 - 2026-11-13: Built at 62a85d8: --recovery widened to workspace-bearing columns; red/green tests for BUG-52 shape, wording test; go test/vet, 250 Node tests, hooks, plugin validate pass
 - 2026-11-13: Checked at 62a85d8: go test/vet, 242 board + 8 OpenCode Node tests, hooks, plugin validate, step configs, card audit and board check pass; diff reviewed, no findings. Not run: vsix dry run (board-view unchanged)
+- 2026-11-13: Package QA passed at 8b784ef with BUG-55: artifacts /tmp/kanbanzai-package-BUG-54-0.14.1 (bundle d3c4e2b4…, vsix c1a27a5c…, SHA256SUMS there); rehearsal built at metadata 0.14.1; fresh-project command, claude validate and isolated install, opencode entry and vsix listing (5 platforms, no bin.json) passed; editor Board tab is a manual check
 
 ## Comments
