@@ -512,6 +512,7 @@ func TestBoardOnlyDirtyAuditWorkflow(t *testing.T) {
 			"whole-board main-checkout dirty finding", "every changed path is a configured card brief",
 			"staged, unstaged, untracked and renamed", "mixed or uncertain", "all other hard findings",
 			"exit status is unchanged", "preserve other sessions'", "warning for the workflow",
+			"`kanbanzai tree --json`", "`board-only`", "`blocked`",
 		} {
 			if !strings.Contains(text, want) {
 				t.Errorf("skills/%s lacks %q", name, want)
@@ -680,6 +681,57 @@ func TestTheDoSkillContinuesThroughTheRouteAndOnlyTheStepSkillsStopAtAStep(t *te
 		step := read("skills", name, "SKILL.md")
 		if !strings.Contains(step, "step-scoped") {
 			t.Errorf("skills/%s does not say it stops at the end of its own step", name)
+		}
+	}
+}
+
+// CHANGE-51: other sessions keep editing briefs in the main checkout, so a merge, the audit and next read the
+// checkout through `kanbanzai tree` (one deterministic rule) and never touch another session's files.
+func TestIntegrationUsesTheTreePreflight(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(name string) string {
+		data, err := os.ReadFile(filepath.Join(root, "skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	check := read("check")
+	for _, want := range []string{
+		"### The integration merge", "a dirty main checkout is normal and is not a reason to stop",
+		"`kanbanzai tree --merge <ID>`", "Exit 0 (`clean` or `board-only`)", "run the merge it prints",
+		"Exit 1 (`blocked`)", "staged changes", "`overlap`", "a merge or rebase already under way",
+		"Mixed and uncertain changes block even alongside board-only ones",
+		"An `overlap` on this card's own brief", "commit that brief by path (`git commit --only -- <brief>`)",
+		"An overlap on any other file is another session's",
+		"Never stash, stage, commit, reset, discard or edit another session's files", "never force the merge",
+		"not resolved silently", "`git merge --abort` restores the state before the merge and keeps other sessions' unstaged briefs",
+	} {
+		if !strings.Contains(check, want) {
+			t.Errorf("skills/check lacks %q", want)
+		}
+	}
+	do := read("do")
+	for _, want := range []string{"after `kanbanzai tree --merge <ID>`", "board-only changes by other sessions", "a `blocked` answer, a refused merge or a conflict does"} {
+		if !strings.Contains(do, want) {
+			t.Errorf("skills/do lacks %q", want)
+		}
+	}
+	for _, name := range []string{"check", "do", "audit", "next"} {
+		text := read(name)
+		for _, old := range []string{"must be clean", "needs a clean main", "requires a clean main"} {
+			if strings.Contains(text, old) {
+				t.Errorf("skills/%s says %q", name, old)
+			}
+		}
+	}
+	// The skills run git for the merge only through the command's own line: no hand-written merge recipe.
+	for _, name := range []string{"check", "do"} {
+		if strings.Contains(read(name), "git merge ") && name == "do" {
+			t.Errorf("skills/%s carries a git merge recipe: quote the preflight's line instead", name)
 		}
 	}
 }

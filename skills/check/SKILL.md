@@ -83,8 +83,29 @@ When the checks are green and the review is done:
    the tasks. If the move cannot perform the route, stop and report it. Commit the brief separately when appropriate.
 3. Ask where the card goes next: `kanbanzai step --for <ID>`. Follow its skip, no-skill, close and gate instructions;
    do not execute a closed gate or assume a particular delivery route. Merge only if the configured workspace and
-   project rules require it, into the configured integration branch.
+   project rules require it, into the configured integration branch, by the integration preflight below.
 4. Renew the claim and set the session title (`kanbanzai wip --title <ID>`).
+
+### The integration merge
+
+Other sessions keep editing card briefs in the main checkout, so a dirty main checkout is normal and is not a reason
+to stop. Run `kanbanzai tree --merge <ID>`; it only reads. It sorts every changed path in the main checkout (staged,
+unstaged, untracked and renamed) as a card brief or batch record, as something else, or as uncertain, and checks the
+files the merge would bring against them.
+
+- Exit 0 (`clean` or `board-only`): run the merge it prints (its `run` line, `merge.command` in `--json`) from the
+  main checkout, and nothing else. Git keeps other sessions' unstaged and untracked briefs. `up-to-date` and
+  `not-applicable` (shared or external isolation) mean there is nothing to merge.
+- Exit 1 (`blocked`): stop and report the reasons and paths: changes outside the board, a path that cannot be
+  verified, staged changes, a file the merge would overwrite (`overlap`), a merge or rebase already under way, the
+  wrong branch, or a missing card branch. Mixed and uncertain changes block even alongside board-only ones.
+- An `overlap` on this card's own brief (changed on its branch and also changed in the main checkout) is this
+  session's to settle: commit that brief by path (`git commit --only -- <brief>`), run the preflight again, and merge
+  only on exit 0. An overlap on any other file is another session's: stop and report it.
+- Never stash, stage, commit, reset, discard or edit another session's files to make it pass, and never force the
+  merge. If git refuses (a session changed a file after the preflight), stop and report it: nothing was changed.
+- A merge that starts and hits a genuine conflict is not resolved silently: stop and report the conflicting paths
+  for the owner. `git merge --abort` restores the state before the merge and keeps other sessions' unstaged briefs.
 
 Committing is yours once the work is done; pushing waits for the owner (the owner is `project.owner` in
 `kanbanzai config`), except where a project's deploy step pushes the commit it ships.

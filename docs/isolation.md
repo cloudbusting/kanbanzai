@@ -53,7 +53,26 @@ files and switch the same branches); use `worktree` mode for parallel work. `/ne
 
 The host (a runner, a cloud workspace) makes the card's workspace. The card records it as `Where: external <ref>`, a
 one-line reference such as a runner id or URL, and the audit trusts that record: it does not look inside the workspace.
-The main checkout is still the board's home, so it must be clean and on the main branch.
+The main checkout is still the board's home, so it must be on the main branch and hold nothing but board changes (see
+[the main checkout while others work](#the-main-checkout-while-others-work)).
+
+## The main checkout while others work
+
+In every mode the main checkout is where the board lives, so sessions keep editing card briefs in it while one of them
+merges, packages or releases. Those edits must not stop that work, and a change that is not a brief must.
+`kanbanzai tree` sorts what `git status` shows there: a **board** path is a card brief or batch record in a configured
+folder, a regular file whose first heading is the card's own; **other** is anything else; **uncertain** is a path it
+cannot verify (a symlink, an unmerged entry, a brief-shaped file that is not one, a git failure). A checkout with only
+board changes is `board-only`, and a merge, package or release goes ahead; `blocked` stops it, as does a merge,
+rebase or bisect under way and a checkout off the main branch. `kanbanzai tree --merge ID` adds the card's merge:
+it lists the files the merge would overwrite, stops on staged changes (a merge cannot start over them and they are
+not the merging session's to unstage), and prints the `git merge` to run. Git keeps unstaged and untracked board
+edits through a merge and refuses one that would overwrite a changed file, changing nothing. Nothing here stages,
+commits, stashes, resets or edits another session's work.
+
+`wip --audit` is unchanged, and still reports uncommitted files in the main checkout as a hard finding with exit 1.
+`/audit` and `/next` read that one finding through `kanbanzai tree`: `board-only` is a warning for the workflow, and
+`blocked` still stops.
 
 ## What `Where` may say
 
