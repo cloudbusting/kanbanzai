@@ -1,10 +1,11 @@
 # CHANGE-47: Early close with a transition reason
 
-- **Stage:** in-qa
+- **Stage:** done
 - **Updated:** 2026-11-13
+- **Done:** 2026-11-13, merge cf3f6c1; shipped in v0.13.0 (tag v0.13.0) with BUG-48's release; no separate release
 - **ADR:** decisions recorded in this brief
-- **Next action:** Integrate checked branch into main and package from the integrated commit
-- **Where:** worktree CHANGE-47
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -68,6 +69,8 @@ Improper gate handling could authorize delivery, or closing could hide unmerged 
 - 2026-11-13: QA checks and whole diff review passed; no network or dependency changes. Custom close target reservation is documented.
 - 2026-11-13: Check passed: Go, vet, Node, plugin validation, hooks, JS syntax, card audit and board validation; packaging requires clean main checkout.
 - 2026-11-13: Other board changes are now committed; only this card bookkeeping remains in main.
+- 2026-11-13: 2026-11-13: CHANGE-47's merge cf3f6c1 is in the published v0.13.0 tag and CHANGELOG 0.13.0. Verified a build from the tag: workflow shows early-close, move close without --reason refuses (exit 2), with --reason closes Todo to Done recording 'closed, no change' and forced:false. Repackaging skipped as it would rebuild what BUG-48's package and release shipped.
+- 2026-11-13: 2026-11-13: Closed as shipped in v0.13.0; owner approved at the gate. No new package or release.
 
 ## Out of scope
 
