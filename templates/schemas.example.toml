@@ -1,8 +1,10 @@
 # An opt-in example: brief schemas for the task, bug and change types.
 #
 # Copy templates/task.md, bug.md and change.md into your project (`kanbanzai template --example bug > templates/bug.md`),
-# then add the [[types]] keys and [schemas.*] tables below to .kanbanzai/config.toml. A type with no `schema` keeps the
-# project's current brief rules; nothing here applies until you opt in. See docs/types.md.
+# then add the [schemas.*] tables below to .kanbanzai/config.toml and give each type `template` and `schema` lines.
+# The [[types]] entries here show those lines: edit your existing entries for task, bug and change rather than
+# repeating them (a repeated type key is refused). A type with no `schema` keeps the project's current brief rules;
+# nothing here applies until you opt in. See docs/types.md.
 
 [[types]]
 key = "task"
