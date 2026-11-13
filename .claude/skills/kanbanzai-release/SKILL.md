@@ -46,7 +46,10 @@ gh repo create cloudbusting/kanbanzai --public --source . --remote origin \
   --description "A kanban of work-item cards built for coding agents."
 ```
 
-Do not create a second remote or a second repository. Do not push from a dirty tree.
+Do not create a second remote or a second repository. Do not push while `kanbanzai tree` says `blocked`
+(a change outside the board, a path it cannot verify, a merge or rebase under way, the wrong branch). Card briefs that
+other sessions are editing in the main checkout (`board-only`) do not stop a push, which sends commits and not the
+working tree; they are never staged or committed with the release.
 
 ## 2. Settle the version and the licence
 
@@ -101,8 +104,10 @@ an identity or an icon they must supply.
 
 The card's branch was already merged into the main branch by the check step. Make the release prep in the card's
 worktree on a short release branch from main, commit it with the card id, and merge it to main as the check step
-does. Stage only the release's files by path. The tree must be clean before tagging, and the tag goes on that
-release commit.
+does: run `kanbanzai tree`, merge only when it does not say `blocked` (board-only brief changes by other sessions stay
+as they are, and git keeps them), and stop on a refused merge or a conflict as `/check` does. Stage only the release's
+files by path. The release worktree must be clean before tagging (`git -C <worktree> status --porcelain` is empty), and
+the tag goes on that release commit; the main checkout need only not be `blocked`.
 
 ## 4. Push main alone and wait for CI
 
@@ -345,6 +350,6 @@ If the release is broken:
 ## You never
 
 Publish without the package report and the owner's approval, tag a commit whose CI has not passed on Ubuntu,
-macOS and Windows, move a pushed tag, upload a command-less `.vsix`, tag a dirty tree, push a different commit than the
+macOS and Windows, move a pushed tag, upload a command-less `.vsix`, tag from a dirty release worktree or while `kanbanzai tree` says `blocked`, push a different commit than the
 one that was packaged, put a token or private path in the repository, or describe an unpublished artifact as
 available.
