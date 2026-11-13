@@ -1,6 +1,6 @@
 # BUG-49: Interrupted work audit blocks its own recovery
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **ADR:** none identified
 - **Next action:** Once main is clean, merge BUG-49 into main and run package/install QA from that merge
