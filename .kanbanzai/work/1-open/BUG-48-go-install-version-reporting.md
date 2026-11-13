@@ -1,10 +1,10 @@
 # BUG-48: Report the release version after go install
 
-- **Stage:** in-qa
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none identified; assess whether a record is needed
-- **Next action:** Run package QA for commit 0d256ea after preparing a clean integration tree
+- **Next action:** release 0.13.0 (BUG-48 with CHANGE-47) per the owner
 - **Where:** worktree BUG-48
 
 ## Goal
@@ -47,6 +47,7 @@ Update `README.md` to explain tagged Go installs and development builds; review 
 - 2026-11-13: Designed version precedence, shared consumers and offline tagged-install verification.
 - 2026-11-13: Built and tested shared version resolution and offline tagged install.
 - 2026-11-13: QA passed: Go tests and vet, 239 board and 8 OpenCode tests, hooks, JS syntax, Claude validation, config, card audit and board check; reviewed diff; commit 0d256ea.
+- 2026-11-13: Package QA passed at a02b275: command, claude validate, install, opencode, vsix listing (5 platforms), no leaks; artifacts in /tmp/kanbanzai-package-BUG-48-0.13.0
 
 ## Out of scope
 
