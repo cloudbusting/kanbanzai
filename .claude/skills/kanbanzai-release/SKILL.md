@@ -10,7 +10,9 @@ This is the card's shipping step (`ship` in the shipped flow). It takes a **QA-a
 artifacts are built and proven, publishes them from one commit, and records the release. It never changes code
 except the release metadata. Run `kanbanzai step ship` first; this skill is the step's skill in this repository.
 
-Read the card, its **Comments**, `CHANGELOG.md` if it exists, and the package report. The main session runs this
+Read the card, its **Comments**, `CHANGELOG.md` if it exists, and the package report. A package run may have
+packaged several cards at one commit: the report and each card's Progress name the companions. Each card is still
+released on its own approval, and releasing companions as one version is the owner's decision. The main session runs this
 step; a subagent never pushes, tags or publishes.
 
 ## Board first
