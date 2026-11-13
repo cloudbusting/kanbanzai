@@ -1,10 +1,10 @@
 # CHANGE-51: Allow safe integration with concurrent board changes
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none (this repository records decisions in the brief)
-- **Next action:** check: run kanbanzai-qa and review the diff on branch CHANGE-51 (4 commits)
+- **Next action:** package: merge branch CHANGE-51 into main with kanbanzai tree --merge, then run the package step
 - **Where:** worktree CHANGE-51
 
 ## Goal
@@ -52,15 +52,15 @@ This concerns shipped workflow skills and command tooling, and this repository's
 
 ## Acceptance checks
 
-- [ ] `kanbanzai tree` on a repository whose only changes are unstaged, untracked, deleted and renamed card briefs (and batch records) prints verdict `board-only` and exits 0; on a clean checkout, `clean` and 0. Test names: `TestTreeBoardOnly…`, `TestTreeClean`.
-- [ ] Mixed changes (a brief plus a source file), a symlink named like a brief, a brief-shaped file outside the work folder, a non-card file in the work folder, an unmerged entry, a submodule change, a non-repository and a `git` failure each give `blocked` with the offending path or reason, and exit 1. Each case has a test that fails if the classification is loosened.
-- [ ] `kanbanzai tree --merge ID`: a card branch whose changes do not touch the dirty briefs reports `fast-forward` or `merge` and exit 0; a branch that changes a path that is dirty or untracked in the checkout reports `overlap` and exit 1; staged paths, a merge already in progress, a checkout off the integration branch and a missing or already-merged branch each report their reason; `shared` and `external` isolation report not applicable. A test that then runs the printed `git merge` on a board-only repository leaves the dirty briefs byte for byte intact, and a test with a real conflict plus dirty briefs proves `git merge --abort` keeps them.
-- [ ] `kanbanzai tree --json` is a stable, documented shape (README), and `kanbanzai wip --audit` output and exit codes are unchanged (the existing wip tests pass unmodified).
-- [ ] The shipped `check` and `do` skills tell a session to run `kanbanzai tree --merge <ID>` before an integration merge, to merge only on exit 0 with the command it prints, and to stop and report on `blocked`, a refused merge or a conflict; never to stage, commit, stash, reset, discard or resolve another session's files. `audit` and `next` use the command for the board-only decision. `skills_wording_test.go` asserts each of these phrases and fails on the old wording; both adapters list the skills with the new text.
-- [ ] `go run ./tools/packageset` on a checkout with only board changes reports `tree.verdict: board-only` and still selects the same cards; on a mixed checkout it reports `blocked`. The package skill states one gate (the `tree` verdict) and builds from `git archive <sha>` in a new directory; the project skill test checks both.
-- [ ] A rehearsal build from a snapshot of a commit (no `.git`) gives raw binaries with the same sha256 for all five platforms as a build from a clean clone of that commit, and `tools/vsix` builds from the snapshot. (The archives and their `SHA256SUMS` embed timestamps and differ between two builds of the same tree, so the raw binaries are the comparison. Measured 2026-11-13: all five identical.)
-- [ ] The release skill no longer requires a clean main checkout to merge, push or tag; it requires `tree` not blocked for the main checkout and a clean release worktree. Docs say the same.
-- [ ] `go test ./...`, `go vet ./...`, the board-view and OpenCode node tests and `kanbanzai check` pass.
+- [x] `kanbanzai tree` on a repository whose only changes are unstaged, untracked, deleted and renamed card briefs (and batch records) prints verdict `board-only` and exits 0; on a clean checkout, `clean` and 0. Test names: `TestTreeBoardOnly…`, `TestTreeClean`.
+- [x] Mixed changes (a brief plus a source file), a symlink named like a brief, a brief-shaped file outside the work folder, a non-card file in the work folder, an unmerged entry, a submodule change, a non-repository and a `git` failure each give `blocked` with the offending path or reason, and exit 1. Each case has a test that fails if the classification is loosened.
+- [x] `kanbanzai tree --merge ID`: a card branch whose changes do not touch the dirty briefs reports `fast-forward` or `merge` and exit 0; a branch that changes a path that is dirty or untracked in the checkout reports `overlap` and exit 1; staged paths, a merge already in progress, a checkout off the integration branch and a missing or already-merged branch each report their reason; `shared` and `external` isolation report not applicable. A test that then runs the printed `git merge` on a board-only repository leaves the dirty briefs byte for byte intact, and a test with a real conflict plus dirty briefs proves `git merge --abort` keeps them.
+- [x] `kanbanzai tree --json` is a stable, documented shape (README), and `kanbanzai wip --audit` output and exit codes are unchanged (the existing wip tests pass unmodified).
+- [x] The shipped `check` and `do` skills tell a session to run `kanbanzai tree --merge <ID>` before an integration merge, to merge only on exit 0 with the command it prints, and to stop and report on `blocked`, a refused merge or a conflict; never to stage, commit, stash, reset, discard or resolve another session's files. `audit` and `next` use the command for the board-only decision. `skills_wording_test.go` asserts each of these phrases and fails on the old wording; both adapters list the skills with the new text.
+- [x] `go run ./tools/packageset` on a checkout with only board changes reports `tree.verdict: board-only` and still selects the same cards; on a mixed checkout it reports `blocked`. The package skill states one gate (the `tree` verdict) and builds from `git archive <sha>` in a new directory; the project skill test checks both.
+- [x] A rehearsal build from a snapshot of a commit (no `.git`) gives raw binaries with the same sha256 for all five platforms as a build from a clean clone of that commit, and `tools/vsix` builds from the snapshot. (The archives and their `SHA256SUMS` embed timestamps and differ between two builds of the same tree, so the raw binaries are the comparison. Measured 2026-11-13: all five identical.)
+- [x] The release skill no longer requires a clean main checkout to merge, push or tag; it requires `tree` not blocked for the main checkout and a clean release worktree. Docs say the same.
+- [x] `go test ./...`, `go vet ./...`, the board-view and OpenCode node tests and `kanbanzai check` pass.
 
 ## Deploy
 
@@ -99,6 +99,7 @@ README (command list and the `tree` JSON shape), `docs/isolation.md`, `docs/work
 - 2026-11-13: Designed. Tested what git does with a dirty main on a merge (preserves unrelated unstaged and untracked edits; refuses on overlap and on staged changes). The owner chose a new read-only `kanbanzai tree` command; six tasks, snapshot-built packaging.
 - 2026-11-13: designed: new read-only kanbanzai tree command, six tasks
 - 2026-11-13: Built: internal/tree, kanbanzai tree, shipped skills, packageset, package/release skills, docs; go test, vet, node 242+8, plugin validate pass; snapshot binaries identical to a clean clone
+- 2026-11-13: Checked: QA green (go test ./..., vet, node 242+8, hooks, JS, plugin validate, steps, check, audit); review found one gap (own-brief overlap) fixed in d7e542b; all acceptance checks hold; binaries from an export are byte-identical to a clean clone
 
 ## Out of scope
 
