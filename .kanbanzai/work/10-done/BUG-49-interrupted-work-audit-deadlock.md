@@ -1,11 +1,11 @@
 # BUG-49: Interrupted work audit blocks its own recovery
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-13
+- **Done:** 2026-11-13 — shipped in v0.12.1 at 892e59e; closed with the v0.14.0 release: the go install @v0.12.1 check can never pass (that tag reports dev; fixed by BUG-48 from v0.13.0), the owner accepted this; the v0.14.0 release verified the public Claude install and VSIX install
 - **ADR:** none identified
-- **Next action:** Resolve BUG-48 and determine how to complete release verification; then finish remaining public plugin and editor proofs
-- **Where:** worktree BUG-49
-- **Held:** blocked: BUG-48 causes the required versioned go install verification for v0.12.1 to report dev instead of v0.12.1
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -59,6 +59,7 @@ Incorrect classification could hide a real workspace conflict or allow concurren
 - 2026-11-13: Package rehearsal 0.12.0 at 0427bfd passed checksum, command, isolated Claude, OpenCode and VSIX proofs; editor Board check remains manual.
 - 2026-11-13: Owner approved public release and selected 0.12.1. BUG-48 remains open: a local source `go install` reports dev and final versioned-install verification must not be skipped.
 - 2026-11-13: Published https://github.com/cloudbusting/kanbanzai/releases/tag/v0.12.1 at 892e59e after CI and Release workflows passed on Linux, macOS and Windows. Both tags point to that commit, seven assets pass fresh-download SHA256SUMS and the packaged Linux command reports v0.12.1. Required `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@v0.12.1` succeeds but reports `kanbanzai dev`; BUG-48 blocks release verification. Public Claude plugin proof, fresh init and editor installation remain; stop on the red verification.
+- 2026-11-13: 2026-11-13: owner asked to close with the v0.14.0 release; v0.12.1 is public (release workflow, checksums and packaged command verified earlier); go install @v0.12.1 reports dev and is not fixable on a published tag; remaining proofs were redone for v0.14.0 only, not for v0.12.1
 
 ## Package QA
 
