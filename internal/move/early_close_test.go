@@ -1,9 +1,12 @@
 package move
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
 func TestEarlyCloseRecordsNoChangeReason(t *testing.T) {
@@ -22,6 +25,134 @@ func TestEarlyCloseRecordsNoChangeReason(t *testing.T) {
 	moves := movesOf(t, project)
 	if len(moves) != 1 || moves[0]["forced"] != false || moves[0]["reason"] != "false positive: reload needed" {
 		t.Fatalf("moves = %#v", moves)
+	}
+}
+
+func TestEarlyCloseBypassesClosedGateButNotOptions(t *testing.T) {
+	config := `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+next = "finish"
+gate = "date"
+gate_after = "2999-01-01"
+[[columns]]
+key = "done"
+folder = "10-done"
+kind = "done"
+[steps.finish]
+into = "done"
+skill = "x"
+`
+	project := testProject(t, config)
+	path := putCard(t, project, "W-01", "work", "todo", cardOptions{})
+	before := readText(t, path)
+	if code, _, _ := runMove(t, project, "W-01", "close", func(o *Options) {
+		o.Reason, o.Done = str("not needed"), str("shipped")
+	}); code == 0 || readText(t, path) != before {
+		t.Fatal("early close accepted incompatible --done")
+	}
+	if code, _, errOut := runMove(t, project, "W-01", "close", func(o *Options) {
+		o.Reason = str("not needed")
+	}); code != 0 {
+		t.Fatalf("closed gate blocked cancellation: %s", errOut)
+	}
+	text := readText(t, filepath.Join(project.Work, "10-done", "W-01-x.md"))
+	if strings.Contains(text, "**Gate:**") || !strings.Contains(text, "closed, no change: not needed") {
+		t.Fatalf("unexpected outcome: %s", text)
+	}
+}
+
+func TestEarlyClosePreservesDirtyUnmergedWorkWithoutRecord(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, "W-01", "work", "built", cardOptions{})
+	worktree := filepath.Join(t.TempDir(), "worktree")
+	testutil.Git(t, project.Root, "worktree", "add", "-b", "W-01", worktree)
+	testutil.Write(t, filepath.Join(worktree, "committed.txt"), "unmerged\n")
+	testutil.Git(t, worktree, "add", "committed.txt")
+	testutil.Git(t, worktree, "commit", "-m", "unmerged work")
+	testutil.Write(t, filepath.Join(worktree, "dirty.txt"), "keep me\n")
+	before := testutil.Git(t, worktree, "rev-parse", "HEAD")
+	code, _, errOut := runMove(t, project, "W-01", "close", func(o *Options) { o.Reason = str("not needed") })
+	if code != 0 {
+		t.Fatalf("early close: %s", errOut)
+	}
+	if after := testutil.Git(t, worktree, "rev-parse", "HEAD"); after != before {
+		t.Fatalf("workspace HEAD changed from %s to %s", before, after)
+	}
+	if data, err := os.ReadFile(filepath.Join(worktree, "dirty.txt")); err != nil || string(data) != "keep me\n" {
+		t.Fatalf("dirty work changed: %q %v", data, err)
+	}
+	text := readText(t, filepath.Join(project.Work, "10-done", "W-01-x.md"))
+	if !strings.Contains(text, "**Where:** —") {
+		t.Fatalf("missing record was overwritten: %s", text)
+	}
+}
+
+func TestEarlyCloseUsesFirstDoneAndReservesCloseAlias(t *testing.T) {
+	config := `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+next = "finish"
+[[columns]]
+key = "archive"
+label = "Close"
+folder = "10-done"
+kind = "done"
+[[columns]]
+key = "other"
+folder = "10-done"
+kind = "done"
+[steps.finish]
+into = "archive"
+skill = "x"
+`
+	project := testProject(t, config)
+	putCard(t, project, "W-01", "work", "todo", cardOptions{})
+	code, _, errOut := runMove(t, project, "W-01", "close", func(o *Options) { o.Reason = str("duplicate") })
+	if code != 0 || columnOf(t, project, "W-01") != "archive" {
+		t.Fatalf("first done column: %d %s", code, errOut)
+	}
+	text := readText(t, filepath.Join(project.Work, "10-done", "W-01-x.md"))
+	if !strings.Contains(text, "closed, no change: duplicate") {
+		t.Fatalf("alias shadowed cancellation: %s", text)
+	}
+}
+
+func TestEarlyCloseDoesNotRequireMissingWorkspaceForDoneColumn(t *testing.T) {
+	config := `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+next = "finish"
+[[columns]]
+key = "done"
+folder = "10-done"
+kind = "done"
+worktree = true
+[steps.finish]
+into = "done"
+skill = "x"
+`
+	project := testProject(t, config)
+	putCard(t, project, "W-01", "work", "todo", cardOptions{})
+	claimCard(t, project, "W-01", "tester:me")
+	code, _, errOut := runMove(t, project, "W-01", "close", func(o *Options) { o.Reason = str("not needed") })
+	if code != 0 {
+		t.Fatalf("cancellation required a missing workspace: %s", errOut)
 	}
 }
 

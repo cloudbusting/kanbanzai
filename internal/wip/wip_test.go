@@ -332,6 +332,17 @@ func TestEarlyClosedCardReportsRetainedWorkspace(t *testing.T) {
 	}
 }
 
+func TestEarlyClosedMissingRecordDoesNotHideDirtyUnmergedWork(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	putCard(t, project, cardSpec{ID: "W-07", Title: "work", Stage: "done", Folder: "10-done",
+		Where: "—", Done: "2026-11-13 — closed, no change: not needed"})
+	worktrees := []Worktree{tree("/x/proj-W-07", "W-07", 1, 2, "W-07")}
+	hard, soft, cleanup := Reconcile(project, Cards(project, nil), worktrees, nil, "W-07", nil)
+	if !has(hard, "board's Where") || !has(hard, "unclaimed work") || !has(soft, "2 commit(s) not on") || len(cleanup) != 0 {
+		t.Fatalf("unresolved work: hard=%v soft=%v cleanup=%v", hard, soft, cleanup)
+	}
+}
+
 func TestAClaimedCardAfterDesignNeedsAWorktree(t *testing.T) {
 	project := testProject(t, defaultConfig)
 	for _, column := range []string{"designed", "built", "checked", "qa-approved"} {

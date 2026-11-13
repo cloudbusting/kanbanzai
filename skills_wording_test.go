@@ -15,6 +15,18 @@ import (
 const exampleStart = "<!-- shipped-flow example: start -->"
 const exampleEnd = "<!-- shipped-flow example: end -->"
 
+func TestEarlyCloseInstructionsInSharedSkills(t *testing.T) {
+	for _, name := range []string{"do", "triage"} {
+		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "close --reason") || !strings.Contains(string(data), "no change") {
+			t.Errorf("%s does not describe explicit no change cancellation", name)
+		}
+	}
+}
+
 // Match instructions about stages and routes, not skill names or ordinary uses of build/check/design.
 var fixedFlowInstructions = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\b(?:move|moves|moving|moved|put|puts|pull|pulls|goes|go|take|takes|close|closes|leave|leaves)\b[^.\n]{0,100}\b(?:todo|designing|designed|building|built|checking|checked|in qa|qa-approved|shipping)\b`),

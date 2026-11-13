@@ -374,6 +374,16 @@ func Run(project *config.Project, opts Options) int {
 		name := NextStep(project, card, key)
 		result := map[string]any{"card": opts.For, "column": key, "column_label": project.Label(key), "next": nil,
 			"gate": nil, "skipped_steps": []string{}, "lands_in": nil, "lands_kind": nil}
+		done := ""
+		for _, column := range project.Columns {
+			if column.Kind == "done" {
+				done = column.Key
+				break
+			}
+		}
+		available := project.ByKey[key].Kind == "open" && card.Held == nil && done != ""
+		result["early_close"] = map[string]any{"available": available, "target": done,
+			"requirements": "nonempty --reason; no hold; no other live or expired claim; Doing requires your live claim"}
 		blocked := ""
 		if card.Gate != nil {
 			result["gate"] = card.Gate
@@ -393,6 +403,7 @@ func Run(project *config.Project, opts Options) int {
 					fmt.Fprintf(out, "gate: %s\n", blocked)
 				}
 				printRoute(out, opts.For, route)
+				printEarlyClose(out, opts.For, available)
 			}
 			return 0
 		}
@@ -441,6 +452,7 @@ func Run(project *config.Project, opts Options) int {
 		fmt.Fprintln(out, AsText(found))
 		explain(out, project, opts.For, card, blocked, skips, briefText)
 		printRoute(out, opts.For, route)
+		printEarlyClose(out, opts.For, available)
 		return 0
 	}
 	if opts.Name == "" {
@@ -459,6 +471,12 @@ func Run(project *config.Project, opts Options) int {
 		fmt.Fprintln(out, AsText(found))
 	}
 	return 0
+}
+
+func printEarlyClose(out io.Writer, id string, available bool) {
+	if available {
+		fmt.Fprintf(out, "early-close: optional cancellation, not delivery: kanbanzai move %s close --reason \"<why>\"; no other live or expired claim, and a Doing card needs your live claim\n", id)
+	}
 }
 
 func printRoute(out io.Writer, id string, r Route) {
