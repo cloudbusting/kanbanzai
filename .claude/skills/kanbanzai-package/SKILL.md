@@ -43,8 +43,9 @@ For each id in `include`, one at a time:
    Never use `--takeover` here: taking over needs the workspace inspection that "leave it out when unsure" does not
    allow.
 2. Re-read `kanbanzai step --for <ID>`, because the claim may already have moved the card. If it is still Checked,
-   run `kanbanzai move <ID> start`. A refusal, such as the work-in-progress cap, leaves the card out: release its
-   claim and never force the move.
+   run the start move that `kanbanzai workspace <ID>` prints in its `then:` line (`kanbanzai move <ID> start`, with
+   `--where "<the card's workspace record>"` when the column needs a workspace). A refusal, such as the
+   work-in-progress cap or a missing workspace, leaves the card out: release its claim and never force the move.
 
 The included set is the cards that now hold this session's claim and sit in the step's Doing column. If none are
 left, report "nothing to package" and stop. Every tool call renews a claim. If a later `move` is refused, report it and leave
@@ -56,7 +57,9 @@ that card truthful; never force it.
 - The check step merged each card's branch into the main branch, because this project has a deploy step. Package
   from the main checkout, not from a card's worktree: the release tags the main branch and the artifact must match it.
 - **The clean-main requirement lives in this bullet only.** The main checkout is clean and on its main branch.
-  Note the commit: `git rev-parse HEAD`. (The selector's `clean` field reports it; it never decides it.)
+  Note the commit: `git rev-parse HEAD`. The selector's `clean` field reports it and never decides it; read it when
+  the set is selected, because this session's own claims and moves then edit only the included cards' briefs. The
+  artifacts are archived from the commit, never the working tree.
 - This package is the rehearsal and the proof of the procedure. If the release commit later differs because the
   version metadata changed, the release step rebuilds the final artifacts from its tag; the package step does not
   publish.
