@@ -1,12 +1,11 @@
 # BUG-48: Report the release version after go install
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none identified; assess whether a record is needed
 - **Next action:** Run package QA for commit 0d256ea after preparing a clean integration tree
 - **Where:** worktree BUG-48
-- **Held:** blocked: package QA requires a clean main checkout and integration of BUG-48; unrelated board changes in main belong to other work and must be preserved
 
 ## Goal
 
