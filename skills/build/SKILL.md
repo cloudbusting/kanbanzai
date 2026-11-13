@@ -5,6 +5,8 @@ description: Build one well-defined change under its card, to its brief, followi
 
 # Build
 
+This skill is step-scoped: run on its own it stops at the end of this step and reports; `/do` is what carries a card on to its next step.
+
 ## Start: the step and its extensions
 
 Run `kanbanzai step build`. It prints the step's `skill`, `extend`, `context` and the column it moves a card into.
