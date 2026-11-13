@@ -13,6 +13,12 @@ and the editor extension carry the same version.
   changes outside the board, staged changes, an overlap or a genuine conflict still do and are reported, never
   cleared. `/audit` and `/next` use its verdict for the board-only dirty finding. `wip --audit` and its exit status are
   unchanged.
+- W-37: a custom flow whose step has no Doing column (no `during`) now progresses: `move ID finish`, or the step's
+  `into` column by name, moves the claimed card out of the step, and needs this session's live claim. A step with no
+  skill that is followed by a skilled step is a legal `skip` hop to the column the card lands in, stopping at the first
+  gated column on the way. `step --for ID` reports the first as `route: step` with no `target` and a new `finish`
+  column (also set for step and resume routes), the second as `route: skip`; `workflow show` lists the `finish` and
+  `skip` transitions. The shipped flow's transitions are unchanged.
 
 ## [0.15.0] — 2026-11-13
 

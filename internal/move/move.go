@@ -116,6 +116,15 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		value := "closed, no change: " + strings.TrimSpace(*changes.Reason)
 		changes.Done = &value
 	}
+	source := filepath.Join(project.Root, filepath.FromSlash(card.Path))
+	original, err := os.ReadFile(source)
+	if err != nil {
+		return "", err
+	}
+	briefText := string(original)
+	skipped := func(name string) bool {
+		return step.SkippedFor(project, briefText, name)
+	}
 	var destination string
 	switch word {
 	case "close":
@@ -146,11 +155,23 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 			return "", refused(fmt.Sprintf("%s: this project has no Doing column for the %s step", cardID, name))
 		}
 	case "finish":
-		if column.Doing == "" {
+		if column.Doing != "" {
+			destination = project.Steps[column.Doing].Into
+			break
+		}
+		// No Doing column: the claim is the doing, so finishing is leaving for the step's into column.
+		if card.Held != nil && !changes.ClearHeld {
+			return "", refused(fmt.Sprintf("%s has no step to finish: it has a Held line (%s); clear it with --clear-held",
+				cardID, *card.Held))
+		}
+		destination = finishWithoutDoing(project, key, &look, skipped)
+		if destination == "" {
+			if name := step.NextStep(project, &look, key); name != "" && skipped(name) {
+				return "", refused(skipStartMessage(project, cardID, name, skipped))
+			}
 			return "", refused(fmt.Sprintf("%s is in %s, not in a Doing column: there is no step to finish",
 				cardID, column.Label))
 		}
-		destination = project.Steps[column.Doing].Into
 	default:
 		destination = Resolve(project, target)
 		if destination == "" {
@@ -168,16 +189,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 			cardID, goal.Label))
 	}
 
-	source := filepath.Join(project.Root, filepath.FromSlash(card.Path))
-	original, err := os.ReadFile(source)
-	if err != nil {
-		return "", err
-	}
 	problems := []string{}
-	briefText := string(original)
-	skipped := func(name string) bool {
-		return step.SkippedFor(project, briefText, name)
-	}
 	allowed := LegalTargets(project, key, &look, skipped)
 	if changes.QuestionReturn && column.Doing != "" && goal.Kind == "open" && goal.Doing == "" {
 		for _, earlier := range project.Columns {
@@ -210,7 +222,8 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 			}
 		}
 	}
-	if destination != key && (goal.Doing != "" || word == "finish") && !mine {
+	finishesAlone := !earlyClose && column.Doing == "" && allowed[destination] == "finish"
+	if destination != key && (goal.Doing != "" || word == "finish" || finishesAlone) && !mine {
 		problems = append(problems, fmt.Sprintf("%s is not claimed by you: claim it first (kanbanzai claim claim %s)",
 			cardID, cardID))
 	}
@@ -361,6 +374,14 @@ func LegalTargets(project *config.Project, key string, card *board.Card, skipped
 		}
 		if column.Doing == "" {
 			skipAhead(project, name, skipped, found)
+			if into := finishWithoutDoing(project, key, card, skipped); into != "" && into != key {
+				if _, taken := found[into]; !taken {
+					found[into] = "finish"
+				}
+			}
+			if description != nil && description.Instead != nil {
+				hopOver(project, key, description.Instead, found)
+			}
 		}
 	}
 	if column.Doing != "" {
@@ -396,6 +417,45 @@ func skipAhead(project *config.Project, name string, skipped func(string) bool, 
 	}
 	if _, taken := found[path.Column]; path.Kind == "close" || !taken {
 		found[path.Column] = path.Kind
+	}
+}
+
+// finishWithoutDoing is the column a card moves to when it finishes a step that has no Doing column, or "". Such a
+// step has a skill, has no `during` column, is not skipped by this card and is the next step of an open column that is
+// itself not a Doing column; the claim is the only proof the step ran. A step with a Doing column is started and
+// finished through it, never from its Next column.
+func finishWithoutDoing(project *config.Project, key string, card *board.Card, skipped func(string) bool) string {
+	column, ok := project.ByKey[key]
+	if !ok || column.Doing != "" || column.Kind != "open" {
+		return ""
+	}
+	name := step.NextStep(project, card, key)
+	found, ok := project.Steps[name]
+	if name == "" || !ok || !found.Active || found.Skill == "" || found.During != "" {
+		return ""
+	}
+	if skipped != nil && skipped(name) {
+		return ""
+	}
+	if _, ok := project.ByKey[found.Into]; !ok {
+		return ""
+	}
+	return found.Into
+}
+
+// hopOver records the column a card lands in when its next step has no skill and the steps after it lead on to a
+// skilled step (or a waiting column): it moves there as a skip, as a skip rule does. A hop that closes is recorded
+// by LegalTargets itself.
+func hopOver(project *config.Project, key string, instead *step.Instead, found map[string]string) {
+	if instead.Action != "step" && instead.Action != "stop" {
+		return
+	}
+	landing, ok := project.ByKey[instead.Column]
+	if !ok || landing.Key == key || landing.Kind != "open" {
+		return
+	}
+	if _, taken := found[landing.Key]; !taken {
+		found[landing.Key] = "skip"
 	}
 }
 
