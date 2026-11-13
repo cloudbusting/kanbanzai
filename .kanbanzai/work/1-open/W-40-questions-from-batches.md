@@ -1,6 +1,6 @@
 # W-40: Pause a batch card on its question and answer it later
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-13
 - **Done:** —
 - **ADR:** none
