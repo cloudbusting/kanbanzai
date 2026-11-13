@@ -206,7 +206,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		problems = append(problems, fmt.Sprintf("%s has a Held line (%s): clear it in this move with --clear-held",
 			cardID, *held))
 	}
-	if goal.Worktree && workspace.Needs(project) && mine && destination != key {
+	if goal.Worktree && workspace.Needs(project) && mine && destination != key && !earlyClose {
 		where := card.Where
 		if changes.Where != nil {
 			where = *changes.Where

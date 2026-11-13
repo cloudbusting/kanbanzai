@@ -424,7 +424,11 @@ kanbanzai --version                      the command's version
 
 **Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
 `TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done
-column of the step it is in). One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
+column of the step it is in). `kanbanzai move ID close --reason "<why>"` instead cancels an open card with no
+change, not a delivery. It records the reason without `--force` and preserves the workspace and its work. It may
+leave a closed current-column gate, but not a hold or parked card; another live or an expired claim refuses, and a
+Doing card requires your live claim. Inspect retained work before cleanup. `close` is reserved even if a custom
+column uses that key or alias; use another key or label, or rename the column. One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
 **Where**, **Held**, a dated **Progress** line, **Done**), in one atomic rewrite of the brief, moving its folder for
 Paused and Done. It refuses (exit 2) an unknown column or card, a skipped step, a move into a Doing column without
 your claim, a Held card (add `--clear-held`), a column that needs a workspace the card has not got (a worktree, a branch or an external record, as the isolation
