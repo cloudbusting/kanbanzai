@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-11-13
+
 - BUG-54: `wip --audit --card ID --recovery` also accepts an unheld card stopped between steps (Designed, Built, Checked or
   another column that needs a workspace) whose work was preserved when its claim was released, so a stop on an audit
   finding no longer leaves the card unclaimable. Held cards, another session's live claim, a mismatched, missing or
