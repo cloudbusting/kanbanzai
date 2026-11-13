@@ -1,6 +1,6 @@
 # CHANGE-47: Early close with a transition reason
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-13
 - **ADR:** decisions recorded in this brief
 - **Next action:** Integrate checked branch into main and package from the integrated commit
