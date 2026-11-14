@@ -97,5 +97,30 @@ func (p *Preset) Compose(c Compose) error {
 	if len(c.StepSkills)+len(c.StepExtends) > 0 {
 		p.Flow = &flow.Doc{Raw: p.Flow.Raw, Text: flow.ToTOML(p.Flow.Raw), Format: "toml"}
 	}
+	p.prune()
 	return p.validate()
+}
+
+// prune drops the templates and brief schemas that no type names any more, so replacing a type does not leave its
+// template to be written into the project.
+func (p *Preset) prune() {
+	templates, schemas := map[string]bool{}, map[string]bool{}
+	for _, item := range p.Types {
+		if template, _ := item["template"].(string); template != "" {
+			templates[strings.TrimPrefix(template, TemplatesDir)] = true
+		}
+		if schema, _ := item["schema"].(string); schema != "" {
+			schemas[schema] = true
+		}
+	}
+	for file := range p.Templates {
+		if !templates[file] {
+			delete(p.Templates, file)
+		}
+	}
+	for name := range p.Schemas {
+		if !schemas[name] {
+			delete(p.Schemas, name)
+		}
+	}
 }
