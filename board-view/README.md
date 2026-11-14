@@ -65,7 +65,10 @@ For the longer interview (owner, card prefix, context files) run `/kanbanzai:set
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
   `board --json`, `config --json` and `sessions --json` to draw the board, `install --refresh` at startup (only
   when a per-user copy is already there), and after you click Apply, `install` and
-  `init --plan`; `init --dry-run --json` to make the plan you read. It runs only in a trusted workspace.
+  `init --plan`; `init --dry-run --json` to make the plan you read. It also runs `migrate --json` (read-only) when it
+  starts and when the board cannot be read; if a release needs the project migrated it shows a notice, `migrate`
+  to read the plan, and `migrate --apply --plan HASH` only when you click Apply on that notice, with the hash the
+  command printed. It runs only in a trusted workspace.
 - **Reads:** the project's `.kanbanzai/` (through the command), whether `.git` and `.kanbanzai/config.toml` exist, and
   its own settings.
 - **Writes:** until you click Apply, only the pending plan, `.kanbanzai/state/setup-plan.json` (mode 0600; `state/` is
@@ -74,7 +77,9 @@ For the longer interview (owner, card prefix, context files) run `/kanbanzai:set
   plugin to everyone who opens it; `.claude/settings.local.json` and `.opencode/opencode.json` hold a path to your
   Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder
   (replaced with the extension's own release whenever the extension starts, if you had set it up).
-  The plan file is deleted after a successful Apply. The board tab itself never writes.
+  The plan file is deleted after a successful Apply. A migration writes through the command, only when you click Apply
+  (the project's config today, backed up under `.kanbanzai/state/migrate/`); the status item reads "Kanbanzai: Migrate"
+  until then. The board tab itself never writes.
 - **Network, telemetry:** none. The extension makes no request and sends nothing. Claude Code (not this extension)
   fetches a plugin from a GitHub marketplace source the next time it starts, and the plan names that source.
 - **The command is not signed:** a binary taken from the `.vsix` may meet macOS Gatekeeper or Windows SmartScreen

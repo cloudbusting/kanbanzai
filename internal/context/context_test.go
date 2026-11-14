@@ -196,3 +196,22 @@ func TestContextSaysHowEachIsolationModeKeepsWorkApart(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrationNoticeSaysToPreviewAskAndOnlyThenApply(t *testing.T) {
+	got := MigrationNotice([]string{"config-v1", "card-x"}, false)
+	for _, want := range []string{"needs migrating", "config-v1, card-x", "Do not run it yet", "kanbanzai migrate", "question tool", "--apply --plan"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("MigrationNotice = %q, want it to contain %q", got, want)
+		}
+	}
+	if strings.Contains(got, "\n") {
+		t.Fatalf("MigrationNotice = %q, want one line", got)
+	}
+	unfinished := MigrationNotice(nil, true)
+	if !strings.Contains(unfinished, "did not finish") || !strings.Contains(unfinished, "kanbanzai migrate --rollback") || strings.Contains(unfinished, "\n") {
+		t.Fatalf("MigrationNotice(rollback) = %q", unfinished)
+	}
+	if got := MigrationNotice(nil, false); got != "" {
+		t.Fatalf("nothing pending: %q", got)
+	}
+}

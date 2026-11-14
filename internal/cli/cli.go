@@ -45,6 +45,7 @@ commands:
   sessions [--json]              the claimed cards with a live session
   config [--json]                the versioned, resolved settings
   config upgrade [--apply]       preview/apply a safe config schema upgrade
+  migrate [--json | --apply --plan HASH | --rollback]  preview, apply (on the hash it printed) or roll back the migration this release needs
   doctor [--json]                diagnose this installation without repairs
   context [--adapter-version V] the standing context
   workflow <verb> ...            show, validate, plan, apply and export the flow (columns and steps)
@@ -102,6 +103,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		fmt.Fprintln(out, text)
 		return 0
+	}
+	if command == "migrate" {
+		return runMigrate(rest, out, errOut)
 	}
 	if command == "doctor" {
 		positionals, _, set, err := parse(rest, map[string]bool{"json": true}, nil)
@@ -171,6 +175,10 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			if command == "context" {
 				if mismatch != "" {
 					fmt.Fprintln(out, mismatch)
+				}
+				if notice := migrationNotice(); notice != "" {
+					fmt.Fprintln(out, notice)
+					return 0
 				}
 				fmt.Fprintf(out, "Kanbanzai: this project's config cannot be used: %v\n", err)
 				return 0
@@ -303,6 +311,9 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		}
 		if line := context.Mismatch(version.Effective(), flags["adapter-version"]); line != "" {
 			fmt.Fprintln(out, line)
+		}
+		if notice := migrationNotice(); notice != "" {
+			fmt.Fprintln(out, notice)
 		}
 		return context.Run(project, out)
 	}

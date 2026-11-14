@@ -24,6 +24,22 @@ const columnsDoing = "Columns, in order (a Done column is the last step finished
 const columnsPlain = "Columns, in order (a column is the last step finished; a live claim means a session is on " +
 	"the next one):"
 
+// MigrationNotice is the one line a session starts with when this release has a migration waiting for the
+// project (ids names them), or when an earlier one did not finish (unfinished). It tells the session to preview,
+// ask the owner and apply only on approval; the wording lives only here, so both adapters say the same thing.
+func MigrationNotice(ids []string, unfinished bool) string {
+	if unfinished {
+		return "Kanbanzai: a migration of this project did not finish. Do not work on the board yet: ask the owner, then run " +
+			"`kanbanzai migrate --rollback` to put the files back and `kanbanzai migrate` to preview again."
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	return "Kanbanzai: this project needs migrating to this release (" + strings.Join(ids, ", ") + "). Do not run it yet: " +
+		"run `kanbanzai migrate` to preview, show the owner the plan, ask through the question tool, and only if they " +
+		"approve run `kanbanzai migrate --apply --plan <hash>` with the hash the preview printed."
+}
+
 // Build is the standing context for a project.
 func Build(project *config.Project) string {
 	configFile := project.ConfigFile

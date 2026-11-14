@@ -151,7 +151,7 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
   }
 });
 
-test("a legacy config injects the same upgrade instruction as the Claude hook", async () => {
+test("a legacy config injects the same migration notice as the Claude hook", async () => {
   const project = newProject();
   process.env.KANBANZAI_BIN = BIN;
   writeFileSync(path.join(project, ".kanbanzai", "config.toml"), "[project]\nowner='Legacy'\n");
@@ -161,7 +161,8 @@ test("a legacy config injects the same upgrade instruction as the Claude hook", 
   try {
     const request = { sessionID: "ses_legacy", system: [] };
     await hooks["session.context"](request);
-    assert.match(request.system.map((part) => part.text).join("\n"), /kanbanzai config upgrade/);
+    const text = request.system.map((part) => part.text).join("\n");
+    assert.match(text.split("\n")[0], /needs migrating[^\n]*kanbanzai migrate[^\n]*question tool/);
   } finally {
     cleanup();
     rmSync(project, { recursive: true, force: true });

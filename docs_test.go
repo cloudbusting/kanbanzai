@@ -89,3 +89,35 @@ func TestTheIsolationGuideNamesEveryMode(t *testing.T) {
 		}
 	}
 }
+
+// W-34: the migration contract is described where an owner and a release author look for it, and the extension's
+// trust statement names the one write path it gained.
+func TestTheMigrationPathIsDocumented(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func(parts ...string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(append([]string{root}, parts...)...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(string(data)), " ")
+	}
+	for file, words := range map[string][]string{
+		"README.md": {"kanbanzai migrate", "migrate --apply --plan", "migrate --rollback", "docs/migrate.md", "config upgrade"},
+		"docs/migrate.md": {"plan_sha256", "recovery", "Registry", "Detect", "idempotent", "exit 2", "one approval", "an old board must still load",
+			"Kanbanzai: Migrate", "question tool", "never commits"},
+		"board-view/README.md":                     {"migrate --apply --plan", "only when you click Apply", "Kanbanzai: Migrate", "migrate --json"},
+		"CHANGELOG.md":                             {"kanbanzai migrate", "W-34"},
+		".claude/skills/kanbanzai-design/SKILL.md": {"internal/migrate", "docs/migrate.md"},
+	} {
+		flat := read(strings.Split(file, "/")...)
+		for _, w := range words {
+			if !strings.Contains(flat, w) {
+				t.Errorf("%s lacks %q", file, w)
+			}
+		}
+	}
+}
