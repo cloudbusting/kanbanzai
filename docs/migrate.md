@@ -36,7 +36,8 @@ kanbanzai migrate --rollback             # after a crash: put the files back
   command.
 - **Safe to run.** Apply takes `<state>/migrate.lock`, backs every file up under `<state>/migrate/backup/<hash>/`,
   writes a journal (`<state>/migrate/journal.json`), writes briefs first and the config last, each atomically, then
-  loads the new config and requires `kanbanzai check` to pass and `doctor` to report no config or folder error. Any
+  loads the new config and requires `kanbanzai check` to report no problem it did not already report before (a board that
+  was red for its own reasons can still migrate, and the old problems are listed) and `doctor` to report no config error (an environment error such as a missing folder is the same before and after, and is yours to fix). Any
   failure restores every file and says what failed. A killed apply leaves `"recovery": "rollback-needed"` in the
   JSON and a first context line saying so; `migrate --rollback` restores the files, and a second rollback is a
   no-op. Apply never commits: it prints the paths for you to commit.

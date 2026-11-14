@@ -64,6 +64,9 @@ type Result struct {
 	Changed []string `json:"changed"`
 	// Message is set when there was nothing to do (a rollback with nothing to roll back).
 	Message string `json:"message,omitempty"`
+	// Notes are the `kanbanzai check` problems the project had before the migration and still has: the migration
+	// neither caused nor hides them.
+	Notes []string `json:"notes,omitempty"`
 }
 
 // Refusal is an apply or rollback that was stopped before it wrote anything.
@@ -167,6 +170,11 @@ func Apply(start, sha string, options Options) (*Result, error) {
 		return nil, err
 	}
 
+	// What `check` already finds in the project as the migrated config reads it: only a new problem is the migration's.
+	existing := map[string]bool{}
+	for _, problem := range check.ProblemsOf(p) {
+		existing[problem] = true
+	}
 	backups := filepath.Join(stateDir(p), "backup", plan.SHA[:12])
 	if err := os.RemoveAll(backups); err != nil {
 		return nil, err
@@ -229,13 +237,21 @@ func Apply(start, sha string, options Options) (*Result, error) {
 	if err != nil {
 		return fail(fmt.Errorf("the new config cannot be loaded: %v", err))
 	}
-	if problems := check.ProblemsOf(next); len(problems) > 0 {
-		return fail(fmt.Errorf("`kanbanzai check` is red after the migration:\n  %s", strings.Join(problems, "\n  ")))
+	var introduced, notes []string
+	for _, problem := range check.ProblemsOf(next) {
+		if existing[problem] {
+			notes = append(notes, problem)
+		} else {
+			introduced = append(introduced, problem)
+		}
+	}
+	if len(introduced) > 0 {
+		return fail(fmt.Errorf("`kanbanzai check` is red after the migration:\n  %s", strings.Join(introduced, "\n  ")))
 	}
 	for _, finding := range runDoctor(options, p.Root) {
-		// Only what a migration changes can fail it: an environment error (an unwritable folder, no git) is the same
-		// before and after, and is the owner's to fix.
-		if finding.Status == "error" && (finding.ID == "config" || strings.HasPrefix(finding.ID, "folder.")) {
+		// Only what a migration changes can fail it: an environment error (an unwritable folder, a missing card
+		// folder, no git) is the same before and after, and is the owner's to fix; `check` above catches a new one.
+		if finding.Status == "error" && finding.ID == "config" {
 			return fail(fmt.Errorf("`kanbanzai doctor` reports an error after the migration: %s: %s", finding.ID, finding.Message))
 		}
 	}
@@ -246,7 +262,7 @@ func Apply(start, sha string, options Options) (*Result, error) {
 	if err := writeJournal(journalPath(p), journal); err != nil {
 		return nil, err
 	}
-	result := &Result{Changed: []string{}}
+	result := &Result{Changed: []string{}, Notes: notes}
 	for _, step := range journal.Steps {
 		result.Changed = append(result.Changed, step.Path)
 	}

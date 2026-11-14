@@ -388,7 +388,7 @@ func TestVerificationFailureRollsBack(t *testing.T) {
 	// an unrelated environment error does not undo the migration
 	root, _ = v0Host(t)
 	if _, err := apply(t, root, Options{Doctor: func(string) []doctor.Finding {
-		return []doctor.Finding{{ID: "access.state", Status: "error", Message: "read-only"}}
+		return []doctor.Finding{{ID: "access.state", Status: "error", Message: "read-only"}, {ID: "folder.cards", Status: "error", Message: "missing"}}
 	}}); err != nil {
 		t.Fatalf("an environment finding failed the migration: %v", err)
 	}
@@ -491,5 +491,39 @@ func TestAWorktreeReadsTheMainCheckoutsMigratedConfig(t *testing.T) {
 	}
 	if got := tree(t, worktree)[".kanbanzai/config.toml"]; got != v0Config {
 		t.Fatalf("the worktree's own copy changed: %q", got)
+	}
+}
+
+func TestAProblemTheHostAlreadyHadDoesNotStopTheMigration(t *testing.T) {
+	root, _ := v0Host(t)
+	// the host's board was already red for its own reasons: a card whose Stage is not a column
+	testutil.Write(t, filepath.Join(root, ".kanbanzai", "work", "1-open", "W-04-odd.md"), testutil.Brief("W-04", "odd", "nonsense"))
+	result, err := apply(t, root, Options{})
+	if err != nil {
+		t.Fatalf("a problem that was there before stopped the migration: %v", err)
+	}
+	if len(result.Notes) == 0 || !strings.Contains(strings.Join(result.Notes, "\n"), "W-04-odd.md") {
+		t.Fatalf("notes = %v; want the existing problem named", result.Notes)
+	}
+}
+
+func TestAMigrationThatMakesTheBoardRedIsRolledBack(t *testing.T) {
+	registry := append([]Migration{{ID: "card-bad", Kind: "brief", Summary: "break W-01", Detect: func(env Env) ([]Change, error) {
+		path := ".kanbanzai/work/1-open/W-01-first.md"
+		data, err := os.ReadFile(filepath.Join(env.Root, filepath.FromSlash(path)))
+		if err != nil || strings.Contains(string(data), "nonsense") {
+			return nil, err
+		}
+		return []Change{{Path: path, Card: "W-01", Before: data, After: []byte(strings.Replace(string(data), "**Stage:** todo", "**Stage:** nonsense", 1))}}, nil
+	}}}, Registry...)
+	root, _ := v0Host(t)
+	before := tree(t, root)
+	_, err := apply(t, root, Options{Registry: registry})
+	var failed *Failed
+	if !errors.As(err, &failed) || !failed.RolledBack || !strings.Contains(err.Error(), "check") {
+		t.Fatalf("err = %v; want a rolled-back failure naming check", err)
+	}
+	if !reflect.DeepEqual(before, tree(t, root)) {
+		t.Fatal("the tree is not what it was")
 	}
 }
