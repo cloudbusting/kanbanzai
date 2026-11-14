@@ -320,6 +320,19 @@ func TestTheReadmeDocumentsTheClaimMoveAndTheUnstartedFlag(t *testing.T) {
 
 // W-05: /kanbanzai:setup detects, plans, asks, waits for approval, applies the reviewed plan and proves the result,
 // and never changes anything before the owner has seen the plan.
+func TestSetupCoordinatesEditorPlansAndPlugins(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("skills", "setup", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, phrase := range []string{".kanbanzai/state/setup-plan.json", "Kanbanzai: Cancel Setup", "Kanbanzai: Apply", "--plugins", "--plugin-source", "neither", "concurrent", "symbolic link", "fresh approval"} {
+		if !strings.Contains(text, phrase) {
+			t.Errorf("setup must describe %q", phrase)
+		}
+	}
+}
+
 func TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {

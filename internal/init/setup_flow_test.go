@@ -120,6 +120,32 @@ func TestSetupFlowRefusalLeavesTheProjectUntouched(t *testing.T) {
 	}
 }
 
+func TestSetupFlowPluginPlanIsExactAndRejectsStaleSettings(t *testing.T) {
+	root := repo(t, "main")
+	source := pluginCheckout(t)
+	opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: source}
+	_, file := planTo(t, root, root, opts)
+	applyPlan(t, root, file)
+	if _, err := os.Stat(filepath.Join(root, ".claude", "settings.local.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".opencode", "opencode.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	other := repo(t, "main")
+	_, stale := planTo(t, other, other, opts)
+	testutil.Write(t, filepath.Join(other, ".claude", "settings.local.json"), `{"mine":true}`)
+	before := tree(t, other)
+	code, _, errOut := initRun(other, Options{PlanFile: stale})
+	if code != 2 || !strings.Contains(errOut, "run init --dry-run again") {
+		t.Fatalf("stale plan = %d %s", code, errOut)
+	}
+	if !reflect.DeepEqual(before, tree(t, other)) {
+		t.Fatal("stale plan wrote to the project")
+	}
+}
+
 func TestSetupFlowOnANonMainDefaultBranchAsksThenRecordsIt(t *testing.T) {
 	// trunk alone is told without a question, and recorded.
 	trunk := repo(t, "trunk")
