@@ -61,7 +61,25 @@ function gateOf(value) {
   const type = str(g.type);
   const state = str(g.state);
   if (!type || !state) return null;
-  return { type, name: str(g.name), state, opens: str(g.opens_when), why: str(g.why) };
+  const needs = Array.isArray(g.needs)
+    ? g.needs.map(obj).filter((n) => typeof n.card === 'string' && n.card !== '').map((n) => ({
+      card: n.card, column: str(n.column_label) || str(n.column), wants: str(n.wants_label) || str(n.wants),
+      met: n.met === true, onBoard: n.on_board !== false,
+    }))
+    : [];
+  return { type, name: str(g.name), state, opens: str(g.opens_when), why: str(g.why), needs };
+}
+
+// The cards a closed card gate waits on, as the lines of an aligned text table (a title is plain text), in the order
+// the command sent them: it puts the ones that fail first. No needs, no lines.
+function needsTable(needs) {
+  if (!needs.length) return [];
+  const width = (t) => [...t].length;
+  const met = needs.filter((n) => n.met).length;
+  const rows = needs.map((n) => [n.card, n.onBoard ? `in ${n.column}` : 'not on the board', `needs ${n.wants}`, n.met ? 'met' : 'not met']);
+  const widths = [0, 1, 2].map((i) => Math.max(...rows.map((r) => width(r[i]))));
+  const count = needs.length === 1 ? `${met} of 1 need is met` : `${met} of ${needs.length} needs are met`;
+  return [count, ...rows.map((r) => `  ${[0, 1, 2].map((i) => r[i] + ' '.repeat(widths[i] - width(r[i]))).join('  ')}  ${r[3]}`)];
 }
 
 function cardHtml(card, colKey, ownerName, now) {
@@ -84,6 +102,7 @@ function cardHtml(card, colKey, ownerName, now) {
   if (gate) {
     hover.push(`Gate: ${gate.type}${gate.name ? ` (${gate.name})` : ''} ${gate.state}${gateWaits ? '' : gate.why ? ` (${gate.why})` : ''}`);
     if (gateWaits && gate.opens) hover.push(`Opens when ${gate.opens}`);
+    if (gateWaits) hover.push(...needsTable(gate.needs));
   }
   if (owner) hover.push(`Claimed by ${owner}`);
   // The claiming Claude Code session, when `kanbanzai board` found a live one: asking (waiting for the owner), busy or idle.
@@ -117,7 +136,7 @@ function cardHtml(card, colKey, ownerName, now) {
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
   if (c.claimed_not_started === true) glyphs += `<span class="glyph glyph-unstarted" title="${esc(UNSTARTED_TEXT)}">⚑</span>`;
-  if (gateWaits) glyphs += `<span class="glyph glyph-gate" title="${esc(`Waiting at a ${gate.type} gate: ${gate.state}`)}">🔒</span>`;
+  if (gateWaits) glyphs += `<span class="glyph glyph-gate" title="${esc([`Waiting at a ${gate.type} gate: ${gate.state}`, ...needsTable(gate.needs)].join('\n'))}">🔒</span>`;
   if (hasQuestion && !(session && session.state === 'waiting')) glyphs += '<span class="glyph glyph-asking">❓</span>';
   if (session) {
     const label = session.state === 'waiting' ? `❓ ${SESSION_WORD.waiting}` : `${CLAIMED_GLYPH} ${SESSION_WORD[session.state]}`;

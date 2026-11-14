@@ -512,7 +512,11 @@ missing `--done`. Each move is a line in `<state>/moves.jsonl`.
 `None` skips the deploy steps and the card closes from Checked), and a column can declare a **gate** a card waits at
 until it is open: `owner`, `ci`, `external`, `date` or `card` (`gate = "ci"`). `move` refuses to take a card out of a
 closed gate and `wip --next` does not offer it; `gate pass ID` records the result (the owner gate needs `--note` with
-their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it.
+their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it. A card
+held by a `card` gate also gets a table of the cards in its `Needs:` line (`N of M needs are met`, the ones that do
+not satisfy the gate first, each with the column it is in and the one the gate wants); `board --json` carries it as
+`gate.needs`, present only on a closed `card` gate. A card in a parked column (Paused) never counts as having reached
+an open column.
 
 `kanbanzai step --for <ID> --json` also includes a `route` object describing the immediate action, step, target,
 whether a gate or hold blocks it, workspace facts, the column `finish` lands in (`finish`), and whether closing needs

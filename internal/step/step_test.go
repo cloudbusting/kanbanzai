@@ -511,3 +511,63 @@ func TestInsteadStillClosesPastTheOwnerGate(t *testing.T) {
 		t.Fatalf("the close must still pass the owner gate: %+v", got)
 	}
 }
+
+const needsConfig = `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+started = "claimed"
+next = "finish"
+[[columns]]
+key = "waiting"
+folder = "1-open"
+gate = "card"
+gate_until = "todo"
+next = "finish"
+[[columns]]
+key = "finishing"
+folder = "1-open"
+doing = "finish"
+[[columns]]
+key = "paused"
+folder = "x-paused"
+kind = "parked"
+[[columns]]
+key = "done"
+folder = "10-done"
+kind = "done"
+[steps.finish]
+into = "done"
+during = "finishing"
+skill = "y"
+`
+
+func TestStepForPrintsTheTableOfNeedsUnderAClosedCardGate(t *testing.T) {
+	project := testProject(t, needsConfig)
+	putCard(t, project, "W-01", "waits", "waiting", "- **Needs:** W-02, W-03")
+	putCard(t, project, "W-02", "paused", "paused")
+	putCard(t, project, "W-03", "fine", "todo")
+	putCard(t, project, "W-04", "open", "waiting", "- **Needs:** W-03")
+	_, text, _ := runStep(t, project, Options{For: "W-01"})
+	for _, want := range []string{"gate: W-01 is held by the waiting gate (card)", "1 of 2 needs are met",
+		"  W-02  in paused  needs todo  not met", "  W-03  in todo    needs todo  met"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text misses %q:\n%s", want, text)
+		}
+	}
+	_, text, _ = runStep(t, project, Options{For: "W-04"})
+	if strings.Contains(text, "needs todo") || strings.Contains(text, "is met") {
+		t.Errorf("an open gate prints no table:\n%s", text)
+	}
+	_, out, _ := runStep(t, project, Options{For: "W-01", JSON: true})
+	var found struct {
+		Gate struct{ Needs []struct{ Card string } }
+	}
+	if err := json.Unmarshal([]byte(out), &found); err != nil || len(found.Gate.Needs) != 2 || found.Gate.Needs[0].Card != "W-02" {
+		t.Errorf("json misses needs:\n%s", out)
+	}
+}
