@@ -1,11 +1,11 @@
 # W-37: Make workflows without Doing columns progress safely
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-14
-- **Done:** —
+- **Done:** 2026-11-14 — v0.16.0, 44a4177, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.16.0
 - **ADR:** none
-- **Next action:** release: 0.15.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-W-37-0.15.0 from main 9cee31f
-- **Where:** worktree W-37
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -128,5 +128,6 @@ for a `stop` Instead widens legal moves for flows where a no-skill step leads to
 - 2026-11-13: checked: go/node/hook/plugin checks green, audit pass, diff reviewed; no must-fix. QA findings: none. Note: a no-skill step ending at a waiting column is now a legal skip hop
 - 2026-11-13: package not run: W-37 is not merged into main and main has other sessions' uncommitted briefs (CHANGE-51, BUG-57); card left In QA, claim released
 - 2026-11-14: Package QA passed at 9cee31f alone: artifacts /tmp/kanbanzai-package-W-37-0.15.0 (source tarball 2823bc82…, vsix 61acdbd4…, five binary archives, SHA256SUMS); fresh-project init/check/board, claude validate, throwaway install, opencode syntax, vsix listing all pass. Manual: editor install of the .vsix
+- 2026-11-14: released as v0.16.0 with W-37/CHANGE-51 at 44a4177: CI green on three systems, release workflow green, published artifacts verified
 
 ## Comments
