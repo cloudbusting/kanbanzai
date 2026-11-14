@@ -93,7 +93,7 @@ paths from the committed tree, never the working directory:
 
 ```bash
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" -o "$OUT/kanbanzai-<version>.tar.gz" "$SHA" \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
+  .claude-plugin assets.go cmd internal go.mod defaults presets templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
 ```
 
 `docs` is in the list because the README links `docs/setup.md` and the other guides; a bundle without it has dead
