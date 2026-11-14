@@ -105,7 +105,7 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 | `⏳ <owner>` amber edge | waiting on the project's owner (`[project] owner`) |
 | `⏳` amber edge | waiting on someone else |
 | `⏸` grey edge | paused |
-| `🔒` grey | waiting at a gate that is not open (an owner's approval, a CI result, an outside event, a date or another card): the hover says which gate and what opens it; once it opens, the hover says who passed it and the mark goes |
+| `🔒` grey | waiting at a gate that is not open (an owner's approval, a CI result, an outside event, a date or another card): the hover says which gate and what opens it, and for another card's gate lists the cards it needs as a table (the ones that fail first, where each sits and where it must be); once it opens, the hover says who passed it and the mark goes |
 | `⚠` amber edge | interrupted: in a Doing column with no live claim and no Held line (hover says the step was under way and no session holds it) |
 | `●` | claimed by a session (hover shows which); a claimed card can also carry another mark |
 | `❓ asking 3m`, filled card | the session holding the card (Claude Code's or OpenCode's) is waiting for you (a question or a permission prompt) and has been for 3 minutes: the card is filled with the theme's button colours and glows (no glow with reduced motion) |
