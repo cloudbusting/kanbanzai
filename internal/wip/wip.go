@@ -280,10 +280,18 @@ func Worktrees(project *config.Project) []Worktree {
 	return out
 }
 
-// CardOf is the card a worktree belongs to: its branch, its folder name, or a batch map ("batch").
+// CardOf is the card a worktree belongs to: its branch, its folder name, or a batch map ("batch"). A branch that
+// names several cards (a release prep branch) belongs to the one its folder names, else to the first.
 func CardOf(project *config.Project, worktree Worktree, spaces []string) string {
-	if card, ok := project.CardIDIn(worktree.Branch); ok {
-		return card
+	if named := project.CardIDsIn(worktree.Branch); len(named) > 0 {
+		if folder, ok := project.CardIDIn(filepath.Base(worktree.Path)); ok {
+			for _, card := range named {
+				if card == folder {
+					return card
+				}
+			}
+		}
+		return named[0]
 	}
 	if card, ok := project.CardIDIn(filepath.Base(worktree.Path)); ok {
 		return card

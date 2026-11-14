@@ -914,6 +914,20 @@ func (p *Project) CardIDIn(value string) (string, bool) {
 	return p.CanonicalCardID(match)
 }
 
+// CardIDsIn is every distinct card id inside a branch name or a path, in the order they appear.
+func (p *Project) CardIDsIn(value string) []string {
+	found := []string{}
+	seen := map[string]bool{}
+	for _, match := range p.IDInRe.FindAllString(value, -1) {
+		card, ok := p.CanonicalCardID(match)
+		if ok && !seen[card] {
+			seen[card] = true
+			found = append(found, card)
+		}
+	}
+	return found
+}
+
 // CardNumber is the numeric part of a card id, typed or legacy.
 func (p *Project) CardNumber(value string) (int, bool) {
 	if p.TypeSet != nil {
