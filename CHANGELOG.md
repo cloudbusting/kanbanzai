@@ -5,6 +5,14 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-11-14
+
+- W-32: Setup explains plugin selection and the editor's pending Init/Apply plan.
+- W-33: Scrub machine-specific board records and guard public releases against local paths and session IDs.
+- BUG-50: `/do` continues through completed workflow steps rather than stopping prematurely.
+- BUG-57: Worktree card identification no longer attributes multi-card release branches to the wrong card.
+- BUG-58: `/do` respects a specifically requested card instead of stopping for pull order.
+- BUG-62: `/do` continues unfinished work rather than stopping at build checkpoints.
 - TASK-60: `kanbanzai board --tui` opens a read-only, automatically refreshed board in a terminal, with keyboard scrolling.
 - TASK-56: `kanbanzai board --web [--no-open] [--port N]` opens a live read-only browser board without an editor or
   Node. The self-contained foreground command serves only authenticated loopback HTTP until Ctrl-C; the browser
