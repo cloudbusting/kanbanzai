@@ -594,7 +594,11 @@ KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInsta
 The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
 five archives from a tag, and `tools/vsix` builds the editor package. CI validates the plugin and marketplace with
 `claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
-`CHANGELOG.md` and the version agree; a tag runs the same version check before it builds.
+`CHANGELOG.md` and the version agree; a tag runs the same version check before it builds. The release check also
+rejects apparent personal home paths and OpenCode session IDs in `.kanbanzai/work/` when that directory is present:
+marketplace installs can include repository records. The curated source bundle omits the board, so the check also
+works in an export without it. Explicit `/home/example/`, `/Users/example/` and `C:\Users\example\` paths are
+reserved for fictional examples; the guard is a targeted check, not a general secret scanner.
 
 This repository's package skill (`.claude/skills/kanbanzai-package/`) packages every Checked card that is ready in
 one run: one claim per card, one build from the main commit, and a record on each card naming the cards packaged with

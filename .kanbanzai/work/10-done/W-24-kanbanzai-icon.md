@@ -178,33 +178,33 @@ end-to-end check needs T2's PNG.
 
 - 2026-11-11 — triage: the owner asked for an SVG; the plugin validator needs a square PNG, so design covers the SVG
   source and its PNG export.
-- 2026-11-11 — opencode:ses_e36b7b9d0ffeXdaaSBSUdeCrq4: design: the owner approved A; the plugin's icon is the first
+- 2026-11-11 — opencode:session: design: the owner approved A; the plugin's icon is the first
   submission and cannot change after the portal's first save. The source is `icon/kanbanzai.svg`; `go run
   ./tools/icon` (stdlib) writes the plugin 1024 and extension 512 PNGs.
-- 2026-11-11 — opencode:ses_e36b7b9d0ffeXdaaSBSUdeCrq4: build handed over after this session's process crash. The
-  new session (`opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr`) holds the claim and finished the build in
+- 2026-11-11 — opencode:session: build handed over after this session's process crash. The
+  new session (`opencode:session`) holds the claim and finished the build in
   `../kanbanzai-W-24` (branch W-24): `icon/kanbanzai.svg`, `tools/icon`, both PNGs, the plugin's `icon`, the
   extension's `iconPath`, `tools/vsix` and both READMEs. Verified green: `go test ./...`, `go vet ./...`,
   `node --test` 130 pass, the `.vsix` carries `extension/icon.png`, `claude plugin validate .` passes,
   `go run ./tools/icon -check` says `icon ok`, `kanbanzai check` passes. Nothing committed. Next: the claim owner
   reviews the diff, runs the owner's install check (Extensions view and Board tab; the plugin icon is its directory
   listing and first submission), then `kanbanzai move W-24 finish --next "check: …"` and the check step.
-- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: recovered after OpenChamber crashed
-  ses_e36b7b9d0ffeXdaaSBSUdeCrq4 mid-T1. Its three T1 files were intact on disk; renamed `tools/icon`'s `readPNG`
+- 2026-11-11 — opencode:session: recovered after OpenChamber crashed
+  session mid-T1. Its three T1 files were intact on disk; renamed `tools/icon`'s `readPNG`
   to `loadPNG` (it collided with the test helper) and moved the tile pixel check to 4,4 (the arms meet at the 32 px
   centre). T1 is green; T2 next.
-- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: the lost session was still live but paused on a question
+- 2026-11-11 — opencode:session: the lost session was still live but paused on a question
   about concurrent edits; this recovery session finished T1–T4 and committed `16fea2a`. The renderer is
   `*image.NRGBA` and `-check` compares straight colours — do not go back to premultiplied `image.RGBA`. The owner's
   installed-`.vsix` look check is the only step not run.
-- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: deploy-qa: packaged 0.6.0 at main `53079ab` in
+- 2026-11-11 — opencode:session: deploy-qa: packaged 0.6.0 at main `53079ab` in
   `/tmp/kanbanzai-package-W-24-0.6.0` — source bundle with `icon/`, five binary archives and
   `kanbanzai-board-0.6.0.vsix`, all in `SHA256SUMS`. Fresh-project build/init/check/board JSON, `claude plugin
   validate` and a throwaway marketplace install, `node --check opencode`, and the vsix icon/manifest all pass.
   Installed `cloudbusting.kanbanzai-board@0.6.0` in the editor; its `icon.png` sha256 matches the artifact. Reload
   the window to see the Board tab and Extensions view. Release waits on the owner: version 0.6.0, MIT, publisher
   cloudbusting, and the plugin icon is the first submission (final).
-- 2026-11-11 — opencode:ses_e36a55c45ffeCvsaDnPbJ1vdBr: the owner's check installed the v0.6.0 release-page vsix
+- 2026-11-11 — opencode:session: the owner's check installed the v0.6.0 release-page vsix
   (24,236 bytes, sha `aa0e9f82…`), which predates this card: no `extension/icon.png`, no `icon` field, no
   `Icons.Default` asset. The icon build is the local 33,917-byte vsix (sha `9cec9e85…`). v0.6.0 is published and
   its assets are immutable; the icon ships in the next release, and the release step settles that version.
