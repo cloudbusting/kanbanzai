@@ -54,7 +54,8 @@ kanbanzai init
 ```
 
 Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
-prerequisite) and makes no network request. A Go developer can build it instead with
+prerequisite) and makes no outbound network request. The explicitly started browser board uses loopback HTTP only.
+A Go developer can build it instead with
 `go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
 `kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
 build. An explicitly stamped release-build version takes precedence over module metadata.
@@ -153,6 +154,32 @@ then the per-user folder, then PATH, and it passes its own release to the comman
 
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
+
+## Board in your browser
+
+Outside VS Code (for example nvim and OpenCode in tmux), run from the project or one of its worktrees:
+
+```bash
+kanbanzai board --web                     # open the default browser; foreground until Ctrl-C
+kanbanzai board --web --no-open            # print the URL without opening a browser
+kanbanzai board --web --no-open --port 8765 # choose a port, for manual use or an SSH tunnel
+```
+
+The binary includes the view: no Node, editor, extra files or dependencies are needed. It binds only to
+`127.0.0.1`, choosing a random available port by default (`--port 0`). Keep its printed, per-run access URL private:
+it permits reading this project's board, session marks and briefs. A browser-opening failure prints a warning
+and leaves the server running so you can open the URL yourself. Ctrl-C stops it; closing the tab does not.
+There is no background service, LAN binding, account, telemetry, external asset or outbound network request.
+
+The read-only board shares the editor's renderer, columns, lanes, marks and toast model, with a live poll every
+three seconds while visible. Click a card to read its literal Markdown in the browser; it does not open an editor
+or edit anything. Read failures leave a visible banner and preserve the last good board. Browser-local collapse
+state lasts for that access URL, not across server invocations. The editor's setup UI and desktop notices are not
+part of the browser host. `board` and `board --json` keep their existing behavior; `--json` cannot combine with `--web`.
+
+For SSH use, explicitly forward the same chosen port (for example `ssh -L 8765:127.0.0.1:8765 host`) and open the
+printed URL on your machine. Kanbanzai does not create tunnels or support public/reverse-proxy hosting. See
+[SECURITY.md](SECURITY.md) for the local HTTP boundary.
 
 ## Where things live
 
@@ -462,7 +489,7 @@ blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed
 ## The command
 
 ```
-kanbanzai board [--json]                 the board
+kanbanzai board [--json | --web [--no-open] [--port N]]  the board, optionally in a local browser
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat

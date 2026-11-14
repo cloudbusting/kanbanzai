@@ -132,7 +132,7 @@ test("the board panel carries the extension's icon", () => run({}, async ({ vsco
 
 test("the board writes no log file: its lines live in the channel only", () => {
   const files = readdirSync(here).filter((n) => n.endsWith(".js")).sort();
-  assert.deepEqual(files, ["extension.js", "init.js", "migrate.js", "output.js", "render.js", "sessions.js", "toasts.js"]);
+  assert.deepEqual(files, ["browser.js", "extension.js", "init.js", "migrate.js", "output.js", "render.js", "sessions.js", "toasts.js"]);
   for (const name of files) {
     // init.js writes the one plan file for `init --plan` into a private temp folder (init.test.mjs holds that to one write)
     if (name === "init.js") continue;

@@ -25,13 +25,14 @@ import (
 	sessionstate "github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/version"
+	"github.com/cloudbusting/kanbanzai/internal/webboard"
 	"github.com/cloudbusting/kanbanzai/internal/wip"
 )
 
 const usage = `usage: kanbanzai <command> [options]
 
 commands:
-  board [--json]                 the board
+  board [--json | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
   wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
@@ -88,6 +89,10 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		return 0
 	}
 	if hasHelp(rest) {
+		if command == "board" {
+			fmt.Fprintln(out, "usage: kanbanzai board [--json | --web [--no-open] [--port N]]\n--web: foreground read-only loopback server; Ctrl-C stops it. --port defaults to 0 (random).")
+			return 0
+		}
 		fmt.Fprintf(out, "usage: kanbanzai %s [options]\n", command)
 		return 0
 	}
@@ -153,6 +158,11 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
 			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})
 	}
+	if command == "board" {
+		if _, _, err := boardOptions(rest); err != nil {
+			return usageError(errOut, command, err)
+		}
+	}
 	quiet := command == "context" || command == "sessions" || (command == "claim" && len(rest) > 0 &&
 		rest[0] == "heartbeat")
 	mismatch := ""
@@ -198,9 +208,12 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 func dispatch(project *config.Project, command string, args []string, in io.Reader, out, errOut io.Writer) int {
 	switch command {
 	case "board":
-		positionals, flags, set, err := parse(args, map[string]bool{"json": true}, nil)
-		if err != nil || len(positionals) != 0 {
+		port, set, err := boardOptions(args)
+		if err != nil {
 			return usageError(errOut, command, err)
+		}
+		if set["web"] {
+			return webboard.Run(project, webboard.Options{Port: port, NoOpen: set["no-open"], Out: out, Err: errOut})
 		}
 		loaded := board.Load(project, nil, nil)
 		if set["json"] {
@@ -208,7 +221,6 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			return 0
 		}
 		fmt.Fprintln(out, board.AsText(loaded, project.Owner))
-		_ = flags
 		return 0
 	case "wip":
 		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true, "recovery": true},
