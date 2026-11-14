@@ -413,6 +413,7 @@ func Run(project *config.Project, opts Options) int {
 					project.Label(key), note)
 				if blocked != "" {
 					fmt.Fprintf(out, "gate: %s\n", blocked)
+					printNeeds(out, card)
 				}
 				printRoute(out, opts.For, route)
 				printEarlyClose(out, opts.For, available)
@@ -553,12 +554,23 @@ func writers(out, errOut io.Writer) (io.Writer, io.Writer) {
 	return out, errOut
 }
 
+// printNeeds prints the table of the cards a closed card gate waits on, under the gate line.
+func printNeeds(out io.Writer, card *board.Card) {
+	if card.Gate == nil {
+		return
+	}
+	if table := gate.Table(card.Gate.Needs); table != "" {
+		fmt.Fprintln(out, table)
+	}
+}
+
 // explain says, in plain lines, what holds a card back and where it goes next: the closed gate that blocks it, the
 // steps its brief makes it skip and where that leaves it.
 func explain(out io.Writer, project *config.Project, id string, card *board.Card, blocked string,
 	skips *Skipped, briefText string) {
 	if blocked != "" {
 		fmt.Fprintf(out, "gate: %s\n", blocked)
+		printNeeds(out, card)
 	} else if card.Gate != nil {
 		fmt.Fprintf(out, "gate: open (%s)\n", card.Gate.Why)
 	}

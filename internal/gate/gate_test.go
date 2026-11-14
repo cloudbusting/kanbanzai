@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +64,10 @@ key = "finishing"
 folder = "1-open"
 doing = "finish"
 [[columns]]
+key = "paused"
+folder = "x-paused"
+kind = "parked"
+[[columns]]
 key = "done"
 folder = "10-done"
 kind = "done"
@@ -80,7 +85,7 @@ func load(t *testing.T) *config.Project {
 	t.Helper()
 	t.Setenv("KANBANZAI_PROJECT", "")
 	root := testutil.Repo(t, allGates)
-	testutil.Folders(t, root, "1-open", "10-done")
+	testutil.Folders(t, root, "1-open", "x-paused", "10-done")
 	project, err := config.Find(root)
 	if err != nil {
 		t.Fatal(err)
@@ -213,5 +218,97 @@ func TestBlocksNamesTheGateAndWhatOpensIt(t *testing.T) {
 	open := Eval(project, project.ByKey["ready"], "W-22", "passed by x, 2026-11-12", nil, nil, now)
 	if Blocks(project, open, "W-22") != "" || Blocks(project, nil, "W-22") != "" {
 		t.Error("an open or missing gate blocks")
+	}
+}
+
+func sitsAt(sits map[string]string) Where {
+	return func(id string) (string, bool) { key, ok := sits[id]; return key, ok }
+}
+
+func TestAClosedCardGateListsEachNeedAndWhereItSits(t *testing.T) {
+	project := load(t)
+	now := nowAt("2026-11-12")
+	sits := map[string]string{"W-01": "done", "W-02": "ready", "W-04": "working"}
+	got := Eval(project, project.ByKey["until-ready"], "W-09", "", []string{"W-01", "W-02", "W-03", "W-04"}, sitsAt(sits), now)
+	want := []Need{
+		{Card: "W-03", Column: "", ColumnLabel: "", Wants: "ready", WantsLabel: "ready", Met: false, OnBoard: false},
+		{Card: "W-04", Column: "working", ColumnLabel: "working", Wants: "ready", WantsLabel: "ready", OnBoard: true},
+		{Card: "W-01", Column: "done", ColumnLabel: "done", Wants: "ready", WantsLabel: "ready", Met: true, OnBoard: true},
+		{Card: "W-02", Column: "ready", ColumnLabel: "ready", Wants: "ready", WantsLabel: "ready", Met: true, OnBoard: true},
+	}
+	// failing needs first, each group in Needs order: W-03 and W-04 fail, W-01 and W-02 are met
+	if len(got.Needs) != len(want) {
+		t.Fatalf("needs = %+v", got.Needs)
+	}
+	for i := range want {
+		if got.Needs[i] != want[i] {
+			t.Errorf("needs[%d] = %+v, want %+v", i, got.Needs[i], want[i])
+		}
+	}
+	if !strings.Contains(got.Why, "W-03 (not on the board)") {
+		t.Errorf("why = %q", got.Why)
+	}
+	toDone := Eval(project, project.ByKey["after"], "W-09", "", []string{"W-02"}, sitsAt(sits), now)
+	if len(toDone.Needs) != 1 || toDone.Needs[0].Wants != "done" || toDone.Needs[0].WantsLabel != "done" {
+		t.Errorf("a gate with no gate_until wants the done column: %+v", toDone.Needs)
+	}
+}
+
+func TestOnlyAClosedCardGateCarriesNeeds(t *testing.T) {
+	project := load(t)
+	now := nowAt("2026-11-12")
+	open := Eval(project, project.ByKey["after"], "W-09", "", []string{"W-01"}, sitsAt(map[string]string{"W-01": "done"}), now)
+	if open.State != Open || open.Needs != nil {
+		t.Errorf("an open card gate has needs: %+v", open)
+	}
+	for _, key := range []string{"ready", "train", "later", "approved"} {
+		if got := Eval(project, project.ByKey[key], "W-09", "", []string{"W-01"}, sitsAt(nil), now); got.Needs != nil {
+			t.Errorf("%s gate has needs: %+v", key, got.Needs)
+		}
+	}
+	data, err := json.Marshal(Eval(project, project.ByKey["approved"], "W-09", "", nil, nil, now))
+	if err != nil || strings.Contains(string(data), "needs") {
+		t.Errorf("json = %s (%v)", data, err)
+	}
+}
+
+func TestAParkedCardDoesNotReachAnOpenColumn(t *testing.T) {
+	project := load(t)
+	now := nowAt("2026-11-12")
+	sits := sitsAt(map[string]string{"W-01": "paused"})
+	got := Eval(project, project.ByKey["until-ready"], "W-09", "", []string{"W-01"}, sits, now)
+	if got.State != Closed || len(got.Needs) != 1 || got.Needs[0].Met || got.Needs[0].Column != "paused" {
+		t.Errorf("a paused card satisfied the gate: %+v", got)
+	}
+	if text := Blocks(project, got, "W-09"); !strings.Contains(text, "W-01 (in paused)") {
+		t.Errorf("blocks = %q", text)
+	}
+	if got := Eval(project, project.ByKey["after"], "W-09", "", []string{"W-01"}, sits, now); got.State != Closed {
+		t.Errorf("a paused card satisfied a gate that waits for done: %+v", got)
+	}
+	if got := Eval(project, project.ByKey["until-ready"], "W-09", "", []string{"W-01"},
+		sitsAt(map[string]string{"W-01": "done"}), now); got.State != Open {
+		t.Errorf("a done card does not satisfy an open target: %+v", got)
+	}
+}
+
+func TestTableListsTheNeedsFailingFirstAndAligned(t *testing.T) {
+	if Table(nil) != "" {
+		t.Error("no needs, no table")
+	}
+	needs := []Need{
+		{Card: "W-103", ColumnLabel: "", WantsLabel: "Designed", OnBoard: false},
+		{Card: "W-11", ColumnLabel: "Todo", WantsLabel: "Designed", OnBoard: true},
+		{Card: "W-06", ColumnLabel: "Done", WantsLabel: "Designed", Met: true, OnBoard: true},
+	}
+	want := "1 of 3 needs are met\n" +
+		"  W-103  not on the board  needs Designed  not met\n" +
+		"  W-11   in Todo           needs Designed  not met\n" +
+		"  W-06   in Done           needs Designed  met"
+	if got := Table(needs); got != want {
+		t.Errorf("table:\n%s\nwant:\n%s", got, want)
+	}
+	if got := Table(needs[2:]); !strings.HasPrefix(got, "1 of 1 need is met\n") {
+		t.Errorf("table = %q", got)
 	}
 }

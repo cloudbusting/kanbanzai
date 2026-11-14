@@ -48,6 +48,11 @@ gate = "date"
 gate_after = "2999-01-01"
 next = "finish"
 [[columns]]
+key = "waiting"
+folder = "1-open"
+gate = "card"
+next = "finish"
+[[columns]]
 key = "finishing"
 folder = "1-open"
 doing = "finish"
@@ -261,5 +266,33 @@ func TestStatusListsEveryWaitingCardAndSaysJSON(t *testing.T) {
 	_, out, _ = run(t, setup(t), func(o *Options) { o.Action, o.JSON = "status", true })
 	if strings.TrimSpace(out) != `{"cards":[]}` {
 		t.Fatalf("an empty board = %q", out)
+	}
+}
+
+func TestStatusPrintsTheTableOfNeedsOfAClosedCardGate(t *testing.T) {
+	project := setup(t)
+	putCard(t, project, "W-01", "waiting", "- **Needs:** W-02, W-03, W-09\n")
+	putCard(t, project, "W-02", "todo", "")
+	testutil.Write(t, filepath.Join(project.Work, "10-done", "W-03-x.md"),
+		"# W-03: work\n\n- **Stage:** done\n- **Updated:** 2026-01-01\n- **Next action:** none\n- **Where:** —\n\n## Goal\n\nBody.\n")
+	putCard(t, project, "W-04", "waiting", "- **Needs:** W-03\n")
+	_, out, _ := run(t, project, func(o *Options) { o.Action, o.Cards = "status", []string{"W-01"} })
+	for _, line := range []string{"  1 of 3 needs are met",
+		"    W-02  in todo           needs done  not met", "    W-09  not on the board  needs done  not met",
+		"    W-03  in done           needs done  met"} {
+		if !strings.Contains(out, line) {
+			t.Errorf("status misses %q:\n%s", line, out)
+		}
+	}
+	if !(strings.Index(out, "W-02  in") < strings.Index(out, "W-09  not") && strings.Index(out, "W-09  not") < strings.Index(out, "W-03  in")) {
+		t.Errorf("failing needs must come first:\n%s", out)
+	}
+	_, out, _ = run(t, project, func(o *Options) { o.Action, o.Cards = "status", []string{"W-04"} })
+	if strings.Contains(out, "needs are met") || strings.Contains(out, "need is met") || strings.Contains(out, "needs done") {
+		t.Errorf("an open gate prints no table:\n%s", out)
+	}
+	_, out, _ = run(t, project, func(o *Options) { o.Action, o.Cards, o.JSON = "status", []string{"W-01"}, true })
+	if !strings.Contains(out, `"needs":[{"card":"W-02"`) || !strings.Contains(out, `"on_board":false`) {
+		t.Errorf("json:\n%s", out)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
 )
@@ -30,6 +31,21 @@ type Status struct {
 	OpensWhen string `json:"opens_when"`
 	Why       string `json:"why"`
 	Record    string `json:"record"`
+	// Needs is, for a closed card gate, each card in the Needs line and where it sits: the ones that do not satisfy
+	// the gate first, each group in the order of the line. Absent for every other gate and for an open one.
+	Needs []Need `json:"needs,omitempty"`
+}
+
+// Need is one card a card gate waits on: where it sits, the column the gate wants it to reach, and whether it has.
+// A card that is not on the board has no column and is not met.
+type Need struct {
+	Card        string `json:"card"`
+	Column      string `json:"column"`
+	ColumnLabel string `json:"column_label"`
+	Wants       string `json:"wants"`
+	WantsLabel  string `json:"wants_label"`
+	Met         bool   `json:"met"`
+	OnBoard     bool   `json:"on_board"`
 }
 
 var idRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]*-\d+`)
@@ -143,40 +159,116 @@ func Eval(project *config.Project, column config.Column, cardID, record string, 
 			status.State, status.Why = Closed, "waiting until "+g.After
 		}
 	case "card":
-		status.State, status.Why = evalCard(project, g, needs, where)
+		status.State, status.Why, status.Needs = evalCard(project, g, needs, where)
 	}
 	return status
 }
 
-func evalCard(project *config.Project, g config.Gate, needs []string, where Where) (string, string) {
+func evalCard(project *config.Project, g config.Gate, needs []string, where Where) (string, string, []Need) {
 	if len(needs) == 0 {
-		return Open, "the card needs no other card"
+		return Open, "the card needs no other card", nil
+	}
+	wants := wantedColumn(project, g)
+	var failing, met []Need
+	waiting := []string{}
+	for _, id := range needs {
+		need := Need{Card: id, Wants: wants.Key, WantsLabel: wants.Label}
+		key, found := where(id)
+		if found {
+			need.Column, need.ColumnLabel, need.OnBoard = key, project.Label(key), true
+			need.Met = reached(project, key, wants)
+		}
+		if need.Met {
+			met = append(met, need)
+			continue
+		}
+		failing = append(failing, need)
+		if found {
+			waiting = append(waiting, fmt.Sprintf("%s (in %s)", id, need.ColumnLabel))
+		} else {
+			waiting = append(waiting, id+" (not on the board)")
+		}
+	}
+	if len(waiting) > 0 {
+		return Closed, "waiting for " + strings.Join(waiting, ", ") + " to reach " + untilLabel(project, g),
+			append(failing, met...)
+	}
+	return Open, "every card it needs is in " + untilLabel(project, g) + " or later", nil
+}
+
+// wantedColumn is the column a card gate waits for: its gate_until, or the first done column.
+func wantedColumn(project *config.Project, g config.Gate) config.Column {
+	if g.Until != "" {
+		return project.ByKey[g.Until]
+	}
+	for _, column := range project.Columns {
+		if column.Kind == "done" {
+			return column
+		}
+	}
+	return config.Column{Key: "done", Label: "Done"}
+}
+
+// reached is true when a card in column key is in the wanted column or later. A parked column sorts after the open
+// ones but is not progress: a paused card has not reached an open column.
+func reached(project *config.Project, key string, wants config.Column) bool {
+	here := project.ByKey[key]
+	if wants.Kind == "done" {
+		return here.Kind == "done"
+	}
+	if here.Kind == "parked" && wants.Kind != "parked" {
+		return false
 	}
 	index := map[string]int{}
 	for i, column := range project.Columns {
 		index[column.Key] = i
 	}
-	waiting := []string{}
-	for _, id := range needs {
-		key, found := where(id)
-		if !found {
-			waiting = append(waiting, id+" (not on the board)")
-			continue
-		}
-		reached := false
-		if g.Until == "" {
-			reached = project.ByKey[key].Kind == "done"
-		} else {
-			reached = index[key] >= index[g.Until]
-		}
-		if !reached {
-			waiting = append(waiting, fmt.Sprintf("%s (in %s)", id, project.Label(key)))
+	return index[key] >= index[wants.Key]
+}
+
+// Table is the needs of a closed card gate as plain aligned text, for the command's output: a count line, then a row
+// per need (failing first, as given). It is "" without needs.
+func Table(needs []Need) string {
+	if len(needs) == 0 {
+		return ""
+	}
+	met := 0
+	for _, need := range needs {
+		if need.Met {
+			met++
 		}
 	}
-	if len(waiting) > 0 {
-		return Closed, "waiting for " + strings.Join(waiting, ", ") + " to reach " + untilLabel(project, g)
+	verb, noun := "are", "needs"
+	if len(needs) == 1 {
+		verb, noun = "is", "need"
 	}
-	return Open, "every card it needs is in " + untilLabel(project, g) + " or later"
+	lines := []string{fmt.Sprintf("%d of %d %s %s met", met, len(needs), noun, verb)}
+	rows := make([][4]string, len(needs))
+	widths := [3]int{}
+	for i, need := range needs {
+		where := "not on the board"
+		if need.OnBoard {
+			where = "in " + need.ColumnLabel
+		}
+		state := "not met"
+		if need.Met {
+			state = "met"
+		}
+		rows[i] = [4]string{need.Card, where, "needs " + need.WantsLabel, state}
+		for j := range widths {
+			if n := utf8.RuneCountInString(rows[i][j]); n > widths[j] {
+				widths[j] = n
+			}
+		}
+	}
+	for _, row := range rows {
+		cells := make([]string, 3)
+		for j := range cells {
+			cells[j] = row[j] + strings.Repeat(" ", widths[j]-utf8.RuneCountInString(row[j]))
+		}
+		lines = append(lines, "  "+strings.Join(cells, "  ")+"  "+row[3])
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Blocks is the refusal text for a move out of a gated column while the gate does not hold, or "" when the gate is

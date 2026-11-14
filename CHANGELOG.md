@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-36: a card held by a `card` gate shows which of the cards in its `Needs:` line fail it. `board --json`,
+  `gate status --json` and `step --for --json` carry an additive `gate.needs` list (card, column and label, the column
+  the gate wants and its label, `met`, `on_board`; failing first) on a closed `card` gate, and nothing on any other
+  gate. `gate status` and `step --for` print it as a table, and the board tab's 🔒 and card hover show the same table
+  as aligned text. Behaviour change: a needed card in a parked column (Paused) no longer counts as having reached an
+  open column, so it keeps a `card` gate closed; a gate that waits for Done is unchanged.
 - W-34: new `kanbanzai migrate [--json]`, `migrate --apply --plan HASH` and `migrate --rollback`: a registry of the
   migrations a release needs for a host's files, previewed as one plan with a hash and applied only on that hash, with
   a lock, a journal, backups, a check and doctor on the result, and a rollback on any failure or after a crash. The
