@@ -6,7 +6,7 @@ import (
 )
 
 func boardOptions(args []string) (int, map[string]bool, error) {
-	pos, flags, set, err := parse(args, map[string]bool{"json": true, "web": true, "no-open": true}, map[string]bool{"port": true})
+	pos, flags, set, err := parse(args, map[string]bool{"json": true, "web": true, "tui": true, "no-open": true}, map[string]bool{"port": true})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -16,6 +16,9 @@ func boardOptions(args []string) (int, map[string]bool, error) {
 	_, hasPort := flags["port"]
 	if set["web"] && set["json"] {
 		return 0, nil, fmt.Errorf("--web and --json are mutually exclusive")
+	}
+	if set["tui"] && (set["json"] || set["web"]) {
+		return 0, nil, fmt.Errorf("--tui cannot be combined with --json or --web")
 	}
 	if !set["web"] && (set["no-open"] || hasPort) {
 		return 0, nil, fmt.Errorf("--no-open and --port require --web")
