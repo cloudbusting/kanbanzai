@@ -14,6 +14,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/gitutil"
 )
 
 // ErrKilled, returned by Options.After, ends the apply on the spot with no rollback, as a killed process would.
@@ -37,6 +38,7 @@ type Step struct {
 	Backup    string `json:"backup,omitempty"`
 	BeforeSHA string `json:"before_sha256,omitempty"`
 	AfterSHA  string `json:"after_sha256"`
+	Mode      uint32 `json:"mode,omitempty"`
 	Done      bool   `json:"done"`
 }
 
@@ -95,6 +97,13 @@ func (f *Failed) Unwrap() error { return f.Cause }
 func stateDir(p *config.Project) string    { return filepath.Join(p.State, "migrate") }
 func journalPath(p *config.Project) string { return filepath.Join(stateDir(p), "journal.json") }
 func lockPath(p *config.Project) string    { return filepath.Join(p.State, "migrate.lock") }
+
+func (c Change) fileMode() os.FileMode {
+	if c.Mode == 0 {
+		return 0o644
+	}
+	return c.Mode
+}
 
 func absolute(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
 
@@ -181,7 +190,7 @@ func Apply(start, sha string, options Options) (*Result, error) {
 	}
 	journal := &Journal{SchemaVersion: JournalVersion, Plan: plan.SHA, Status: StatusApplying}
 	for index, s := range plan.steps {
-		step := Step{Kind: s.Kind, Path: s.Path, BeforeSHA: s.beforeSHA(), AfterSHA: digest(s.After)}
+		step := Step{Kind: s.Kind, Path: s.Path, BeforeSHA: s.beforeSHA(), AfterSHA: digest(s.After), Mode: uint32(s.fileMode())}
 		if s.Before != nil {
 			step.Backup = fmt.Sprintf("%03d", index+1)
 			if err := fsutil.WriteFileAtomic(filepath.Join(backups, step.Backup), s.Before, 0o600); err != nil {
@@ -217,11 +226,7 @@ func Apply(start, sha string, options Options) (*Result, error) {
 		if (s.Before == nil && readErr == nil) || (s.Before != nil && (readErr != nil || !bytes.Equal(current, s.Before))) {
 			return fail(fmt.Errorf("%s changed during the apply", s.Path))
 		}
-		mode := s.Mode
-		if mode == 0 {
-			mode = 0o644
-		}
-		if err := fsutil.WriteFileAtomic(absolute(p.Root, s.Path), s.After, mode); err != nil {
+		if err := fsutil.WriteFileAtomic(absolute(p.Root, s.Path), s.After, s.fileMode()); err != nil {
 			return fail(fmt.Errorf("%s: %v", s.Path, err))
 		}
 		step.Done = true
@@ -261,6 +266,9 @@ func Apply(start, sha string, options Options) (*Result, error) {
 	journal.Status = StatusApplied
 	if err := writeJournal(journalPath(p), journal); err != nil {
 		return nil, err
+	}
+	if _, err := gitutil.Git(p.Root, "check-ignore", "-q", filepath.Join(stateDir(p), "backup")); err != nil {
+		notes = append(notes, fmt.Sprintf("%s is not ignored by git: add the project's state folder to its .gitignore so the backups are not committed", stateDir(p)))
 	}
 	result := &Result{Changed: []string{}, Notes: notes}
 	for _, step := range journal.Steps {
@@ -314,7 +322,11 @@ func rollBack(root string, journal *Journal, backups string) (bool, string) {
 			problems = append(problems, "the backup of "+step.Path+" is missing or damaged")
 			continue
 		}
-		if err := fsutil.WriteFileAtomic(path, old, 0o644); err != nil {
+		mode := os.FileMode(step.Mode)
+		if mode == 0 {
+			mode = 0o644
+		}
+		if err := fsutil.WriteFileAtomic(path, old, mode); err != nil {
 			problems = append(problems, err.Error())
 		}
 	}
