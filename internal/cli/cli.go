@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -32,7 +33,7 @@ import (
 const usage = `usage: kanbanzai <command> [options]
 
 commands:
-  board [--json | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
+  board [--json | --tui | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
   wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
@@ -90,7 +91,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if hasHelp(rest) {
 		if command == "board" {
-			fmt.Fprintln(out, "usage: kanbanzai board [--json | --web [--no-open] [--port N]]\n--web: foreground read-only loopback server; Ctrl-C stops it. --port defaults to 0 (random).")
+			fmt.Fprintln(out, "usage: kanbanzai board [--json | --tui | --web [--no-open] [--port N]]\n--web: foreground read-only loopback server; Ctrl-C stops it. --port defaults to 0 (random).")
 			return 0
 		}
 		fmt.Fprintf(out, "usage: kanbanzai %s [options]\n", command)
@@ -214,6 +215,17 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		}
 		if set["web"] {
 			return webboard.Run(project, webboard.Options{Port: port, NoOpen: set["no-open"], Out: out, Err: errOut})
+		}
+		if set["tui"] {
+			if !terminalDevice(in) || !terminalDevice(out) {
+				fmt.Fprintln(errOut, "kanbanzai: board --tui requires an interactive terminal for input and output")
+				return 1
+			}
+			if err := runTerminalBoard(project, in.(*os.File), out.(*os.File)); err != nil {
+				fmt.Fprintf(errOut, "kanbanzai: terminal board: %v\n", err)
+				return 1
+			}
+			return 0
 		}
 		loaded := board.Load(project, nil, nil)
 		if set["json"] {

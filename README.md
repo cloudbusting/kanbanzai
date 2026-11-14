@@ -155,6 +155,14 @@ then the per-user folder, then PATH, and it passes its own release to the comman
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
 
+## Board in your terminal
+
+Run `kanbanzai board --tui` in an interactive terminal to see a read-only board. Use the arrow keys or
+`h`/`j`/`k`/`l` to scroll columns and cards; `q` or Ctrl-C exits. The display refreshes every second. It requires
+terminal input and output and supports Linux, macOS and Windows consoles with ANSI support. To keep untrusted card
+text from sending terminal controls and to fit fixed-width columns, non-ASCII characters are shown as `?`.
+Use the browser or editor board for full Unicode text. Existing `board`, `--json` and `--web` modes are unchanged.
+
 ## Board in your browser
 
 Outside VS Code (for example nvim and OpenCode in tmux), run from the project or one of its worktrees:
@@ -489,7 +497,7 @@ blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed
 ## The command
 
 ```
-kanbanzai board [--json | --web [--no-open] [--port N]]  the board, optionally in a local browser
+kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat

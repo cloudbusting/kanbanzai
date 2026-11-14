@@ -5,6 +5,7 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-60: `kanbanzai board --tui` opens a read-only, automatically refreshed board in a terminal, with keyboard scrolling.
 - TASK-56: `kanbanzai board --web [--no-open] [--port N]` opens a live read-only browser board without an editor or
   Node. The self-contained foreground command serves only authenticated loopback HTTP until Ctrl-C; the browser
   shares the editor renderer, session marks and toast model and displays clicked briefs as literal text. This is
