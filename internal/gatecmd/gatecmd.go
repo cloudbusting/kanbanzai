@@ -277,5 +277,10 @@ func Describe(project *config.Project, item CardGate) string {
 	if item.Gate.Why != "" {
 		lines = append(lines, "  "+item.Gate.Why)
 	}
+	if table := gate.Table(item.Gate.Needs); table != "" {
+		for _, line := range strings.Split(table, "\n") {
+			lines = append(lines, "  "+line)
+		}
+	}
 	return strings.Join(lines, "\n")
 }

@@ -506,6 +506,43 @@ test("a missing, null or odd gate is no gate, and its text is escaped", () => {
   assert.match(evil, /&lt;img src=x&gt; closed/);
 });
 
+test("a card at a closed card gate shows the table of the needs that fail it, in the lock and the hover", () => {
+  const render = (gate) => renderHtml({ columns: [{ key: "todo", name: "Todo", cards: [{ id: "W-14", title: "T", stage: "todo", gate }] }], problems: [] }, { nonce: NONCE });
+  const need = (card, column_label, met, extra = {}) => ({ card, column: column_label.toLowerCase(), column_label, wants: "designed", wants_label: "Designed", met, on_board: true, ...extra });
+  const gate = {
+    type: "card", name: "", state: "closed", opens_when: "every card in its Needs line is in Designed or later", why: "waiting",
+    needs: [need("W-103", "", false, { column: "", on_board: false }), need("W-11", "Todo", false), need("W-06", "Done", true)],
+  };
+  const html = render(gate);
+  const table = [
+    "1 of 3 needs are met",
+    "  W-103  not on the board  needs Designed  not met",
+    "  W-11   in Todo           needs Designed  not met",
+    "  W-06   in Done           needs Designed  met",
+  ].join("\n");
+  assert.ok(html.includes(`title="Waiting at a card gate: closed\n${table}">🔒`), "the lock's title carries the table");
+  assert.ok(html.includes(`Opens when every card in its Needs line is in Designed or later\n${table}`), "so does the card's hover");
+  const open = render({ ...gate, state: "open", needs: undefined });
+  assert.doesNotMatch(open, /class="glyph glyph-gate"|needs are met/);
+  const openWithNeeds = render({ ...gate, state: "open" });
+  assert.doesNotMatch(openWithNeeds, /class="glyph glyph-gate"|needs are met/, "an open gate has no lock and no table");
+});
+
+test("a missing or malformed needs list leaves the one-line gate hover, and a need's text is escaped", () => {
+  const render = (needs) => renderHtml({ columns: [{ key: "todo", name: "Todo", cards: [{ id: "W-14", title: "T", stage: "todo", gate: { type: "card", state: "closed", opens_when: "x", needs } }] }], problems: [] }, { nonce: NONCE });
+  for (const needs of [undefined, null, 5, "W-1", {}, [], [null, 5, "x", {}, { card: 7 }]]) {
+    const html = render(needs);
+    assert.match(html, /title="Waiting at a card gate: closed">🔒/);
+    assert.doesNotMatch(html, /needs are met|need is met/);
+  }
+  const evil = render([{ card: "<img src=x>", column_label: '"><b>', wants_label: "<i>", met: false, on_board: true }]);
+  assert.doesNotMatch(evil, /<img|<b>|<i>/);
+  assert.match(evil, /1 of 1 need is met|0 of 1 need is met/);
+  assert.match(evil, /&lt;img src=x&gt;/);
+  const some = render([{ card: "W-1", column_label: "Todo", wants_label: "Done", met: false, on_board: true }, null, { card: 7 }]);
+  assert.match(some, /0 of 1 need is met\n  W-1  in Todo  needs Done  not met/);
+});
+
 test("a typed card and the board's types render without a legacy prefix", () => {
   const typed = {
     types: [{ key: "bug", label: "Bug", prefix: "BUG", colour: "#C43B3B" }],

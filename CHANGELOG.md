@@ -5,6 +5,13 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-36: a card held by a `card` gate shows which of the cards in its `Needs:` line fail it. `board --json`,
+  `gate status --json` and `step --for --json` carry an additive `gate.needs` list (card, column and label, the column
+  the gate wants and its label, `met`, `on_board`; failing first) on a closed `card` gate, and nothing on any other
+  gate. `gate status` and `step --for` print it as a table, and the board tab's 🔒 and card hover show the same table
+  as aligned text. Behaviour change: a needed card in a parked column (Paused) no longer counts as having reached an
+  open column, so it keeps a `card` gate closed; a gate that waits for Done is unchanged.
+
 ## [0.16.0] — 2026-11-14
 
 - CHANGE-51: new `kanbanzai tree [--merge ID] [--json]`, a read-only report of what the main checkout holds. Every

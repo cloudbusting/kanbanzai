@@ -617,3 +617,89 @@ func TestAGatedCardCarriesItsGateStatus(t *testing.T) {
 		t.Fatalf("a card in an ungated column has a gate: %+v", card.Gate)
 	}
 }
+
+const needsGateConfig = `config_version = 1
+[project]
+owner = "Sam"
+[flow]
+pull_order = ["todo"]
+[[columns]]
+key = "todo"
+folder = "1-open"
+started = "claimed"
+next = "finish"
+gate = "card"
+gate_until = "ready"
+[[columns]]
+key = "ready"
+folder = "1-open"
+next = "finish"
+[[columns]]
+key = "approved"
+folder = "1-open"
+gate = "owner"
+next = "finish"
+[[columns]]
+key = "finishing"
+folder = "1-open"
+doing = "finish"
+[[columns]]
+key = "paused"
+folder = "x-paused"
+kind = "parked"
+[[columns]]
+key = "done"
+folder = "10-done"
+kind = "done"
+[steps.finish]
+into = "done"
+during = "finishing"
+skill = "y"
+`
+
+func TestAClosedCardGateCarriesTheNeedsAndNoOtherGateDoes(t *testing.T) {
+	project := testProject(t, needsGateConfig)
+	putCard(t, project, "W-01", "waits", "todo", cardOptions{Extra: "- **Needs:** W-02, W-03\n"})
+	putCard(t, project, "W-02", "fine", "ready", cardOptions{})
+	putCard(t, project, "W-03", "parked", "paused", cardOptions{Folder: "x-paused"})
+	putCard(t, project, "W-04", "open gate", "todo", cardOptions{Extra: "- **Needs:** W-02\n"})
+	putCard(t, project, "W-05", "owner", "approved", cardOptions{})
+	result := Load(project, map[string]string{}, nil)
+	byID := map[string]map[string]any{}
+	for _, c := range result.Columns {
+		for _, card := range c.Cards {
+			byID[card.ID] = cardMap(t, card)
+		}
+	}
+	gateOf := func(id string) map[string]any {
+		g, _ := byID[id]["gate"].(map[string]any)
+		return g
+	}
+	needs, _ := gateOf("W-01")["needs"].([]any)
+	if len(needs) != 2 {
+		t.Fatalf("W-01 gate = %#v", gateOf("W-01"))
+	}
+	first := needs[0].(map[string]any)
+	want := map[string]any{"card": "W-03", "column": "paused", "column_label": "paused", "wants": "ready",
+		"wants_label": "ready", "met": false, "on_board": true}
+	for key, value := range want {
+		if first[key] != value {
+			t.Errorf("needs[0][%s] = %v, want %v", key, first[key], value)
+		}
+	}
+	if second := needs[1].(map[string]any); second["card"] != "W-02" || second["met"] != true {
+		t.Errorf("needs[1] = %#v", second)
+	}
+	for _, id := range []string{"W-04", "W-05"} {
+		if g := gateOf(id); g == nil {
+			t.Errorf("%s has no gate", id)
+		} else if _, has := g["needs"]; has {
+			t.Errorf("%s gate has needs: %#v", id, g)
+		}
+	}
+	for _, key := range []string{"column", "type", "name", "state", "opens_when", "why", "record"} {
+		if _, ok := gateOf("W-01")[key]; !ok {
+			t.Errorf("gate lost %q", key)
+		}
+	}
+}
