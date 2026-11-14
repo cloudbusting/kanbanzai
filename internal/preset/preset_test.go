@@ -277,3 +277,22 @@ func TestTheLocalFixturePresetLoadsFromItsFolder(t *testing.T) {
 		t.Fatalf("local preset = %+v", p)
 	}
 }
+
+func TestReplacingATypeDropsItsTemplateAndSchema(t *testing.T) {
+	p, err := Load("docs-only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Compose(Compose{Types: []string{"fix=FIX2"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := p.Templates["fix.md"]; ok || p.Schemas["fix"] != nil {
+		t.Fatalf("the replaced type's template or schema is still there: %v %v", p.Templates, p.Schemas)
+	}
+	if _, ok := p.Templates["page.md"]; !ok || p.Schemas["page"] == nil {
+		t.Fatalf("the kept type lost its template or schema: %v %v", p.Templates, p.Schemas)
+	}
+	if got := p.Files(); len(got) != 1 || got[0] != ".kanbanzai/templates/page.md" {
+		t.Fatalf("files = %v", got)
+	}
+}

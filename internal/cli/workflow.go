@@ -52,7 +52,7 @@ func extractRepeated(args []string, name string) (values, rest []string, err err
 
 // flowSource reads the flow a verb works on: --file FILE, or --preset NAME|DIR (composed with --step-skill and
 // --step-extend). It is the only place a preset is turned into a flow for the workflow command.
-func flowSource(flags map[string]string, verb string) (*flow.Doc, error) {
+func flowSource(flags map[string]string) (*flow.Doc, error) {
 	file, named := flags["file"], flags["preset"]
 	if (file == "") == (named == "") {
 		return nil, errors.New("give --file FILE or --preset NAME, not both and not neither")
@@ -106,7 +106,7 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, "workflow validate", err)
 		}
-		doc, err := flowSource(flags, "validate")
+		doc, err := flowSource(flags)
 		if err != nil {
 			fmt.Fprintf(errOut, "kanbanzai: workflow validate: %v\n", err)
 			return 2
@@ -146,7 +146,7 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 			}
 			mapping[from] = to
 		}
-		doc, err := flowSource(flags, "plan")
+		doc, err := flowSource(flags)
 		if err != nil {
 			fmt.Fprintf(errOut, "kanbanzai: workflow plan: %v\n", err)
 			return 2
