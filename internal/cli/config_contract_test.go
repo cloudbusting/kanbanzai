@@ -68,3 +68,26 @@ func TestDoctorDiagnosesBeforeStrictConfigLoading(t *testing.T) {
 		}
 	}
 }
+
+// W-14: the [preset] record is part of the config contract: it loads, `config upgrade` leaves it alone, and a config
+// without it is the shape every earlier project has.
+func TestThePresetRecordNeedsNoConfigUpgradeAndIsInTheResolvedConfig(t *testing.T) {
+	root := testutil.Repo(t, "")
+	t.Setenv("KANBANZAI_PROJECT", root)
+	if code, out, errOut := runCLI(t, "init", "--preset", "docs-only", "--owner", "Sam", "--main-branch", "main"); code != 0 {
+		t.Fatalf("init: %d %q %q", code, out, errOut)
+	}
+	if code, out, errOut := runCLI(t, "config", "upgrade"); code != 0 || !strings.Contains(out, "no upgrade needed") {
+		t.Fatalf("upgrade: %d %q %q", code, out, errOut)
+	}
+	var resolved struct {
+		Preset map[string]any `json:"preset"`
+	}
+	_, out, _ := runCLI(t, "config", "--json")
+	if err := json.Unmarshal([]byte(out), &resolved); err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Preset["name"] != "docs-only" || resolved.Preset["delivery_style"] != "docs" || resolved.Preset["version"] != float64(1) {
+		t.Fatalf("config --json preset = %#v", resolved.Preset)
+	}
+}

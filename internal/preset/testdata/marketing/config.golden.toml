@@ -1,0 +1,196 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset marketing` (Draft, review, get the owner's approval and publish campaigns and assets; one shared workspace, no branches.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "campaign"
+
+[preset]
+name = "marketing"
+delivery_style = "campaign"
+version = 1
+
+[[types]]
+key = "campaign"
+label = "Campaign"
+prefix = "CAMP"
+template = ".kanbanzai/templates/campaign.md"
+schema = "campaign"
+description = "A campaign with a message, an audience and a channel"
+
+[[types]]
+key = "asset"
+label = "Asset"
+prefix = "ASSET"
+template = ".kanbanzai/templates/asset.md"
+schema = "asset"
+description = "A piece of content for a campaign"
+
+[schemas.asset]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Channel"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Audience", "Publish on"]
+required_sections = ["Goal", "Copy", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Copy", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.campaign]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Audience", "Channel"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Publish on"]
+required_sections = ["Goal", "Message", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Message", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+# The flow of the marketing preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["approved", "drafted", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "draft"
+
+[[columns]]
+key = "drafting"
+label = "Drafting"
+words = ["drafting"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "draft"
+
+[[columns]]
+key = "drafted"
+label = "Drafted"
+words = ["drafted"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "review"
+
+[[columns]]
+key = "reviewing"
+label = "Reviewing"
+words = ["reviewing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "review"
+
+[[columns]]
+key = "approved"
+label = "Approved"
+words = ["approved"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "publish"
+gate = "owner"
+
+[[columns]]
+key = "publishing"
+label = "Publishing"
+words = ["publishing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "publish"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = ""
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.draft]
+into = "drafted"
+during = "drafting"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.publish]
+into = "done"
+during = "publishing"
+skill = "publish-it"
+extend = []
+context = []
+checks = []
+
+[steps.review]
+into = "approved"
+during = "reviewing"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

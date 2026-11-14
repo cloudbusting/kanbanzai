@@ -1,0 +1,30 @@
+# The release-train preset (train).
+
+[preset]
+name = "release-train"
+delivery_style = "train"
+version = 1
+summary = "Build cards on the usual branches, hold them Approved until the train leaves, then ship them together."
+best_for = "A product that releases on a schedule or in batches: cards are done when built, shipped when the train runs."
+not_for = "Continuous delivery where every card ships on its own, or a project with no external release event to wait for."
+
+[project]
+default_type = "task"
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+description = "A change to something that exists"

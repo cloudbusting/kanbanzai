@@ -1,0 +1,161 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset docs-only` (Write, check and close a documentation page; no branch per card, no CI, no deploy.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "page"
+
+[preset]
+name = "docs-only"
+delivery_style = "docs"
+version = 1
+
+[[types]]
+key = "page"
+label = "Page"
+prefix = "PAGE"
+template = ".kanbanzai/templates/page.md"
+schema = "page"
+description = "A page to write or rewrite"
+
+[[types]]
+key = "fix"
+label = "Fix"
+prefix = "FIX"
+template = ".kanbanzai/templates/fix.md"
+schema = "fix"
+description = "A correction to an existing page"
+
+[schemas.fix]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.page]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Audience"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Outline", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Outline", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+# The flow of the docs-only preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["written", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "write"
+
+[[columns]]
+key = "writing"
+label = "Writing"
+words = ["writing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "write"
+
+[[columns]]
+key = "written"
+label = "Written"
+words = ["written"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+
+[[columns]]
+key = "checking"
+label = "Checking"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.write]
+into = "written"
+during = "writing"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []

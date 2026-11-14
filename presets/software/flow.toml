@@ -1,0 +1,192 @@
+# The software preset: Kanbanzai's own delivery flow. Todo, design, build, check, QA, ship, with the owner's approval before
+# a release and a git worktree and branch per card. It is the shipped default, written out.
+
+
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["checked", "built", "designed", "todo"]
+isolation = "worktree"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "design"
+settled_next = "build"
+title = "DESIGNING"
+settled_title = "BUILDING"
+
+[[columns]]
+key = "designing"
+label = "Designing"
+words = ["designing"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "DESIGNING"
+lane = "Design"
+doing = "design"
+
+[[columns]]
+key = "designed"
+label = "Designed"
+words = ["designed"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "build"
+title = "BUILDING"
+worktree = true
+lane = "Design"
+
+[[columns]]
+key = "building"
+label = "Building"
+words = ["building"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "BUILDING"
+worktree = true
+lane = "Build"
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+words = ["built"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+title = "CHECKING"
+worktree = true
+lane = "Build"
+
+[[columns]]
+key = "checking"
+label = "Checking"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "CHECKING"
+worktree = true
+lane = "Check"
+doing = "check"
+
+[[columns]]
+key = "checked"
+label = "Checked"
+words = ["checked"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "deploy-qa"
+title = "IN QA"
+worktree = true
+lane = "Check"
+
+[[columns]]
+key = "in-qa"
+label = "In QA"
+words = ["in-qa"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "IN QA"
+worktree = true
+lane = "QA"
+doing = "deploy-qa"
+
+[[columns]]
+key = "qa-approved"
+label = "QA-approved"
+words = ["qa-approved"]
+folder = "1-open"
+kind = "open"
+started = false
+next = "ship"
+title = "SHIPPING"
+worktree = true
+lane = "QA"
+gate = "owner"
+
+[[columns]]
+key = "shipping"
+label = "Shipping"
+words = ["shipping"]
+folder = "1-open"
+kind = "open"
+started = false
+title = "SHIPPING"
+worktree = true
+lane = "Ship"
+doing = "ship"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+title = "PAUSED"
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+title = "DONE"
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = "in-qa"
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = "designing"
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = "shipping"
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

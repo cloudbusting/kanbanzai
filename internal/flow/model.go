@@ -93,6 +93,16 @@ type Isolation struct {
 	MainBranch      string   `json:"main_branch"`
 }
 
+// Preset is the [preset] record of the config: which delivery preset the project was set up from. Flow says whether
+// the project's flow still equals that preset's flow file today: "matches", "differs", or empty when there is no
+// preset or it is not one this command ships (the cli fills it in; this package cannot read presets).
+type Preset struct {
+	Name          string `json:"name"`
+	DeliveryStyle string `json:"delivery_style"`
+	Version       int    `json:"version"`
+	Flow          string `json:"flow"`
+}
+
 // Model is the whole flow as one value: what `workflow show` prints.
 type Model struct {
 	SchemaVersion int          `json:"schema_version"`
@@ -103,6 +113,7 @@ type Model struct {
 	WIP           WIP          `json:"wip"`
 	Isolation     Isolation    `json:"isolation"`
 	PullOrder     []string     `json:"pull_order"`
+	Preset        Preset       `json:"preset"`
 }
 
 func list(values []string) []string {
@@ -114,7 +125,8 @@ func list(values []string) []string {
 
 // Build is the model of a loaded project.
 func Build(p *config.Project) *Model {
-	m := &Model{SchemaVersion: ModelVersion, PullOrder: list(p.PullOrder)}
+	m := &Model{SchemaVersion: ModelVersion, PullOrder: list(p.PullOrder), Preset: Preset{Name: p.Preset.Name,
+		DeliveryStyle: p.Preset.DeliveryStyle, Version: p.Preset.Version}}
 	for _, c := range p.Columns {
 		m.Columns = append(m.Columns, ColumnInfo{Key: c.Key, Label: c.Label, Words: list(c.Words), Folder: c.Folder,
 			Kind: c.Kind, Started: c.Started, Title: c.Title, SettledTitle: c.SettledTitle, Lane: c.Lane, Doing: c.Doing, Next: c.Next, SettledNext: c.SettledNext,

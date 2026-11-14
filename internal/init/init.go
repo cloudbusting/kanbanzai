@@ -28,7 +28,14 @@ type Options struct {
 	Context      []string
 	Plugins      []string
 	PluginSource string
-	Out, Err     io.Writer
+
+	// Preset is a shipped preset name or the folder of a local one; Types, StepSkills and StepExtends compose it
+	// (see preset.Compose) and mean nothing without it.
+	Preset      string
+	Types       []string
+	StepSkills  []string
+	StepExtends []string
+	Out, Err    io.Writer
 
 	// Test hooks.
 	clock func() time.Time
@@ -134,6 +141,12 @@ func render(out io.Writer, report *Report) {
 	fmt.Fprintf(out, "kanbanzai: project %s\n", plan.Root)
 	if plan.Detected.RanFromWorktree {
 		fmt.Fprintf(out, "  run from the worktree %s; init works on the main checkout\n", plan.Detected.Toplevel)
+	}
+	if plan.Preset != nil {
+		fmt.Fprintf(out, "  preset %s\n", plan.Preset.Name)
+		for _, line := range strings.Split(strings.TrimRight(plan.Preset.Text(), "\n"), "\n") {
+			fmt.Fprintf(out, "    %s\n", line)
+		}
 	}
 	if plan.Settings != nil {
 		fmt.Fprintf(out, "  main branch: %s (%s)\n  owner:       %s (%s)\n", plan.Settings.MainBranch,

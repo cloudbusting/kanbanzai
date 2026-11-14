@@ -176,6 +176,17 @@ function planText(report, folder) {
   } else {
     out.push('  none: an existing config is kept');
   }
+  const preset = plan.preset && typeof plan.preset === 'object' ? plan.preset : null;
+  if (preset && nonEmpty(preset.name)) {
+    const style = text(preset.delivery_style);
+    const version = Number.isInteger(preset.version) && preset.version > 0 ? `v${preset.version}` : '';
+    const detail = [style, version].filter(Boolean).join(', ');
+    out.push('', `  preset: ${preset.name}${detail ? ` (${detail})` : ''}`);
+    if (nonEmpty(preset.summary)) out.push(`    ${preset.summary}`);
+    const columns = Array.isArray(preset.columns) ? preset.columns.filter((c) => c && typeof c === 'object' && nonEmpty(c.label)) : [];
+    if (columns.length) out.push(`    columns: ${columns.map((c) => c.label).join(' > ')}`);
+    if (nonEmpty(preset.isolation)) out.push(`    isolation: ${preset.isolation}`);
+  }
   out.push('');
   for (const [heading, ops] of GROUPS) {
     const rows = actions.filter((a) => ops.includes(a.op));

@@ -74,6 +74,22 @@ If the process itself is killed part-way, the journal remains and the next apply
 neither what the apply wrote nor what was there before. Folders the migration emptied are named, not deleted. A
 finished apply is undone with git.
 
+## Starting from a preset
+
+A **preset** is a flow file that ships with the command, with the types, templates and paths that go with it
+([docs/presets.md](presets.md)). `kanbanzai workflow presets` lists them, and a preset goes through the same review as a
+flow file you wrote:
+
+```bash
+kanbanzai workflow validate --preset docs-only
+kanbanzai workflow plan --preset docs-only --map built=written --out plan.json
+kanbanzai workflow apply --plan plan.json
+```
+
+The plan replaces the three flow tables and writes the `[preset]` record; the project's own types, schemas, templates
+and paths stay as they are, and a card in a stage the preset has no column for is a blocker until `--map` says where it
+goes. `workflow apply` takes only a plan, never a preset, so a person always reviews what happens to every card.
+
 ## Gates and skip rules
 
 `workflow show` lists conditional `early-close` transitions separately from normal completion. Use
@@ -84,7 +100,8 @@ key or label, or rename it. `step --for ID` reports this option separately from 
 
 A flow file carries the delivery rules too: `gate`, `gate_name`, `gate_after` and `gate_until` on a column, and
 `skip_field` and `skip_values` on a step. `workflow show` lists each gate and the steps a card can skip, `validate`
-reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`.
+reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`. `export` and `plan --file` carry `[flow] isolation` too: an
+earlier release dropped it, so applying an exported flow reset a `shared` or `branch` project to worktrees.
 [docs/delivery.md](delivery.md) says what each does.
 
 ## How the skills follow your flow

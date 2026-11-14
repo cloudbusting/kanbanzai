@@ -28,6 +28,10 @@ type Doc struct {
 	Raw    map[string]any
 	Text   string
 	Format string // "toml" or "json"
+	// Record is the text of a [preset] table that goes into the config with the flow (a delivery preset's, see
+	// internal/preset). A flow file read from disk has none; with one, Splice replaces the config's [preset] table
+	// too, and only that table.
+	Record string
 }
 
 // Problem is a refusal to read a file as a flow file.
@@ -209,7 +213,7 @@ func sortedKeys(m map[string]any) []string {
 // written, so applying it to the project it came from changes nothing.
 func FromProject(p *config.Project) *Doc {
 	flow := map[string]any{"wip_limit": int64(p.WIPLimit), "stale_days": int64(p.StaleDays),
-		"move_grace_minutes": p.MoveGraceMinutes, "pull_order": strs(p.PullOrder)}
+		"move_grace_minutes": p.MoveGraceMinutes, "pull_order": strs(p.PullOrder), "isolation": p.Isolation}
 	columns := []any{}
 	for _, c := range p.Columns {
 		entry := map[string]any{"key": c.Key, "label": c.Label, "words": strs(c.Words), "folder": c.Folder,
@@ -301,7 +305,7 @@ func jsonValue(v any) any {
 }
 
 var (
-	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order"}
+	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order", "isolation"}
 	columnKeys = []string{"key", "label", "words", "folder", "kind", "started", "next", "settled_next", "title",
 		"settled_title", "worktree", "waits_for_owner", "lane", "doing", "gate", "gate_name", "gate_after", "gate_until"}
 	stepKeys = []string{"into", "during", "skill", "extend", "context", "checks", "skip_field", "skip_values"}

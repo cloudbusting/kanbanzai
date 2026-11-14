@@ -96,6 +96,10 @@ keep the typed starter or use a single prefix, context files), shows the plan an
 exactly that plan with `init --plan`, and proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
 clone to board.
 
+A project that is not software can start from a **delivery preset** instead of the shipped software flow:
+`kanbanzai init --preset docs-only` (see the [cookbook](#delivery-presets) and [docs/presets.md](docs/presets.md)).
+`kanbanzai workflow presets` lists them and `init --preset NAME --dry-run` explains what one would write.
+
 `init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
 only branch; anything it cannot tell is exit 2 asking for `--main-branch NAME`), the owner (`git config user.name`,
 or `--owner NAME`), an existing config and board, and the rule files you already keep (`AGENTS.md`, `CLAUDE.md`,
@@ -218,6 +222,12 @@ The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `pro
 config discovery. `init` writes the config only there (never a second one in a relocated home) and never overwrites one without `--force`, which backs it up first. The existing worktree fallback is
 used only when the main checkout has no config. Changing `home` does not implicitly change `work` or `state`;
 set those paths explicitly (paths remain relative to the main checkout).
+
+**The preset record.** A config made with `init --preset NAME` (or changed with `workflow plan --preset NAME`) carries
+a `[preset]` table: `name`, `delivery_style` and `version`. It is a record, not a setting: every column, step, gate
+and path the preset chose is written out in the file, and `kanbanzai workflow show` names the preset and says whether
+the flow still matches the shipped one. A config with no `[preset]` is a hand-made workflow, which is every project
+before this release. A command from before presets refuses a config that has the table (unknown key); update it first.
 
 ### Issue types and numbering
 
@@ -475,6 +485,27 @@ into = "doing"
 skill = "kanbanzai:build"
 ```
 
+### Delivery presets
+
+A preset is a complete starting configuration for a kind of work: a flow (columns, steps, gates, isolation and pull
+order), the issue types with their brief templates and schemas, and the paths that follow from the work. It is not a
+second format: a preset folder holds a flow file, a config fragment and templates, and `init --preset` writes all of it
+into `.kanbanzai/config.toml` in full. [docs/presets.md](docs/presets.md) says how to compose one with your own types
+and skills, and how to write a local one.
+
+| Preset | Delivery style | Best for | Flow | Gates | Isolation | Types, template and schema | What it does not do |
+|---|---|---|---|---|---|---|---|
+| `software` | software | A product with tests and a release, several cards in flight | todo, design, build, check, QA, ship | owner approval before ship | worktree and branch per card | task, bug, change, spike, chore; the project template | Work with no code or no release |
+| `simple` | software-lite | A small project or a solo developer | todo, building, built, checking, done | none | branch per card, one at a time | task, bug; the project template | Design, QA, release or parallel work |
+| `docs-only` | docs | A docs site or handbook, published by merging | todo, writing, written, checking, done | none | shared checkout | page (with `Audience`), fix; own templates and schemas | Build, test or deploy |
+| `pr-review` | review | A queue of changes to review for someone else | queued, reviewing, reviewed, deciding, done | the author's response before the decision | worktree on `review/<id>` | review (`Change under review`, `Verdict`) | Writing the change itself |
+| `release-train` | train | Scheduled or batched releases | todo, building, approved, shipping, done | the train, before ship | worktree and branch per card | task, bug, change; the project template | Shipping each card alone |
+| `marketing` | campaign | Campaigns and assets the owner signs off | todo, drafting, drafted, reviewing, approved, publishing, done | owner approval before publishing | shared checkout | campaign, asset (`Audience`, `Channel`, `Publish on`) | Builds or test runs |
+| `homework` | study | Coursework: a few things at once, each with a due date | todo, working, ready, self-check, handed in | none | shared checkout, WIP cap of 3 | assignment, reading (`Due`, `Course`) | Group work, reviews or branches |
+
+Each preset is proved in CI: `internal/cli/presets_test.go` sets it up in an empty repository, checks its golden
+config and fixture board, and drives a card through every column, gate and close with the real commands.
+
 ### Change the workflow with a command
 
 Renaming or dropping a column by hand strands the cards whose Stage word no longer exists. `kanbanzai workflow` does it
@@ -488,6 +519,8 @@ kanbanzai workflow validate --file flow.toml  # every problem, one message each;
 kanbanzai workflow plan --file flow.toml --out plan.json [--map OLD=NEW]
 kanbanzai workflow apply --plan plan.json     # backup, migrate the briefs, write the config, check + doctor; undo on failure
 kanbanzai workflow apply --rollback           # undo an apply that did not finish
+kanbanzai workflow presets [NAME]             # the shipped delivery presets, or one explained (works outside a project)
+kanbanzai workflow plan --preset docs-only --out plan.json   # a preset's flow, planned the same way (--file's equal)
 ```
 
 A flow file holds only `[flow]`, `[[columns]]` and `[steps.<name>]`, and **replaces** those tables in
@@ -515,13 +548,14 @@ kanbanzai migrate [--json | --apply --plan HASH | --rollback]
                                          preview, apply (on the hash the preview printed) or roll back what this release
                                          needs migrated in the project
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
-kanbanzai workflow show|validate|plan|apply|export
+kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)
 kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
-                                         [--with-template]
+                                         [--with-template] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
+                                         [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
                                          set a project up: detect, plan, apply, verify; never commits
 kanbanzai install [--dry-run|--refresh|--where]    copy this command to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version

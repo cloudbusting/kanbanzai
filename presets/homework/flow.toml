@@ -1,0 +1,112 @@
+# The homework preset's flow: Plan, do and self-check each assignment or reading; few things at once, and nothing is handed in unchecked.
+
+[flow]
+wip_limit = 3
+stale_days = 3
+move_grace_minutes = 10.0
+pull_order = ["ready", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "To do"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "work"
+
+[[columns]]
+key = "working"
+label = "Working"
+words = ["working"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "work"
+
+[[columns]]
+key = "ready"
+label = "Ready to hand in"
+words = ["ready"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+
+[[columns]]
+key = "checking"
+label = "Self-check"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Handed in"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.work]
+into = "ready"
+during = "working"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []

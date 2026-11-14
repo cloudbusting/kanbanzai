@@ -25,13 +25,15 @@ func firstSegment(name string) string {
 	return strings.TrimSpace(name)
 }
 
-func isFlowTable(name string) bool {
+// owns says whether the flow file replaces the config table of that name: the three flow tables, and [preset] when
+// the file carries a record for it.
+func (d *Doc) owns(name string) bool {
 	for _, t := range tables {
 		if name == t {
 			return true
 		}
 	}
-	return false
+	return name == "preset" && d.Record != ""
 }
 
 // Splice replaces the flow tables of a config text with the flow file's text. Everything else in the config —
@@ -47,7 +49,7 @@ func Splice(configText string, doc *Doc) (string, error) {
 		keep[i] = true
 		if inMulti == "" {
 			if match := headerRE.FindStringSubmatch(line); match != nil && !strings.Contains(match[2], "=") {
-				inFlow = isFlowTable(firstSegment(match[2]))
+				inFlow = doc.owns(firstSegment(match[2]))
 				if inFlow {
 					// a comment block directly above the header describes it
 					for j := i - 1; j >= 0 && strings.HasPrefix(strings.TrimSpace(lines[j]), "#"); j-- {
@@ -69,8 +71,11 @@ func Splice(configText string, doc *Doc) (string, error) {
 	}
 	rest := strings.TrimRight(strings.Join(kept, "\n"), "\n")
 	out := doc.Text
+	if doc.Record != "" {
+		out = strings.TrimRight(out, "\n") + "\n\n" + strings.TrimRight(doc.Record, "\n") + "\n"
+	}
 	if rest != "" {
-		out = rest + "\n\n" + doc.Text
+		out = rest + "\n\n" + out
 	}
 	if err := verifySplice(configText, out, doc); err != nil {
 		return "", err
@@ -107,7 +112,7 @@ func verifySplice(before, after string, doc *Doc) error {
 			"[flow] table and try again", err)
 	}
 	for key, value := range oldRaw {
-		if isFlowTable(key) {
+		if doc.owns(key) {
 			continue
 		}
 		if !reflect.DeepEqual(value, newRaw[key]) {
@@ -115,13 +120,22 @@ func verifySplice(before, after string, doc *Doc) error {
 		}
 	}
 	for key := range newRaw {
-		if _, had := oldRaw[key]; !had && !isFlowTable(key) {
+		if _, had := oldRaw[key]; !had && !doc.owns(key) {
 			return problem("splicing the flow would add '%s' to the config: edit the config by hand", key)
 		}
 	}
 	for _, key := range tables {
 		if !reflect.DeepEqual(newRaw[key], doc.Raw[key]) {
 			return problem("the spliced config does not carry the flow file's [%s] exactly: edit the config by hand", key)
+		}
+	}
+	if doc.Record != "" {
+		record, err := config.ParseTOML(doc.Record)
+		if err != nil || len(record) != 1 || record["preset"] == nil {
+			return problem("a preset record is one [preset] table and nothing else")
+		}
+		if !reflect.DeepEqual(newRaw["preset"], record["preset"]) {
+			return problem("the spliced config does not carry the preset record exactly: edit the config by hand")
 		}
 	}
 	return nil

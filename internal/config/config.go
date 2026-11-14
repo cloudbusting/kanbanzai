@@ -116,7 +116,8 @@ type Project struct {
 	BriefSchemas       map[string]BriefSchema
 	Owner              string
 	MainBranch         string
-	Isolation          string // worktree, branch, shared or external: how a card's change is kept apart
+	Preset             PresetRecord // the delivery preset the config was written from; empty for a hand-made config
+	Isolation          string       // worktree, branch, shared or external: how a card's change is kept apart
 	WorktreePattern    string
 	BranchPattern      string
 	BatchBranchPattern string
@@ -325,6 +326,14 @@ func configCandidate(base, home string) string {
 	return filepath.Join(base, home, "config.toml")
 }
 
+// PresetRecord is the [preset] table: which delivery preset a project's config was written from. It is a record,
+// not a setting: nothing in the core reads it to decide anything, and a hand-made config has none.
+type PresetRecord struct {
+	Name          string
+	DeliveryStyle string
+	Version       int
+}
+
 // build turns the merged TOML into the typed configuration.
 func (p *Project) build() error {
 	project, err := p.section("project")
@@ -429,6 +438,12 @@ func (p *Project) build() error {
 		p.OwnerEnv = "KANBANZAI_OWNER"
 	}
 	p.Isolation = asString(flow["isolation"], "worktree")
+	preset, err := p.section("preset")
+	if err != nil {
+		return err
+	}
+	p.Preset = PresetRecord{Name: asString(preset["name"], ""), DeliveryStyle: asString(preset["delivery_style"], ""),
+		Version: asInt(preset["version"], 0)}
 	p.WIPLimit = asInt(flow["wip_limit"], 5)
 	if p.WIPLimit == 0 {
 		p.WIPLimit = 5
@@ -1119,6 +1134,8 @@ func (p *Project) AsDict() map[string]any {
 		"claims":      map[string]any{"lease_minutes": p.LeaseMinutes, "owner_env": p.OwnerEnv},
 		"flow": map[string]any{"wip_limit": p.WIPLimit, "stale_days": p.StaleDays,
 			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder, "isolation": p.Isolation},
+		"preset": map[string]any{"name": p.Preset.Name, "delivery_style": p.Preset.DeliveryStyle,
+			"version": p.Preset.Version},
 		"columns": columns,
 		"steps":   steps,
 	}

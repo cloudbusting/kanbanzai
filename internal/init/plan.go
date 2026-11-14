@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	kanbanzai "github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/preset"
 )
 
 // PlanKind and PlanVersion identify the plan format: the one JSON value that dry run shows, apply executes and
@@ -74,13 +76,14 @@ var StarterTypes = []string{"task", "bug", "change", "spike", "chore"}
 
 // Plan is everything init will do. Building it writes nothing.
 type Plan struct {
-	SchemaVersion int       `json:"schema_version"`
-	Kind          string    `json:"kind"`
-	Root          string    `json:"root"`
-	Detected      Detected  `json:"detected"`
-	Settings      *Settings `json:"settings,omitempty"`
-	Actions       []Action  `json:"actions"`
-	Warnings      []string  `json:"warnings"`
+	SchemaVersion int          `json:"schema_version"`
+	Kind          string       `json:"kind"`
+	Root          string       `json:"root"`
+	Detected      Detected     `json:"detected"`
+	Settings      *Settings    `json:"settings,omitempty"`
+	Preset        *preset.Info `json:"preset,omitempty"`
+	Actions       []Action     `json:"actions"`
+	Warnings      []string     `json:"warnings"`
 }
 
 // Refusal is a plan init will not make; it exits 2 and says why.
@@ -106,12 +109,20 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	plan := &Plan{SchemaVersion: PlanVersion, Kind: PlanKind, Root: d.Root, Detected: *d, Actions: []Action{},
 		Warnings: []string{}}
 	root := d.Root
+	if opts.Preset == "" && (len(opts.Types) > 0 || len(opts.StepSkills) > 0 || len(opts.StepExtends) > 0) {
+		return nil, refuse("--type, --step-skill and --step-extend compose a preset: they need --preset")
+	}
+	var chosen *preset.Preset
+	var pendingTemplates = map[string]bool{}
 
 	var project *config.Project
 	var configActions []Action
 	switch {
 	case d.Config.Exists && !d.Config.Regular:
 		return nil, refuse("%s exists and is not a regular file: replace it by hand, init will not", ConfigRel)
+	case d.Config.Exists && !opts.Force && opts.Preset != "":
+		return nil, refuse("--preset has no effect on the existing %s: `kanbanzai workflow plan --preset %s` plans the "+
+			"change to this project's flow for review, or use --force to back the config up and replace it", ConfigRel, opts.Preset)
 	case d.Config.Exists && !opts.Force:
 		if !d.Config.Valid {
 			return nil, refuse("%s cannot be loaded: %s\nuse --force to back it up and replace it with a fresh "+
@@ -161,6 +172,22 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		if err != nil {
 			return nil, err
 		}
+		if opts.Preset != "" {
+			if prefix != "" {
+				return nil, refuse("--prefix cannot be combined with --preset: the preset's types decide the card ids " +
+					"(add one with --type KEY=PREFIX)")
+			}
+			if opts.WithTemplate {
+				return nil, refuse("--with-template cannot be combined with --preset: the preset's types name their own " +
+					"templates")
+			}
+			if chosen, err = preset.Load(opts.Preset); err == nil {
+				err = chosen.Compose(preset.Compose{Types: opts.Types, StepSkills: opts.StepSkills, StepExtends: opts.StepExtends})
+			}
+			if err != nil {
+				return nil, refuse("%v", err)
+			}
+		}
 		context, err := contextFiles(root, opts.Context)
 		if err != nil {
 			return nil, err
@@ -169,9 +196,17 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		if opts.WithTemplate {
 			template = DefaultTemplateRel
 		}
-		text := ConfigText(settings.Owner, branch, template, prefix, context)
-		if prefix == "" {
-			settings.Types = append([]string{}, StarterTypes...)
+		var text string
+		if chosen != nil {
+			text = chosen.ConfigText(preset.Settings{Owner: settings.Owner, MainBranch: branch, Context: context})
+			for _, item := range chosen.Types {
+				settings.Types = append(settings.Types, fmt.Sprint(item["key"]))
+			}
+		} else {
+			text = ConfigText(settings.Owner, branch, template, prefix, context)
+			if prefix == "" {
+				settings.Types = append([]string{}, StarterTypes...)
+			}
 		}
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
 		if err != nil {
@@ -179,6 +214,11 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		}
 		project = loaded
 		plan.Settings = settings
+		if chosen != nil {
+			if plan.Preset, err = chosen.Describe(); err != nil {
+				return nil, refuse("%v", err)
+			}
+		}
 		if d.Config.Exists {
 			old, err := os.ReadFile(config.BootstrapPath(root))
 			if err != nil {
@@ -268,8 +308,26 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		return nil, refuse("--with-template: the existing config sets no project.template; add one, or use " +
 			"--force to replace the config")
 	}
+	if chosen != nil {
+		files := make([]string, 0, len(chosen.Templates))
+		for file := range chosen.Templates {
+			files = append(files, file)
+		}
+		sort.Strings(files)
+		for _, file := range files {
+			rel := preset.TemplatesDir + file
+			action := createOrKeep(root, rel, WhatTemplate, chosen.Templates[file])
+			if action.Op == OpCreate {
+				pendingTemplates[rel] = true
+			}
+			plan.Actions = append(plan.Actions, action)
+		}
+	}
 	for _, item := range project.Types {
 		if item.Template == "" || (!project.TemplateIsShipped && item.Template == project.Template) {
+			continue
+		}
+		if pendingTemplates[project.Rel(item.Template)] {
 			continue
 		}
 		rel, err := insideRoot(root, item.Template, "type "+item.Key+" template")
@@ -295,7 +353,17 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 			plan.Actions = append(plan.Actions, Action{Op: OpKeep, Path: rel, What: WhatTemplate, ExpectSHA256: digest(string(data))})
 		}
 	}
-	if problems := check.TypeTemplates(project); len(problems) > 0 {
+	problems := []string{}
+	for _, problem := range check.TypeTemplates(project) {
+		pending := false
+		for rel := range pendingTemplates {
+			pending = pending || strings.HasPrefix(problem, rel+":")
+		}
+		if !pending {
+			problems = append(problems, problem)
+		}
+	}
+	if len(problems) > 0 {
 		return nil, refuse("a type template does not fit its schema:\n  %s", strings.Join(problems, "\n  "))
 	}
 

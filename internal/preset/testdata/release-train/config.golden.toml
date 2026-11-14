@@ -1,0 +1,142 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset release-train` (Build cards on the usual branches, hold them Approved until the train leaves, then ship them together.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "task"
+
+[preset]
+name = "release-train"
+delivery_style = "train"
+version = 1
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+description = "A change to something that exists"
+
+# The flow of the release-train preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["approved", "todo"]
+isolation = "worktree"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+words = ["building"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "build"
+
+[[columns]]
+key = "approved"
+label = "Approved"
+words = ["approved"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "ship"
+worktree = true
+gate = "external"
+gate_name = "train"
+
+[[columns]]
+key = "shipping"
+label = "Shipping"
+words = ["shipping"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "ship"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "approved"
+during = "building"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = ""
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = "shipping"
+skill = "ship-the-train"
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

@@ -1,0 +1,46 @@
+# The homework preset (study).
+
+[preset]
+name = "homework"
+delivery_style = "study"
+version = 1
+summary = "Plan, do and self-check each assignment or reading; few things at once, and nothing is handed in unchecked."
+best_for = "A student or self-learner with coursework: a few things in flight, a due date on each."
+not_for = "Group work with reviews or approvals, or anything that needs a branch or a build."
+
+[project]
+default_type = "assignment"
+
+[[types]]
+key = "assignment"
+label = "Assignment"
+prefix = "HW"
+template = ".kanbanzai/templates/assignment.md"
+schema = "assignment"
+description = "Work to hand in"
+
+[[types]]
+key = "reading"
+label = "Reading"
+prefix = "READ"
+template = ".kanbanzai/templates/reading.md"
+schema = "reading"
+description = "Something to read and take notes on"
+
+[schemas.assignment]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Due", "Course"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.reading]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Course"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Due"]
+required_sections = ["Goal", "Notes", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Notes", "Progress", "Questions", "Comments"]
+final_section = "Comments"
