@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-56: `kanbanzai board --web [--no-open] [--port N]` opens a live read-only browser board without an editor or
+  Node. The self-contained foreground command serves only authenticated loopback HTTP until Ctrl-C; the browser
+  shares the editor renderer, session marks and toast model and displays clicked briefs as literal text. This is
+  a narrow local-HTTP exception, not support for remote services, LAN hosting or outbound network requests.
 - W-36: a card held by a `card` gate shows which of the cards in its `Needs:` line fail it. `board --json`,
   `gate status --json` and `step --for --json` carry an additive `gate.needs` list (card, column and label, the column
   the gate wants and its label, `met`, `on_board`; failing first) on a closed `card` gate, and nothing on any other

@@ -13,3 +13,9 @@ import "embed"
 //
 //go:embed defaults/config.toml templates/card.md templates/task.md templates/bug.md templates/change.md templates/schemas.example.toml
 var Files embed.FS
+
+// BoardFiles travels with the command; the HTTP host serves only its explicit
+// browser asset allowlist, never arbitrary embedded files or project paths.
+//
+//go:embed board-view/render.js board-view/sessions.js board-view/toasts.js board-view/browser.js
+var BoardFiles embed.FS
