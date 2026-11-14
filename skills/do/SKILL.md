@@ -10,7 +10,11 @@ The main session owns the conversation, board, claims, decisions, review and clo
 read its files, then `kanbanzai workflow show` for the configured columns, steps, gates, pull order and isolation.
 If there is no board, stop and use `/setup`. A new request goes to `/triage` first. For an existing card use its ID;
 without one, continue relevant work in the current conversation before looking for new work, using this session's
-claim or the relevant card when known. Otherwise use `kanbanzai wip --next`. Respect the configured cap and pull order.
+claim or the relevant card when known. Otherwise use `kanbanzai wip --next`. The configured pull order only ranks a
+choice /do makes itself: it never holds back a card the owner named. A card ahead of it in the pull order, further
+along the pipeline, is not a reason to stop, hand the owner a different card or ask whether to go on; run the named
+card. Respect the configured cap before starting a card; a held card, a closed gate, another session's live claim and
+a hard audit finding still stop it.
 
 Before picking up a new card, if the prior conversation is unrelated to that card, ask the owner through the question
 tool whether to continue in this context and recommend a new clean session; wait for their answer before claiming or

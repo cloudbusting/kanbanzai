@@ -238,7 +238,9 @@ func TestTheDoSkillKeepsRelevantContextAndAsksBeforeUnrelatedWork(t *testing.T) 
 		"ask the owner through the question tool whether to continue in this context",
 		"recommend a new clean session",
 		"wait for their answer before claiming or starting the card",
-		"Respect the configured cap and pull order",
+		"The configured pull order only ranks a choice /do makes itself",
+		"never holds back a card the owner named",
+		"Respect the configured cap before starting a card",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("skills/do lacks %q", want)
