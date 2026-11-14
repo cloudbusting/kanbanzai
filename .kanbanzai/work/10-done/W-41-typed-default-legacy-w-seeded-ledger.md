@@ -143,5 +143,5 @@ The model becomes: **typed ids are the default, and the old prefix is a legacy a
 
 ## Comments
 
-- 2026-11-12 — opencode:ses_e30af1e11ffeidhj79vqrROCqy: triage from the owner's correction after W-10. W-10's
+- 2026-11-12 — opencode:session: triage from the owner's correction after W-10. W-10's
   separate legacy mode and its refusal to allocate beside `W.json` are the behaviour this card changes.

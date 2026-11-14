@@ -96,10 +96,10 @@ plugin and drop every command, including the harness's own.
 - 2026-11-11 — the owner's request: "the opencode plugin does not register commands properly (e.g. /build or
   /kanbanzai:build)". `opencode/server.js` registers only `ctx.skill.transform`; it never calls
   `ctx.command.transform`, which the OpenCode server API documents for adding commands.
-- 2026-11-11 — check (opencode:ses_e35eab6e1ffeVo7Vue66rHjAsK): the W-23 branch was already an ancestor of main
+- 2026-11-11 — check (opencode:session): the W-23 branch was already an ancestor of main
   (`fdf73ea`, merged as `1646bf0`); fast-forwarded the worktree to main `8adbdfd` and ran the checks on that tree.
   The owner tested it live in OpenCode and passed it: "it works correctly".
-- 2026-11-11 — package (opencode:ses_e35eab6e1ffeVo7Vue66rHjAsK): the 0.6.0 changelog already names W-23, but
+- 2026-11-11 — package (opencode:session): the 0.6.0 changelog already names W-23, but
   the fix `fdf73ea` landed after the `v0.6.0` tag (`37bad92`), so the next release's changelog must record the fixed
   command transform. The rehearsal package was built from main `8adbdfd`; it is in
   `/tmp/kanbanzai-package-W-23-0.6.0` with its `SHA256SUMS`.
