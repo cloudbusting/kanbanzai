@@ -57,6 +57,10 @@ func runMigrate(args []string, out, errOut io.Writer) int {
 		}
 		fmt.Fprintf(out, "Migrated: wrote %s.\nThe old files are backed up under the project's state folder (migrate/backup). Nothing is committed: review the changes and commit them when you are ready.\n",
 			strings.Join(result.Changed, ", "))
+		if len(result.Notes) > 0 {
+			fmt.Fprintf(out, "`kanbanzai check` already reported these before the migration and still does; they are not the migration's:\n  %s\n",
+				strings.Join(result.Notes, "\n  "))
+		}
 		return 0
 	}
 	plan, err := migrate.Preview("", nil)
