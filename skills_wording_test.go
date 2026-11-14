@@ -680,6 +680,9 @@ func TestTheDoSkillContinuesThroughTheRouteAndOnlyTheStepSkillsStopAtAStep(t *te
 	for _, want := range []string{
 		"`/do` is an instruction to get the card done",
 		"does not stop when a step completes",
+		"Normal test-first checkpoints and partial progress within an unfinished step are not stop conditions",
+		"continue the unfinished step in the same turn",
+		"expected failing test in the red phase is not itself a failed check",
 		"After each successful step, re-read `kanbanzai step --for <ID>` and run the next actionable step in the same turn",
 		"Only the individual step commands (`/design`, `/build`, `/check`) stop at the end of their own step",
 		"Stop only for",
