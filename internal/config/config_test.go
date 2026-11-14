@@ -650,3 +650,15 @@ func TestProjectSkills(t *testing.T) {
 		}
 	}
 }
+
+func TestCardIDsInListsEveryDistinctCardInOrder(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, "[project]\nowner = \"Sam\"\n"))
+	got := project.CardIDsIn("release/W-11-BUG-54-BUG-55-W-11")
+	want := []string{"W-11", "BUG-54", "BUG-55"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if got := project.CardIDsIn("feature"); len(got) != 0 {
+		t.Fatalf("no card = %v", got)
+	}
+}
