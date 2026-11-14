@@ -1,0 +1,43 @@
+# The software preset: a project's own code, built card by card in a git worktree, checked, packaged, approved by the
+# owner and shipped.
+
+[preset]
+name = "software"
+delivery_style = "software"
+version = 1
+summary = "Design, build, check, QA and ship each card in its own git worktree, with the owner's approval before a release."
+best_for = "A software product with tests and a release, where several cards can be in flight at once."
+not_for = "Work with no code, no branch or no release; use simple for a small project and docs-only for a docs site."
+
+[project]
+default_type = "task"
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+description = "A change to something that exists"
+
+[[types]]
+key = "spike"
+label = "Spike"
+prefix = "SPIKE"
+description = "An investigation with a time box"
+
+[[types]]
+key = "chore"
+label = "Chore"
+prefix = "CHORE"
+description = "Maintenance with no behaviour change"

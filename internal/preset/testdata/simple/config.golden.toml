@@ -1,0 +1,134 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset simple` (Todo, build, check, done on one branch per card in the one checkout: no design stage, QA or release step.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "task"
+
+[preset]
+name = "simple"
+delivery_style = "software-lite"
+version = 1
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+description = "Unexpected behaviour"
+
+# The flow of the simple preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["built", "todo"]
+isolation = "branch"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "build"
+
+[[columns]]
+key = "building"
+label = "Building"
+words = ["building"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+words = ["built"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+worktree = true
+
+[[columns]]
+key = "checking"
+label = "Checking"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

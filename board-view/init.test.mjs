@@ -121,6 +121,20 @@ test("planText shows the root, the settings and where they came from", () => {
   assert.match(text, /git config user\.name/);
 });
 
+test("planText names the preset, when the plan carries one, and survives a malformed one", () => {
+  const withPreset = { plan: { ...report.plan, preset: { name: "docs-only", delivery_style: "docs", version: 1, summary: "Write and check pages.",
+    isolation: "shared-checkout", columns: [{ label: "Todo" }, { label: "Writing" }, null, { label: "Done" }] } } };
+  const text = init.planText(withPreset, FOLDER);
+  assert.match(text, /preset: docs-only \(docs, v1\)/);
+  assert.match(text, /Write and check pages\./);
+  assert.match(text, /columns: Todo > Writing > Done/);
+  assert.match(text, /isolation: shared-checkout/);
+  assert.doesNotMatch(init.planText(report, FOLDER), /preset:/);
+  for (const preset of ["x", 3, [], { name: 4 }, { name: "p", columns: "no", version: "1" }]) {
+    assert.equal(typeof init.planText({ plan: { ...report.plan, preset } }, FOLDER), "string");
+  }
+});
+
 test("planText lists every action under its group, with its path", () => {
   const text = init.planText(report, FOLDER);
   for (const action of report.plan.actions) assert.ok(text.includes(action.path), `missing ${action.op} ${action.path}`);

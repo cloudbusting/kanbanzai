@@ -17,10 +17,11 @@ var IsolationModes = map[string]bool{"worktree": true, "branch": true, "shared":
 // schemaKeys is the single allowlist for all supported configuration tables. Step names are user-defined.
 func schemaKeys() map[string]map[string]string {
 	return map[string]map[string]string{
-		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas"},
+		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas", "preset": "table"},
 		"project": {
 			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
+		"preset":       {"name": "string", "delivery_style": "string", "version": "positive integer"},
 		"claims":       {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":         {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation"},
 		"columns":      {"key": "string", "label": "string", "words": "strings", "folder": "string", "kind": "string", "started": "started", "next": "string", "settled_next": "string", "title": "string", "settled_title": "string", "worktree": "boolean", "waits_for_owner": "boolean", "lane": "string", "doing": "string", "gate": "string", "gate_name": "string", "gate_after": "string", "gate_until": "string"},

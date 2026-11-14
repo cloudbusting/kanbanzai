@@ -1,0 +1,46 @@
+# The docs-only preset (docs).
+
+[preset]
+name = "docs-only"
+delivery_style = "docs"
+version = 1
+summary = "Write, check and close a documentation page; no branch per card, no CI, no deploy."
+best_for = "A docs site or handbook that is published by merging, written by one or two people in one checkout."
+not_for = "Anything with code to build or a release to approve; the check step is a read-through, not a test run."
+
+[project]
+default_type = "page"
+
+[[types]]
+key = "page"
+label = "Page"
+prefix = "PAGE"
+template = ".kanbanzai/templates/page.md"
+schema = "page"
+description = "A page to write or rewrite"
+
+[[types]]
+key = "fix"
+label = "Fix"
+prefix = "FIX"
+template = ".kanbanzai/templates/fix.md"
+schema = "fix"
+description = "A correction to an existing page"
+
+[schemas.page]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Audience"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Outline", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Outline", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.fix]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"

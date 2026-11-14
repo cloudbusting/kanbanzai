@@ -1,0 +1,112 @@
+# A local preset used by the tests: the docs flow with its own type.
+
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["written", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "write"
+
+[[columns]]
+key = "writing"
+label = "Writing"
+words = ["writing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "write"
+
+[[columns]]
+key = "written"
+label = "Written"
+words = ["written"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+
+[[columns]]
+key = "checking"
+label = "Checking"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.write]
+into = "written"
+during = "writing"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []

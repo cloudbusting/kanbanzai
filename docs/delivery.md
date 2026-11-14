@@ -76,6 +76,10 @@ with `gate pass`.
 
 ## Recipes
 
+The docs site and the release train are also shipped as delivery presets (`kanbanzai init --preset docs-only`,
+`release-train`; see [docs/presets.md](presets.md)): the same gates and close rules, together with an isolation mode, issue
+types and brief templates. The recipes below are the flow alone, and are what the delivery tests run.
+
 Each recipe is a flow in `internal/flow/testdata/delivery/`; its test (`internal/cli/delivery_test.go`) runs a card
 through it to Done with the real commands, and ends with `kanbanzai check` and a `wip --audit`.
 

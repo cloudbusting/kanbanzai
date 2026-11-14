@@ -1,0 +1,46 @@
+# The marketing preset (campaign).
+
+[preset]
+name = "marketing"
+delivery_style = "campaign"
+version = 1
+summary = "Draft, review, get the owner's approval and publish campaigns and assets; one shared workspace, no branches."
+best_for = "A small marketing or content team publishing posts, campaigns and assets that the owner signs off."
+not_for = "Work that needs a build or a test run; the check step is an editorial review."
+
+[project]
+default_type = "campaign"
+
+[[types]]
+key = "campaign"
+label = "Campaign"
+prefix = "CAMP"
+template = ".kanbanzai/templates/campaign.md"
+schema = "campaign"
+description = "A campaign with a message, an audience and a channel"
+
+[[types]]
+key = "asset"
+label = "Asset"
+prefix = "ASSET"
+template = ".kanbanzai/templates/asset.md"
+schema = "asset"
+description = "A piece of content for a campaign"
+
+[schemas.campaign]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Audience", "Channel"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Publish on"]
+required_sections = ["Goal", "Message", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Message", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.asset]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Channel"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Audience", "Publish on"]
+required_sections = ["Goal", "Copy", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Copy", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"

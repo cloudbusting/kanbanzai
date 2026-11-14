@@ -30,6 +30,15 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/wip"
 )
 
+// initUsage is the init line of the usage text, and what `init --help` prints: the setup skill reads it to learn which
+// flags the installed command has.
+const initUsage = `  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
+       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
+       [--preset NAME|DIR [--type KEY=PREFIX[:Label][,...]] [--step-skill STEP=SKILL[,...]]
+        [--step-extend STEP=SKILL[+SKILL][,...]]]
+                                 set a project up (detect, plan, apply, verify; never commits)
+`
+
 const usage = `usage: kanbanzai <command> [options]
 
 commands:
@@ -50,13 +59,10 @@ commands:
   migrate [--json | --apply --plan HASH | --rollback]  preview, apply (on the hash it printed) or roll back the migration this release needs
   doctor [--json]                diagnose this installation without repairs
   context [--adapter-version V] the standing context
-  workflow <verb> ...            show, validate, plan, apply and export the flow (columns and steps)
+  workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
   template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
   workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
-  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
-                                 set a project up (detect, plan, apply, verify; never commits)
-  install [--dry-run|--refresh|--where]  copy this command to the per-user folder (works outside a project)
+` + initUsage + `  install [--dry-run|--refresh|--where]  copy this command to the per-user folder (works outside a project)
 
   --version                      print the version
   --help                         this help
@@ -94,6 +100,10 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			fmt.Fprintln(out, "usage: kanbanzai board [--json | --tui | --web [--no-open] [--port N]]\n--web: foreground read-only loopback server; Ctrl-C stops it. --port defaults to 0 (random).")
 			return 0
 		}
+		if command == "init" {
+			fmt.Fprint(out, "usage: kanbanzai "+strings.TrimPrefix(initUsage, "  "))
+			return 0
+		}
 		fmt.Fprintf(out, "usage: kanbanzai %s [options]\n", command)
 		return 0
 	}
@@ -127,15 +137,19 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Refresh: set["refresh"], Out: out, Err: errOut})
 	}
+	if command == "workflow" && len(rest) > 0 && rest[0] == "presets" {
+		return runWorkflowPresets(rest[1:], out, errOut)
+	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
 			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
-			"plugins": true, "plugin-source": true})
+			"plugins": true, "plugin-source": true, "preset": true, "type": true, "step-skill": true, "step-extend": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
 		if _, planned := flags["plan"]; planned {
-			for _, name := range []string{"main-branch", "owner", "prefix", "context", "plugins", "plugin-source"} {
+			for _, name := range []string{"main-branch", "owner", "prefix", "context", "plugins", "plugin-source", "preset", "type",
+				"step-skill", "step-extend"} {
 				if _, given := flags[name]; given {
 					return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --%s cannot be "+
 						"combined with it", name))
@@ -154,7 +168,14 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		if list, given := flags["plugins"]; given {
 			plugins = strings.Split(list, ",")
 		}
-		return initcmd.Run("", initcmd.Options{DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
+		split := func(name string) []string {
+			if list, given := flags[name]; given {
+				return strings.Split(list, ",")
+			}
+			return nil
+		}
+		return initcmd.Run("", initcmd.Options{Preset: flags["preset"], Types: split("type"), StepSkills: split("step-skill"),
+			StepExtends: split("step-extend"), DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
 			WithTemplate: set["with-template"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
 			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
 			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})

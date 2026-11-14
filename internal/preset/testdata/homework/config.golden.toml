@@ -1,0 +1,161 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset homework` (Plan, do and self-check each assignment or reading; few things at once, and nothing is handed in unchecked.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "assignment"
+
+[preset]
+name = "homework"
+delivery_style = "study"
+version = 1
+
+[[types]]
+key = "assignment"
+label = "Assignment"
+prefix = "HW"
+template = ".kanbanzai/templates/assignment.md"
+schema = "assignment"
+description = "Work to hand in"
+
+[[types]]
+key = "reading"
+label = "Reading"
+prefix = "READ"
+template = ".kanbanzai/templates/reading.md"
+schema = "reading"
+description = "Something to read and take notes on"
+
+[schemas.assignment]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Due", "Course"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Acceptance checks", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+[schemas.reading]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Course"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Due"]
+required_sections = ["Goal", "Notes", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Notes", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+# The flow of the homework preset.
+[flow]
+wip_limit = 3
+stale_days = 3
+move_grace_minutes = 10.0
+pull_order = ["ready", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "To do"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "work"
+
+[[columns]]
+key = "working"
+label = "Working"
+words = ["working"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "work"
+
+[[columns]]
+key = "ready"
+label = "Ready to hand in"
+words = ["ready"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+
+[[columns]]
+key = "checking"
+label = "Self-check"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "check"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Handed in"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "done"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.work]
+into = "ready"
+during = "working"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []

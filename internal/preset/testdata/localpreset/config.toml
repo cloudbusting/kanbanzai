@@ -1,0 +1,29 @@
+# A local preset: a folder on disk with the same three parts as a shipped one.
+
+[preset]
+name = "notes"
+delivery_style = "notes"
+version = 1
+summary = "Write and check short notes in one shared checkout; the docs flow with a note type."
+best_for = "A test of the local-preset path."
+not_for = "Anything real."
+
+[project]
+default_type = "note"
+
+[[types]]
+key = "note"
+label = "Note"
+prefix = "NOTE"
+template = ".kanbanzai/templates/note.md"
+schema = "note"
+description = "A short note"
+
+[schemas.note]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Progress", "Questions", "Comments"]
+final_section = "Comments"

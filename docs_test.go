@@ -121,3 +121,44 @@ func TestTheMigrationPathIsDocumented(t *testing.T) {
 		}
 	}
 }
+
+// W-14: the README's cookbook names every shipped delivery preset, and docs/presets.md says how to write one.
+func TestTheReadmeCookbookNamesEveryShippedPreset(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(root, "presets"))
+	if err != nil || len(entries) < 7 {
+		t.Fatalf("presets: %v %v", entries, err)
+	}
+	readme, err := os.ReadFile(filepath.Join(root, "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(readme)
+	table := text[strings.Index(text, "### Delivery presets"):]
+	if end := strings.Index(table[4:], "\n### "); end > 0 {
+		table = table[:end+4]
+	}
+	header := "| Preset | Delivery style | Best for | Flow | Gates | Isolation | Types, template and schema | What it does not do |"
+	if !strings.Contains(table, header) {
+		t.Errorf("the README cookbook lacks the table header %q", header)
+	}
+	for _, entry := range entries {
+		if !strings.Contains(table, "| `"+entry.Name()+"` |") {
+			t.Errorf("the README cookbook has no row for the %s preset", entry.Name())
+		}
+	}
+	guide, err := os.ReadFile(filepath.Join(root, "docs", "presets.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(string(guide)), " ")
+	for _, words := range []string{"flow.toml", "config.toml", "templates/", "--type", "--step-skill", "workflow plan --preset",
+		"workflow presets", "-update", "What a preset does not do"} {
+		if !strings.Contains(flat, words) {
+			t.Errorf("docs/presets.md lacks %q", words)
+		}
+	}
+}

@@ -1,0 +1,147 @@
+# The marketing preset's flow: Draft, review, get the owner's approval and publish campaigns and assets; one shared workspace, no branches.
+
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["approved", "drafted", "todo"]
+isolation = "shared"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "draft"
+
+[[columns]]
+key = "drafting"
+label = "Drafting"
+words = ["drafting"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "draft"
+
+[[columns]]
+key = "drafted"
+label = "Drafted"
+words = ["drafted"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "review"
+
+[[columns]]
+key = "reviewing"
+label = "Reviewing"
+words = ["reviewing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "review"
+
+[[columns]]
+key = "approved"
+label = "Approved"
+words = ["approved"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "publish"
+gate = "owner"
+
+[[columns]]
+key = "publishing"
+label = "Publishing"
+words = ["publishing"]
+folder = "1-open"
+kind = "open"
+started = true
+doing = "publish"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = ""
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.draft]
+into = "drafted"
+during = "drafting"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.publish]
+into = "done"
+during = "publishing"
+skill = "publish-it"
+extend = []
+context = []
+checks = []
+
+[steps.review]
+into = "approved"
+during = "reviewing"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

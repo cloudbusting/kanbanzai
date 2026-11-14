@@ -11,15 +11,19 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/flow"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/preset"
 )
 
 const workflowUsage = `usage: kanbanzai workflow <verb> [options]
 
 verbs:
   show [--json]                     the resolved flow: columns, steps, transitions, gates, WIP, isolation, pull order
-  validate --file FILE [--json]     every problem with a proposed flow (TOML or JSON); writes nothing
-  plan --file FILE [--map OLD=NEW]... [--out PLAN] [--json]
+  validate --file FILE|--preset NAME|DIR [--json]
+                                    every problem with a proposed flow (TOML or JSON, or a preset's); writes nothing
+  plan --file FILE|--preset NAME|DIR [--step-skill STEP=SKILL[,...]] [--step-extend STEP=SKILL[+SKILL][,...]]
+       [--map OLD=NEW]... [--out PLAN] [--json]
                                     the card migration the flow implies; writes only --out
+  presets [NAME] [--json]           the shipped delivery presets, or one explained (needs no board)
   apply --plan PLAN                 back up, migrate the briefs, write the config, run check and doctor; undo on failure
   apply --rollback                  undo an apply that did not finish
   export [--format toml|json|mermaid] [--out FILE]
@@ -46,6 +50,36 @@ func extractRepeated(args []string, name string) (values, rest []string, err err
 	return values, rest, nil
 }
 
+// flowSource reads the flow a verb works on: --file FILE, or --preset NAME|DIR (composed with --step-skill and
+// --step-extend). It is the only place a preset is turned into a flow for the workflow command.
+func flowSource(flags map[string]string, verb string) (*flow.Doc, error) {
+	file, named := flags["file"], flags["preset"]
+	if (file == "") == (named == "") {
+		return nil, errors.New("give --file FILE or --preset NAME, not both and not neither")
+	}
+	if file != "" {
+		if flags["step-skill"] != "" || flags["step-extend"] != "" {
+			return nil, errors.New("--step-skill and --step-extend compose a preset: they need --preset")
+		}
+		return flow.ReadFile(file)
+	}
+	p, err := preset.Load(named)
+	if err != nil {
+		return nil, err
+	}
+	var compose preset.Compose
+	if list := flags["step-skill"]; list != "" {
+		compose.StepSkills = strings.Split(list, ",")
+	}
+	if list := flags["step-extend"]; list != "" {
+		compose.StepExtends = strings.Split(list, ",")
+	}
+	if err := p.Compose(compose); err != nil {
+		return nil, err
+	}
+	return p.FlowDoc(), nil
+}
+
 func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(errOut, workflowUsage)
@@ -59,6 +93,7 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 			return usageError(errOut, "workflow show", err)
 		}
 		model := flow.Build(project)
+		model.Preset.Flow = preset.Compare(project)
 		if set["json"] {
 			writeCompact(out, model)
 			return 0
@@ -66,11 +101,12 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		fmt.Fprint(out, showText(model))
 		return 0
 	case "validate":
-		positionals, flags, set, err := parse(rest, map[string]bool{"json": true}, map[string]bool{"file": true})
-		if err != nil || len(positionals) != 0 || flags["file"] == "" {
-			return usageError(errOut, "workflow validate", orMissing(err, "--file"))
+		positionals, flags, set, err := parse(rest, map[string]bool{"json": true}, map[string]bool{"file": true, "preset": true,
+			"step-skill": true, "step-extend": true})
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, "workflow validate", err)
 		}
-		doc, err := flow.ReadFile(flags["file"])
+		doc, err := flowSource(flags, "validate")
 		if err != nil {
 			fmt.Fprintf(errOut, "kanbanzai: workflow validate: %v\n", err)
 			return 2
@@ -97,9 +133,10 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		if err != nil {
 			return usageError(errOut, "workflow plan", err)
 		}
-		positionals, flags, set, err := parse(rest, map[string]bool{"json": true}, map[string]bool{"file": true, "out": true})
-		if err != nil || len(positionals) != 0 || flags["file"] == "" {
-			return usageError(errOut, "workflow plan", orMissing(err, "--file"))
+		positionals, flags, set, err := parse(rest, map[string]bool{"json": true}, map[string]bool{"file": true, "out": true,
+			"preset": true, "step-skill": true, "step-extend": true})
+		if err != nil || len(positionals) != 0 {
+			return usageError(errOut, "workflow plan", err)
 		}
 		mapping := map[string]string{}
 		for _, item := range maps {
@@ -109,7 +146,7 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 			}
 			mapping[from] = to
 		}
-		doc, err := flow.ReadFile(flags["file"])
+		doc, err := flowSource(flags, "plan")
 		if err != nil {
 			fmt.Fprintf(errOut, "kanbanzai: workflow plan: %v\n", err)
 			return 2
@@ -229,6 +266,53 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 	return 2
 }
 
+// runWorkflowPresets is `workflow presets [NAME] [--json]`: it reads only what is embedded in the command, so it
+// works in any folder, before a project has a config.
+func runWorkflowPresets(args []string, out, errOut io.Writer) int {
+	positionals, _, set, err := parse(args, map[string]bool{"json": true}, nil)
+	if err != nil || len(positionals) > 1 {
+		return usageError(errOut, "workflow presets", err)
+	}
+	if len(positionals) == 1 {
+		p, err := preset.Load(positionals[0])
+		if err == nil {
+			var info *preset.Info
+			if info, err = p.Describe(); err == nil {
+				if set["json"] {
+					writeCompact(out, info)
+				} else {
+					fmt.Fprint(out, info.Text())
+				}
+				return 0
+			}
+		}
+		fmt.Fprintf(errOut, "kanbanzai: workflow presets: %v\n", err)
+		return 2
+	}
+	names, err := preset.List()
+	if err != nil {
+		fmt.Fprintf(errOut, "kanbanzai: workflow presets: %v\n", err)
+		return 1
+	}
+	var list []preset.Info
+	for _, name := range names {
+		p, err := preset.Load(name)
+		if err != nil {
+			fmt.Fprintf(errOut, "kanbanzai: workflow presets: %v\n", err)
+			return 1
+		}
+		list = append(list, p.Brief())
+	}
+	if set["json"] {
+		writeCompact(out, map[string]any{"schema_version": 1, "presets": list})
+		return 0
+	}
+	for _, info := range list {
+		fmt.Fprintf(out, "%-14s %-14s v%d  %s\n", info.Name, info.DeliveryStyle, info.Version, info.Summary)
+	}
+	return 0
+}
+
 func orMissing(err error, flag string) error {
 	if err != nil {
 		return err
@@ -331,6 +415,26 @@ func showText(m *flow.Model) string {
 			m.Isolation.WorktreePattern, m.Isolation.BranchPattern, m.Isolation.BatchBranch, m.Isolation.MainBranch, columns)
 	}
 	fmt.Fprintf(&b, "Pull order\n  %s\n", strings.Join(m.PullOrder, " > "))
+	if m.Preset.Name != "" {
+		line := fmt.Sprintf("Preset\n  %s", m.Preset.Name)
+		if m.Preset.DeliveryStyle != "" || m.Preset.Version > 0 {
+			var parts []string
+			if m.Preset.DeliveryStyle != "" {
+				parts = append(parts, m.Preset.DeliveryStyle)
+			}
+			if m.Preset.Version > 0 {
+				parts = append(parts, fmt.Sprintf("v%d", m.Preset.Version))
+			}
+			line += " (" + strings.Join(parts, ", ") + ")"
+		}
+		switch m.Preset.Flow {
+		case "matches":
+			line += ", flow matches the shipped preset"
+		case "differs":
+			line += ", flow differs from the shipped preset"
+		}
+		fmt.Fprintln(&b, line)
+	}
 	return b.String()
 }
 

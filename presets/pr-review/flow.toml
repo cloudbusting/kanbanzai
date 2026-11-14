@@ -1,0 +1,125 @@
+# The pr-review preset's flow: Review a colleague's change in your own worktree, wait for the author's response, then decide.
+
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["reviewed", "queued"]
+isolation = "worktree"
+
+[[columns]]
+key = "queued"
+label = "Queued"
+words = ["queued"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "review"
+
+[[columns]]
+key = "reviewing"
+label = "Reviewing"
+words = ["reviewing"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "review"
+
+[[columns]]
+key = "reviewed"
+label = "Reviewed"
+words = ["reviewed"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "decide"
+worktree = true
+gate = "external"
+gate_name = "author response"
+
+[[columns]]
+key = "deciding"
+label = "Deciding"
+words = ["deciding"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "decide"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = ""
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.decide]
+into = "done"
+during = "deciding"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.review]
+into = "reviewed"
+during = "reviewing"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

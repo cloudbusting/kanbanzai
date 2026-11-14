@@ -5,6 +5,18 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-14: delivery presets. `kanbanzai init --preset NAME` sets a project up for a kind of work (`software`, `simple`,
+  `docs-only`, `pr-review`, `release-train`, `marketing`, `homework`, or a folder of your own) with its flow, issue
+  types, brief templates and schemas, written out in full; `--type`, `--step-skill` and `--step-extend` compose it.
+  `kanbanzai workflow presets [NAME]` lists and explains them without a board, and `workflow plan|validate --preset`
+  moves an existing project to a preset's flow through the usual reviewed plan. The config gains a `[preset]` record
+  (`name`, `delivery_style`, `version`), shown by `workflow show` (which says whether the flow still matches the
+  shipped preset) and by `workflow show --json` and `config --json` as `preset`. A command from before this release
+  refuses a config that has the `[preset]` table. `init --dry-run --json` carries an additive `plan.preset`.
+  `init --help` now lists every flag, which the setup skill gates its questions on.
+- Fixed: `workflow export` and `workflow plan --file` dropped `[flow] isolation`, so applying an exported flow reset a
+  `shared`, `branch` or `external` project to worktrees.
+
 ## [0.17.0] — 2026-11-14
 
 - W-32: Setup explains plugin selection and the editor's pending Init/Apply plan.

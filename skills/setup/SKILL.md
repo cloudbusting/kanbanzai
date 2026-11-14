@@ -112,6 +112,16 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    A local source puts machine-specific paths in `.opencode/opencode.json`; warn not to commit those as portable
    settings. A local Claude source uses `.claude/settings.local.json`. Do not guess a path. If the flags are absent,
    say so and do not collect an answer the command cannot apply.
+6. **Delivery preset:** if `init --help` lists `--preset`, run `kanbanzai workflow presets --json` and ask which
+   delivery style fits the work, using each preset's `summary` and `best_for`: the options are the shipped presets,
+   with the one the evidence points to recommended (`software` for a repository with code and checks, `docs-only` for
+   one that is mostly prose, and so on); the owner may also name a folder on disk. Pass the choice as `--preset NAME`;
+   omit the flag for the default setup. A preset decides the card types, so do not combine it with `--prefix`; the
+   owner's own types and skills are `--type KEY=PREFIX[:Label]`, `--step-skill STEP=SKILL` and
+   `--step-extend STEP=SKILL[+SKILL]`, asked only when the owner names one. The dry-run plan explains what the
+   preset writes (`plan.preset`). A project that already has a config is not changed by `--preset`: point to
+   `kanbanzai workflow plan --preset NAME`, which makes a plan to review and does nothing until `workflow apply`.
+   If the flag is absent, say so and ask nothing.
 
 The card template, digits, lease, WIP cap and pull order are the shipped defaults and are not asked.
 
@@ -125,7 +135,7 @@ the command does not offer it yet.
 
 Make a private folder outside the repository, so it cannot change the tree the plan is checked against:
 `PLAN_DIR=$(mktemp -d)`. Run `kanbanzai init --dry-run --json` with the chosen flags (`--owner`, `--main-branch`,
-`--prefix` only for the single-prefix shape, `--context`, `--plugins`, `--plugin-source` when supported and selected,
+`--prefix` only for the single-prefix shape, `--preset` and its composing flags when chosen, `--context`, `--plugins`, `--plugin-source` when supported and selected,
 and `--force` only after its own approval) and keep the
 output in `$PLAN_DIR/plan.json`.
 Show the owner:

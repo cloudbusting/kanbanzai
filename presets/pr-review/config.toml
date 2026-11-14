@@ -1,0 +1,30 @@
+# The pr-review preset (review).
+
+[preset]
+name = "pr-review"
+delivery_style = "review"
+version = 1
+summary = "Review a colleague's change in your own worktree, wait for the author's response, then decide."
+best_for = "A reviewer or a small team working through a queue of pull requests, one worktree per review."
+not_for = "Authoring the change itself, or a review that needs no checkout; the card only tracks the review."
+
+[project]
+default_type = "review"
+branch = "review/{id}"
+
+[[types]]
+key = "review"
+label = "Review"
+prefix = "REVIEW"
+template = ".kanbanzai/templates/review.md"
+schema = "review"
+description = "A change someone else made, to be reviewed"
+
+[schemas.review]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Change under review"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Verdict"]
+required_sections = ["Goal", "Acceptance checks", "Findings", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Findings", "Progress", "Questions", "Comments"]
+final_section = "Comments"

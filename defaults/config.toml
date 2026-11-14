@@ -81,6 +81,14 @@ label = "Chore"
 prefix = "CHORE"
 description = "Maintenance with no behaviour change"
 
+# The delivery preset a project was set up from (`kanbanzai init --preset NAME`, `kanbanzai workflow plan --preset NAME`).
+# It is a record, not a setting: the columns, steps, gates and paths it chose are written out in this file, and
+# `kanbanzai workflow show` names the preset and says whether the flow still equals the shipped one. Absent: no preset.
+#   [preset]
+#   name = "docs-only"
+#   delivery_style = "docs"
+#   version = 1
+
 [claims]
 lease_minutes = 120               # positive finite minutes, <=153722867; heartbeat renews the lease
 owner_env = "KANBANZAI_OWNER"     # set it to override the detected session label (KANBANZAI_OWNER is always read)

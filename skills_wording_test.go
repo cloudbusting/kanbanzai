@@ -371,7 +371,7 @@ func TestTheSetupSkillDetectsPlansAsksApprovesAndVerifies(t *testing.T) {
 	}
 	// The interview: the owner's decisions through the question tool, and the capability gate.
 	for _, words := range []string{"question tool", "recommended", "--main-branch", "--prefix", "--context",
-		"kanbanzai init --help"} {
+		"kanbanzai init --help", "--preset", "kanbanzai workflow presets", "kanbanzai workflow plan --preset"} {
 		if !strings.Contains(lower, words) {
 			t.Errorf("skills/setup does not name %q in its interview", words)
 		}

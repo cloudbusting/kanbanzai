@@ -1,0 +1,158 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset pr-review` (Review a colleague's change in your own worktree, wait for the author's response, then decide.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "review"
+branch = "review/{id}"
+
+[preset]
+name = "pr-review"
+delivery_style = "review"
+version = 1
+
+[[types]]
+key = "review"
+label = "Review"
+prefix = "REVIEW"
+template = ".kanbanzai/templates/review.md"
+schema = "review"
+description = "A change someone else made, to be reviewed"
+
+[schemas.review]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Change under review"]
+optional_fields = ["Done", "Held", "Gate", "Needs", "Verdict"]
+required_sections = ["Goal", "Acceptance checks", "Findings", "Progress", "Comments"]
+optional_sections = ["Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Acceptance checks", "Findings", "Progress", "Questions", "Comments"]
+final_section = "Comments"
+
+# The flow of the pr-review preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["reviewed", "queued"]
+isolation = "worktree"
+
+[[columns]]
+key = "queued"
+label = "Queued"
+words = ["queued"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "review"
+
+[[columns]]
+key = "reviewing"
+label = "Reviewing"
+words = ["reviewing"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "review"
+
+[[columns]]
+key = "reviewed"
+label = "Reviewed"
+words = ["reviewed"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "decide"
+worktree = true
+gate = "external"
+gate_name = "author response"
+
+[[columns]]
+key = "deciding"
+label = "Deciding"
+words = ["deciding"]
+folder = "1-open"
+kind = "open"
+started = true
+worktree = true
+doing = "decide"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+
+[steps.build]
+into = "built"
+during = ""
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "checked"
+during = ""
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.decide]
+into = "done"
+during = "deciding"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = ""
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.review]
+into = "reviewed"
+during = "reviewing"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

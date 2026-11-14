@@ -132,7 +132,8 @@ func TestExportRoundTripsThroughValidateAndResolve(t *testing.T) {
 	gated := "config_version = 1\n" + strings.Replace(strings.Replace(base, `next = "finish"`,
 		"next = \"finish\"\ngate = \"external\"\ngate_name = \"train\"", 1), `skill = "kanbanzai:check"`,
 		"skill = \"kanbanzai:check\"\nskip_field = \"Type\"\nskip_values = [\"docs\", \"note\"]", 1)
-	for name, text := range map[string]string{"defaults": "", "own": ownConfig, "gated": gated} {
+	shared := "config_version = 1\n[flow]\nisolation = \"shared\"\n"
+	for name, text := range map[string]string{"defaults": "", "own": ownConfig, "gated": gated, "shared": shared} {
 		p := project(t, text)
 		before := Build(p)
 		doc := FromProject(p)
@@ -141,6 +142,10 @@ func TestExportRoundTripsThroughValidateAndResolve(t *testing.T) {
 		}
 		if name == "defaults" && (!strings.Contains(doc.Text, `gate = "owner"`) || strings.Contains(doc.Text, "waits_for_owner")) {
 			t.Fatalf("the shipped owner gate is not exported as gate = \"owner\":\n%s", doc.Text)
+		}
+
+		if name == "shared" && !strings.Contains(doc.Text, `isolation = "shared"`) {
+			t.Fatalf("the export dropped the isolation mode, so applying it would reset the project to worktrees:\n%s", doc.Text)
 		}
 
 		again, err := Parse([]byte(doc.Text), false)
