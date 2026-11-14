@@ -59,6 +59,9 @@ func Check(root, tag string) (string, error) {
 				tag, named, plugin)
 		}
 	}
+	if err := checkBoardRecords(root); err != nil {
+		return "", err
+	}
 	return plugin, nil
 }
 

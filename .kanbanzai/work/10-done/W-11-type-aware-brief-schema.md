@@ -85,19 +85,19 @@ A configurable schema can become a second programming language. Keep the first v
 
 ### Q1 — 2026-11-13
 
-- **Asked by:** opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw (W-09 and docs/types.md establish prefix-derived type. A required line breaks existing briefs.)
+- **Asked by:** opencode:session (W-09 and docs/types.md establish prefix-derived type. A required line breaks existing briefs.)
 - **Question:** W-11 asks for a Type line, but W-09 made the ID prefix the sole type source and existing typed briefs have no Type line. Which contract should W-11 use?
 - **Options:** Keep prefix as source: validate template and schema against the ID without a Type line.; Add a required Type line and design an explicit migration for existing typed briefs.
 - **Recommendation:** Keep prefix as source
 - **Then:** design after the type model: define required fields and per-type sections
 - **Answer:** Keep prefix as source: validate template and schema against the ID without a Type line.
-- **Answered:** 2026-11-13 by opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw
+- **Answered:** 2026-11-13 by opencode:session
 
 
 ## Comments
 
-- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: Partial uncommitted work adds named schema parsing and initial validation, not enforcement. `go test ./internal/config ./internal/typeid` passes; extend lifecycle ordering validation and integration before treating a configured schema as safe. No full suite has run.
-- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: The checker now applies initial opt-in schema checks; `go test ./internal/check ./internal/config ./internal/typeid` passes. `ask` and progress currently insert before Comments independently, so arbitrary configured ordering is unsafe; fix and test before finishing. Main advanced four commits after this worktree's base; inspect integration without discarding work.
-- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: `brief.EnsureSection` now supports configured insertion in move and ask; `go test ./internal/move ./internal/brief ./internal/cli ./internal/check ./internal/config ./internal/typeid` passes. Workflow `Migrate` still uses the legacy insertion path; test ask/answer and migrations before claiming lifecycle safety. Worktree is behind main and has uncommitted partial work.
-- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: Workflow plan, preflight and apply now pass configured order to `Migrate`; lifecycle tests cover both ask/answer orders. Explicit type templates are schema-checked, but fallback templates and init/workflow template handling remain incomplete. `go test ./internal/config ./internal/cli ./internal/flow ./internal/check` passes.
-- 2026-11-13 — opencode:ses_e2be8f99fffeDtGHTJLtQE2QDw: Init validates existence of named type templates and records their digests in keep actions; schema-aware fallback-template checks are implemented. Init schema validation and workflow multi-template plans/staleness are not done. New schema files are intent-to-add so the tagged-install test includes them; `go test ./...` passes.
+- 2026-11-13 — opencode:session: Partial uncommitted work adds named schema parsing and initial validation, not enforcement. `go test ./internal/config ./internal/typeid` passes; extend lifecycle ordering validation and integration before treating a configured schema as safe. No full suite has run.
+- 2026-11-13 — opencode:session: The checker now applies initial opt-in schema checks; `go test ./internal/check ./internal/config ./internal/typeid` passes. `ask` and progress currently insert before Comments independently, so arbitrary configured ordering is unsafe; fix and test before finishing. Main advanced four commits after this worktree's base; inspect integration without discarding work.
+- 2026-11-13 — opencode:session: `brief.EnsureSection` now supports configured insertion in move and ask; `go test ./internal/move ./internal/brief ./internal/cli ./internal/check ./internal/config ./internal/typeid` passes. Workflow `Migrate` still uses the legacy insertion path; test ask/answer and migrations before claiming lifecycle safety. Worktree is behind main and has uncommitted partial work.
+- 2026-11-13 — opencode:session: Workflow plan, preflight and apply now pass configured order to `Migrate`; lifecycle tests cover both ask/answer orders. Explicit type templates are schema-checked, but fallback templates and init/workflow template handling remain incomplete. `go test ./internal/config ./internal/cli ./internal/flow ./internal/check` passes.
+- 2026-11-13 — opencode:session: Init validates existence of named type templates and records their digests in keep actions; schema-aware fallback-template checks are implemented. Init schema validation and workflow multi-template plans/staleness are not done. New schema files are intent-to-add so the tagged-install test includes them; `go test ./...` passes.

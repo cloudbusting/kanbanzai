@@ -73,6 +73,45 @@ func TestTheVersionCheckRejectsAMissingManifest(t *testing.T) {
 	}
 }
 
+func TestTheReleaseCheckRejectsMachineSpecificBoardRecords(t *testing.T) {
+	for _, record := range []string{
+		"worktree /home/alice/project/W-01",
+		"worktree /Users/alice/project/W-01",
+		`worktree C:\Users\alice\project\W-01`,
+		"owner opencode:ses_1234567890abcdef",
+	} {
+		t.Run(record, func(t *testing.T) {
+			root := writeVersionFixture(t, "0.6.0", "0.6.0", "0.6.0", "0.6.0", "0.6.0")
+			path := filepath.Join(root, ".kanbanzai", "work", "10-done", "W-01.md")
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("# W-01\n"+record+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Check(root, "")
+			if err == nil || !strings.Contains(err.Error(), "W-01.md") || !strings.Contains(err.Error(), ":2") {
+				t.Fatalf("Check = %v, want a finding naming W-01.md:2", err)
+			}
+		})
+	}
+}
+
+func TestTheReleaseCheckAllowsFictionalAndRelativeRecords(t *testing.T) {
+	root := writeVersionFixture(t, "0.6.0", "0.6.0", "0.6.0", "0.6.0", "0.6.0")
+	path := filepath.Join(root, ".kanbanzai", "work", "batches", "B-01.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	text := "worktree W-01\nhttps://example.org/home/alice/project\n/home/example/repo\n/Users/example/repo\nC:\\Users\\example\\repo\nses_example\n"
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Check(root, ""); err != nil {
+		t.Fatalf("fictional and relative values should pass: %v", err)
+	}
+}
+
 func writeVersionFixture(t *testing.T, plugin, market, entry, packageVersion, changelog string) string {
 	t.Helper()
 	root := t.TempDir()
