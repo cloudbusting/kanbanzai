@@ -58,7 +58,9 @@ run Init again.
 If the main branch cannot be told, a box asks for it and the plan is made again. The `kanbanzai.pluginSource` setting
 (a path to a Kanbanzai checkout) makes the plan use a local plugin instead of the GitHub marketplace source, for
 testing before a release is public; those local-path settings go to `.claude/settings.local.json`, which is yours alone.
-For the longer interview (owner, card prefix, context files) run `/kanbanzai:setup` in Claude Code afterwards.
+For the longer interview (owner, card prefix, context files) run `/kanbanzai:setup` in Claude Code or OpenCode.
+If this editor plan is still pending, the skill shows it and offers the editor's Apply or Cancel flow before making
+a replacement; do not run the two setup flows concurrently.
 
 ## What it executes, reads and writes
 

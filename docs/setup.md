@@ -19,7 +19,8 @@ the ones you do yourself in step 1 of the command-line route and, later, Claude 
 5. Click **Kanbanzai: Apply** in the status bar. The extension copies the command to your per-user folder, applies
    exactly the plan you read, and shows the files to commit.
 6. Commit them, and start a new Claude Code or OpenCode session in the project: the Kanbanzai skills are there.
-   `/kanbanzai:setup` runs the longer interview (owner, project key, context files) if you want it.
+   `/kanbanzai:setup` can run the longer interview before applying: it shows a pending editor plan and lets you use it
+   or cancel it in the editor and make a replacement for fresh approval. Do not run both setup flows concurrently.
 
 If the extension reports that your `kanbanzai` command is too old, a `kanbanzai.command` setting is probably still
 pointing at an old build: it is a machine-wide setting that every profile shares, and it wins over the command inside
@@ -61,7 +62,9 @@ do not commit it as it is).
 In a project where the plugin is enabled, `/kanbanzai:setup` does the whole thing with you: it looks at the
 repository, reports what it found with the evidence, asks only what is open (owner, main branch if unclear, project
 key, context files), shows the plan, waits for your approval, applies exactly that plan and proves it with `check`,
-`wip --audit` and `doctor`. It never commits. It needs a `kanbanzai` command new enough to have `init --dry-run` and
+`wip --audit` and `doctor`. It asks which agents to set up, including neither; an OpenCode local source is a
+machine-specific path and should not be committed as portable settings. If an editor plan is pending, it offers the
+editor's Apply or Cancel flow before any replacement plan. It never commits. It needs a `kanbanzai` command new enough to have `init --dry-run` and
 `--plan`; with an older one it stops and says so. Without the plugin there is nothing to run it with: use one of the
 two routes above first.
 

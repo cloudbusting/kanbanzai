@@ -11,7 +11,8 @@ It is not a step on a card: it runs before there is a board, so it does not call
 replace `/triage`, `/design` or `/do`; its last line points the owner at `/kanbanzai:triage`.
 
 Runs in the main session, which owns the conversation and the owner's answers. **Nothing is written until the owner
-has approved a plan they were shown.** Every file decision comes from the command's plan (`kanbanzai init`); this
+has approved a plan they were shown**, except an editor pending plan may be cancelled through the editor on their
+explicit choice. Every setup file decision comes from the command's plan (`kanbanzai init`); this
 skill never edits `config.toml`, a card or an ignore file itself.
 
 ## 1. Preflight (reads only)
@@ -29,6 +30,24 @@ nothing.
 - Not a git repository (`in_git` is false): say that worktrees, branches and claims need git, recommend `git init`
   by the owner, and ask whether to stop or go on without it. Go on only if they say so.
 - Exit 2 with "pass --main-branch NAME": the main branch cannot be told. This is a question (step 4), not a failure.
+
+Before planning, locate the main checkout root from the detection and check for the editor's pending
+`.kanbanzai/state/setup-plan.json` there, including when started in a worktree. Check each parent and the file without
+following a symbolic link: the parents must be directories and the plan a readable regular file. If the location is
+unsafe, unreadable, malformed or not an init JSON report containing a plan, stop and explain; do not overwrite or
+delete it. Do not run concurrent editor and skill setup flows. If the file appears, disappears or changes while the
+owner is deciding, stop and inspect it again; never approve one plan and apply a different one.
+
+If a pending editor plan exists, show its entire plan, actions, settings and warnings, and say the editor may still
+show **Kanbanzai: Apply**. Ask the owner to choose: use this exact plan, interview and make a replacement, or stop.
+For the existing plan, direct the owner to **Kanbanzai: Show Setup Plan** and **Kanbanzai: Apply** in the editor:
+the editor applies its saved plan, checks freshness and removes the pending file on success. Do not also apply a
+private copy. Verify the result in step 7. If the editor is unavailable, or Apply fails, stop and report the editor's
+result. The editor removes a stale plan on its stale-plan refusal; other failures can leave it pending. Never assert
+an apply succeeded without evidence.
+For a replacement, explicitly ask the owner to use **Kanbanzai: Cancel Setup** to remove the pending plan; wait and
+verify it is gone before interviewing or making a fresh plan. If they decline, stop and leave it untouched. If it
+reappears, stop. Cancellation is not approval of the replacement: show the new plan and obtain fresh approval.
 
 ## 2. Detect, then report
 
@@ -60,8 +79,9 @@ there, and what looks wrong.
 
 ## 3. Branch on what exists
 
-- **A valid config already exists:** the board is set up. Do not ask the settings questions. Show the plan anyway: it
-  only completes missing folders and ignore entries, or says "nothing to do: already set up". Point to
+- **A valid config already exists:** the board is set up. Do not ask config settings questions, but still offer agent
+  settings in step 4. Show the plan anyway: it can complete missing folders and ignore entries and merge chosen
+  plugin settings, or say "nothing to do: already set up". Point to
   `kanbanzai config` to read the settings and the README's "The settings" to change them.
 - **A config that cannot load:** name the error. For an unversioned file point to `kanbanzai config upgrade`; for any
   other error to `kanbanzai doctor`. Never offer `--force` on your own: replacing a config is its own approval
@@ -84,6 +104,14 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    `--prefix KEY`, which writes `types = []`. Ask this only when the owner asks for a single prefix.
 4. **Context files**: a multi-select of the rule files found (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
    `README.md`), all pre-recommended; the skills read the chosen ones first. (`--context FILE[,FILE]`)
+5. **Agents for team setup:** if `init --help` lists `--plugins`, ask for Claude Code, OpenCode, both, or neither;
+   pass the selected names as `--plugins claude,opencode` (or a single name), and omit the flag for neither. Existing
+   settings are merged as the plan says, not silently overwritten. If OpenCode is selected, explain that it currently
+   needs a local Kanbanzai checkout; ask for an absolute path only when `--plugin-source` is supported. Pass a
+   confirmed path as `--plugin-source`; otherwise show the command's warning and do not claim OpenCode was enabled.
+   A local source puts machine-specific paths in `.opencode/opencode.json`; warn not to commit those as portable
+   settings. A local Claude source uses `.claude/settings.local.json`. Do not guess a path. If the flags are absent,
+   say so and do not collect an answer the command cannot apply.
 
 The card template, digits, lease, WIP cap and pull order are the shipped defaults and are not asked.
 
@@ -97,7 +125,8 @@ the command does not offer it yet.
 
 Make a private folder outside the repository, so it cannot change the tree the plan is checked against:
 `PLAN_DIR=$(mktemp -d)`. Run `kanbanzai init --dry-run --json` with the chosen flags (`--owner`, `--main-branch`,
-`--prefix` only for the single-prefix shape, `--context`, and `--force` only after its own approval) and keep the
+`--prefix` only for the single-prefix shape, `--context`, `--plugins`, `--plugin-source` when supported and selected,
+and `--force` only after its own approval) and keep the
 output in `$PLAN_DIR/plan.json`.
 Show the owner:
 
@@ -110,8 +139,11 @@ Show the owner:
   `kanbanzai doctor`.
 
 Then ask: **apply this plan** (recommended), **change an answer** (back to step 4), or **stop**. A stop, a refusal
-or an unanswered question removes `$PLAN_DIR` and ends the skill; nothing but reads has run, and the project is
-exactly as it was.
+or an unanswered question removes `$PLAN_DIR` and ends the skill; no setup plan has been applied. Any editor plan
+the owner explicitly cancelled remains cancelled.
+
+Before applying a private plan check again for a pending editor plan; if one appeared, stop and resolve it through
+the choice above rather than applying alongside it. A changed answer always makes a new plan and needs fresh approval.
 
 ## 6. Apply
 
@@ -144,6 +176,6 @@ Then tell the owner, in plain language:
   which, if either, is missing.
 - **The next command:** `/kanbanzai:triage` with the first piece of work.
 
-**Never:** change anything before the owner has approved the plan; edit `config.toml`, a card or an ignore file by
+**Never:** change setup files before the owner has approved the plan; edit `config.toml`, a card or an ignore file by
 hand; run `kanbanzai init` without `--dry-run` or `--plan`; use `--force` without its own approval; commit or push;
 make a network request; or guess a main branch or an owner the evidence does not support.
