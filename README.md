@@ -278,6 +278,14 @@ kanbanzai config upgrade           # preview; writes nothing
 kanbanzai config upgrade --apply   # validate, back up config.toml.v0.bak, then write atomically
 ```
 
+A release that needs a host's files migrated says so itself: the editor extension offers Preview and Apply, and a
+Claude Code or OpenCode session starts with a line telling it to preview, ask you and apply only on your approval. By hand,
+`kanbanzai migrate` previews the whole migration as one plan and prints its hash, `kanbanzai migrate --apply --plan
+HASH` applies exactly that plan (journalled, backed up, checked, rolled back on any failure) and `kanbanzai migrate
+--rollback` restores the files after a crash. Nothing runs without your approval and nothing is committed;
+[docs/migrate.md](docs/migrate.md) has the contract and how a release adds a migration. `config upgrade` is the
+config-only form of it.
+
 The v0→v1 upgrade only adds or replaces the root version value; it preserves comments, formatting and settings.
 It first validates the prospective config, including references. Unknown or invalid settings require a correction
 before upgrading: none are dropped or renamed automatically. Apply refuses a symlink or a pre-existing backup,
@@ -468,6 +476,9 @@ kanbanzai step NAME | --for ID           what runs a step, and what extends it
 kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
 kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
+kanbanzai migrate [--json | --apply --plan HASH | --rollback]
+                                         preview, apply (on the hash the preview printed) or roll back what this release
+                                         needs migrated in the project
 kanbanzai doctor [--json]                local installation diagnostics (no repairs)
 kanbanzai workflow show|validate|plan|apply|export
                                          show, check, plan, apply and export the flow (columns and steps)

@@ -42,7 +42,8 @@ These are public. A design that changes one names every consumer and every migra
 | State file locations and shapes under `.kanbanzai/state/` | claims, sessions, the extension, the board command |
 
 A breaking change needs a migration and a test that an old board, config or brief still loads, or an explicit
-decision by the owner that it does not. Additive changes still update the extension and both adapters in the same
+decision by the owner that it does not. The migration is a registered `Migration` in `internal/migrate` (the owner
+approves its plan before it writes; `docs/migrate.md` says how to add one and what its test proves). Additive changes still update the extension and both adapters in the same
 change.
 
 ## The rules check

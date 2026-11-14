@@ -5,6 +5,16 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-34: new `kanbanzai migrate [--json]`, `migrate --apply --plan HASH` and `migrate --rollback`: a registry of the
+  migrations a release needs for a host's files, previewed as one plan with a hash and applied only on that hash, with
+  a lock, a journal, backups, a check and doctor on the result, and a rollback on any failure or after a crash. The
+  config's version 0 to 1 is the first migration; `config upgrade` is unchanged. `context` starts with one line
+  telling a Claude Code or OpenCode session to preview, ask the owner and apply only on approval (and names
+  `migrate --rollback` after a crash), instead of the old "run `config upgrade`" advice. The editor extension runs
+  `migrate --json` at startup and when the board cannot be read, offers Preview and Apply in a notice, shows
+  "Kanbanzai: Migrate" in the status bar, and runs `migrate --apply --plan HASH` only on the owner's click.
+  [docs/migrate.md](docs/migrate.md) describes the contract and how a release adds a migration.
+
 ## [0.16.0] — 2026-11-14
 
 - CHANGE-51: new `kanbanzai tree [--merge ID] [--json]`, a read-only report of what the main checkout holds. Every

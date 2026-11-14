@@ -10,12 +10,26 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 )
 
-// Upgrade previews the supported v0→v1 migration; only apply writes. It never serializes TOML back out,
-// so comments, unknown settings and custom paths cannot be silently discarded.
-func Upgrade(start string, apply bool) (string, error) {
+// UpgradePlan is what an upgrade of the config file would do. Making one reads only.
+type UpgradePlan struct {
+	// Path is the config file; empty when the project has none (the embedded defaults already are version 1).
+	Path string
+	// Current is true when the file already holds the current version.
+	Current bool
+	// Old and New are the file as it is and as the upgrade would write it (the same bytes when Current).
+	Old, New []byte
+	Info     os.FileInfo
+	// Project is the project as the new config defines it, so a caller finds its state and card folders even
+	// when the old config cannot be loaded. Nil when there is no config file.
+	Project *Project
+}
+
+// PlanUpgrade validates the v0→v1 upgrade of the project at start without writing anything. It never serializes
+// TOML back out, so comments, unknown settings and custom paths cannot be silently discarded.
+func PlanUpgrade(start string) (*UpgradePlan, error) {
 	root, top, common, err := Locate(start)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	path := ""
 	for _, base := range uniqueStrings([]string{root, top}) {
@@ -24,33 +38,33 @@ func Upgrade(start string, apply bool) (string, error) {
 			path = candidate
 			break
 		} else if !os.IsNotExist(err) {
-			return "", err
+			return nil, err
 		}
 	}
 	if path == "" {
-		return "No config file: embedded defaults already use config_version = 1. Run `kanbanzai init` to create one.", nil
+		return &UpgradePlan{}, nil
 	}
 	info, err := os.Lstat(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !info.Mode().IsRegular() {
-		return "", errf("%s: upgrade requires a regular, non-symlink config file", path)
+		return nil, errf("%s: upgrade requires a regular, non-symlink config file", path)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	raw, err := parseTOML(string(data))
 	if err != nil {
-		return "", qualifyError(path, err)
+		return nil, qualifyError(path, err)
 	}
 	value, exists := raw["config_version"]
 	current := false
 	if exists {
 		n, ok := value.(int64)
 		if !ok || n < 0 || n > CurrentVersion {
-			return "", validateVersion(raw, path)
+			return nil, validateVersion(raw, path)
 		}
 		if n == CurrentVersion {
 			current = true
@@ -60,28 +74,41 @@ func Upgrade(start string, apply bool) (string, error) {
 	if !current {
 		prospective, err = versionOneBytes(data, exists)
 		if err != nil {
-			return "", qualifyError(path, err)
+			return nil, qualifyError(path, err)
 		}
 	}
 	raw, err = parseTOML(string(prospective))
 	if err != nil {
-		return "", qualifyError(path, err)
+		return nil, qualifyError(path, err)
 	}
 	if err := validateVersion(raw, path); err != nil {
-		return "", err
+		return nil, err
 	}
 	if _, err := validateSchema(raw, path); err != nil {
-		return "", err
+		return nil, err
 	}
 	defaults, err := readDefaults()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	p := &Project{Root: root, Toplevel: top, GitCommon: common, ConfigFile: path, cfg: merge(defaults, raw)}
 	if err := p.build(); err != nil {
-		return "", qualifyError(path, err)
+		return nil, qualifyError(path, err)
 	}
-	if current {
+	return &UpgradePlan{Path: path, Current: current, Old: data, New: prospective, Info: info, Project: p}, nil
+}
+
+// Upgrade previews the supported v0→v1 migration; only apply writes.
+func Upgrade(start string, apply bool) (string, error) {
+	plan, err := PlanUpgrade(start)
+	if err != nil {
+		return "", err
+	}
+	path, data, prospective, info := plan.Path, plan.Old, plan.New, plan.Info
+	if path == "" {
+		return "No config file: embedded defaults already use config_version = 1. Run `kanbanzai init` to create one.", nil
+	}
+	if plan.Current {
 		return fmt.Sprintf("%s: config_version = %d; no upgrade needed.", path, CurrentVersion), nil
 	}
 	backup := path + ".v0.bak"

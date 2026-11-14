@@ -45,6 +45,10 @@
       {
         "command": "kanbanzai.cancelSetup",
         "title": "Kanbanzai: Cancel Setup"
+      },
+      {
+        "command": "kanbanzai.migrate",
+        "title": "Kanbanzai: Migrate"
       }
     ],
     "configuration": {

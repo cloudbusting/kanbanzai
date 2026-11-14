@@ -38,7 +38,7 @@ func TestTheSessionStartHookFindsTheCommandOrSaysHowToInstallIt(t *testing.T) {
 	command.Dir = project
 	command.Env = env
 	out, err = command.CombinedOutput()
-	if err != nil || !strings.Contains(string(out), "kanbanzai config upgrade") {
+	if first, _, _ := strings.Cut(string(out), "\n"); err != nil || !strings.Contains(first, "needs migrating") || !strings.Contains(first, "kanbanzai migrate") {
 		t.Fatalf("legacy-config hook: %v %q", err, out)
 	}
 

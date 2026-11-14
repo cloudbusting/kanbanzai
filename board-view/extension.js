@@ -4,7 +4,9 @@
 // live and the owner's name) and renders the result. The board tab is read-only. In a git project without a board a
 // status-bar item, "Kanbanzai: Init", starts the guided setup (init.js): it saves `kanbanzai init`'s plan as a pending
 // file in the project and opens it in a normal tab; the item then reads "Kanbanzai: Apply" (across reloads) and
-// `install` and `init --plan` run only when the owner clicks it. No modal dialog is used anywhere.
+// `install` and `init --plan` run only when the owner clicks it. When a release needs the project migrated
+// (`kanbanzai migrate --json` says so; migrate.js) a notice offers Preview and Apply, and the item reads "Kanbanzai:
+// Migrate"; `migrate --apply` runs only on that click. No modal dialog is used anywhere.
 
 const vscode = require('vscode');
 const fs = require('fs');
@@ -17,6 +19,7 @@ const toasts = require('./toasts');
 const sessions = require('./sessions');
 const output = require('./output');
 const setup = require('./init');
+const migrating = require('./migrate');
 
 const REFRESH_MS = 60 * 1000;
 const DEBOUNCE_MS = 500;
@@ -317,7 +320,7 @@ function showBoard(context, log) {
 
 // W-99: the status bar counts the cards whose Claude Code session is asking, so it shows with the tab closed, and the
 // open tab is redrawn within a poll of a session's state changing (the claims and sessions live outside the watched folder).
-function watchSessions(context, item, opts, log, status) {
+function watchSessions(context, item, opts, log, status, migration) {
   const fast = (opts && opts.sessionsMs) || SESSIONS_MS; // the tests pass short ones
   const slow = (opts && opts.idleMs) || SESSIONS_IDLE_MS;
   let timer = null;
@@ -351,11 +354,15 @@ function watchSessions(context, item, opts, log, status) {
       });
       pollState = polled.state;
       say(log, polled.lines);
-      item.text = sessions.statusLabel(answer);
-      item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
-      item.tooltip = answer && answer.waiting > 0
-        ? `Kanbanzai board: ${answer.waiting} card${answer.waiting === 1 ? '' : 's'} with a session asking you`
-        : 'Kanbanzai board';
+      // A project that needs migrating cannot answer the poll: look at why (spaced out), and keep the Migrate item.
+      if (!answer && migration) void migration.check().catch(() => {});
+      if (!(migration && migration.pending)) {
+        item.text = sessions.statusLabel(answer);
+        item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+        item.tooltip = answer && answer.waiting > 0
+          ? `Kanbanzai board: ${answer.waiting} card${answer.waiting === 1 ? '' : 's'} with a session asking you`
+          : 'Kanbanzai board';
+      }
       const key = JSON.stringify(answer);
       const inFront = !!(current && current.panel.visible);
       if (last !== undefined && key !== last && inFront) void current.refresh();
@@ -392,7 +399,7 @@ function projectState() {
 
 // The one status-bar item: `▦ Board` (its text and colour are the session poll's) with a board, "Kanbanzai: Apply" in
 // a git checkout without one while a setup plan is waiting, "Kanbanzai: Init" without a plan, hidden otherwise. apply() re-evaluates and returns the state; it never throws.
-function statusItem(item) {
+function statusItem(item, migration) {
   let state = 'none';
   const showBoard = () => {
     if (item.command !== 'kanbanzai.showBoard') {
@@ -417,6 +424,12 @@ function statusItem(item) {
           item.command = 'kanbanzai.apply';
           item.text = APPLY_TEXT;
           item.tooltip = APPLY_TOOLTIP;
+          item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+          item.show();
+        } else if (state === 'board' && migration && migration()) {
+          item.command = 'kanbanzai.migrate';
+          item.text = migrating.MIGRATE_TEXT;
+          item.tooltip = migrating.MIGRATE_TOOLTIP;
           item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
           item.show();
         } else if (state === 'board') {
@@ -496,10 +509,10 @@ function setupUi(log) {
         validateInput: (value) => (setup.validBranch(value) ? undefined : 'A branch name without spaces, not starting with "-".'),
       });
     },
-    async showPlan(plan) {
+    async showPlan(plan, title) {
       provide();
       n += 1;
-      const uri = vscode.Uri.parse(`${PLAN_SCHEME}:/Kanbanzai%20setup%20plan%20${n}.txt`);
+      const uri = vscode.Uri.parse(`${PLAN_SCHEME}:/Kanbanzai%20${title || 'setup'}%20plan%20${n}.txt`);
       plans.set(uri.toString(), plan);
       const doc = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(doc, { preview: false });
@@ -507,6 +520,14 @@ function setupUi(log) {
     info(message) {
       log.info(message);
       say((m) => vscode.window.showInformationMessage(m), message);
+    },
+    // A notice with buttons: resolves the button clicked, or undefined (dismissed, or the editor failed). Not modal.
+    async notify(message, buttons) {
+      try {
+        return await vscode.window.showInformationMessage(message, ...(Array.isArray(buttons) ? buttons : []));
+      } catch (e) {
+        return undefined;
+      }
     },
     error(message) {
       say((m) => vscode.window.showErrorMessage(m), message);
@@ -565,9 +586,19 @@ function activate(context, opts) {
   item.text = sessions.PLAIN;
   item.tooltip = 'Kanbanzai board';
   item.command = 'kanbanzai.showBoard';
-  const status = statusItem(item);
+  let migration;
+  const status = statusItem(item, () => !!migration && migration.pending);
   status.apply();
   const env = { log, status, ui: setupUi(log) };
+  const hasBoard = (root) => { try { return fs.existsSync(path.join(root, '.kanbanzai', 'config.toml')); } catch (e) { return false; } };
+  migration = migrating.createMigrations({
+    root: workspaceRoot, hasBoard, execFile, command, log,
+    ui: { ...env.ui, showPlan: (text) => env.ui.showPlan(text, 'migration') },
+    onChanged: () => status.apply(),
+    onApplied: () => { if (current) void current.refresh(); },
+    minGapMs: opts && Number.isFinite(opts.migrateGapMs) ? opts.migrateGapMs : undefined,
+  });
+  void migration.check().catch(() => {});
   // The per-user copy follows this extension's release; not awaited, and nothing it does reaches the editor as an error.
   try {
     setup.refreshInstalled({
@@ -589,13 +620,14 @@ function activate(context, opts) {
     vscode.commands.registerCommand('kanbanzai.showPlan', () => runSetup('kanbanzai.showPlan', setup.showPending, env)),
     vscode.commands.registerCommand('kanbanzai.cancelSetup', () => runSetup('kanbanzai.cancelSetup', setup.discardPending, env)),
     vscode.commands.registerCommand('kanbanzai.showBoard', () => showBoard(context, log)),
+    vscode.commands.registerCommand('kanbanzai.migrate', () => migration.offerNow().catch(() => {})),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e || typeof e.affectsConfiguration !== 'function' || !e.affectsConfiguration('kanbanzai.command')) return;
       const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
       log.info(typeof set === 'string' && set ? `setting kanbanzai.command is now "${set}"` : 'setting kanbanzai.command is now unset');
     }),
   );
-  watchSessions(context, item, opts, log, status);
+  watchSessions(context, item, opts, log, status, migration);
 }
 
 function deactivate() {
