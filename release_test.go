@@ -324,3 +324,52 @@ func firstLine(text string) string {
 	}
 	return text
 }
+
+// W-14: the source bundle the package and release skills archive must carry every folder the command embeds
+// (assets.go), or a build from the bundle fails. Adding an embedded folder without adding it to both lists is how
+// presets/ was nearly left out.
+func TestTheSourceBundleListsEveryEmbeddedFolder(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets, err := os.ReadFile(filepath.Join(root, "assets.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var folders []string
+	for _, line := range strings.Split(string(assets), "\n") {
+		rest, ok := strings.CutPrefix(line, "//go:embed ")
+		if !ok {
+			continue
+		}
+		for _, path := range strings.Fields(rest) {
+			if top, _, nested := strings.Cut(path, "/"); nested || !strings.Contains(top, ".") {
+				folders = append(folders, top)
+			}
+		}
+	}
+	if len(folders) == 0 {
+		t.Fatal("assets.go embeds nothing")
+	}
+	for _, skill := range []string{"kanbanzai-package", "kanbanzai-release"} {
+		data, err := os.ReadFile(filepath.Join(root, ".claude", "skills", skill, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		flat := strings.Join(strings.Fields(string(data)), " ")
+		at := strings.Index(flat, "git archive --format=tar.gz")
+		if at < 0 {
+			t.Fatalf("%s has no source bundle command", skill)
+		}
+		command := flat[at:]
+		if end := strings.Index(command, "CHANGELOG.md"); end > 0 {
+			command = command[:end]
+		}
+		for _, folder := range folders {
+			if !strings.Contains(" "+command+" ", " "+folder+" ") {
+				t.Errorf("%s: the source bundle command lacks %s, which assets.go embeds", skill, folder)
+			}
+		}
+	}
+}

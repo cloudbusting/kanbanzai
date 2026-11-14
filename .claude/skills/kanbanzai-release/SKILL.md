@@ -185,7 +185,7 @@ gh release download "v<version>" --repo cloudbusting/kanbanzai --dir "$OUT" \
   --pattern '*.tar.gz' --pattern '*.zip' --pattern '*.vsix'
 git archive --format=tar.gz --prefix="kanbanzai-<version>/" \
   -o "$OUT/kanbanzai-<version>.tar.gz" "v<version>" \
-  .claude-plugin assets.go cmd internal go.mod defaults templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
+  .claude-plugin assets.go cmd internal go.mod defaults presets templates skills hooks opencode board-view tools docs README.md LICENSE CHANGELOG.md
 (cd "$OUT" && sha256sum *.tar.gz *.zip *.vsix > SHA256SUMS && wc -l SHA256SUMS)
 ```
 
