@@ -96,8 +96,10 @@ grow. A failing test outside the card is reported to the main session, not fixed
 
 ## Security surfaces to keep
 
-- **No runtime network:** no `fetch`, HTTP client, WebSocket, beacon, remote asset or telemetry in shipped code.
-  An added URL is either a documentation link or a finding.
+- **No remote runtime network:** no outbound HTTP client, WebSocket, beacon, remote asset or telemetry. The
+  owner-approved TASK-56 exception permits only the explicitly started read-only `board --web` server on
+  127.0.0.1 and same-origin browser GET requests, with per-run capability and strict Host/Origin checks. It does
+  not authorize LAN binding or other networking. An added URL outside this boundary is a documentation link or finding.
 - **No secrets:** no token, key, password, session id or personal path in tracked files or a package artifact.
 - **No shell interpolation:** a command, path or setting is passed as an argument array. The extension and hooks
   are the places this is easiest to get wrong.

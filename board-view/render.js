@@ -1,11 +1,12 @@
 'use strict';
+(function () {
 // The board's HTML, kept free of the vscode module so node can test it.
 // Input is the JSON that `kanbanzai board --json` prints; every field is treated as optional. The columns are drawn
 // in the board's own order (a project may have its own); COLUMNS is the shipped default, used only when the board
 // names none.
 
-const path = require('path');
-const { elapsed, sessionOf } = require('./sessions');
+const commonJS = typeof module === 'object' && !!module.exports;
+const { elapsed, sessionOf } = commonJS ? require('./sessions') : globalThis.KanbanzaiSessions;
 
 const COLUMNS = [
   ['todo', 'Todo'],
@@ -460,7 +461,7 @@ ${inner}
 
 // opts.collapsed: the keys of the columns the user collapsed (kept by the extension per workspace).
 // opts.toasts: the toasts to draw (toasts.toViews), in the lower left over the board.
-function renderHtml(board, opts) {
+function renderContent(board, opts) {
   const problems = arr(obj(board).problems);
   let inner = '';
   if (problems.length) {
@@ -468,7 +469,11 @@ function renderHtml(board, opts) {
   }
   inner += `<div class="board">${boardColumns(board, obj(opts).collapsed, obj(opts).owner, typeof obj(opts).now === 'number' ? obj(opts).now : Date.now()).join('\n')}</div>`;
   inner += toastsHtml(obj(opts).toasts);
-  return shell(inner, opts);
+  return inner;
+}
+
+function renderHtml(board, opts) {
+  return shell(renderContent(board, opts), opts);
 }
 
 function renderError(message, opts) {
@@ -478,6 +483,9 @@ function renderError(message, opts) {
 // Returns the absolute path of a brief the webview may ask to open, or null.
 // Only a relative .md path that stays inside the project's cards folder (<root>/<work>) is allowed.
 function safeBriefPath(root, rel, work) {
+  // Disk paths belong to the editor host, never the browser (which opens board-listed IDs instead).
+  if (!commonJS) return null;
+  const path = require('path');
   if (typeof root !== 'string' || !root || typeof rel !== 'string' || !rel) return null;
   if (rel.indexOf('\0') !== -1 || path.isAbsolute(rel)) return null;
   if (rel.split(/[\\/]+/).indexOf('..') !== -1) return null;
@@ -488,4 +496,7 @@ function safeBriefPath(root, rel, work) {
   return full;
 }
 
-module.exports = { renderHtml, renderError, safeBriefPath, COLUMNS, esc };
+const api = { renderHtml, renderContent, renderError, safeBriefPath, COLUMNS, STYLE, esc };
+if (commonJS) module.exports = api;
+else globalThis.KanbanzaiRender = api;
+})();

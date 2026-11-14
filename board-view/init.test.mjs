@@ -650,7 +650,7 @@ test("Cancel Setup keeps a .kanbanzai folder that holds anything else", async ()
 
 // ---- the sources ----
 
-test("the extension's sources make no network request and run commands only with execFile", () => {
+test("only the standalone browser host may fetch locally; editor sources run commands only with execFile", () => {
   const files = readdirSync(here).filter((n) => n.endsWith(".js"));
   assert.ok(files.includes("init.js") && files.includes("extension.js"));
   for (const name of files) {
@@ -660,7 +660,15 @@ test("the extension's sources make no network request and run commands only with
       assert.match(m[0], /^https:\/\/github\.com\/cloudbusting\/kanbanzai\/releases$/, `${name}: a URL other than the install hint`);
     }
     assert.doesNotMatch(code, /require\(\s*['"](?:node:)?(?:https?|net|tls|dgram|dns|http2|child_process\/)['"]/, `${name}: network module`);
-    assert.doesNotMatch(code, /\bfetch\s*\(/, `${name}: fetch(`);
+    if (name === "browser.js") {
+      // TASK-56's owner-approved exception: exactly one guarded same-origin GET transport.
+      // browser.test.mjs also proves hostile hosts are refused before any request.
+      assert.equal([...code.matchAll(/\bfetch\s*\(/g)].length, 1);
+      assert.match(code, /base\.hostname !== '127\.0\.0\.1'/);
+      assert.match(code, /url\.origin !== base\.origin/);
+      assert.match(code, /method: 'GET', mode: 'same-origin'/);
+      assert.match(code, /redirect: 'error'/);
+    } else assert.doesNotMatch(code, /\bfetch\s*\(/, `${name}: fetch(`);
     assert.doesNotMatch(code, /\bXMLHttpRequest\b|\bWebSocket\b|\bsendBeacon\b|\bEventSource\b/, `${name}: network API`);
     assert.doesNotMatch(code, /\bexec\s*\(|\bexecSync\s*\(|\bexecFileSync\s*\(|\bspawn(?:Sync)?\s*\(|\bfork\s*\(/, `${name}: a child process other than execFile`);
     assert.doesNotMatch(code, /shell\s*:\s*true/, `${name}: shell`);

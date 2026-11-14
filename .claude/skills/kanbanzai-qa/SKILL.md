@@ -44,8 +44,10 @@ fixed here.
 
 Report a line only when something fails or is doubtful:
 
-- **Local only:** no new network call, remote asset, telemetry, analytics, hosted service or account. A URL in
-  documentation is named as documentation.
+- **Local only:** no remote network call, remote asset, telemetry, analytics, hosted service or account. The
+  owner-approved TASK-56 exception is explicitly started read-only `board --web` HTTP on 127.0.0.1 and same-origin
+  browser GET requests only. Check per-run capability, exact Host/Origin, confined brief reads and no LAN binding
+  or mutations; no other networking is permitted. A URL in documentation is named as documentation.
 - **No dependencies:** no new Go module, no new JavaScript dependency, no lockfile or vendored bundle
   without the owner's decision. The standard library and the plain modules are the policy.
 - **No secrets or machine paths:** no token, key, password, session id or absolute checkout path in shipped code,

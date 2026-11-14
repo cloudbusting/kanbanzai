@@ -6,6 +6,23 @@ drop and no editing: the cards move when their briefs do.
 It runs `kanbanzai board --json` and `kanbanzai config --json` from the workspace root and renders the result, so the
 rules for a card live in one place, the core. Plain JavaScript, no build step, no dependencies.
 
+## Without an editor
+
+`kanbanzai board --web` opens the same read-only renderer in your default browser and stays attached to the
+terminal; Ctrl-C stops the local server. The command embeds its assets, so Node and this source folder are not
+needed. `--no-open` prints the URL without launching a browser, and `--port N` selects a port (0, the default,
+chooses an available one). An opener failure warns but keeps the server and printed URL available.
+
+Only `127.0.0.1` is served, under a fresh private capability URL each run. All browser requests go to that local
+origin; no remote asset, hosted service or telemetry is used. Keep the URL private, and do not expose the port to
+the LAN. The browser host permits reads only: no setup/apply/migration, editor launch, editing or dragging.
+Clicking a card shows its brief as literal text, not rendered HTML. Columns, lanes, marks, gate hovers, clocks and
+toasts share the editor helpers. Visible pages poll every 3 seconds; failed reads show a banner without losing the
+last good board. Collapse state is browser-local for that URL. There are no editor status-bar or desktop messages.
+For manual SSH forwarding, choose a port with `--no-open --port N` and forward that same port yourself; there is
+no automatic tunnel. Browser HTTP is the explicit loopback-only exception to the otherwise no-network policy;
+the editor extension itself still makes no network request.
+
 ## Install
 
 Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with `codium --install-extension`, then
