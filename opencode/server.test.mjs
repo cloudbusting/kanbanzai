@@ -151,21 +151,47 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
   }
 });
 
-test("a legacy config injects the same migration notice as the Claude hook", async () => {
-  const project = newProject();
-  process.env.KANBANZAI_BIN = BIN;
-  writeFileSync(path.join(project, ".kanbanzai", "config.toml"), "[project]\nowner='Legacy'\n");
-  const { ctx, hooks } = fakeContext(project);
-  const plugin = await loadPlugin("?legacy-config");
-  const cleanup = await plugin.setup(ctx);
+test("a legacy config injects the same migration notice as the Claude hook", async (t) => {
+  const binaries = mkdtempSync(path.join(os.tmpdir(), "kanbanzai-context-versions-"));
+  const previous = process.env.KANBANZAI_BIN;
+  const version = JSON.parse(readFileSync(path.join(ROOT, ".claude-plugin", "plugin.json"), "utf8")).version;
   try {
-    const request = { sessionID: "ses_legacy", system: [] };
-    await hooks["session.context"](request);
-    const text = request.system.map((part) => part.text).join("\n");
-    assert.match(text.split("\n")[0], /needs migrating[^\n]*kanbanzai migrate[^\n]*question tool/);
+    // Both cases are explicit: a developer's `(devel)` binary must not hide the
+    // CI case where Go embeds a pseudo-version and the mismatch warning comes first.
+    for (const [name, stamped] of [["matching", `v${version}`], ["mismatched", "v0.0.0-ci-mismatch"]]) {
+      await t.test(name, async () => {
+        const binary = path.join(binaries, name + (process.platform === "win32" ? ".exe" : ""));
+        execFileSync("go", ["build", "-ldflags", `-X github.com/cloudbusting/kanbanzai/internal/version.Version=${stamped}`,
+          "-o", binary, "./cmd/kanbanzai"], { cwd: ROOT, stdio: "pipe" });
+        const project = newProject();
+        process.env.KANBANZAI_BIN = binary;
+        writeFileSync(path.join(project, ".kanbanzai", "config.toml"), "[project]\nowner='Legacy'\n");
+        const { ctx, hooks } = fakeContext(project);
+        const plugin = await loadPlugin(`?legacy-config-${name}`);
+        const cleanup = await plugin.setup(ctx);
+        try {
+          const request = { sessionID: "ses_legacy", system: [] };
+          await hooks["session.context"](request);
+          const text = request.system.map((part) => part.text).join("\n");
+          // The Claude hook invokes this same command and passes the plugin's version.
+          const expected = execFileSync(binary, ["context", "--adapter-version", version],
+            { cwd: project, env: process.env }).toString().trim();
+          assert.equal(text, expected, "adapters must preserve the command's complete context");
+          assert.match(text, /(?:^|\n)Kanbanzai: this project needs migrating[^\n]*kanbanzai migrate[^\n]*question tool/);
+          assert.match(text, /only if they approve[^\n]*kanbanzai migrate --apply --plan <hash>/);
+          if (name === "mismatched") {
+            assert.match(text.split("\n")[0], /the command is v0\.0\.0-ci-mismatch but this plugin is/);
+          } else assert.match(text.split("\n")[0], /this project needs migrating/);
+        } finally {
+          cleanup();
+          rmSync(project, { recursive: true, force: true });
+        }
+      });
+    }
   } finally {
-    cleanup();
-    rmSync(project, { recursive: true, force: true });
+    if (previous === undefined) delete process.env.KANBANZAI_BIN;
+    else process.env.KANBANZAI_BIN = previous;
+    rmSync(binaries, { recursive: true, force: true });
   }
 });
 
