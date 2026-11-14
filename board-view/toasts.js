@@ -1,4 +1,5 @@
 'use strict';
+(function () {
 // The board's toasts, kept free of the vscode module so node can test them.
 // diffBoards compares two reads of `kanbanzai board --json` card by card and says what moved; applyEvents keeps the
 // stack of toasts those events raise (one per card, a cap, a summary for a burst). The clock is always passed in.
@@ -203,6 +204,9 @@ function toViews(state, now, seen) {
   }));
 }
 
-module.exports = {
+const api = {
   PROGRESS_MS, DONE_MS, MAX_SHOWN, BURST_OVER, diffBoards, applyEvents, prune, close, closeInstances, toViews,
 };
+if (typeof module === 'object' && module.exports) module.exports = api;
+else globalThis.KanbanzaiToasts = api;
+})();

@@ -1,8 +1,25 @@
 # Security
 
-Kanbanzai is a local tool. The command, the Claude Code and OpenCode plugins and the board extension make no network
-request, collect no telemetry and run only the `kanbanzai` command they are configured to run. The security surface
-is the project's own files: the cards, the settings, the leases and the board's JSON.
+Kanbanzai is a local tool. The command makes no outbound network request; the plugins and editor extension make
+no network request. There is no telemetry. The security surface is the project's own files and, only when
+explicitly started with `kanbanzai board --web`, the read-only loopback browser host.
+
+## Local browser host
+
+The optional foreground HTTP server binds only to `127.0.0.1`, on a random port unless chosen explicitly. Its
+cryptographically random per-run capability URL grants read access to board/session information and card briefs:
+keep it private, including terminal logs and screenshots. No access URL is stored in the project, no request log
+is written, and all responses use no-store and no-referrer headers. Ctrl-C stops the server. Closing a tab does not.
+
+Exact listener Host and same-origin checks, a restrictive CSP, no CORS and GET/HEAD-only routes limit hostile
+websites, rebinding and injection. Only allowlisted embedded assets and current board-listed Markdown briefs are
+served; filesystem reads are confined to the configured cards folder, including symlinks. Briefs are literal text,
+not active Markdown or HTML. There are no write, command-execution, arbitrary-file or directory-listing endpoints.
+The browser makes only same-origin local requests, with no external script, font, image or service.
+
+This is not authentication against another process running as your user. Do not publish the URL or expose/forward
+the listener to an untrusted network. SSH forwarding is an explicit user action; use the same local/remote port
+to preserve exact Host checks. Public hosting, reverse proxies and LAN listeners are unsupported.
 
 ## Report a vulnerability
 

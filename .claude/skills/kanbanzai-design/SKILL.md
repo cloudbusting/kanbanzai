@@ -23,9 +23,11 @@ lookup, send an explore subagent a bounded question; keep the decision and the b
   They contain no board policy.
 - **One read-only view.** `board-view/` runs `kanbanzai board --json`, `config --json` and `sessions --json` and
   renders the answer. It must not parse a brief, infer a stage or decide a rule.
-- **Everything local.** Data is files and git on the user's machine. There is no server, database, account,
-  hosted dependency, analytics or telemetry, and the product makes no network request. Git may leave the machine
-  only when the owner pushes.
+- **Everything local.** Data is files and git on the user's machine. There is no database, account, hosted
+  dependency, analytics or telemetry, and the product makes no outbound network request. The owner-approved
+  TASK-56 exception is the explicitly started, read-only `board --web` loopback HTTP host/browser only: 127.0.0.1,
+  per-run capability, strict Host/Origin checks, no LAN binding or external assets. Git may leave the machine only
+  when the owner pushes.
 
 ## Contracts to keep or change on purpose
 
@@ -53,8 +55,9 @@ Before proposing anything, hold the design against each of these:
 - **No dependencies.** The command is the Go standard library; `go.mod` has no `require`. The extension and the
   OpenCode plugin are plain JavaScript with no package dependency and no build step. A new module is an owner
   decision with a licence and a supply-chain cost.
-- **No network.** No `fetch`, HTTP client, remote script, remote font, telemetry or hosted service in shipped
-  code. A documentation link is not a runtime call, but say so explicitly when a URL is added.
+- **No remote network.** No outbound HTTP client, remote script/font, telemetry or hosted service in shipped
+  code. The sole runtime exception is the TASK-56 read-only loopback server and same-origin browser GET requests;
+  never broaden it to other commands or remote origins. A documentation link is not a runtime call; name it as such.
 - **No secret or machine-specific path in shipped code.** The command is found from a setting or PATH. A release
   artifact must not bake in this checkout, a home directory, a token or a session id.
 - **Cross-harness parity.** A change to the command surface, a skill, the config, the context or the claim label

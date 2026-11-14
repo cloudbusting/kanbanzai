@@ -1,4 +1,5 @@
 'use strict';
+(function () {
 // The sessions of the board's claimed cards (W-99), kept free of the vscode module so node can test them.
 // `kanbanzai sessions --json` says, for each claimed card whose Claude Code session is alive, whether it is busy, idle
 // or waiting for the owner; the cards on the board carry the same record as `session`.
@@ -66,4 +67,7 @@ function askMessages(list) {
   return l.map((c) => (c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`));
 }
 
-module.exports = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, PLAIN };
+const api = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, PLAIN };
+if (typeof module === 'object' && module.exports) module.exports = api;
+else globalThis.KanbanzaiSessions = api;
+})();
