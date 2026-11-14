@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -525,5 +526,54 @@ func TestAMigrationThatMakesTheBoardRedIsRolledBack(t *testing.T) {
 	}
 	if !reflect.DeepEqual(before, tree(t, root)) {
 		t.Fatal("the tree is not what it was")
+	}
+}
+
+func TestARestoredFileKeepsItsMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no unix modes")
+	}
+	root, _ := v0Host(t)
+	config := filepath.Join(root, ".kanbanzai", "config.toml")
+	if err := os.Chmod(config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	_, err := apply(t, root, Options{After: func(string) error {
+		if n++; n == 2 {
+			return errors.New("injected")
+		}
+		return nil
+	}})
+	var failed *Failed
+	if !errors.As(err, &failed) || !failed.RolledBack {
+		t.Fatalf("err = %v", err)
+	}
+	info, statErr := os.Stat(config)
+	if statErr != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("mode after the rollback = %v %v; want 0600", info, statErr)
+	}
+	// and an apply keeps it too
+	if _, err := apply(t, root, Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := os.Stat(config); info.Mode().Perm() != 0o600 {
+		t.Fatalf("mode after the apply = %v; want 0600", info.Mode().Perm())
+	}
+}
+
+func TestTheStateFolderNotIgnoredByGitIsNoted(t *testing.T) {
+	root, _ := v0Host(t)
+	result, err := apply(t, root, Options{})
+	if err != nil || strings.Contains(strings.Join(result.Notes, "\n"), "not ignored") {
+		t.Fatalf("an ignored state folder was noted: %v %v", err, result.Notes)
+	}
+	loose := testutil.Repo(t, "")
+	testutil.Write(t, filepath.Join(loose, ".kanbanzai", "config.toml"), v0Config)
+	testutil.Git(t, loose, "add", "-A")
+	testutil.Git(t, loose, "commit", "-q", "-m", "v0 without an ignore file")
+	result, err = apply(t, loose, Options{})
+	if err != nil || !strings.Contains(strings.Join(result.Notes, "\n"), "not ignored by git") {
+		t.Fatalf("notes = %v %v; want the unignored state folder named", result, err)
 	}
 }
