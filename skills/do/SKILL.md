@@ -61,6 +61,11 @@ or approval that waits on the owner, a red check or failure, a hold, a closed ga
 unsupported route, a finished card or the turn limit. Those stops exist to respect the safeguards, never to bypass
 them, and a step boundary alone is never a reason to stop or to ask whether to go on.
 
+Normal test-first checkpoints and partial progress within an unfinished step are not stop conditions: continue the
+unfinished step in the same turn when it is safe and possible. An expected failing test in the red phase is not itself
+a failed check; implement the change and rerun it. Unexpected failures, genuinely blocked work and the safeguards
+above still require the appropriate stop or decision.
+
 For each actionable step, run `kanbanzai step <name>` and read its context, skill and extensions. Follow the
 configured skill and extensions; if no skill or a skip is reported, follow the card-specific close or next-route
 instruction rather than inventing a step. If the route is ambiguous, stop and report it. Never treat a skipped,
