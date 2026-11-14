@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-11-14
+
 - CHANGE-51: new `kanbanzai tree [--merge ID] [--json]`, a read-only report of what the main checkout holds. Every
   changed path is a card brief or batch record (board), something else, or uncertain; the verdict is `clean`,
   `board-only` or `blocked` (exit 0, 0, 1). `--merge ID` also lists the files a card's merge would overwrite, stops on
