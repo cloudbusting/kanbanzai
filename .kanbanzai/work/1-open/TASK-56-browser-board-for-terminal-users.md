@@ -1,11 +1,12 @@
 # TASK-56: Browser board for terminal users
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-14
 - **Done:** —
 - **ADR:** Decisions in this brief (accepted 2026-11-14)
-- **Next action:** Run /kanbanzai-package TASK-56 with the claim released so the selector can include the merged Checked card
+- **Next action:** Wait for the owner to lift the publication hold and approve a release version; proven package at /tmp/kanbanzai-package-TASK-56-corrected-vrkgvtu_/out from 40b932e
 - **Where:** worktree TASK-56
+- **Held:** waiting: owner selected “Hold publication”; do not push, tag or publish until explicitly approved
 
 ## Goal
 
@@ -21,7 +22,7 @@ The existing board extension is editor-only. W-17 delivered its editor packaging
 - [x] Clicking a card shows only its current board-listed `.md` brief as plain text in the browser, never executes Markdown/HTML, never opens an editor, and refuses traversal, non-card paths and symlinks escaping the configured cards folder. Configured/relocated cards folders and worktree invocation work.
 - [x] The browser and editor use the same defensive renderer, session helpers and toast model: configured columns/lanes, gates/needs, held/interrupted/claimed marks and session clocks are preserved. Refresh at most every 3 seconds while visible, queue hidden-tab toasts, preserve collapse/scroll/focus where possible, and show read failures without treating failure as card removal.
 - [x] `go test ./...`, `go vet ./...`, both Node suites, touched-JS syntax checks and all configured QA checks pass. Five supported release targets build with embedded browser assets and no runtime dependency (release-builder tests).
-- [ ] Manual owner check before release: in a local terminal run `kanbanzai board --web`, inspect TASK-56 and the configured lanes, click its card to read the literal brief, collapse/re-expand a column, observe an external card/session change refresh, then Ctrl-C and verify refresh reports disconnection. In VS Code, open Board and verify the same marks/click behavior still work. Report any unavailable screen checks explicitly.
+- [x] Manual owner check before release: owner selected “Browser and Codium passed” on 2026-11-14, confirming both the browser view and existing editor Board tab's marks/card-click behavior. Automated Chromium smoke separately covered nonce CSS, literal briefs, collapse, Ctrl-C and disconnection. A clean-profile look after a future released-VSIX install remains the standard post-release check.
 
 ## Deploy
 
@@ -51,6 +52,8 @@ README command/use section; board-view README browser host; SECURITY loopback th
 
 - 2026-11-14 — Owner selected “Approve (Recommended)” for the narrow exception: explicitly started read-only HTTP on 127.0.0.1, per-run token, strict Host/Origin checks, no outbound requests/assets or LAN binding. All other no-network/no-hosted-service rules remain.
 - 2026-11-14 — Owner selected “Use this (Recommended)” for `kanbanzai board --web`, foreground until Ctrl-C, automatic browser open, `--no-open`, `--port N`, and literal brief display. Existing text/JSON modes remain.
+- 2026-11-14 — After inspecting the running server the owner said “approved”, then selected “Package and release” when asked for scope. Continue packaging and release; version and remaining manual checks still require confirmation before publication.
+- 2026-11-14 — After corrected packaging, owner selected “Hold publication” when asked to approve v0.17.0 and selected “Browser and Codium passed” for the manual checks. Publication approval is deferred; no release version is approved and no gate pass is recorded. This supersedes the earlier general instruction to release for now.
 - Engineering: reuse pure JavaScript helpers with CommonJS/browser exports and embed their source; use polling rather than WebSockets, a random default port rather than discovery/daemon state, and card-ID brief lookup rather than serving filesystem paths. No dependency or public JSON/config migration.
 
 ## Progress
@@ -63,6 +66,13 @@ README command/use section; board-view README browser host; SECURITY loopback th
 - 2026-11-14: Built browser board, shared renderer and confined loopback server; full Go/282 Node/race and real Chromium smoke pass; desktop editor check remains manual
 - 2026-11-14: Review and configured QA passed; implementation committed as 74364b2; owner desktop default-browser/editor check remains before release
 - 2026-11-14: Integrated through a passing board-only preflight into main 8d1af2f. Packaging selector excludes TASK-56 solely for this session's carried claim (`in_head: true`); named-card selection leaves nothing to package. /do requires retaining that claim and package forbids including an excluded card, so stopped without starting QA or building distributables. BUG-59 records the incompatible handoff; release this claim, then invoke /kanbanzai-package TASK-56 for a fresh selection. No push, tag or publication.
+- 2026-11-14: Resumed direct package selection before claiming: TASK-56 eligible, restricted to named card (W-33 not packaged). Built seven rehearsal artifacts, version 0.16.0, from main 67ff881 at /tmp/kanbanzai-package-TASK-56-0.16.0-1GNkr2/out; SHA256SUMS verified, five-platform commands and full VSIX listing proved, source-bundle command init/check/JSON and packaged browser routes/Ctrl-C passed, Claude plugin validated and installed/listed in isolated config, OpenCode syntax/11 skills present. Source bundle includes SECURITY.md/SUPPORT.md with the linked local-HTTP policy. This is a local rehearsal, not a v0.16.0 publication.
+- 2026-11-14: Owner reported CI run 43563814981 at exactly 67ff881: three Go OS jobs and plugin job green, Adapters and extension red (281/282). opencode/server.test.mjs:165 mistakes a preceding pseudo-version mismatch warning for a missing migration notice. BUG-61 captures the separate test fix. Preserve rehearsal artifacts and remain In QA; no push/tag/publication by this session.
+- 2026-11-14: BUG-61 completed and merged as 43e5e86, with explicit matching/mismatched binary regression tests; full Go/vet, 274 board and 10 OpenCode tests pass. Removed its hold because the faulty test is corrected; resume local package proofs against the new candidate. Fresh green GitHub CI remains mandatory before tags, not waived by local proofs or owner release approval.
+- 2026-11-14: Package QA passed alone at main 40b932ed212fee3cd35122c7e40534a96a4b89d6 (includes corrected BUG-61 and already merged BUG-62): seven version-0.16.0 rehearsal artifacts at /tmp/kanbanzai-package-TASK-56-corrected-vrkgvtu_/out. All checksums, source command/init/check/JSON, packaged browser routes/SIGINT, five-platform VSIX contents, isolated Claude validation/install/list, OpenCode syntax and 11 skills pass. W-33 and other merged cards are in the artifacts but are not packaged/approved by this TASK-56 run. Owner browser approval is recorded; desktop/editor manual check still needs explicit confirmation before release.
+- Package SHA256: kanbanzai-0.16.0.tar.gz c9c5c4d61c8d661c1c58181d8b224fbeb9f08111fbb54137c95c9e9d32ec7857; kanbanzai-board-0.16.0.vsix 72eaa6b5c2c6b7d4e6e81fa834ff0ca16f2c5e89120ab219f42d572d3e28998b; darwin_amd64 adb8f0130e65c4bb498f840ff21b0fa4ed11c93f939b2f3bcf1020f9b8110d89; darwin_arm64 165b51ce10f13bcc21711e901ae870af0a8c4f5ce67c2779634692c533db6df8; linux_amd64 1a1426740e4d1343714750d4fea3402bde9a279e7e56aa6b74d6abcbb2886420; linux_arm64 b235c78f96e484a6b99220f92f1f8e213204eb4e71cc5f128203968667a01afc; windows_amd64 0e63420e201b4869486cd9b8a6f9c608b8093887d967a9214964eaa22bc5dcb6. Full sizes/report are beside the out directory in report.json.
+- 2026-11-14: Package QA passed at 40b932e alone: seven artifacts and all install/checksum/browser proofs green; final release must use fresh artifacts and green CI
+- 2026-11-14: Owner confirmed browser/Codium manual checks passed but explicitly held publication. Card remains QA-approved with a closed owner gate and waiting hold; no release metadata bump, push, tag, GitHub release or editor installation performed. BUG-61's test fix 43e5e86 is locally merged; the old remote CI failure is not represented as green. Resume only after owner lifts hold and settles the version, then require fresh final-commit CI before tags.
 
 ## Out of scope
 
@@ -77,3 +87,5 @@ This adds a local listener exposing private board/brief/session information to h
 ## Comments
 
 - 2026-11-14 — OpenCode main session: Code 74364b2 is merged in main 8d1af2f; workspace is clean. All configured QA and real Chromium smoke passed; manual desktop default-browser/editor check remains before release. Package directly from released Checked state; the carried-claim selector exclusion is BUG-59, not a browser-code failure.
+- 2026-11-14 — OpenCode main session: Package rehearsal at 67ff881 passed local artifact proofs but CI is red; resolve BUG-61, repackage/re-prove against the corrected candidate and require green final CI before tags. Owner approved “Package and release”; version/manual check confirmation remains. Live test server on loopback 18556 is outside git and should stay running unless the owner asks to stop it.
+- 2026-11-14 — OpenCode main session: BUG-61 fixed at 43e5e86, closed and its clean merged workspace removed. Corrected TASK-56 package passed at 40b932e (seven artifacts/report outside git); owner now says “Hold publication” and “Browser and Codium passed”. Keep the release gate closed and the local test server running. No publication action is authorized until the hold is explicitly lifted; version 0.17.0 was recommended, not approved.
