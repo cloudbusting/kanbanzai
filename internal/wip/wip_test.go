@@ -755,3 +755,36 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+func TestAMultiCardBranchBelongsToTheCardItsFolderNames(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	if got := CardOf(project, Worktree{Branch: "release/W-07-W-09-W-10", Path: "/x/proj-W-09"}, nil); got != "W-09" {
+		t.Fatalf("a folder naming one of the branch's cards = %q, want W-09", got)
+	}
+	if got := CardOf(project, Worktree{Branch: "release/W-07-W-09", Path: "/x/other-tree"}, nil); got != "W-07" {
+		t.Fatalf("a folder naming none of them = %q, want the first, W-07", got)
+	}
+	if got := CardOf(project, Worktree{Branch: "release/W-07-W-09", Path: "/x/proj-W-12"}, nil); got != "W-07" {
+		t.Fatalf("a folder naming another card = %q, want the first, W-07", got)
+	}
+	if got := CardOf(project, Worktree{Branch: "W-07", Path: "/x/proj-W-09"}, nil); got != "W-07" {
+		t.Fatalf("a branch naming one card = %q, want W-07", got)
+	}
+}
+
+func TestAReleaseBranchNamingTwoCardsIsNotASplit(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	cards := CardsByColumn{"built": {
+		{Item: "W-07", Work: "One", Where: "worktree W-07", Owner: "—", Updated: "2026-11-08"},
+		{Item: "W-09", Work: "Two", Where: "worktree W-09", Owner: "—", Updated: "2026-11-08"}}}
+	worktrees := []Worktree{
+		{Path: "/x/worktrees/W-07", Branch: "W-07", SHA: "abc", Last: "2026-11-09", Ahead: 1},
+		{Path: "/x/worktrees/W-09", Branch: "release/W-07-W-09", SHA: "abc", Last: "2026-11-09", Ahead: 1}}
+	for index := range worktrees {
+		worktrees[index].Card = CardOf(project, worktrees[index], nil)
+	}
+	hard, _, _ := Reconcile(project, cards, worktrees, nil, "", nil)
+	if has(hard, "work in 2 worktrees") {
+		t.Fatalf("a release branch in the W-09 folder split W-07: %v", hard)
+	}
+}

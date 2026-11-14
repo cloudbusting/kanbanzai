@@ -32,6 +32,8 @@ holding unclaimed work, and a dirty or off-branch main checkout. A finished card
 its card (closing records `Where: main`): when it is clean and has no commits missing from the main branch the audit
 only warns and lists it for `/cleanup`, which removes it; when it is dirty, holds unmerged commits or belongs to an
 early close, it stays a hard finding. An open card's workspace is never offered for cleanup.
+A worktree belongs to the card its branch names; when the branch names several cards (a release prep branch such as
+`release/W-11-BUG-54-BUG-55`) it belongs to the one its folder names, else to the first in the branch name.
 
 ### branch
 
