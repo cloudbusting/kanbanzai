@@ -49,7 +49,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   const unfocused = () => {
     try { return !!vscode.window.state && vscode.window.state.focused === false; } catch (e) { return false; }
   };
-  const noticesOn = (kind) => !!notifier && unfocused() && (noticeMode() === 'all' || (kind === 'asking' && noticeMode() === 'asking'));
+  const noticesOn = (kind) => !!notifier && notifier.available !== false && unfocused() && (noticeMode() === 'all' || (kind === 'asking' && noticeMode() === 'asking'));
   function notice(lines) {
     for (const line of lines) void Promise.resolve(notifier.send('Kanbanzai', line)).catch(() => {});
   }

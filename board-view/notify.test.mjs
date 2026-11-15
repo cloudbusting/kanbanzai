@@ -48,6 +48,7 @@ test("win32: a fixed PowerShell script that reads the text from the environment"
   assert.equal(c.env.KANBANZAI_NOTIFY_BODY, "W-12 asking");
   assert.match(c.args[3], /KANBANZAI_NOTIFY_TITLE/);
   assert.match(c.args[3], /SecurityElement\]::Escape/);
+  assert.ok(!c.args[3].includes('"'), "no double quote in the script");
   assert.equal(c.windowsHide, true);
 });
 
@@ -150,4 +151,12 @@ test("blockedLines: one line per blocked event with its hold, a summary per proj
   assert.deepEqual(notify.blockedLines([e("A"), e("B"), e("C"), e("D", { projectLabel: "Q" }), e("E", { projectLabel: "Q" })]),
     ["P: 3 cards need a look", "Q: 2 cards need a look"]);
   assert.deepEqual(notify.blockedLines(undefined), []);
+});
+
+test("available is false for a remote window and for a platform with no notifier", () => {
+  const make = (platform, remote) => notify.createNotifier({ execFile() {}, platform, remote, log: logger() });
+  assert.equal(make("linux", false).available, true);
+  assert.equal(make("win32", false).available, true);
+  assert.equal(make("linux", true).available, false);
+  assert.equal(make("freebsd", false).available, false);
 });

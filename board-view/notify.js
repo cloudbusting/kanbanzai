@@ -16,7 +16,8 @@ const WINDOWS_SCRIPT = [
   '[void][Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]',
   '[void][Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]',
   '$x = New-Object Windows.Data.Xml.Dom.XmlDocument',
-  '$x.LoadXml("<toast><visual><binding template=\'ToastGeneric\'><text>$t</text><text>$b</text></binding></visual></toast>")',
+  // No double quote anywhere in the script: Node quotes the argument for CreateProcess, and PowerShell reads it back.
+  '$x.LoadXml(\'<toast><visual><binding template=\'\'ToastGeneric\'\'><text>\' + $t + \'</text><text>\' + $b + \'</text></binding></visual></toast>\')',
   '$n = New-Object Windows.UI.Notifications.ToastNotification($x)',
   '[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier(\'{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe\').Show($n)',
 ].join('; ');
@@ -100,7 +101,9 @@ function createNotifier({ execFile, platform, remote, log, env }) {
       }
     });
   }
-  return { send };
+  // `available` is false where a notice can never be delivered (a remote window, a platform with no notifier), so the
+  // caller does not read a board for nothing.
+  return { send, available: !remote && build(platform, '', '') !== null };
 }
 
 module.exports = { TITLE_MAX, BODY_MAX, TIMEOUT_MS, clean, build, blockedLines, createNotifier };

@@ -288,6 +288,7 @@ test("a remote window spawns nothing and keeps the message", () =>
     await settleN(3);
     assert.equal(vscode.notices.length, 0);
     assert.equal(vscode.warnings.length, 1);
+    assert.equal(vscode.boardReads, 0, "no board is read for a notice that cannot be delivered");
   }));
 
 test("package.json declares kanbanzai.notifications: all | asking | off, on by default, machine scope", () => {
