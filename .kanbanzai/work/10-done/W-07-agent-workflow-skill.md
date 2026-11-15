@@ -1,11 +1,11 @@
 # W-07: Agent workflow skill: configure and reconfigure the step mapping and state flow
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** Package QA (deploy-qa): package and install-test both plugins; the live-harness interview (inspect-only, rename then decline) still needs a manual pass in a throwaway project.
-- **Where:** worktree W-07
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -124,6 +124,10 @@ The fixtures prove command recipes and preservation. Wording tests prove the sha
 - 2026-11-15: check: kanbanzai-qa checks all green on the tree (go test, vet, Node 285, hooks, JS syntax, plugin validate --strict, release -check, config/steps resolve, `kanbanzai check`, card audit, packaged smoke). Diff reviewed: stays in the five tasks' files; no dependency, network, machine path or version bump. Committed 52dfa41 on branch W-07 (not pushed, not merged). Not run: the live-harness conversations (inspect-only; rename then decline), so the interview experience is unproven.
 - 2026-11-15: Check green, diff reviewed, committed 52dfa41 on W-07.
 - 2026-11-15: merge into main stopped: `git merge W-07` conflicts only in `CHANGELOG.md` (CHANGE-66 and W-07 both added a first line under [Unreleased]); the merge was aborted and main is as it was. The owner decides how to resolve it (keeping both entries is the obvious result).
+- 2026-11-15: Package QA passed at a53cbb6 alone (main also holds BUG-67 by then): bundle builds and init/check/board work, claude validate --strict, marketplace install lists the workflow skill, opencode entry checks, vsix lists 5 binaries; sha256 68fb436e5683 kanbanzai-0.17.0.tar.gz;e72160dff6e5 kanbanzai_0.17.0_darwin_amd64.tar.gz;82431c9fbb2d kanbanzai_0.17.0_darwin_arm64.tar.gz;6589e4bdf8e9 kanbanzai_0.17.0_linux_amd64.tar.gz;3e5b1d57755a kanbanzai_0.17.0_linux_arm64.tar.gz;7f8bb2573a5b kanbanzai_0.17.0_windows_amd64.zip;f2830efcaaab kanbanzai-board-0.17.0.vsix;
+- 2026-11-15: live-harness check in this sandbox (Claude Code 2.x non-interactive `claude -p --plugin-dir` on the packaged 0.17.0 bundle, throwaway docs project, two cards): inspect-only explained the flow, recommended `docs-only` with trade-offs and alternatives, wrote nothing; the rename request asked a clarifying question, blocked on the stranded stage until `--map built=implemented` was chosen, showed the card, config, semantic and workspace impact, offered apply/change/stop, and on "stop" applied nothing and removed its scratch (host files byte-identical). Not proven: the question-tool UI itself (`-p` has none, so questions came as text), the editor panel, and OpenCode.
+- 2026-11-15: owner gate passed ("Approve the release"), but the question named 0.17.0, which was released on 2026-11-14 (tags v0.17.0 and kanbanzai--v0.17.0). The ship step has not started: nothing is tagged, pushed or published. The rehearsal artifacts in /tmp/kanbanzai-package-W-07-0.17.0 are labelled 0.17.0 and must be rebuilt for the new version. A release from main would also carry the other QA-approved cards (W-14, BUG-59, BUG-64, CHANGE-66, BUG-67) and W-16, whose owner gates are still closed or held.
+- 2026-11-15: Shipped in v0.18.0 (81f218f): tags v0.18.0 and kanbanzai--v0.18.0, CI green on three systems, release assets verified (sha256, go install, marketplace install, vsix installed)
 
 ## Out of scope
 

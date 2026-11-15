@@ -1,10 +1,10 @@
 # W-19: Migrate moto-tours to typed IDs, the new schema and the configurable flow
 
-- **Stage:** todo
-- **Updated:** 2026-11-11
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-15
+- **Done:** 2026-11-15 — closed, no change: the host's migration is already in place — config version 1, typed ids, the new folders and the global number ledger — done piecemeal by W-84, W-75 and W-86 and extended by the host's own cards; kanbanzai migrate reports nothing pending and the host's check and doctor pass; the leftover template and W-NN wording in the host's rules is raised as its CHORE-154
 - **ADR:** none
-- **Next action:** design after the type, schema, workflow and isolation cards: plan the host migration
+- **Next action:** —
 - **Where:** —
 - **Needs:** W-06, W-09, W-11, W-12
 

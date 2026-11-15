@@ -1,11 +1,11 @@
 # BUG-64: Board shows blocked, not asking, while the question tool is open
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** release: 0.17.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-BUG-64-0.17.0 from main 9cbe4d7
-- **Where:** worktree BUG-64
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -72,6 +72,7 @@ Tasks 1 → 2 → 3 → 4; none can run in parallel apart from writing task 3's 
 - 2026-11-15: built and committed on BUG-64; tests green
 - 2026-11-15: QA passed: go vet, go test ./... (33 packages), 292 board-view and 10 OpenCode node tests, hook and JS syntax, plugin validate, vsix dry run, card audit, board check; diff reviewed, no findings
 - 2026-11-15: Package QA passed at 9cbe4d7 alone: artifacts /tmp/kanbanzai-package-BUG-64-0.17.0 (source bundle, 5 binary archives, .vsix 0.17.0 with the command for 5 platforms), SHA256SUMS verified; fresh project init/check/board/sessions ok, claude plugin validate passed, throwaway-config marketplace add and install ok (v0.17.0), opencode entry and 11 skills present; editor Board-tab check and version/release approval remain the owner's
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Out of scope
 

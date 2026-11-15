@@ -1,11 +1,11 @@
 # BUG-67: Audit hold blocks recovery of the card's own work
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** release: after the owner approves (version, public release); package artifacts at /tmp/kanbanzai-package-BUG-67-0.17.0 from main bca9d14
-- **Where:** worktree BUG-67
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -113,5 +113,6 @@ Do not discard W-15's workspace or bypass its hold as part of triage.
 - 2026-11-15: Built: stop rule wording, scenario and wording tests green (d3f1e01)
 - 2026-11-15: Checked: QA green, review done
 - 2026-11-15: Package QA passed at bca9d14 alone: artifacts /tmp/kanbanzai-package-BUG-67-0.17.0, sha256 in SHA256SUMS there
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Comments

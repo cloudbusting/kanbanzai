@@ -1,11 +1,11 @@
 # W-16: Board view: multi-project workspace selector, combined and separate boards
 
-- **Stage:** in-qa
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** this brief's Design and Decisions (W-16); grouped layout accepted by the owner on 2026-11-15
-- **Next action:** package: export committed main, build five binaries and real VSIX, run artifact install proofs, record checksums; manual editor QA remains
-- **Where:** worktree W-16
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -253,6 +253,8 @@ unchanged because their contracts do. Do not take over W-18's broader documentat
 - 2026-11-15: Build starting from the recorded design after passing the recovery audits; worktree fast-forwarded to current main before implementation.
 - 2026-11-15: Build finished; all seven tasks implemented/proved and documented. Node 349/349 pass; go test ./... and go vet ./... pass. No product version bump, outbound network or core-contract change.
 - 2026-11-15: Check complete and full diff reviewed; committed bf3cd5a (W-16 grouped workspace boards). Go/vet, 340 board tests, 10 OpenCode tests, syntax/hooks/manifests, config, audit/check and VSIX development dry run passed. Owner's multi-root editor QA is not run; package will produce the real bundled-command artifact.
+- 2026-11-15: 2026-11-15 package QA completed in the 0.18.0 release run by W-07's session: the rehearsal at main a53cbb6 (which holds W-16 merged) built the bundle, five binaries and the real vsix (in /tmp/kanbanzai-package-W-07-0.17.0, sha256 in its SHA256SUMS) and passed init/check/board, claude validate --strict, marketplace install and the vsix listing; manual editor QA unrun
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Out of scope
 

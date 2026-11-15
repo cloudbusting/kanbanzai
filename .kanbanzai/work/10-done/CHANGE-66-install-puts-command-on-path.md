@@ -1,11 +1,11 @@
 # CHANGE-66: Install and setup Apply put the command on the user's PATH
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** release: 0.17.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-66-0.17.0 from main 2cddcb6
-- **Where:** worktree CHANGE-66
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -107,6 +107,7 @@ A user's own `kanbanzai` at `~/.local/bin/kanbanzai` is never overwritten (check
 - 2026-11-15: built: link step, --no-link, plan wording and Apply notes, docs; Go, Node and OpenCode suites green; owner's editor check not run
 - 2026-11-15: checked: go test ./... (all ok), go vet, node 304 pass, hooks syntax, claude plugin validate, vsix dry run, audit, kanbanzai check; diff reviewed, no findings
 - 2026-11-15: Package QA passed at 2cddcb6 alone: artifacts /tmp/kanbanzai-package-CHANGE-66-0.17.0 (kanbanzai-0.17.0.tar.gz 2fc715d9, kanbanzai-board-0.17.0.vsix 945b56f2, five binary archives, SHA256SUMS); command init/check/board, install from the linux archive linked ~/.local/bin, plugin validate and throwaway install, opencode check, vsix listing; owner's editor check not run
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Comments
 
