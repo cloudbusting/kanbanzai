@@ -11,6 +11,9 @@ and the editor extension carry the same version.
   two, exits 2 naming it and writes nothing. New `kanbanzai resolve ID|NUMBER` prints the canonical id, and the
   `do`, `answer`, `audit`, `check`, `design` and `triage` skills use it for a bare number (`next` keeps its count).
   `step --for` and `wip` now also take a full id in any case or padding. No config, state or JSON change.
+- BUG-68: the editor board no longer shows a red error box for a workspace folder that is not a project. `config --json`
+  answers `"no_project": true` (exit 0) in a folder that is not a git checkout, and discovery skips that folder;
+  a folder with a genuinely broken config or checkout still shows its labelled error.
 - W-30: shared `/kanbanzai:breakdown` (also `/breakdown` in OpenCode) proposes an approved split of pasted text into
   triaged cards with Needs prerequisites, without fetching tickets or starting work. Default types, fresh init and
   the software preset add EPIC with a built-in template/schema, Source and Work items membership. Core validation

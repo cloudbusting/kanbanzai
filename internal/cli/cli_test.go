@@ -408,3 +408,45 @@ func TestContextAdapterVersion(t *testing.T) {
 		t.Fatalf("a dev build printed a line: %q", dev)
 	}
 }
+
+// BUG-68: outside a project the editor asks `config --json` and must be able to tell "not a project" from "a project
+// that failed". The no-checkout answer is a success with no_project; every other failure stays an error.
+func TestConfigJSONOutsideAProject(t *testing.T) {
+	empty := t.TempDir()
+	env := map[string]string{"KANBANZAI_PROJECT": "", "KANBANZAI_OWNER": "tester:me"}
+	out := testutil.Run(t, empty, env, "config", "--json")
+	if out.Code != 0 || out.Stderr != "" {
+		t.Fatalf("config --json = %d %q", out.Code, out.Stderr)
+	}
+	var answer map[string]any
+	if err := json.Unmarshal([]byte(out.Stdout), &answer); err != nil {
+		t.Fatalf("config --json is not JSON: %v: %q", err, out.Stdout)
+	}
+	if answer["no_project"] != true || answer["config_file"] != nil || answer["root"] != nil {
+		t.Fatalf("answer = %#v", answer)
+	}
+	if reason, _ := answer["reason"].(string); !strings.Contains(reason, "not in a git checkout") {
+		t.Fatalf("reason = %#v", answer["reason"])
+	}
+
+	plain := testutil.Run(t, empty, env, "config")
+	if plain.Code != 1 || !strings.Contains(plain.Stderr, "not in a git checkout") || plain.Stdout != "" {
+		t.Fatalf("config = %d %q %q", plain.Code, plain.Stdout, plain.Stderr)
+	}
+	other := testutil.Run(t, empty, env, "board", "--json")
+	if other.Code != 1 || !strings.Contains(other.Stderr, "not in a git checkout") {
+		t.Fatalf("board --json = %d %q", other.Code, other.Stderr)
+	}
+
+	missing := map[string]string{"KANBANZAI_PROJECT": filepath.Join(empty, "nowhere"), "KANBANZAI_OWNER": "tester:me"}
+	bad := testutil.Run(t, empty, missing, "config", "--json")
+	if bad.Code != 1 || bad.Stdout != "" || !strings.Contains(bad.Stderr, "KANBANZAI_PROJECT is not a folder") {
+		t.Fatalf("a missing override = %d %q %q", bad.Code, bad.Stdout, bad.Stderr)
+	}
+
+	root := testutil.Repo(t, "[project\n")
+	broken := testutil.Run(t, root, env, "config", "--json")
+	if broken.Code != 1 || broken.Stdout != "" || !strings.Contains(broken.Stderr, "config") {
+		t.Fatalf("a broken config = %d %q %q", broken.Code, broken.Stdout, broken.Stderr)
+	}
+}

@@ -243,3 +243,55 @@ test('a config change refreshes the board even when root and cards path stay the
     assert.ok(f.panel.webview.html.includes('New flow'));
   } finally { f.close(); }
 });
+
+// BUG-68: the real core answers `config --json` in a folder that is not a project with no_project, not with an
+// error; discovery skips it without a word, and a real failure in another root is still reported.
+const NO_PROJECT = { no_project: true, root: null, config_file: null,
+  reason: 'not in a git checkout (and KANBANZAI_PROJECT is not set)' };
+
+test('a workspace folder that is not a project is skipped silently while the boards still render', async () => {
+  const f = fixture();
+  try {
+    f.data.get(f.roots[3]).config = NO_PROJECT;
+    f.start(); f.commands['kanbanzai.showBoard'](); await settle(100);
+    const html = f.panel.webview.html;
+    for (const label of ['Card A', 'Card B', 'Card C']) assert.ok(html.includes(label), label);
+    assert.equal((html.match(/data-project="[^"]+"[^>]*data-card="W-01"/g) || []).length, 3);
+    assert.ok(!html.includes('not in a git checkout'));
+    assert.ok(!html.includes('Empty'), 'no section is drawn for the plain folder');
+    assert.ok(!/class="[^"]*error/.test(html), 'no error box');
+    assert.equal(f.item.text, '▦ Board ❓3');
+    assert.equal(f.warnings.length, 0);
+    assert.equal(f.logs.filter((line) => /Empty|not in a git|config read/.test(line)).length, 0, f.logs.join('\n'));
+    assert.equal(f.calls.filter((c) => c.opts.cwd === f.roots[3] && c.args[0] !== 'config').length, 0);
+  } finally { f.close(); }
+});
+
+test('a folder that fails for another reason still gets its labelled diagnostic beside the skipped one', async () => {
+  const f = fixture();
+  try {
+    f.data.get(f.roots[3]).config = NO_PROJECT;
+    f.data.get(f.roots[2]).config = new Error('kanbanzai: config: the config cannot be parsed');
+    f.start(); f.commands['kanbanzai.showBoard'](); await settle(100);
+    const html = f.panel.webview.html;
+    assert.ok(html.includes('Card A') && html.includes('Card B'));
+    assert.ok(html.includes('the config cannot be parsed'));
+    assert.ok(!html.includes('not in a git checkout'));
+  } finally { f.close(); }
+});
+
+test('a skipped folder that becomes a project is discovered without a restart', async () => {
+  const f = fixture();
+  try {
+    const original = f.data.get(f.roots[3]).config;
+    f.data.get(f.roots[3]).config = NO_PROJECT;
+    f.start(); f.commands['kanbanzai.showBoard'](); await settle(100);
+    assert.ok(!f.panel.webview.html.includes('Card Empty'));
+    const root = f.roots[3], config = path.join(root, '.kanbanzai/config.toml');
+    fs.writeFileSync(config, 'config_version = 1\n');
+    f.data.get(root).config = { ...original, config_file: config };
+    f.watched.find((w) => w.pattern.base === root && w.pattern.pattern === '.kanbanzai/config.toml').create();
+    await settle(650);
+    assert.ok(f.panel.webview.html.includes('Card Empty'));
+  } finally { f.close(); }
+});

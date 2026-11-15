@@ -37,9 +37,21 @@ func errf(format string, args ...any) *ConfigError {
 }
 
 // NoProject means there is no project here: not a git checkout, and no KANBANZAI_PROJECT.
-type NoProject struct{ Message string }
+// Folder is set for exactly that case: the folder is simply not a project, as against an override or a working
+// directory that could not be used.
+type NoProject struct {
+	Message string
+	Folder  bool
+}
 
 func (e *NoProject) Error() string { return e.Message }
+
+// IsNotAProject reports whether err says the folder is not a project (no checkout, no override), which is an
+// answer, not a failure.
+func IsNotAProject(err error) bool {
+	var target *NoProject
+	return errors.As(err, &target) && target.Folder
+}
 
 // IsNoProject reports whether err is a NoProject.
 func IsNoProject(err error) bool {
@@ -307,7 +319,7 @@ func locate(start string) (string, string, string, error) {
 		return root, absolute(top), absoluteOrEmpty(shared), nil
 	}
 	if top == "" || common == "" {
-		return "", "", "", &NoProject{Message: "not in a git checkout (and KANBANZAI_PROJECT is not set)"}
+		return "", "", "", &NoProject{Message: "not in a git checkout (and KANBANZAI_PROJECT is not set)", Folder: true}
 	}
 	shared := absolute(common)
 	root := shared
