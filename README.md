@@ -51,11 +51,12 @@ kanbanzai install          # copy it where the plugins and the editor look (and,
 **2. Set up your project.** In the project's git checkout:
 
 ```bash
-kanbanzai init --dry-run --plugins claude,opencode   # the plan: what it would make, keep or append; writes nothing
-kanbanzai init --plugins claude,opencode             # apply it: .kanbanzai/, and the plugin settings
+kanbanzai init --dry-run --plugins claude   # the plan: what it would make, keep or append; writes nothing
+kanbanzai init --plugins claude             # apply it: .kanbanzai/, and the plugin settings
 ```
 
-It shows the plan, applies exactly that, checks the result and lists the files to commit. It never commits.
+It shows the plan, applies exactly that, checks the result and lists the files to commit. It never commits. For
+OpenCode use `--plugins claude,opencode --plugin-source <a Kanbanzai checkout>`: its plugin is not published as a package yet.
 (In the editor, the **Kanbanzai: Init** status-bar item does the same with the whole plan in a tab you read before
 you click **Apply**: [docs/setup.md](docs/setup.md). With the plugin enabled, `/kanbanzai:setup` does it as a
 conversation.)
