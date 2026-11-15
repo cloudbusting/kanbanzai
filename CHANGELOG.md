@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-11-16
+
 - TASK-70: the editor extension raises an operating-system notification when a session asks you (a card, or a session
   with no card) and, while its window is not focused, when a card becomes blocked, waits on you or is interrupted.
   It runs the platform's own notifier (`notify-send` on Linux, `osascript` on macOS, a PowerShell toast on Windows)
