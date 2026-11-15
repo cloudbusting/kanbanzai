@@ -673,7 +673,10 @@ This repository's package skill (`.claude/skills/kanbanzai-package/`) packages e
 one run: one claim per card, one build from the main commit, and a record on each card naming the cards packaged with
 it. `tools/packageset` chooses the set from the board and git, read-only. A card it is unsure about is left out and
 reported, never asked about, and a left-out card whose code is already merged is reported as in the artifact but not
-packaged. Releasing the packaged cards stays one card and one owner approval at a time.
+packaged. Eligible cards may be free or carry the caller's live claim; the selector checks claim status through the
+core and excludes expired or uncertain claims. The package step reclaims or renews each selected card before starting,
+so a selection does not override a competing claim. Releasing the packaged cards stays one card and one owner approval
+at a time.
 
 ## Support and security
 

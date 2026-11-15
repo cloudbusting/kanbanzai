@@ -24,6 +24,7 @@ type fake struct {
 	dir    string
 	canned map[string]string
 	fail   map[string]bool
+	codes  map[string]int
 }
 
 func (f fake) Run(name string, args ...string) ([]byte, int, error) {
@@ -47,10 +48,96 @@ func (f fake) Run(name string, args ...string) ([]byte, int, error) {
 	if !ok && key == "kanbanzai tree --json" {
 		out, ok = cleanTree, true // a test that is not about the tree sees a clean one
 	}
+	if !ok && key == "kanbanzai claim owner" {
+		out, ok = "opencode:caller\nstate: /example\n", true
+	}
+	if !ok && len(args) == 3 && args[0] == "claim" && args[1] == "status" {
+		out, ok = args[2]+": free\n", true
+	}
 	if !ok {
 		return nil, 0, errors.New("unexpected command: " + key)
 	}
-	return []byte(out), 0, nil
+	return []byte(out), f.codes[key], nil
+}
+
+func TestSelectClaimEvidenceFailsClosed(t *testing.T) {
+	dir := repo(t, []string{"BUG-1"}, "BUG-2")
+	for _, tc := range []struct {
+		name, owner, status string
+		code                int
+	}{
+		{"expired caller", "opencode:caller", "BUG-1: expired", 4},
+		{"expired with no board owner", "", "BUG-1: expired", 4},
+		{"other live", "claude:other", "BUG-1: held by another", 3},
+		{"disappeared claim", "opencode:caller", "BUG-1: free", 0},
+		{"unexpected live claim", "", "BUG-1: held by you since x, until y", 0},
+		{"malformed response", "opencode:caller", "unknown", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := fake{dir: dir, canned: map[string]string{
+				"kanbanzai board --json":            board(card("BUG-1", "worktree BUG-1", tc.owner, "")),
+				"kanbanzai step --for BUG-1 --json": step("BUG-1", checkedStep),
+				"kanbanzai claim status BUG-1":      tc.status,
+			}, codes: map[string]int{"kanbanzai claim status BUG-1": tc.code}}
+			got, err := Select(f, "checked", "main")
+			if err != nil || len(got.Include) != 0 || len(got.Exclude) != 1 {
+				t.Fatalf("selection = %+v, err %v", got, err)
+			}
+		})
+	}
+}
+
+// The caller is what every claim is compared with. An unreadable or malformed answer to `kanbanzai claim owner`
+// leaves even a free-looking card out, because ownership can no longer be proven either way.
+func TestSelectUnreadableCallerFailsClosed(t *testing.T) {
+	dir := repo(t, []string{"BUG-1"}, "BUG-2")
+	freeCard := board(card("BUG-1", "worktree BUG-1", "", ""))
+	for name, tc := range map[string]struct {
+		owner string
+		fail  bool
+	}{
+		"command fails": {fail: true},
+		"no state line": {owner: "opencode:caller\n"},
+		"empty caller":  {owner: "\nstate: /example\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := fake{dir: dir, canned: map[string]string{
+				"kanbanzai board --json":            freeCard,
+				"kanbanzai step --for BUG-1 --json": step("BUG-1", checkedStep),
+			}}
+			if tc.fail {
+				f.fail = map[string]bool{"kanbanzai claim owner": true}
+			} else {
+				f.canned["kanbanzai claim owner"] = tc.owner
+			}
+			got, err := Select(f, "checked", "main")
+			if err != nil || len(got.Include) != 0 || len(got.Exclude) != 1 ||
+				!strings.Contains(got.Exclude[0].Reason, "could not be verified") {
+				t.Fatalf("selection = %+v, err %v", got, err)
+			}
+		})
+	}
+}
+
+func TestSelectRecognizesOnlyProvenCallerClaim(t *testing.T) {
+	dir := repo(t, []string{"BUG-1", "BUG-2", "BUG-3"}, "BUG-4")
+	f := fake{dir: dir, canned: map[string]string{
+		"kanbanzai board --json": board(card("BUG-1", "worktree BUG-1", "opencode:caller", ""),
+			card("BUG-2", "worktree BUG-2", "", ""), card("BUG-3", "worktree BUG-3", "opencode:other", "")),
+		"kanbanzai step --for BUG-1 --json": step("BUG-1", checkedStep),
+		"kanbanzai step --for BUG-2 --json": step("BUG-2", checkedStep),
+		"kanbanzai step --for BUG-3 --json": step("BUG-3", checkedStep),
+		"kanbanzai claim status BUG-1":      "BUG-1: held by you since 2026-01-01 00:00 UTC, until 2026-01-01 02:00 UTC\n",
+	}}
+	got, err := Select(f, "checked", "main")
+	if err != nil || !reflect.DeepEqual(got.Include, []string{"BUG-1", "BUG-2"}) || len(got.Exclude) != 1 {
+		t.Fatalf("selection = %+v, err %v", got, err)
+	}
+	f.fail = map[string]bool{"kanbanzai claim status BUG-1": true, "kanbanzai claim status BUG-2": true}
+	got, err = Select(f, "checked", "main")
+	if err != nil || len(got.Include) != 0 {
+		t.Fatalf("uncertain status must fail closed: %+v, %v", got, err)
+	}
 }
 
 func git(t *testing.T, dir string, args ...string) {

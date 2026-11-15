@@ -17,6 +17,9 @@ func TestPackageSkillStatesTheMultiCardRules(t *testing.T) {
 	for _, want := range []string{
 		// select
 		"go run ./tools/packageset",
+		"the caller's live claim",
+		"revalidate ownership",
+		"Keep the carried claim",
 		"When unsure, leave the card out",
 		"Never ask the owner whether to include a card",
 		"stop before building anything",

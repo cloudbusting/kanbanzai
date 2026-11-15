@@ -5,7 +5,7 @@
 //	go run ./tools/packageset -main main -column checked
 //
 // A card is included only when the board and `kanbanzai step --for ID --json` say it is ready for the deploy-qa
-// step, nobody holds or owns it, and its branch is merged into HEAD. Anything else, and any card it cannot read,
+// step, it is free or held by the caller's live claim, and its branch is merged into HEAD. Anything else, and any card it cannot read,
 // is left out with a reason; the tool never asks. It exits non-zero, with nothing included, when the board cannot
 // be read or the checkout is not on the main branch. It runs only `kanbanzai` and `git`, with no network.
 package main
@@ -149,6 +149,12 @@ func Select(r Runner, column, main string) (Report, error) {
 	if report.Branch != main {
 		return report, fmt.Errorf("the checkout is on %q, not the main branch %q", report.Branch, main)
 	}
+	ownerOut, ownerCode, ownerErr := r.Run("kanbanzai", "claim", "owner")
+	ownerLines := strings.Split(strings.TrimSpace(string(ownerOut)), "\n")
+	owner := ""
+	if ownerErr == nil && ownerCode == 0 && len(ownerLines) == 2 && strings.HasPrefix(ownerLines[1], "state: ") {
+		owner = strings.TrimSpace(ownerLines[0])
+	}
 	for _, col := range board.Columns {
 		if col.Key != column {
 			continue
@@ -160,6 +166,19 @@ func Select(r Runner, column, main string) (Report, error) {
 			}
 			if card.Held != nil {
 				c.Held = *card.Held
+			}
+			status, statusCode, statusErr := r.Run("kanbanzai", "claim", "status", card.ID)
+			statusText := strings.TrimSpace(string(status))
+			switch {
+			case owner == "" || statusErr != nil || statusCode != 0:
+				c.Err = "claim ownership or status could not be verified"
+			case c.Owner == "" && statusText == card.ID+": free":
+			case c.Owner == owner && strings.HasPrefix(statusText, card.ID+": held by you since ") && strings.Contains(statusText, ", until "):
+				c.Owner = ""
+			case c.Owner != "" && c.Owner != owner:
+				// Leave the other owner's claim for Classify to reject.
+			default:
+				c.Err = "claim status is ambiguous or inconsistent with the board"
 			}
 			out, code, err := r.Run("kanbanzai", "step", "--for", card.ID, "--json")
 			var step stepJSON

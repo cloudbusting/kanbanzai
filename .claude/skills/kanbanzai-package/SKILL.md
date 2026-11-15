@@ -27,20 +27,23 @@ go run ./tools/packageset
 It is read-only and prints JSON: `head`, `branch`, `clean`, `tree` (the core's `kanbanzai tree --json` verdict and
 paths), `include` (card ids) and `exclude` (each with `id`,
 `reason` and `in_head`). It includes a card only when the board and `kanbanzai step --for <ID> --json` say the card
-is Checked, its next step is `deploy-qa`, it is not held, blocked or claimed, its Deploy is not None, and its branch
+is Checked, its next step is `deploy-qa`, it is not held or blocked, it is unclaimed or holds the caller's live claim,
+its Deploy is not None, and its branch
 is merged into `HEAD`. It exits non-zero, including nothing, when the board cannot be read or the checkout is not on
 the main branch: stop and report that.
 
 **When unsure, leave the card out.** Never ask the owner whether to include a card and never include one the tool
 excluded. If the invocation names card ids, package only those of them that `include` lists; the rest are left out.
-A card the tool excludes is not claimed and not touched. If `include` is empty, report "nothing to package" with the
+A card the tool excludes is not claimed or touched by the package step; preserve any claim already held by this session
+for its caller to handle. If `include` is empty, report "nothing to package" with the
 excluded cards and their reasons, and stop before building anything.
 
 ## Claim and start each card
 
 For each id in `include`, one at a time:
 
-1. `kanbanzai claim claim <ID>`. Exit 3 (another session holds it) or exit 4 (an expired claim) leaves the card out.
+1. Keep the carried claim when `/do` arrives with one; for direct entry the candidate may be free. In both cases,
+   revalidate ownership with `kanbanzai claim claim <ID>` before starting. Exit 3 (another session holds it) or exit 4 (an expired claim) leaves the card out.
    Never use `--takeover` here: taking over needs the workspace inspection that "leave it out when unsure" does not
    allow.
 2. Re-read `kanbanzai step --for <ID>`, because the claim may already have moved the card. If it is still Checked,
