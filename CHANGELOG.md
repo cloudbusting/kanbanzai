@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-11-15
+
+- BUG-64: the board shows `❓ asking`, the glow and the toast for a Claude Code session that has the question tool open, instead of showing the card as blocked.
+- BUG-59: the package step accepts a Checked card that `/do` carries in a live claim, so a `/do` run can package it; cards held by another session, with an expired claim or not merged stay out.
 - BUG-67: `/do` no longer deadlocks on a card's own preserved work. A released card's work always shows as a hard
   finding in the ordinary audit and only a claim resolves it, yet the stop rule recorded that finding as a Held line,
   which bars both the recovery audit and the claim. A stop now records no Held line for that one finding when
