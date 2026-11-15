@@ -101,11 +101,23 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       assert.ok(command, `the /${name} command was not registered`);
       assert.equal(command.description, setupSkill.description);
     }
+    const workflowSkill = added.find((skill) => skill.id === "workflow");
+    assert.ok(workflowSkill, "the workflow skill was not registered");
+    assert.match(workflowSkill.description, /inspect/i);
+    assert.match(workflowSkill.description, /change/i);
+    for (const name of ["workflow", "kanbanzai:workflow"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      assert.equal(command.description, workflowSkill.description);
+      await command.execute({ sessionID: "ses_test1", prompt: { text: "inspect my flow" }, delivery: "steer" });
+      assert.match(prompts.at(-1).text, /kanbanzai workflow show/);
+      assert.match(prompts.at(-1).text, /inspect my flow/);
+    }
     const build = commands.find((entry) => entry.name === "build");
     assert.ok(build, "the build command was not registered");
     await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" });
-    assert.match(prompts[0].text, /# Build/);
-    assert.match(prompts[0].text, /do the thing/);
+    assert.match(prompts.at(-1).text, /# Build/);
+    assert.match(prompts.at(-1).text, /do the thing/);
 
     for (const [name, patterns] of [
       ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/,

@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-07: `/kanbanzai:workflow` inspects and conversationally reconfigures an existing flow, recommends presets,
+  and applies only an explicitly approved migration plan.
 - W-14: delivery presets. `kanbanzai init --preset NAME` sets a project up for a kind of work (`software`, `simple`,
   `docs-only`, `pr-review`, `release-train`, `marketing`, `homework`, or a folder of your own) with its flow, issue
   types, brief templates and schemas, written out in full; `--type`, `--step-skill` and `--step-extend` compose it.
