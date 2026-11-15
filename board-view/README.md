@@ -95,6 +95,10 @@ a replacement; do not run the two setup flows concurrently.
   starts and when the board cannot be read; if a release needs the project migrated it shows a notice, `migrate`
   to read the plan, and `migrate --apply --plan HASH` only when you click Apply on that notice, with the hash the
   command printed. It runs only in a trusted workspace.
+  While the window is not focused, and unless `kanbanzai.notifications` is `off`, it also runs the platform's notifier
+  (`notify-send`, `osascript` or `powershell.exe`) with `execFile`, a fixed argument list, a 10 second timeout and
+  no shell; the notice's text is an argument (an environment variable on Windows), never part of a script. Nothing is
+  spawned in a remote window.
 - **Reads:** the project's `.kanbanzai/` (through the command), whether `.git` and `.kanbanzai/config.toml` exist, and
   its own settings.
 - **Writes:** until you click Apply, only the pending plan, `.kanbanzai/state/setup-plan.json` (mode 0600; `state/` is
@@ -266,6 +270,32 @@ in the editor's corner, `W-12 asking — <session name>` (`session asking — <s
 session already asking when the window opens is not announced, and a failed poll does not make every asking card new
 at the next one. VS Code cannot withdraw a message from code, so it stays until dismissed; the toast and the card clear
 themselves.
+
+### Operating-system notifications
+
+**When the window is not focused** (`vscode.window.state.focused` is false, whatever the Board tab shows) the extension
+also raises an operating-system notification, because a message in the editor's corner is not seen from another
+window. It is raised for a card or a session with no card that newly asks you, and for a card that becomes `blocked`,
+waits on you (`waiting-owner`) or is interrupted. The text is the same line the message carries (`W-12 asking — <name>`,
+`TASK-9 blocked — blocked: x`); more than three at once give one summary line per project. Each card notifies once per
+cause: the same card notifies again only after its cause has cleared and come back. A card already blocked, or a session
+already asking, when the window loses focus or opens is not announced. A focused window raises none.
+
+The setting `kanbanzai.notifications` (machine-wide, read at each event) is `all` (the default: asking, blocked, waiting
+on you and interrupted), `asking` (only a session asking you) or `off`. The in-window message and the toasts do not
+depend on it and are unchanged; the message is also what you see when no notification can be delivered.
+
+The editor has no notification API, so the extension runs the platform's own notifier: `notify-send` on Linux,
+`osascript` on macOS and `powershell.exe` (a toast under PowerShell's own app id) on Windows, with fixed arguments and
+the text passed as data, never through a shell and never inside a script. A missing notifier or a failure is one line in
+the Output channel, never an error box. In a remote window (Remote-SSH, a dev container, WSL) nothing is spawned, because
+the extension host is on another machine; only the message appears. macOS may ask you to allow notifications from Script
+Editor the first time, and Windows Focus Assist can hide a toast.
+
+Blocked, waiting and interrupted cards come from a board read. While the window is not focused, the setting is `all` and
+the Board tab is not in front, the extension reads the board (`board --json`) when a card file changes and once a minute,
+even if the tab was never opened; while the window is focused it reads nothing extra. `asking` and `off` never start
+that read.
 
 ## Log
 

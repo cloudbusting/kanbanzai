@@ -17,6 +17,7 @@ const sessions = require('./sessions');
 const setup = require('./init');
 const migrating = require('./migrate');
 const projects = require('./projects');
+const notify = require('./notify');
 const { createWorkspace } = require('./workspace');
 
 const RUN_TIMEOUT_MS = 15 * 1000;
@@ -91,6 +92,7 @@ function logger(channel) {
     info: (text) => write(channel.info, text),
     warn: (text) => write(channel.warn, text),
     error: (text) => write(channel.error, text),
+    debug: (text) => write(channel.debug, text),
   };
 }
 
@@ -311,8 +313,13 @@ function activate(context, opts) {
   status.item = item;
   status.apply();
   const env = { log, status, ui: setupUi(log) };
+  // TASK-70: the OS notifier is the platform's own, run with Node's execFile; a remote window runs nothing.
+  const notifier = notify.createNotifier({
+    execFile, platform: process.platform, log,
+    remote: !!(vscode.env && vscode.env.remoteName),
+  });
   workspace = createWorkspace({
-    vscode, context, run, log, status, opts, execFile: localExecFile,
+    vscode, context, run, log, status, opts, execFile: localExecFile, notifier,
     migrations: (project, valid, onChanged, onApplied, projectExec) => migrating.createMigrations({
       root: () => valid() ? project.cwd : null, hasBoard: () => valid(), valid,
       execFile: projectExec, command, log,
@@ -352,7 +359,9 @@ function activate(context, opts) {
     vscode.commands.registerCommand('kanbanzai.showBoard', () => workspace.show()),
     vscode.commands.registerCommand('kanbanzai.migrate', () => workspace.offerMigration().catch(() => {})),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (!e || typeof e.affectsConfiguration !== 'function' || !e.affectsConfiguration('kanbanzai.command')) return;
+      if (!e || typeof e.affectsConfiguration !== 'function') return;
+      if (e.affectsConfiguration('kanbanzai.notifications')) workspace.syncNotices();
+      if (!e.affectsConfiguration('kanbanzai.command')) return;
       const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
       log.info(typeof set === 'string' && set ? `setting kanbanzai.command is now "${set}"` : 'setting kanbanzai.command is now unset');
       void workspace.discover(true);

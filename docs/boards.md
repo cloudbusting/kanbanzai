@@ -6,6 +6,10 @@ Three read-only views of the same board. None of them edits a card; the editor t
 
 The **Kanbanzai Board** extension shows the board in a tab with each claimed card's session state; [board-view/README.md](../board-view/README.md) says what it executes, reads and writes. Several projects in one workspace: [multi-project.md](multi-project.md).
 
+While the editor window is not focused it can also raise an operating-system notification when a session asks you, or a card
+becomes blocked, waits on you or is interrupted; the `kanbanzai.notifications` setting (`all`, `asking` or `off`) controls it
+([board-view/README.md](../board-view/README.md#toasts)). The browser board and the terminal raise none.
+
 ## In your terminal
 
 Run `kanbanzai board --tui` in an interactive terminal to see a read-only board. Use the arrow keys or

@@ -8,12 +8,13 @@ const render = require('./render');
 const toasts = require('./toasts');
 const sessions = require('./sessions');
 const output = require('./output');
+const notify = require('./notify');
 
 const STATE = 'kanbanzai.board.workspace.v1';
 const REFRESH_MS = 60000;
 const DEBOUNCE_MS = 500;
 
-function createWorkspace({ vscode, context, run, execFile, log, status, migrations, opts = {} }) {
+function createWorkspace({ vscode, context, run, execFile, log, status, migrations, notifier, opts = {} }) {
   let stopped = false, panel = null, lastHtml = '', generation = 0;
   let state = projects.workspaceState(context.workspaceState.get(STATE, {}));
   let importedCollapse = false;
@@ -37,6 +38,57 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     return answer.state;
   };
   const description = (p, what) => `${p.label}: ${what}`;
+
+  // TASK-70: an operating-system notification, only while the window is not focused. `kanbanzai.notifications` is read
+  // at each event (all | asking | off; anything else is all). The in-window message and toast never depend on it.
+  const noticeMode = () => {
+    let value;
+    try { value = vscode.workspace.getConfiguration('kanbanzai').get('notifications'); } catch (e) { /* the default */ }
+    return value === 'off' || value === 'asking' ? value : 'all';
+  };
+  const unfocused = () => {
+    try { return !!vscode.window.state && vscode.window.state.focused === false; } catch (e) { return false; }
+  };
+  const noticesOn = (kind) => !!notifier && unfocused() && (noticeMode() === 'all' || (kind === 'asking' && noticeMode() === 'asking'));
+  function notice(lines) {
+    for (const line of lines) void Promise.resolve(notifier.send('Kanbanzai', line)).catch(() => {});
+  }
+  // The baseline of the blocked notices: every board read moves it, whether or not the window is focused, so nothing is
+  // replayed when focus is lost; the first read after losing focus only sets it.
+  function noticeBoard(p, board) {
+    const events = toasts.diffBoards(p.noticeBoard, board, p.owner, { key: p.key, label: p.label });
+    p.noticeBoard = board;
+    if (inScope(p) && noticesOn('blocked')) notice(notify.blockedLines(events));
+  }
+  let watchTimer = null, windowWatch = null;
+  const watchOn = () => noticesOn('blocked') && !stopped;
+  const tabVisible = () => !!(panel && panel.visible);
+  // A board read for the notices while the Board tab is not in front (the tab's own reads feed noticeBoard too).
+  async function watchRead(p) {
+    if (stopped || p.stopped || !p.ready || p.watching || tabVisible()) return;
+    p.watching = true;
+    try {
+      const result = await command(p.cwd, ['board', '--json'], () => !p.stopped);
+      if (stopped || p.stopped || entries.get(p.key) !== p) return;
+      const good = result.value && typeof result.value === 'object' && Array.isArray(result.value.columns);
+      if (good && !result.error) noticeBoard(p, result.value);
+    } finally { p.watching = false; }
+  }
+  function watchTick() {
+    if (!watchOn()) { syncNotices(); return; }
+    for (const p of list().filter(inScope)) void watchRead(p);
+  }
+  // Starts the watch (a read now and every minute) while the window is unfocused and the setting is all; stops it
+  // otherwise. Called at start, on a change of window focus and on a change of the setting.
+  function syncNotices() {
+    if (stopped) return;
+    if (watchOn()) {
+      if (watchTimer) return;
+      for (const p of list()) p.noticeBoard = null;
+      watchTimer = setInterval(watchTick, opts.watchMs || 60000);
+      watchTick();
+    } else if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  }
 
   // Serialize commands for a cwd and cap concurrency across roots. Neither a slow root nor a command burst can
   // occupy every worker with repeated reads of that same project.
@@ -80,7 +132,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     p.watched = p.work;
     p.watcher = watch(p.work, '**/*.md', () => {
       clearTimeout(p.debounce);
-      p.debounce = setTimeout(() => { if (panel) void refresh(p); }, DEBOUNCE_MS);
+      p.debounce = setTimeout(() => { if (panel) void refresh(p); else if (watchOn()) void watchRead(p); }, DEBOUNCE_MS);
     });
     log.info(description(p, `watching ${p.work}/**/*.md`));
   }
@@ -162,6 +214,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
         const events = toasts.diffBoards(p.board, result.value, p.owner, { key: p.key, label: p.label });
         for (const line of output.moveLines(events)) log.info(line.text);
         p.board = result.value;
+        noticeBoard(p, result.value);
         if (inScope(p)) p.events.push(...events);
         else p.toast = toasts.applyEvents(p.toast, events.filter((e) => e.closes || e.clears), Date.now());
       }
@@ -181,9 +234,11 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     p.pollError = reason;
     if (answer) {
       const changed = !!p.answer && JSON.stringify(answer) !== JSON.stringify(p.answer);
-      if (inScope(p) && !(panel && panel.visible)) {
+      if (inScope(p)) {
         const newly = sessions.newlyAsking(p.answer, answer, { key: p.key, label: p.label });
-        for (const message of sessions.askMessages(newly)) {
+        const messages = sessions.askMessages(newly);
+        if (noticesOn('asking')) notice(messages);
+        if (!(panel && panel.visible)) for (const message of messages) {
           Promise.resolve(vscode.window.showWarningMessage(message, 'Open Board')).then((choice) => {
             if (choice === 'Open Board' && !p.stopped && !stopped) {
               chooseProject(p.key); show();
@@ -362,19 +417,25 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     }
     if (scope.length && !scope[0].stopped) await scope[0].migration.offerNow();
   }
+  if (vscode.window && typeof vscode.window.onDidChangeWindowState === 'function') {
+    windowWatch = vscode.window.onDidChangeWindowState(() => syncNotices());
+  }
   const refreshTimer = setInterval(() => { if (panel?.visible) for (const p of list()) void refresh(p); }, REFRESH_MS);
   const inventoryTimer = setInterval(() => void discover(), opts.discoveryMs || slow);
   function dispose() {
     if (stopped) return;
     stopped = true; generation += 1;
     clearTimeout(discoverTimer); clearInterval(refreshTimer); clearInterval(inventoryTimer);
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+    if (windowWatch && typeof windowWatch.dispose === 'function') windowWatch.dispose();
     for (const p of list()) stopProject(p);
     for (const w of configWatches.values()) w.dispose();
     for (const job of pending.splice(0)) job.resolve(job.cancel());
     panel?.dispose();
   }
   void discover();
-  return { show, discover, scheduleDiscovery, offerMigration, dispose,
+  syncNotices();
+  return { show, discover, syncNotices, scheduleDiscovery, offerMigration, dispose,
     get hasBoard() { return list().some((p) => p.ready || hasConfig(p.cwd)); },
   };
 }

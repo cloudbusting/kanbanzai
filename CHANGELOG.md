@@ -5,6 +5,16 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-70: the editor extension raises an operating-system notification when a session asks you (a card, or a session
+  with no card) and, while its window is not focused, when a card becomes blocked, waits on you or is interrupted.
+  It runs the platform's own notifier (`notify-send` on Linux, `osascript` on macOS, a PowerShell toast on Windows)
+  with fixed arguments and the text as data, never through a shell; there is no new dependency. The in-window message
+  and the toasts are unchanged and remain the fallback when the notifier is missing or the window is remote
+  (Remote-SSH spawns nothing). On by default; the machine-scope setting `kanbanzai.notifications` is `all`, `asking`
+  or `off`. With the Board tab closed and the window unfocused the extension reads the board once a minute and when a
+  card file changes (none while focused). The browser board and the terminal are unchanged. No change to the command,
+  the config or the JSON.
+
 ## [0.19.0] — 2026-11-15
 
 - CHANGE-69: a card can be named by its number alone. Every command that takes a card id (`claim`, `move`, `ask`,
