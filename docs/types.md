@@ -10,7 +10,8 @@ KANZ-TASK-07      with project_key = "KANZ"
 
 Every type shares **one global number sequence**. `BUG-07` is the seventh item overall, not the seventh bug. That is
 deliberate: a card's number is stable and unique across the board, and the type tells you what kind of work it is.
-Read `number --status` with that in mind.
+Read `number --status` with that in mind. Because a number names at most one card, the commands that take a card also
+take its number alone: `kanbanzai claim claim 7` is `claim claim BUG-07` (see `docs/commands.md`, "Naming a card").
 
 ## Configure it
 

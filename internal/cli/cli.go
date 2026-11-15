@@ -62,6 +62,7 @@ commands:
   workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
   template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
   workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
+  resolve ID|NUMBER              the canonical card id for an id or a bare number (07 and 123 name the card with that number)
 ` + initUsage + `  install [--dry-run|--refresh|--where|--no-link]  copy this command to the per-user folder and link it as ~/.local/bin/kanbanzai (works outside a project)
 
   --version                      print the version
@@ -261,6 +262,15 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
+		for _, name := range []string{"title", "card"} {
+			if value, given := flags[name]; given {
+				card, err := cardArg(project, value)
+				if err != nil {
+					return usageError(errOut, command, err)
+				}
+				flags[name] = card
+			}
+		}
 		return wip.Run(project, wip.Options{Audit: set["audit"], Recovery: set["recovery"], Cleanup: set["cleanup"], Next: set["next"],
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "tree":
@@ -271,6 +281,17 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		return runTemplate(project, args, out, errOut)
 	case "workspace":
 		return runWorkspace(project, args, out, errOut)
+	case "resolve":
+		positionals, _, _, err := parse(args, nil, nil)
+		if err != nil || len(positionals) != 1 {
+			return usageError(errOut, command, err)
+		}
+		card, err := number.Resolve(project, positionals[0])
+		if err != nil {
+			return usageError(errOut, command, err)
+		}
+		fmt.Fprintln(out, card)
+		return 0
 	case "claim":
 		return runClaim(project, args, in, out, errOut)
 	case "ask", "answer":
@@ -280,6 +301,9 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			map[string]bool{"owner": true, "next": true, "where": true, "held": true, "progress": true,
 				"done": true, "reason": true})
 		if err != nil || len(positionals) != 2 {
+			return usageError(errOut, command, err)
+		}
+		if positionals[0], err = cardArg(project, positionals[0]); err != nil {
 			return usageError(errOut, command, err)
 		}
 		return move.Run(project, move.Options{
@@ -294,6 +318,12 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		if err != nil || len(positionals) == 0 {
 			return usageError(errOut, command, err)
 		}
+		cards, err := cardArgs(project, command, positionals[1:])
+		if err != nil {
+			fmt.Fprintf(errOut, "kanbanzai: %v\n", err)
+			return 2
+		}
+		positionals = append(positionals[:1:1], cards...)
 		return gatecmd.Run(project, gatecmd.Options{Action: positionals[0], Cards: positionals[1:],
 			Note: ptr(flags, "note"), Reason: ptr(flags, "reason"), Owner: flags["owner"], JSON: set["json"],
 			Out: out, Err: errOut})
@@ -324,6 +354,11 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		name := ""
 		if len(positionals) == 1 {
 			name = positionals[0]
+		}
+		if value, given := flags["for"]; given {
+			if flags["for"], err = cardArg(project, value); err != nil {
+				return usageError(errOut, command, err)
+			}
 		}
 		return step.Run(project, step.Options{Name: name, For: flags["for"], JSON: set["json"], Out: out,
 			Err: errOut})
@@ -416,6 +451,11 @@ func runClaim(project *config.Project, args []string, in io.Reader, out, errOut 
 		}
 	} else if len(positionals) != 0 {
 		return usageError(errOut, "claim "+action, errors.New("no positional argument is expected"))
+	}
+	if card != "" {
+		if card, err = cardArg(project, card); err != nil {
+			return usageError(errOut, "claim "+action, err)
+		}
 	}
 	if action == "takeover" && flags["reason"] == "" {
 		return usageError(errOut, "claim takeover", errors.New("--reason is needed"))
@@ -627,6 +667,32 @@ func hasHelp(args []string) bool {
 		}
 	}
 	return false
+}
+
+// cardArg is a command's card argument as the canonical id: a bare number becomes the one card that carries it, a full
+// id its canonical spelling, and anything else is passed on unchanged for the command's own refusal. A number that
+// names no card, or two, is the error to print with exit 2.
+func cardArg(project *config.Project, value string) (string, error) {
+	if _, bare := number.BareNumber(value); bare {
+		return number.Resolve(project, value)
+	}
+	if card, ok := project.CanonicalCardID(strings.TrimSpace(value)); ok {
+		return card, nil
+	}
+	return value, nil
+}
+
+// cardArgs resolves each argument, naming the command in the error.
+func cardArgs(project *config.Project, command string, values []string) ([]string, error) {
+	out := make([]string, len(values))
+	for i, value := range values {
+		card, err := cardArg(project, value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", command, err)
+		}
+		out[i] = card
+	}
+	return out, nil
 }
 
 func usageError(errOut io.Writer, command string, err error) int {

@@ -1,7 +1,7 @@
 ---
 name: do
 description: Take a request or card through its configured workflow, stopping for decisions, gates or failures. Use when the owner asks to do work or resume a card.
-argument-hint: "[request or card id]"
+argument-hint: "[request, card id or card number]"
 ---
 
 # Do
@@ -15,6 +15,10 @@ choice /do makes itself: it never holds back a card the owner named. A card ahea
 along the pipeline, is not a reason to stop, hand the owner a different card or ask whether to go on; run the named
 card. Respect the configured cap before starting a card; a held card, a closed gate, another session's live claim and
 a hard audit finding still stop it.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 Before picking up a new card, if the prior conversation is unrelated to that card, ask the owner through the question
 tool whether to continue in this context and recommend a new clean session; wait for their answer before claiming or

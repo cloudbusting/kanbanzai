@@ -7,6 +7,7 @@ import (
 
 	kanbanzai "github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/number"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
 
@@ -40,6 +41,13 @@ func runTemplate(project *config.Project, args []string, out, errOut io.Writer) 
 	}
 	var item typeid.Type
 	if len(positionals) == 1 {
+		if _, bare := number.BareNumber(positionals[0]); bare {
+			card, err := cardArg(project, positionals[0])
+			if err != nil {
+				return usageError(errOut, "template", err)
+			}
+			positionals[0] = card
+		}
 		found, ok := templateType(project, positionals[0])
 		if !ok {
 			fmt.Fprintf(errOut, "kanbanzai: template: %q is not a type key, a type prefix or a card id of this project (types: %s)\n",

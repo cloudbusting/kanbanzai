@@ -991,3 +991,31 @@ func TestIntegrationUsesTheTreePreflight(t *testing.T) {
 		}
 	}
 }
+
+// A card can be named by its number alone: the skills that take a card say how to turn the number into an id with the
+// one core command, and the one that takes a count keeps its meaning.
+func TestSkillsThatTakeACardAcceptItsNumber(t *testing.T) {
+	for _, name := range []string{"do", "answer", "audit", "check", "design", "triage"} {
+		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range []string{"named by its number alone", "kanbanzai resolve <number>", "never guess a card"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("skills/%s lacks %q", name, want)
+			}
+		}
+		hint := regexp.MustCompile(`(?m)^argument-hint: (.*)$`).FindStringSubmatch(string(data))
+		if hint == nil || !strings.Contains(hint[1], "number") {
+			t.Errorf("skills/%s argument-hint does not say a number is accepted: %v", name, hint)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join("skills", "next", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "kanbanzai resolve") || !strings.Contains(string(data), "how many") {
+		t.Error("skills/next takes a count, so a bare number there is not a card")
+	}
+}

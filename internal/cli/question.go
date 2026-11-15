@@ -51,6 +51,9 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 	if err != nil || len(pos) != 1 {
 		return usageError(errOut, command, err)
 	}
+	if pos[0], err = cardArg(project, pos[0]); err != nil {
+		return usageError(errOut, command, err)
+	}
 	cardID, err := claim.CheckCard(project, pos[0])
 	if err != nil {
 		return usageError(errOut, command, err)

@@ -1,7 +1,7 @@
 ---
 name: triage
 description: Turn an ad-hoc request into a card, or size, fold, park or close an initial-column card. Use before a change, for a report or design question; do not decide how the work should behave.
-argument-hint: "<request, card id, or initial column>"
+argument-hint: "<request, card id or number, or initial column>"
 ---
 
 # Triage
@@ -10,6 +10,10 @@ Triage is the board's front door. The main session handles it, never a subagent.
 files, then `kanbanzai workflow show` and `kanbanzai config` for the initial column, folders, template, owner and
 configured route. If no board exists, stop and use `/setup`. Every request that becomes work gets a card first;
 pure questions can be answered from the board or code without creating a change.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 ## Understand and search
 

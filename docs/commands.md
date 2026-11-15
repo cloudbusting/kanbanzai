@@ -25,6 +25,7 @@ kanbanzai doctor [--json]                local installation diagnostics (no repa
 kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)
 kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
+kanbanzai resolve ID|NUMBER              the canonical card id for an id or a bare number (07 and 123 name the card with that number)
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
@@ -34,6 +35,14 @@ kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME]
 kanbanzai install [--dry-run|--refresh|--where]    copy this command to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
 ```
+
+**Naming a card.** Wherever a command takes a card id (`claim`, `move`, `ask`, `answer`, `gate`, `step --for`,
+`wip --title` and `--card`, `tree --merge`, `template`, `workspace`) it also takes the card's bare number: `kanbanzai move 123 finish`
+acts on the one card whose brief carries 123, in any worktree and any folder, whatever its type.
+`kanbanzai resolve 123` prints that card's id (`CHORE-123`) for a script or a skill. A number that matches no card, or
+two (a duplicate `check` also fails), exits 2 naming the number and changes nothing; a number is never guessed. A full
+id still works in any case or padding (`chore-123`, `CHORE-0123`). `number --release N` and `--mark N` take the
+number itself, since a reservation may have no card yet.
 
 **Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
 `TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done

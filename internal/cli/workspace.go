@@ -16,7 +16,11 @@ func runWorkspace(project *config.Project, args []string, out, errOut io.Writer)
 	if err != nil || len(positionals) != 1 {
 		return usageError(errOut, "workspace", err)
 	}
-	card, ok := project.CanonicalCardID(positionals[0])
+	resolved, err := cardArg(project, positionals[0])
+	if err != nil {
+		return usageError(errOut, "workspace", err)
+	}
+	card, ok := project.CanonicalCardID(resolved)
 	if !ok {
 		fmt.Fprintf(errOut, "kanbanzai: workspace: card must look like %s: '%s'\n",
 			strings.Join(project.IDExamples(), " or "), positionals[0])

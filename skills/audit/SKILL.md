@@ -1,7 +1,7 @@
 ---
 name: audit
 description: Check that the board is true — every card's column, brief, Where and worktree, the batches and unpushed work — and report the drift. Use before opening a batch, before a batch ships, weekly, or when the owner asks what is really in flight. It fixes only bookkeeping, never code.
-argument-hint: "[a card, a batch, or an area]"
+argument-hint: "[a card (id or number), a batch, or an area]"
 ---
 
 # Audit
@@ -10,6 +10,10 @@ The board says what is in flight and where. This checks that claim against the f
 reports; the only things it changes are the board's own records. The owner is `project.owner` in `kanbanzai config`.
 Read `kanbanzai context` and `kanbanzai workflow show`; for a card use `kanbanzai step --for <ID>` and
 `kanbanzai workspace <ID>` to interpret its route and workspace instead of assuming a layout.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 ## 1. Run the checks
 

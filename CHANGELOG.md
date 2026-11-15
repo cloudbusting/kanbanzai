@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-69: a card can be named by its number alone. Every command that takes a card id (`claim`, `move`, `ask`,
+  `answer`, `gate`, `step --for`, `wip --title` and `--card`, `tree --merge`, `template`, `workspace`) also takes
+  `123` for the one card whose brief carries that number, in any worktree and folder; a number with no card, or with
+  two, exits 2 naming it and writes nothing. New `kanbanzai resolve ID|NUMBER` prints the canonical id, and the
+  `do`, `answer`, `audit`, `check`, `design` and `triage` skills use it for a bare number (`next` keeps its count).
+  `step --for` and `wip` now also take a full id in any case or padding. No config, state or JSON change.
 - W-30: shared `/kanbanzai:breakdown` (also `/breakdown` in OpenCode) proposes an approved split of pasted text into
   triaged cards with Needs prerequisites, without fetching tickets or starting work. Default types, fresh init and
   the software preset add EPIC with a built-in template/schema, Source and Work items membership. Core validation
