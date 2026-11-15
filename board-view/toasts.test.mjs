@@ -442,3 +442,109 @@ test("a loose asking toast never expires, is not dropped by the cap, and closing
   assert.deepEqual(T.diffBoards(still, still, "Sam"), [], "the next read of the same ask raises nothing");
   assert.ok(!s.stack.some((t) => t.key === LOOSE_KEY));
 });
+
+const ALPHA = { key: "project:a", label: "Alpha" };
+const BETA = { key: "project:b", label: "Beta" };
+
+test("scoped moves keep raw card IDs, qualify headlines and carry project identity through views", () => {
+  const prev = board({ building: [card("W-01")] });
+  const next = board({ built: [card("W-01")] });
+  const a = T.diffBoards(prev, next, "Sam", ALPHA)[0];
+  const b = T.diffBoards(prev, next, "Sam", BETA)[0];
+  assert.equal(a.headline, "Alpha: W-01 Building → Built");
+  assert.equal(a.card, "W-01");
+  assert.equal(a.project, ALPHA.key);
+  assert.equal(a.projectLabel, ALPHA.label);
+  assert.notEqual(a.key, b.key);
+  const views = T.toViews(T.applyEvents(empty(), [a, b], NOW), NOW);
+  assert.equal(views.length, 2);
+  assert.deepEqual(views.map((v) => [v.project, v.projectLabel, v.card]), [
+    [ALPHA.key, "Alpha", "W-01"], [BETA.key, "Beta", "W-01"],
+  ]);
+  assert.deepEqual(T.diffBoards(null, next, "Sam", ALPHA), []);
+  assert.deepEqual(T.diffBoards(prev, null, "Sam", ALPHA), []);
+  assert.deepEqual(T.diffBoards(next, next, "Sam", ALPHA), []);
+});
+
+test("a scoped clear cannot clear another project's sticky cause, even when its short event is hidden in a burst", () => {
+  const plain = board({ building: [card("W-01")] });
+  const blocked = board({ building: [card("W-01", { mark: "blocked" })] });
+  let state = T.applyEvents(empty(), [
+    ...T.diffBoards(plain, blocked, "Sam", ALPHA), ...T.diffBoards(plain, blocked, "Pat", BETA),
+  ], NOW);
+  const extras = T.diffBoards(board({}), board({ todo: [1, 2, 3, 4, 5].map((n) => card(`W-${n}`)) }), "Sam", ALPHA);
+  state = T.applyEvents(state, [...extras, ...T.diffBoards(blocked, plain, "Sam", ALPHA)], NOW + 1);
+  assert.deepEqual(state.stack.filter((t) => t.level === "blocked").map((t) => t.project), [BETA.key]);
+  assert.ok(state.stack.some((t) => t.kind === "burst" && t.project === ALPHA.key));
+});
+
+test("scoped card asks and loose asks with duplicate IDs close only in their project", () => {
+  const prev = board({ building: [card("W-01")] });
+  const next = withUnclaimed(board({ building: [card("W-01", { session: sess("waiting") })] }), { [LABEL]: loose() });
+  const events = [...T.diffBoards(prev, next, "Sam", ALPHA), ...T.diffBoards(prev, next, "Pat", BETA)];
+  assert.equal(new Set(events.map((e) => e.key)).size, 4);
+  let state = T.applyEvents(empty(), events, NOW);
+  assert.equal(state.stack.length, 4);
+  state = T.applyEvents(state, T.diffBoards(next, prev, "Sam", ALPHA), NOW + 1);
+  assert.equal(state.stack.length, 2);
+  assert.ok(state.stack.every((t) => t.project === BETA.key && t.expiresAt === null));
+});
+
+test("scoped loose session identities never truncate or sanitize distinct labels into the same key", () => {
+  const prefix = "opencode:" + "a".repeat(80);
+  const labels = [`${prefix}:x`, `${prefix}_x`, `${prefix}:y`];
+  const next = withUnclaimed(board({}), Object.fromEntries(labels.map((label) => [label, loose()])));
+  const events = T.diffBoards(board({}), next, "Sam", ALPHA);
+  assert.equal(new Set(events.map((e) => e.key)).size, labels.length);
+  const closed = T.applyEvents(T.applyEvents(empty(), events, NOW), T.diffBoards(next, board({}), "Sam", ALPHA), NOW);
+  assert.equal(closed.stack.length, 0);
+});
+
+test("scoped identity separates card, card ask, loose ask, project and burst namespaces without delimiter collisions", () => {
+  const prev = board({});
+  const next = withUnclaimed(board({ todo: [card("ask:x"), card("burst"), card("x", { session: sess("waiting") })] }), { x: loose() });
+  const events = T.diffBoards(prev, next, "Sam", { key: 'a","card","b', label: "One" });
+  assert.equal(new Set(events.map((e) => e.key)).size, events.length);
+  const other = T.diffBoards(prev, board({ todo: [card('b","card","x')] }), "Sam", { key: "a", label: "Two" });
+  assert.ok(!events.some((e) => e.key === other[0].key));
+});
+
+test("scoped burst summaries are per project and do not overwrite another project's summary", () => {
+  const prev = board({});
+  const next = board({ todo: [1, 2, 3, 4, 5, 6].map((n) => card(`W-${n}`)) });
+  const state = T.applyEvents(empty(), [
+    ...T.diffBoards(prev, next, "Sam", ALPHA), ...T.diffBoards(prev, next, "Pat", BETA),
+  ], NOW);
+  const summaries = state.stack.filter((t) => t.kind === "burst");
+  assert.deepEqual(summaries.map((t) => t.headline), ["Alpha: +3 more cards moved", "Beta: +3 more cards moved"]);
+  assert.equal(new Set(summaries.map((t) => t.key)).size, 2);
+});
+
+test("scoped close and close-all preserve other projects and newer sequence instances", () => {
+  const prev = board({ building: [card("W-01")] });
+  const next = board({ building: [card("W-01", { session: sess("waiting") })] });
+  const a = T.diffBoards(prev, next, "Sam", ALPHA);
+  const b = T.diffBoards(prev, next, "Pat", BETA);
+  const first = T.applyEvents(empty(), [...a, ...b], NOW);
+  const instance = first.stack[0];
+  assert.equal(T.close(first, instance.key).stack.length, 1);
+  const newer = T.applyEvents(first, a, NOW + 1);
+  assert.equal(T.closeInstances(newer, [instance]).stack.length, 2);
+  assert.deepEqual(T.closeInstances(first, [instance]).stack.map((t) => t.project), [BETA.key]);
+});
+
+test("a scoped hidden queue clears a hold raised earlier in that queue even when the clear is burst-suppressed", () => {
+  const plain = board({ building: [card("W-01")] });
+  const blocked = board({ building: [card("W-01", { mark: "blocked" })] });
+  const extras = T.diffBoards(board({}), board({ todo: [1, 2, 3, 4, 5].map((n) => card(`W-${n}`)) }), "Sam", ALPHA);
+  const events = [
+    ...T.diffBoards(plain, blocked, "Sam", ALPHA),
+    ...T.diffBoards(plain, blocked, "Pat", BETA),
+    ...extras,
+    ...T.diffBoards(blocked, plain, "Sam", ALPHA),
+  ];
+  const state = T.applyEvents(empty(), events, NOW);
+  assert.deepEqual(state.stack.filter((t) => t.level === "blocked").map((t) => t.project), [BETA.key]);
+  const blockedAgain = T.applyEvents(empty(), [...events, ...T.diffBoards(plain, blocked, "Sam", ALPHA)], NOW);
+  assert.deepEqual(new Set(blockedAgain.stack.filter((t) => t.level === "blocked").map((t) => t.project)), new Set([ALPHA.key, BETA.key]));
+});

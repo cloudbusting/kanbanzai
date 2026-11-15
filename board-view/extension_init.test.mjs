@@ -85,7 +85,12 @@ function load({ folders, setting = "", pluginSource = "", extensionPath, script,
       if (a.code) return cb(Object.assign(new Error("failed"), { code: a.code }), a.stdout || "", a.stderr || "");
       if (a.stdout !== undefined) return cb(null, a.stdout, "");
       const verb = args[0];
-      return cb(null, JSON.stringify(verb === "sessions" ? SESSIONS : verb === "board" ? BOARD : {}), "");
+      const config = verb === "config" ? {
+        root: opts.cwd,
+        config_file: fs.existsSync(path.join(opts.cwd, ".kanbanzai/config.toml")) ? path.join(opts.cwd, ".kanbanzai/config.toml") : null,
+        project: { owner: "Sam", work: path.join(opts.cwd, ".kanbanzai/work") },
+      } : {};
+      return cb(null, JSON.stringify(verb === "sessions" ? SESSIONS : verb === "board" ? BOARD : verb === "config" ? config : {}), "");
     },
   };
   const real = Module._load;
@@ -367,7 +372,9 @@ const scripted = (extra = {}) => (cmd, args, opts) => {
   return undefined;
 };
 const pendingFile = (project) => init.pendingPath(project);
-const nonSessions = (calls) => calls.filter((c) => c.args[0] !== "sessions");
+// Inventory reads are now activation-wide, including folders not yet configured. They must never write.
+const nonSessions = (calls) => calls.filter((c) => !(["sessions", "config", "board", "migrate"].includes(c.args[0]) &&
+  c.args.length === 2 && c.args[1] === "--json"));
 const verbOf = (c) => (c.args.includes("--plan") ? "plan" : c.args.includes("--dry-run") ? "dry" : c.args[0]);
 
 test("kanbanzai.init is registered, asks which agents with both ticked, and plans with them", async () => {
@@ -417,7 +424,7 @@ test("pluginSource, when set, is passed to the plan as --plugin-source", async (
   await run({ folders: folder(gitProject()), trusted: true, pluginSource: "/code/kanbanzai", extensionPath: dir(), script: scripted() },
     async ({ commands, calls }) => {
       await commands["kanbanzai.init"]();
-      assert.deepEqual(calls[0].args.slice(-2), ["--plugin-source", "/code/kanbanzai"]);
+      assert.deepEqual(calls.find((c) => c.args.includes("--dry-run")).args.slice(-2), ["--plugin-source", "/code/kanbanzai"]);
     });
 });
 
@@ -426,7 +433,7 @@ test("dismissing the agent pick runs nothing and writes nothing", async () => {
   await run({ folders: folder(project), trusted: true, pick: [], extensionPath: dir(), script: scripted() },
     async ({ commands, calls, vscode, item }) => {
       await commands["kanbanzai.init"]();
-      assert.equal(calls.length, 0);
+      assert.equal(nonSessions(calls).length, 0, "discovery is read-only; dismissing runs no setup command");
       assert.deepEqual(vscode.errors, []);
       assert.equal(item.text, "$(rocket) Kanbanzai: Init");
     });
@@ -489,7 +496,7 @@ test("Apply: install, then init --plan on the pending file (which stays put), ne
     const before = calls.length;
     await commands["kanbanzai.apply"]();
     await settle();
-    const applying = calls.slice(before).filter((c) => c.args[0] !== "sessions");
+    const applying = nonSessions(calls.slice(before));
     assert.deepEqual(applying.map(verbOf), ["install", "plan"]);
     assert.deepEqual(applying[0].args, ["install"]);
     assert.deepEqual(applying[1].args, ["init", "--plan", pendingFile(project)]);
@@ -701,7 +708,8 @@ test("while the Apply item shows the poll runs no sessions command", async () =>
   const project = gitProject({ ".kanbanzai/state/setup-plan.json": REPORT });
   await run({ folders: folder(project), trusted: true, script: scripted() }, async ({ calls }) => {
     await settle(120);
-    assert.equal(calls.length, 0);
+    assert.equal(nonSessions(calls).length, 0, "pending setup cannot run a write without Apply");
+    assert.equal(calls.filter((c) => c.args[0] === "sessions").length, 0);
   });
 });
 

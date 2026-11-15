@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-16: the editor board discovers configured workspace projects, deduplicates worktree aliases, and offers
+  grouped All projects / single-project boards and a type filter. Project-scoped cards, notifications and opening
+  prevent duplicate-ID collisions; independent reads retain last-good boards and explicitly mark stale counts.
+  Setup keeps its first-folder target, migration approvals remain project-bound, and browser/TUI scope is unchanged.
 - CHANGE-66: `kanbanzai install`, and so the editor's Kanbanzai: Apply, links the command as `~/.local/bin/kanbanzai`
   on Linux and macOS (making the folder if it is missing, never replacing anything already there) and warns when
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user

@@ -12,37 +12,19 @@ const vscode = require('vscode');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { renderHtml, renderError, safeBriefPath } = require('./render');
-const toasts = require('./toasts');
 const sessions = require('./sessions');
-const output = require('./output');
 const setup = require('./init');
 const migrating = require('./migrate');
+const projects = require('./projects');
+const { createWorkspace } = require('./workspace');
 
-const REFRESH_MS = 60 * 1000;
-const DEBOUNCE_MS = 500;
-const OPEN_BOARD = 'Open Board';
-const SESSIONS_MS = 3 * 1000; // the claimed cards' sessions, while any card is claimed
-const SESSIONS_IDLE_MS = 15 * 1000; // and while none is
 const RUN_TIMEOUT_MS = 15 * 1000;
-const COLLAPSED_KEY = 'kanbanzai.board.collapsed';
-const SAFE_KEY = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const INIT_TEXT = '$(rocket) Kanbanzai: Init';
 const APPLY_TEXT = '$(check) Kanbanzai: Apply';
 const APPLY_TOOLTIP = 'A setup plan is waiting. Click to apply it. Run "Kanbanzai: Show Setup Plan" to read it again, ' +
   'or "Kanbanzai: Cancel Setup" to discard it.';
 const PLAN_SCHEME = 'kanbanzai-plan';
-const SAFE_TOAST_KEY = /^(?:ask:)?[A-Za-z0-9][A-Za-z0-9-]{0,40}$/; // a card id, 'burst', or 'ask:' and a card id
-
-function workspaceRoot() {
-  const folders = vscode.workspace.workspaceFolders || [];
-  for (const f of folders) {
-    if (fs.existsSync(path.join(f.uri.fsPath, '.kanbanzai', 'config.toml'))) return f.uri.fsPath;
-  }
-  return folders.length ? folders[0].uri.fsPath : null;
-}
 
 // The command: the `kanbanzai.command` setting, else the binary bundled in the extension for this platform, else the
 // copy `kanbanzai install` made in the per-user folder, else kanbanzai on PATH. It is resolved on every run, so a
@@ -69,24 +51,12 @@ function missing(err) {
   return err && err.code === 'ENOENT';
 }
 
-// The command's stdout as text, or the reason it failed (no command, no project, a timeout). W-104 keeps the reason
-// so a failed poll can say why in the Output log.
-function runText(root, args) {
-  return new Promise((resolve) => {
-    execFile(command(), args, { cwd: root, timeout: RUN_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
-      if (missing(err)) resolve({ error: MISSING_COMMAND });
-      else if (err) resolve({ error: String(stderr || '').trim() || err.message });
-      else resolve({ text: stdout });
-    });
-  });
-}
-
 function run(root, args) {
   return new Promise((resolve) => {
     execFile(
       command(),
       args,
-      { cwd: root, timeout: RUN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+      { cwd: root, env: projects.environment(process.env), timeout: RUN_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (missing(err)) {
           resolve({ error: { reason: MISSING_COMMAND, text: MISSING_COMMAND } });
@@ -108,33 +78,6 @@ function run(root, args) {
   });
 }
 
-// The cards folder relative to the root, and the owner's name, from the resolved settings.
-function settings(config, root) {
-  const project = (config && config.project) || {};
-  let work = typeof project.work === 'string' ? project.work : '';
-  if (work && path.isAbsolute(work)) work = path.relative(root, work);
-  if (!work || work.startsWith('..')) work = path.join('.kanbanzai', 'work');
-  return { work, owner: typeof project.owner === 'string' ? project.owner : '' };
-}
-
-// The board, the cards folder and the owner, and whether the config read failed (it falls back to the defaults). W-104
-// gives the failure's reason as well as the tab's message, so the Output log can say why.
-async function readBoard(root) {
-  const [board, config] = await Promise.all([run(root, ['board', '--json']), run(root, ['config', '--json'])]);
-  const configError = config.error ? config.error.reason : null;
-  if (board.error) return { error: board.error.text, reason: board.error.reason, configError };
-  return { board: board.value, ...settings(config.value, root), configError };
-}
-
-// W-104: what output.js says, written to the board's channel at the level it names.
-function say(log, lines) {
-  for (const line of lines) {
-    if (line.level === 'warn') log.warn(line.text);
-    else if (line.level === 'error') log.error(line.text);
-    else log.info(line.text);
-  }
-}
-
 // W-104: the channel, with every write guarded. A log that fails must never break a refresh, the poll or the tab; the
 // board is the job, the log is a convenience.
 function logger(channel) {
@@ -151,234 +94,7 @@ function logger(channel) {
   };
 }
 
-let current; // the open panel's controller, if any
-
-function showBoard(context, log) {
-  if (current) {
-    current.panel.reveal(vscode.ViewColumn.Active);
-    current.refresh();
-    return;
-  }
-  const root = workspaceRoot();
-  if (!root) {
-    log.warn('no project folder to show the board for');
-    vscode.window.showErrorMessage('Kanbanzai: open a project folder first.');
-    return;
-  }
-
-  const panel = vscode.window.createWebviewPanel('kanbanzaiBoard', 'Board', vscode.ViewColumn.Active, {
-    enableScripts: true,
-    retainContextWhenHidden: true,
-    localResourceRoots: [],
-    iconPath: vscode.Uri.joinPath(context.extensionUri, 'icon.png'),
-  });
-
-  const disposables = [];
-  let lastKey = null;
-  let timer = null;
-  let running = false;
-  let again = false;
-  let work = path.join('.kanbanzai', 'work');
-  let watched = null;
-  // W-104: the last outcome of each command, so a run of the same failure is one log line (output.streak).
-  let readState;
-  let configState;
-  // Toasts. The page's HTML is replaced whenever the board changes, so the stack lives here and is drawn with each
-  // render. `prev` is the last good read (the baseline for the diff), `pending` the events found while the tab was
-  // hidden, `seen` the toasts already on the page (they are redrawn without the fade).
-  let prev = null;
-  let toastState = { stack: [], seq: 0 };
-  let pending = [];
-  const seen = new Set();
-
-  // Refresh when a brief changes; the watcher follows the settings' cards folder.
-  function watch(folder) {
-    if (watched && watched.folder === folder) return;
-    if (watched) for (const d of watched.disposables) d.dispose();
-    const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(root, `${folder}/**/*.md`));
-    watched = { folder, disposables: [w, w.onDidChange(debounced), w.onDidCreate(debounced), w.onDidDelete(debounced)] };
-    log.info(`watching ${folder}/**/*.md`);
-  }
-
-  async function refresh() {
-    if (running) {
-      again = true;
-      return;
-    }
-    running = true;
-    try {
-      const result = await readBoard(root);
-      const read = output.streak(readState, result.error ? result.reason : null, { what: 'the board read' });
-      readState = read.state;
-      say(log, read.lines);
-      const config = output.streak(configState, result.configError, {
-        what: 'the config read', level: 'warn', note: ' (using the default cards folder)',
-      });
-      configState = config.state;
-      say(log, config.lines);
-      if (!result.error) {
-        work = result.work;
-        watch(work);
-      }
-      const now = Date.now();
-      if (!result.error) {
-        const events = toasts.diffBoards(prev, result.board, result.owner);
-        prev = result.board;
-        pending.push(...events);
-        say(log, output.moveLines(events));
-      }
-      toastState = toasts.prune(toastState, now);
-      if (panel.visible && pending.length) {
-        toastState = toasts.applyEvents(toastState, pending, now);
-        pending = [];
-      }
-      const collapsed = context.workspaceState.get(COLLAPSED_KEY, []);
-      // The toasts enter the key by their raise counter, so one expiring or being closed does not redraw the board.
-      const key = JSON.stringify([result.board, result.error, result.work, result.owner, collapsed, toastState.seq]);
-      if (key === lastKey) return; // nothing changed: keep the page, its scroll and focus
-      lastKey = key;
-      const views = toasts.toViews(toastState, now, seen);
-      for (const t of toastState.stack) seen.add(t.seq);
-      const opts = {
-        nonce: crypto.randomBytes(16).toString('hex'), cspSource: panel.webview.cspSource, collapsed, owner: result.owner,
-        toasts: views,
-      };
-      panel.webview.html = result.error ? renderError(result.error, opts) : renderHtml(result.board, opts);
-    } finally {
-      running = false;
-      if (again) {
-        again = false;
-        void refresh();
-      }
-    }
-  }
-
-  function debounced() {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      void refresh();
-    }, DEBOUNCE_MS);
-  }
-
-  disposables.push({ dispose: () => { if (watched) for (const d of watched.disposables) d.dispose(); } });
-
-  // The claims live outside the watched folder (and outside git), so poll while the tab is visible.
-  const interval = setInterval(() => {
-    if (panel.visible) void refresh();
-  }, REFRESH_MS);
-  disposables.push({ dispose: () => clearInterval(interval) });
-  disposables.push(panel.onDidChangeViewState(() => {
-    if (panel.visible) void refresh();
-  }));
-
-  disposables.push(panel.webview.onDidReceiveMessage((msg) => {
-    if (msg && msg.type === 'collapse' && typeof msg.key === 'string' && SAFE_KEY.test(msg.key)) {
-      // The page has already toggled itself; remember it so a refresh or a reload keeps it.
-      const shut = new Set(context.workspaceState.get(COLLAPSED_KEY, []));
-      if (msg.collapsed) shut.add(msg.key); else shut.delete(msg.key);
-      const list = [...shut].sort();
-      void context.workspaceState.update(COLLAPSED_KEY, list);
-      const was = JSON.parse(lastKey || '[null,[],0]');
-      lastKey = JSON.stringify([was[0], list, was[2]]);
-      return;
-    }
-    if (msg && msg.type === 'toast-close' && typeof msg.key === 'string' && SAFE_TOAST_KEY.test(msg.key)) {
-      toastState = toasts.close(toastState, msg.key); // the page has already removed it
-      return;
-    }
-    if (msg && msg.type === 'toast-close-all' && Array.isArray(msg.instances)) {
-      const instances = msg.instances.filter((t) => t && typeof t.key === 'string' && SAFE_TOAST_KEY.test(t.key) &&
-        Number.isSafeInteger(t.seq) && t.seq > 0);
-      toastState = toasts.closeInstances(toastState, instances);
-      return;
-    }
-    if (!msg || msg.type !== 'open') return;
-    if (typeof msg.path !== 'string' || !msg.path) return;
-    const full = safeBriefPath(root, msg.path, work);
-    if (!full) {
-      // W-104: the tab refuses it silently, so the log says which path and why.
-      log.warn(`brief not opened: ${msg.path} (not a brief in the cards folder)`);
-      return;
-    }
-    vscode.window.showTextDocument(vscode.Uri.file(full), { preview: false }).then(undefined, (e) => {
-      const why = e && e.message ? e.message : String(e);
-      log.error(`cannot open ${msg.path}: ${why}`);
-      vscode.window.showErrorMessage(`Kanbanzai: cannot open ${msg.path}: ${why}`);
-    });
-  }));
-
-  panel.onDidDispose(() => {
-    if (timer) clearTimeout(timer);
-    for (const d of disposables) d.dispose();
-    current = undefined;
-  });
-
-  current = { panel, refresh };
-  void refresh();
-}
-
-// W-99: the status bar counts the cards whose Claude Code session is asking, so it shows with the tab closed, and the
-// open tab is redrawn within a poll of a session's state changing (the claims and sessions live outside the watched folder).
-function watchSessions(context, item, opts, log, status, migration) {
-  const fast = (opts && opts.sessionsMs) || SESSIONS_MS; // the tests pass short ones
-  const slow = (opts && opts.idleMs) || SESSIONS_IDLE_MS;
-  let timer = null;
-  let last; // the last answer as text; undefined before the first
-  let lastAnswer; // the last good answer, parsed; undefined before the first
-  let pollState; // W-104: the last poll's outcome, so a broken command is one log line, not one per 3 s poll
-  let stopped = false;
-
-  function announce(lines) {
-    for (const line of lines) {
-      vscode.window.showWarningMessage(line, OPEN_BOARD).then((choice) => {
-        if (choice === OPEN_BOARD) void vscode.commands.executeCommand('kanbanzai.showBoard');
-      }, () => {});
-    }
-  }
-
-  async function poll() {
-    let wait = slow;
-    try {
-      // No board yet (the Init or Apply item is showing): there is nothing to poll, and the check below notices a board that appears.
-      if (status && ['init', 'apply'].includes(status.apply())) {
-        if (!stopped) timer = setTimeout(poll, wait);
-        return;
-      }
-      const root = workspaceRoot();
-      const res = root ? await runText(root, ['sessions', '--json']) : { error: 'no project folder' };
-      if (stopped) return; // disposed while the command ran: leave the status bar as it was
-      const answer = res.error ? null : sessions.parseSessions(res.text);
-      const polled = output.streak(pollState, res.error || (answer ? null : 'the output is not a sessions answer'), {
-        what: 'the session poll', noun: 'poll', level: 'warn',
-      });
-      pollState = polled.state;
-      say(log, polled.lines);
-      // A project that needs migrating cannot answer the poll: look at why (spaced out), and keep the Migrate item.
-      if (!answer && migration) void migration.check().catch(() => {});
-      if (!(migration && migration.pending)) {
-        item.text = sessions.statusLabel(answer);
-        item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
-        item.tooltip = sessions.askingTooltip(answer);
-      }
-      const key = JSON.stringify(answer);
-      const inFront = !!(current && current.panel.visible);
-      if (last !== undefined && key !== last && inFront) void current.refresh();
-      // W-102: with the Board tab not in front its toast cannot be seen, so say it in the editor. A failed read (null)
-      // keeps the last good answer as the baseline, so the next good one does not announce every card as new.
-      if (answer) {
-        if (!inFront) announce(sessions.askMessages(sessions.newlyAsking(lastAnswer, answer)));
-        lastAnswer = answer;
-      }
-      last = key;
-      if (answer && (answer.claims > 0 || answer.waiting > 0)) wait = fast; // a session asking is answered soon: follow it closely
-    } catch (e) { /* the next poll tries again */ }
-    if (!stopped) timer = setTimeout(poll, wait);
-  }
-
-  void poll();
-  context.subscriptions.push({ dispose: () => { stopped = true; if (timer) clearTimeout(timer); } });
-}
+let activeWorkspace;
 
 // The project's state for the status bar: a board in any folder, else a git checkout as the first folder, in a
 // trusted workspace (see init.itemState), and whether a setup plan is waiting in it. Reads only; a failed stat counts as absent.
@@ -397,7 +113,7 @@ function projectState() {
 
 // The one status-bar item: `▦ Board` (its text and colour are the session poll's) with a board, "Kanbanzai: Apply" in
 // a git checkout without one while a setup plan is waiting, "Kanbanzai: Init" without a plan, hidden otherwise. apply() re-evaluates and returns the state; it never throws.
-function statusItem(item, migration) {
+function statusItem(item, migration, inventory) {
   let state = 'none';
   const showBoard = () => {
     if (item.command !== 'kanbanzai.showBoard') {
@@ -411,7 +127,7 @@ function statusItem(item, migration) {
     get state() { return state; },
     apply() {
       try {
-        state = projectState();
+        state = inventory && inventory() ? 'board' : projectState();
         if (state === 'init') {
           item.command = 'kanbanzai.init';
           item.text = INIT_TEXT;
@@ -490,13 +206,13 @@ function setupUi(log) {
     } catch (e) { /* the log has it */ }
   };
   return {
-    async pickAgents() {
+    async pickAgents(root) {
       const picked = await vscode.window.showQuickPick(
         [
           { label: 'Claude Code', description: 'enable the Kanbanzai plugin in .claude/settings.json', agent: 'claude', picked: true },
           { label: 'OpenCode', description: 'enable the Kanbanzai plugin in .opencode/opencode.json', agent: 'opencode', picked: true },
         ],
-        { canPickMany: true, title: 'Kanbanzai: Init', placeHolder: 'Which agents should use Kanbanzai in this project?' },
+        { canPickMany: true, title: `Kanbanzai: Init${root ? ` — ${root}` : ''}`, placeHolder: 'Which agents should use Kanbanzai in this project?' },
       );
       return Array.isArray(picked) ? picked.map((p) => p && p.agent) : undefined;
     },
@@ -536,7 +252,7 @@ function setupUi(log) {
 // One of the four setup commands. `env` is { log, status, ui }, made once per activation (the plan tab's content
 // provider is registered once). `flow` is an init.js function; `extra` adds what only some of them need. The first
 // workspace folder is the project. Nothing is thrown into the editor.
-async function runSetup(name, flow, { log, status, ui }, extra) {
+async function runSetup(name, flow, { log, status, ui, workspace }, extra) {
   try {
     const folders = vscode.workspace.workspaceFolders || [];
     const root = folders.length && folders[0].uri ? folders[0].uri.fsPath : null;
@@ -552,13 +268,13 @@ async function runSetup(name, flow, { log, status, ui }, extra) {
       commandSource: info.source,
       installedCommand: setup.wellKnownFile(process.env, process.platform, os.homedir()) || info.command,
       folder: setup.wellKnownDir(process.env, process.platform, os.homedir()),
-      execFile,
+      execFile: localExecFile,
       fs,
-      ui,
+      ui: { ...ui, pickAgents: () => ui.pickAgents(root), showPlan: (text) => ui.showPlan(text, `setup — ${root}`) },
       log,
       missingText: MISSING_COMMAND,
-      onChanged: () => status.apply(),
-      onApplied: () => { if (current) void current.refresh(); },
+      onChanged: () => { status.apply(); if (workspace) void workspace.discover(true); },
+      onApplied: () => { if (workspace) void workspace.discover(true); },
       ...(extra ? extra() : {}),
     });
     log.info(`${name}: ${result.status}`);
@@ -574,6 +290,12 @@ const runInit = (env) => runSetup('kanbanzai.init', setup.planSetup, env, () => 
   return { pluginSource: typeof pluginSource === 'string' ? pluginSource : '' };
 });
 
+// An editor command's explicit project target must never be overridden by the environment of the terminal
+// that launched the editor. Keep all other host environment values.
+function localExecFile(file, args, options, callback) {
+  return execFile(file, args, { ...options, env: projects.environment(options.env || process.env) }, callback);
+}
+
 function activate(context, opts) {
   // W-104: the board's Output channel: its errors, warnings and key status, kept for the window's life and never
   // opened by itself (the owner chose that, 2026-11-11). VSCodium's own level picker decides what is shown; nothing is
@@ -584,19 +306,28 @@ function activate(context, opts) {
   item.text = sessions.PLAIN;
   item.tooltip = 'Kanbanzai board';
   item.command = 'kanbanzai.showBoard';
-  let migration;
-  const status = statusItem(item, () => !!migration && migration.pending);
+  let workspace;
+  const status = statusItem(item, () => false, () => workspace && workspace.hasBoard);
+  status.item = item;
   status.apply();
   const env = { log, status, ui: setupUi(log) };
-  const hasBoard = (root) => { try { return fs.existsSync(path.join(root, '.kanbanzai', 'config.toml')); } catch (e) { return false; } };
-  migration = migrating.createMigrations({
-    root: workspaceRoot, hasBoard, execFile, command, log,
-    ui: { ...env.ui, showPlan: (text) => env.ui.showPlan(text, 'migration') },
-    onChanged: () => status.apply(),
-    onApplied: () => { if (current) void current.refresh(); },
-    minGapMs: opts && Number.isFinite(opts.migrateGapMs) ? opts.migrateGapMs : undefined,
+  workspace = createWorkspace({
+    vscode, context, run, log, status, opts, execFile: localExecFile,
+    migrations: (project, valid, onChanged, onApplied, projectExec) => migrating.createMigrations({
+      root: () => valid() ? project.cwd : null, hasBoard: () => valid(), valid,
+      execFile: projectExec, command, log,
+      ui: {
+        ...env.ui,
+        notify: (message, buttons) => env.ui.notify(`${project.label}: ${message}`, buttons),
+        showPlan: (text) => env.ui.showPlan(text, `migration — ${project.label}`),
+        error: (text) => env.ui.error(`${project.label}: ${text}`),
+      },
+      onChanged, onApplied,
+      minGapMs: opts && Number.isFinite(opts.migrateGapMs) ? opts.migrateGapMs : undefined,
+    }),
   });
-  void migration.check().catch(() => {});
+  env.workspace = workspace;
+  activeWorkspace = workspace;
   // The per-user copy follows this extension's release; not awaited, and nothing it does reaches the editor as an error.
   try {
     setup.refreshInstalled({
@@ -607,29 +338,30 @@ function activate(context, opts) {
   const watching = [];
   for (const event of ['onDidChangeWorkspaceFolders', 'onDidGrantWorkspaceTrust']) {
     const on = vscode.workspace[event];
-    if (typeof on === 'function') watching.push(on.call(vscode.workspace, () => status.apply()));
+    if (typeof on === 'function') watching.push(on.call(vscode.workspace, () => { status.apply(); void workspace.discover(true); }));
   }
   context.subscriptions.push(
     item,
     log.channel,
+    workspace,
     ...watching,
     vscode.commands.registerCommand('kanbanzai.init', () => runInit(env)),
     vscode.commands.registerCommand('kanbanzai.apply', () => runSetup('kanbanzai.apply', setup.applyPending, env)),
     vscode.commands.registerCommand('kanbanzai.showPlan', () => runSetup('kanbanzai.showPlan', setup.showPending, env)),
     vscode.commands.registerCommand('kanbanzai.cancelSetup', () => runSetup('kanbanzai.cancelSetup', setup.discardPending, env)),
-    vscode.commands.registerCommand('kanbanzai.showBoard', () => showBoard(context, log)),
-    vscode.commands.registerCommand('kanbanzai.migrate', () => migration.offerNow().catch(() => {})),
+    vscode.commands.registerCommand('kanbanzai.showBoard', () => workspace.show()),
+    vscode.commands.registerCommand('kanbanzai.migrate', () => workspace.offerMigration().catch(() => {})),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e || typeof e.affectsConfiguration !== 'function' || !e.affectsConfiguration('kanbanzai.command')) return;
       const set = vscode.workspace.getConfiguration('kanbanzai').get('command');
       log.info(typeof set === 'string' && set ? `setting kanbanzai.command is now "${set}"` : 'setting kanbanzai.command is now unset');
+      void workspace.discover(true);
     }),
   );
-  watchSessions(context, item, opts, log, status, migration);
 }
 
 function deactivate() {
-  if (current) current.panel.dispose();
+  if (activeWorkspace) activeWorkspace.dispose();
 }
 
 module.exports = { activate, deactivate };

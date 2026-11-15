@@ -83,7 +83,21 @@ function needsTable(needs) {
   return [count, ...rows.map((r) => `  ${[0, 1, 2].map((i) => r[i] + ' '.repeat(widths[i] - width(r[i]))).join('  ')}  ${r[3]}`)];
 }
 
-function cardHtml(card, colKey, ownerName, now) {
+// Encoded tuples keep separators, duplicate bare IDs and equal column keys independent across projects.
+function scopedKey(project, kind, key) {
+  return encodeURIComponent(JSON.stringify([String(project), kind, String(key)]));
+}
+
+function scopedAttrs(project, kind, key) {
+  const scope = scopedKey(project.key, kind, key);
+  return ` id="workspace-${esc(scope)}" data-state-key="${esc(scope)}" data-project="${esc(project.key)}"`;
+}
+
+function projectChip(project) {
+  return `<span class="project-chip">${esc(project.label)}</span>`;
+}
+
+function cardHtml(card, colKey, ownerName, now, project) {
   const c = obj(card);
   const id = String(c.id || '');
   const title = String(c.title || '');
@@ -94,6 +108,7 @@ function cardHtml(card, colKey, ownerName, now) {
   const mark = markInfo ? c.mark : '';
 
   const hover = [id ? `${id}: ${title}` : title];
+  if (project) hover.push(`Project: ${project.label}`);
   if (next) hover.push(`Next: ${next}`);
   if (updated) hover.push(`Updated: ${updated}`);
   if (mark) hover.push(markInfo.text);
@@ -146,14 +161,16 @@ function cardHtml(card, colKey, ownerName, now) {
   } else if (owner) glyphs += `<span class="glyph glyph-claimed" title="${esc(`Claimed by ${owner}`)}">${CLAIMED_GLYPH}</span>`;
 
   let body = `<div class="head"><span class="id">${esc(id)}</span>${glyphs}</div>`;
+  if (project) body += projectChip(project);
   body += `<div class="title">${esc(title)}</div>`;
 
-  return `<div class="${classes.join(' ')}" tabindex="0" role="button" data-path="${esc(c.path || '')}" title="${esc(hover.join('\n'))}">${body}</div>`;
+  const attrs = project ? `${scopedAttrs(project, 'card', id)} data-card="${esc(id)}"` : ` data-path="${esc(c.path || '')}"`;
+  return `<div class="${classes.join(' ')}" tabindex="0" role="button"${attrs} title="${esc(hover.join('\n'))}">${body}</div>`;
 }
 
 // One toast per view from toasts.toViews: its level, glyph, word, headline and detail. A short one carries the time it
 // has left (the page removes it then); a blocked or asking one has a close button and stays.
-function toastHtml(view) {
+function toastHtml(view, project) {
   const v = obj(view);
   const level = ['progress', 'done', 'blocked', 'asking'].includes(v.level) ? v.level : 'progress';
   const key = String(v.key || '');
@@ -162,13 +179,20 @@ function toastHtml(view) {
   const classes = `toast level-${level}${kind}${v.shown ? ' shown' : ''}`;
   let attrs = level === 'blocked' || level === 'asking' ? ' role="alert"' : '';
   attrs += ` data-key="${esc(key)}"`;
+  if (project) attrs += scopedAttrs(project, 'toast', JSON.stringify([key, v.seq]));
   if (Number.isSafeInteger(v.seq) && v.seq > 0) attrs += ` data-seq="${v.seq}"`;
   if (typeof v.remainingMs === 'number') attrs += ` data-remaining="${Math.round(v.remainingMs)}"`;
-  if (path) attrs += ` data-path="${esc(path)}" tabindex="0"`;
+  if (project) {
+    if (typeof v.card === 'string' && v.card) {
+      attrs += ` data-card="${esc(v.card)}" tabindex="0"`;
+      if (level !== 'blocked' && level !== 'asking') attrs += ' role="button"';
+    }
+  } else if (path) attrs += ` data-path="${esc(path)}" tabindex="0"`;
   const close = v.closable
     ? `<button class="toast-close" type="button" data-close="${esc(key)}" aria-label="${esc(`Close ${key} toast`)}" title="Close">✕</button>`
     : '';
   let body = `<div class="toast-head"><span class="toast-glyph">${esc(v.glyph)}</span><span class="toast-word">${esc(v.word)}</span>${close}</div>`;
+  if (project) body += projectChip(project);
   body += `<div class="toast-headline">${esc(v.headline)}</div>`;
   if (v.detail) body += `<div class="toast-detail">${esc(v.detail)}</div>`;
   return `<div class="${classes}"${attrs}>${body}</div>`;
@@ -178,19 +202,20 @@ function toastsHtml(views) {
   const list = arr(views);
   if (!list.length) return '';
   const closeAll = list.length > 1 ? '<button class="toast-close-all" type="button" aria-label="close all" title="close all">✕</button>' : '';
-  return `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${list.map(toastHtml).join('')}</div>${closeAll}`;
+  return `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${list.map((view) => toastHtml(view)).join('')}</div>${closeAll}`;
 }
 
-function columnHtml(key, name, cardsHtml, count, collapsed) {
+function columnHtml(key, name, cardsHtml, count, collapsed, project) {
+  const attrs = project ? scopedAttrs(project, 'column', key) : '';
   if (count === 0) {
-    return `<section class="col col-${esc(key)} empty" data-col="${esc(key)}" title="${esc(name)}: 0"><div class="strip"><span class="name">${esc(name)}</span><span class="count">0</span></div></section>`;
+    return `<section class="col col-${esc(key)} empty${project && collapsed ? ' collapsed' : ''}" data-col="${esc(key)}"${attrs} title="${esc(name)}: 0"><div class="strip"><span class="name">${esc(name)}</span><span class="count">0</span></div></section>`;
   }
   // A column with cards can be collapsed to the same strip an empty one shows: its name and count.
   const state = collapsed ? ' collapsed' : '';
-  return `<section class="col col-${esc(key)}${state}" data-col="${esc(key)}">`
-    + `<button class="strip" type="button" data-toggle="${esc(key)}" aria-expanded="false" title="${esc(`Expand ${name} (${count})`)}"><span class="name">${esc(name)}</span><span class="count">${count}</span></button>`
+  return `<section class="col col-${esc(key)}${state}" data-col="${esc(key)}"${attrs}>`
+    + `<button class="strip" type="button" data-toggle="${esc(key)}"${project ? scopedAttrs(project, 'expand', key) : ''} aria-expanded="false" title="${esc(`Expand ${name} (${count})`)}"><span class="name">${esc(name)}</span><span class="count">${count}</span></button>`
     + `<header><span class="name">${esc(name)}</span><span class="right"><span class="count">${count}</span>`
-    + `<button class="toggle" type="button" data-toggle="${esc(key)}" aria-expanded="true" title="${esc(`Collapse ${name}`)}">▾</button></span></header>`
+    + `<button class="toggle" type="button" data-toggle="${esc(key)}"${project ? scopedAttrs(project, 'collapse', key) : ''} aria-expanded="true" title="${esc(`Collapse ${name}`)}">▾</button></span></header>`
     + `<div class="cards">${cardsHtml.join('')}</div></section>`;
 }
 
@@ -198,7 +223,7 @@ function laneHtml(lane) {
   return `<div class="lane"><div class="lane-name">${esc(lane.name)}</div><div class="lane-cols">${lane.cols.join('\n')}</div></div>`;
 }
 
-function boardColumns(board, collapsedKeys, owner, now) {
+function boardColumns(board, collapsedKeys, owner, now, project) {
   const b = obj(board);
   const shut = new Set(arr(collapsedKeys).map(String));
   const byKey = new Map();
@@ -213,7 +238,7 @@ function boardColumns(board, collapsedKeys, owner, now) {
   for (const [key, name] of order) {
     const col = byKey.get(key);
     const cards = arr(col && col.cards);
-    const html = columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner, now)), cards.length, shut.has(key));
+    const html = columnHtml(key, name, cards.map((c) => cardHtml(c, key, owner, now, project)), cards.length, shut.has(key), project);
     const laneName = col && col.lane ? String(col.lane) : '';
     if (lane && lane.name !== laneName) {
       out.push(laneHtml(lane));
@@ -446,7 +471,7 @@ const SCRIPT = `
   });
 `;
 
-function shell(inner, opts) {
+function shell(inner, opts, script = SCRIPT, extraStyle = '') {
   const o = obj(opts);
   const nonce = String(o.nonce || '').replace(/[^A-Za-z0-9+/=_-]/g, '');
   const csp = `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
@@ -456,11 +481,11 @@ function shell(inner, opts) {
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy" content="${csp}" />
 <title>Kanbanzai</title>
-<style nonce="${nonce}">${STYLE}</style>
+<style nonce="${nonce}">${STYLE}${extraStyle}</style>
 </head>
 <body>
 ${inner}
-<script nonce="${nonce}">${SCRIPT}</script>
+<script nonce="${nonce}">${script}</script>
 </body>
 </html>
 `;
@@ -468,13 +493,14 @@ ${inner}
 
 // BUG-64: the sessions asking the owner that hold no card, one line each above the columns. The time counts up on the
 // page like a card's (data-since and data-label). Nothing when there are none, or the board has no such field.
-function askingSessionsHtml(board, now) {
+function askingSessionsHtml(board, now, project) {
   const list = looseAsking(obj(board).unclaimed);
   if (!list.length) return '';
   const lines = list.map((e) => {
     const label = e.name ? `❓ session asking — ${e.name}` : '❓ a session asking';
-    return `<div class="asking-session" data-since="${e.since}" data-label="${esc(label)}">${esc(label)} ${esc(elapsed(e.since, now))}</div>`;
+    return `<div class="asking-session"${project ? scopedAttrs(project, 'session', e.label) : ''} data-since="${e.since}" data-label="${esc(label)}">${esc(label)} ${esc(elapsed(e.since, now))}</div>`;
   });
+  if (project) return `<div class="asking-sessions" role="status" title="${esc(`A session in ${project.label} is waiting for you and holds no card`)}">${projectChip(project)}${lines.join('')}</div>\n`;
   return `<div class="asking-sessions" role="status" title="A session in this project is waiting for you and holds no card">${lines.join('')}</div>\n`;
 }
 
@@ -500,6 +526,229 @@ function renderError(message, opts) {
   return shell(`<div class="error" role="alert">${esc(message)}</div>`, opts);
 }
 
+const WORKSPACE_STYLE = `
+  .workspace-toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .workspace-toolbar label { display: flex; align-items: center; gap: 6px; }
+  .workspace-toolbar select {
+    font: inherit; max-width: 100%; padding: 3px;
+    color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background);
+    border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border, transparent));
+  }
+  .workspace-toolbar select:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+  .workspace-hint, .no-matches { color: var(--vscode-descriptionForeground); }
+  .workspace-projects { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .project-section { flex: none; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  .project-section h2 { flex: none; margin: 0; font-size: 1.1em; overflow-wrap: anywhere; }
+  .workspace-grouped .project-section .board { height: min(55vh, 480px); flex: none; }
+  .workspace-single { overflow-y: hidden; }
+  .workspace-single .project-section { flex: 1; min-height: 0; }
+  .workspace-single .project-section .board { flex: 1; min-height: 0; }
+  .project-chip {
+    display: inline-block; max-width: 100%; font-size: 0.85em; font-weight: 600;
+    overflow-wrap: anywhere; color: var(--vscode-descriptionForeground);
+  }
+  .asking .project-chip, .asking-sessions .project-chip { color: inherit; }
+  .project-error, .no-matches { flex: none; margin: 0; }
+  .toast[data-card] { cursor: pointer; }
+`;
+
+// Editor-only messages never carry a disk path. The host validates the opaque project and bare card ID.
+// State merges retain hidden projects/columns, so switching scope or filtering never overwrites their scroll.
+const WORKSPACE_SCRIPT = `
+  const vscode = acquireVsCodeApi();
+  ${elapsed.toString()}
+  const root = document.querySelector('.workspace-projects');
+  const projectSelect = document.querySelector('#workspace-project');
+  const typeSelect = document.querySelector('#workspace-type');
+  const scope = root.dataset.project;
+  const record = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  const saved = record(vscode.getState());
+  const state = saved.workspaceVersion === 1 ? {
+    ...saved, boards: { ...record(saved.boards) }, cols: { ...record(saved.cols) },
+    collapsed: { ...record(saved.collapsed) }, tops: { ...record(saved.tops) }, types: { ...record(saved.types) },
+  } : { workspaceVersion: 1, boards: {}, cols: {}, collapsed: {}, tops: {}, types: {} };
+  const boards = [...document.querySelectorAll('.board[data-project]')];
+  const columns = [...document.querySelectorAll('.col[data-state-key]')];
+  const scrolls = [...document.querySelectorAll('.col .cards')];
+  if (saved.workspaceVersion === undefined && root.dataset.projectCount === '1') {
+    boards.forEach((el) => { state.boards[el.dataset.project] = Number(saved.left) || 0; });
+    scrolls.forEach((el) => { state.cols[el.parentElement.dataset.stateKey] = Number(record(saved.cols)[el.parentElement.dataset.col]) || 0; });
+  }
+  columns.forEach((el) => {
+    const collapsed = state.collapsed[el.dataset.stateKey];
+    if (typeof collapsed === 'boolean') el.classList.toggle('collapsed', collapsed);
+  });
+  if (state.focus) {
+    const focused = [...document.querySelectorAll('[data-state-key]')].find((el) => el.dataset.stateKey === state.focus);
+    if (focused) focused.focus({ preventScroll: true });
+  }
+  boards.forEach((el) => { el.scrollLeft = state.boards[el.dataset.project] || 0; });
+  scrolls.forEach((el) => { el.scrollTop = state.cols[el.parentElement.dataset.stateKey] || 0; });
+  root.scrollTop = state.tops[scope] || 0;
+  function saveState() {
+    boards.forEach((el) => { state.boards[el.dataset.project] = el.scrollLeft; });
+    scrolls.forEach((el) => { state.cols[el.parentElement.dataset.stateKey] = el.scrollTop; });
+    columns.forEach((el) => { state.collapsed[el.dataset.stateKey] = el.classList.contains('collapsed'); });
+    const focused = document.activeElement && document.activeElement.closest('[data-state-key]');
+    if (focused) state.focus = focused.dataset.stateKey;
+    state.tops[scope] = root.scrollTop;
+    state.project = projectSelect.value;
+    state.types[scope] = typeSelect.value;
+    vscode.setState(state);
+  }
+  root.addEventListener('scroll', saveState);
+  boards.forEach((el) => el.addEventListener('scroll', saveState));
+  scrolls.forEach((el) => el.addEventListener('scroll', saveState));
+  document.addEventListener('focusin', saveState);
+  document.addEventListener('change', (e) => {
+    if (e.target === projectSelect) {
+      saveState();
+      vscode.postMessage({ type: 'project-select', project: projectSelect.value });
+    } else if (e.target === typeSelect) {
+      saveState();
+      vscode.postMessage({ type: 'type-select', value: typeSelect.value });
+    }
+  });
+  setInterval(() => {
+    document.querySelectorAll('[data-since]').forEach((el) => {
+      el.textContent = el.dataset.label + ' ' + elapsed(Number(el.dataset.since), Date.now());
+    });
+  }, 15000);
+  function updateCloseAll() {
+    const button = document.querySelector('.toast-close-all');
+    if (button && document.querySelectorAll('.toast').length < 2) button.remove();
+  }
+  document.querySelectorAll('.toast[data-remaining]').forEach((el) => {
+    setTimeout(() => { el.remove(); updateCloseAll(); }, Number(el.dataset.remaining) || 0);
+  });
+  function open(el) {
+    if (el.dataset.project && el.dataset.card) {
+      vscode.postMessage({ type: 'open', project: el.dataset.project, id: el.dataset.card });
+    }
+  }
+  document.addEventListener('click', (e) => {
+    const closest = (selector) => e.target.closest ? e.target.closest(selector) : null;
+    const all = closest('.toast-close-all');
+    if (all) {
+      const instances = [];
+      document.querySelectorAll('.toast').forEach((el) => {
+        instances.push({ project: el.dataset.project, key: el.dataset.key, seq: Number(el.dataset.seq) });
+        el.remove();
+      });
+      all.remove();
+      vscode.postMessage({ type: 'toast-close-all', instances });
+      return;
+    }
+    const shut = closest('[data-close]');
+    if (shut) {
+      const el = shut.closest('.toast');
+      if (el) {
+        el.remove();
+        vscode.postMessage({ type: 'toast-close', project: el.dataset.project, key: el.dataset.key });
+      }
+      updateCloseAll();
+      return;
+    }
+    const toggle = closest('[data-toggle]');
+    if (toggle) {
+      const col = toggle.closest('.col');
+      const collapsed = !col.classList.contains('collapsed');
+      col.classList.toggle('collapsed', collapsed);
+      saveState();
+      vscode.postMessage({ type: 'collapse', project: col.dataset.project, key: col.dataset.col, collapsed });
+      return;
+    }
+    const el = closest('.card, .toast[data-card]');
+    if (el) open(el);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest ? e.target.closest('.card, .toast[data-card]') : null;
+    if (el && e.target === el) { e.preventDefault(); open(el); }
+  });
+`;
+
+function typeKey(value) {
+  const key = obj(value).key;
+  return typeof key === 'string' && key.trim() ? key : '';
+}
+
+// Core metadata first, followed by types observed on cards; never guess a type from an ID.
+function workspaceTypes(projects) {
+  const types = new Map();
+  for (const p of projects) {
+    const board = obj(p.board);
+    const seen = new Set();
+    const metadata = [...arr(board.types), ...arr(board.columns).flatMap((col) => arr(obj(col).cards).map((c) => obj(c).type))];
+    for (const type of metadata) {
+      const key = typeKey(type);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      if (!types.has(key)) types.set(key, []);
+      types.get(key).push({ project: p.label, label: typeof type.label === 'string' && type.label ? type.label : key });
+    }
+  }
+  return [...types].map(([key, labels]) => ({
+    key,
+    value: key === 'all' || key === 'untyped' ? `type:${key}` : key,
+    label: new Set(labels.map((e) => e.label)).size > 1
+      ? labels.map((e) => `${e.label} (${e.project})`).join(' / ')
+      : labels[0].label,
+  }));
+}
+
+// Additive editor entry point. The single-board/browser entry points retain their original HTML and script.
+// projects: [{key,label,board,owner,error,collapsed,toasts}], opts: {nonce,project,type,now}.
+// Selection persistence across panel/window reload belongs to the host; webview state retains view-local identities.
+function renderWorkspaceHtml(projects, opts) {
+  const o = obj(opts);
+  const seen = new Set();
+  const list = arr(projects).map(obj).filter((p) => {
+    if (typeof p.key !== 'string' || !p.key || seen.has(p.key)) return false;
+    seen.add(p.key);
+    return true;
+  }).map((p) => ({ ...p, label: typeof p.label === 'string' && p.label ? p.label : p.key }));
+  const selected = o.project === 'all' || list.some((p) => p.key === o.project)
+    ? o.project : list.length === 1 ? list[0].key : 'all';
+  const scope = selected === 'all' ? list : list.filter((p) => p.key === selected);
+  const types = workspaceTypes(scope);
+   const type = o.type === 'untyped' || types.some((t) => t.value === o.type) ? o.type : 'all';
+  const option = (key, label, value) => `<option value="${esc(key)}"${value === key ? ' selected' : ''}>${esc(label)}</option>`;
+  const hint = 'Type filters cards only; asking counts, sessions and alerts include all types in the selected project scope.';
+  let inner = '<div class="workspace-toolbar">'
+    + `<label for="workspace-project">Project <select id="workspace-project" data-state-key="project-select" aria-describedby="workspace-filter-hint">${option('all', 'All projects', selected)}${list.map((p) => option(p.key, p.label, selected)).join('')}</select></label>`
+    + `<label for="workspace-type">Type <select id="workspace-type" data-state-key="type-select" aria-describedby="workspace-filter-hint">${option('all', 'All types', type)}${types.map((t) => option(t.value, t.label, type)).join('')}${option('untyped', 'Untyped/legacy', type)}</select></label>`
+    + `<span class="workspace-hint" id="workspace-filter-hint">${hint}</span></div>\n`;
+  inner += `<main class="workspace-projects ${selected === 'all' ? 'workspace-grouped' : 'workspace-single'}" data-project="${esc(selected)}" data-project-count="${list.length}">`;
+  const now = typeof o.now === 'number' ? o.now : Date.now();
+  if (!scope.length) inner += '<p class="no-matches" role="status">No configured projects in this workspace.</p>';
+  for (const p of scope) {
+    inner += `<section class="project-section" data-project="${esc(p.key)}" aria-labelledby="workspace-${esc(scopedKey(p.key, 'heading', ''))}">`;
+    inner += `<h2 id="workspace-${esc(scopedKey(p.key, 'heading', ''))}">${esc(p.label)}</h2>`;
+    if (p.error) inner += `<div class="problems project-error" role="alert">${esc(p.label)}: ${esc(p.error)}${p.board ? ' — showing the last good board; data may be stale.' : ''}</div>`;
+    const b = obj(p.board);
+    const problems = arr(b.problems);
+    if (problems.length) inner += `<div class="problems" role="alert">${problems.map((v) => `<div>${esc(v)}</div>`).join('')}</div>`;
+    inner += askingSessionsHtml(b, now, p);
+    if (p.board && typeof p.board === 'object') {
+      const filtered = { ...b, columns: arr(b.columns).map((col) => ({
+        ...obj(col), cards: arr(obj(col).cards).filter((card) => type === 'all' || (type === 'untyped' ? !typeKey(obj(card).type) : typeKey(obj(card).type) === (type.startsWith('type:') ? type.slice(5) : type))),
+      })) };
+      const count = filtered.columns.reduce((n, col) => n + col.cards.length, 0);
+      if (!count && type !== 'all') inner += '<p class="no-matches" role="status">No matching cards. Problems and asking sessions remain visible for all types.</p>';
+      inner += `<div class="board"${scopedAttrs(p, 'board', '')}>${boardColumns(filtered, p.collapsed, p.owner, now, p).join('\n')}</div>`;
+    }
+    inner += '</section>\n';
+  }
+  inner += '</main>';
+  const toasts = scope.flatMap((p) => arr(p.toasts).map((view) => toastHtml(view, p)));
+  if (toasts.length) {
+    inner += `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${toasts.join('')}</div>`;
+    if (toasts.length > 1) inner += '<button class="toast-close-all" type="button" aria-label="close all" title="close all">✕</button>';
+  }
+  return shell(inner, o, WORKSPACE_SCRIPT, WORKSPACE_STYLE);
+}
+
 // Returns the absolute path of a brief the webview may ask to open, or null.
 // Only a relative .md path that stays inside the project's cards folder (<root>/<work>) is allowed.
 function safeBriefPath(root, rel, work) {
@@ -516,7 +765,7 @@ function safeBriefPath(root, rel, work) {
   return full;
 }
 
-const api = { renderHtml, renderContent, renderError, safeBriefPath, COLUMNS, STYLE, esc };
+const api = { renderHtml, renderContent, renderError, renderWorkspaceHtml, safeBriefPath, COLUMNS, STYLE, esc };
 if (commonJS) module.exports = api;
 else globalThis.KanbanzaiRender = api;
 })();

@@ -171,6 +171,15 @@ then the per-user folder, then PATH, and it passes its own release to the comman
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
 
+### Several projects in one editor workspace
+
+The editor Board tab offers **All projects** or one project, plus an issue-type filter. All projects stacks
+labelled boards, preserving each project's columns and lanes rather than merging unlike workflows. Explicit
+workspace folders are discovered through the core; aliases and card worktrees of the same project appear once.
+Asking counts cover the selected projects even when a type filter hides their cards. One failed project retains
+its last good board with a warning, without blanking the others. See [board-view/README.md](board-view/README.md#several-projects).
+The browser and terminal boards remain single-project.
+
 ## Board in your terminal
 
 Run `kanbanzai board --tui` in an interactive terminal to see a read-only board. Use the arrow keys or
