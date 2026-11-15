@@ -1,11 +1,11 @@
 # BUG-68: The board shows a red box for a workspace folder that is not a project
 
-- **Stage:** todo
+- **Stage:** qa-approved
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
-- **Next action:** design: decide how discovery tells a folder that is not a project apart from a project whose config is broken, then skip the former silently
-- **Where:** —
+- **Next action:** release: 0.18.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-BUG-68-0.18.0 from main fb4dc30; manual editor QA: multi-root workspace with a non-git, non-board folder shows no red box
+- **Where:** worktree BUG-68
 
 ## Goal
 
@@ -34,19 +34,56 @@ Package and release: this changes the shipped editor extension.
 
 ## Tasks
 
-Set during design, including whether the core's `config --json` answer needs a machine-readable "no project" signal instead of matching its message text.
+1. **Core: a machine-readable "no project here" answer** (owns `internal/cli/cli.go`, `internal/config/config.go`,
+   `internal/cli/cli_test.go`, `internal/config/config_test.go`). Give `config.NoProject` a flag for the one case
+   that is "this folder is not a project": no git checkout and no `KANBANZAI_PROJECT` override (the other NoProject
+   causes, an override that is not a folder and an unreadable cwd, stay errors). In `Run`, when the command is
+   `config --json` and `Find` returns that NoProject, print `{"no_project": true, "root": null,
+   "config_file": null, "reason": "<the NoProject message>"}` to stdout and exit 0. Plain `config` and every other
+   command keep exit 1 and the stderr message. Proof: a Go test runs `config --json` in an empty temp dir with
+   `KANBANZAI_PROJECT=""` (exit 0, `no_project` true, `config_file` null, stderr empty), `config` without `--json`
+   in the same dir (exit 1, "not in a git checkout"), `config --json` with `KANBANZAI_PROJECT` set to a missing path
+   (exit 1) and in a git checkout whose config is broken (exit 1, "config"); `TestNoProjectQuietCommands` keeps passing.
+2. **Extension: skip silently, keep real failures** (owns `board-view/projects.js`, `board-view/workspace.js` only if
+   needed, `board-view/extension_projects.test.mjs`; parallel with 1 once the answer shape above is fixed).
+   `fromConfig` already returns null for `config_file: null`, so the extension must skip the folder with no
+   `configError`, no `candidates` entry, no log line and no toast; do not match message text and do not test git or
+   config files in JavaScript. Fix the fake core in the multi-root fixture to model the real one: for the unconfigured
+   folder return the task-1 answer (the fixture's existing "defaults-only" answer stays for a git checkout with no
+   config). Proof: with three roots (two boards, one plain folder) the HTML has two project sections and no `configError`
+   text, no `showErrorMessage`/`showWarningMessage` call, no error-level log line and the asking count is the
+   boards' sum; a root whose `config --json` exits 1 with `kanbanzai: config: ...` still renders its labelled error;
+   the existing "bootstrap config creation discovers a previously unconfigured folder" test also passes with the plain
+   folder as the subject (the config.toml watcher already covers it).
+3. **Docs** (owns `board-view/README.md`, `docs/commands.md`, `docs/multi-project.md`, `CHANGELOG.md` under Unreleased;
+   after 1 and 2): say that discovery skips a folder whose `config --json` answers `no_project`, still reports any
+   failure, and that `config --json` exits 0 with that answer outside a project (exit 1 for plain `config`); mention the
+   change in the changelog as a fix.
+4. **Verify**: `go test ./...`, `node --test board-view/*.test.mjs opencode/*.test.mjs`, `kanbanzai check`; the manual
+   editor step in the acceptance checks is left to QA.
 
 ## Docs
 
-Likely `board-view/README.md` (what discovery skips versus what it reports as a failure) and `CHANGELOG.md` under Unreleased; confirm during design.
+`board-view/README.md`, `docs/commands.md`, `docs/multi-project.md` and `CHANGELOG.md` (Unreleased, a fix); the config comments and the OpenCode plugin are unchanged (it never calls `config --json`).
 
 ## Decisions
 
-None yet.
+- 2026-11-15 (engineer): the signal comes from the core, as an additive `no_project: true` on `config --json`'s answer
+  with exit 0, not from message text or a new exit code. `config_file: null` is already the extension's "not a board"
+  marker, so it needs no new parsing and the W-16 rule stays: a successful answer without a config is not a board, a
+  failure gets a labelled diagnostic. An exit code would need the extension's `run` to expose it, and a stderr match is
+  what the card rules out. Only the "no git checkout, no override" case is a no-project answer; a bad
+  `KANBANZAI_PROJECT` (which the extension never sets) and a broken config stay errors, so nothing real is hidden.
+- This changes `config --json` from exit 1 to exit 0 in a folder that is not a project; its only consumer that ran
+  there is the extension, which treated it as the bug. No migration: no board, config or brief shape changes.
 
 ## Progress
 
 - 2026-11-15: triaged from the owner's report; reproduced the core's exit-1 NoProject answer and found that W-16's fixture models this folder as a successful defaults-only answer, so the automated coverage missed it.
+- 2026-11-15: design settled: core emits no_project on config --json; extension skips it
+- 2026-11-15: built: core no_project answer, extension tests, docs; go test ./... and node tests green; commit fb4dc30 on branch BUG-68
+- 2026-11-15: checked: go test ./..., go vet, node 354 tests, plugin validate, vsix dry run, audit all green; diff reviewed, no findings
+- 2026-11-15: Package QA passed at fb4dc30 alone: artifacts /tmp/kanbanzai-package-BUG-68-0.18.0 (vsix sha256 16042bc7d4dc67b2cb6d69cfa7115f602ffdcc264c0715387c7430fde1ecddb4, source tar d0b4c9d88523e62eeb3a962a455c86d74b30ab9fbdd640e1601ce8a84c94afa4)
 
 ## Out of scope
 
