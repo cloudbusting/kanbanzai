@@ -38,6 +38,7 @@ Update the selector description in `README.md`; no shipped `/do` skill or adapte
 
 ## Decisions
 
+- 2026-11-15: The owner chose to hold the release at QA-approved and keep the proven 0.17.0 rehearsal artifacts at /tmp/kanbanzai-package-BUG-59-0.17.0. 0.17.0 is already tagged, so shipping needs a new version and the owner's fresh approval; nothing is pushed or published.
 - 2026-11-15: Engineering design: retain the claim continuously and let the selector recognize a provably live caller-owned claim. Releasing and reacquiring creates an avoidable race and contradicts `/do`; comparing board owner labels alone does not prove liveness. Recheck via the core's existing claim status and claim commands, not a copied claim-file policy. Free versus owned is distinguished by board owner and status; ambiguous, inconsistent or failed answers fail closed. The package skill must recheck ownership at start and respect every core refusal. No public JSON, config, state or CLI contract changes; works with either harness's normal owner label.
 - The source bundle includes `tools`, so this change requires package and release despite the project skill itself being repository-only.
 
