@@ -643,6 +643,9 @@ all other hard findings in place. It does not claim, rebase or modify work. Clai
 the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a
 competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
 Normal and whole-board audit behavior is unchanged.
+A released card's own preserved work always shows as a hard finding in the ordinary audit, and only a claim resolves it.
+A stop records no Held line for that finding when the recovery audit passes, because a held card is never eligible for
+recovery; a Held line already written for only that finding is the owner's to clear.
 
 Closing a card records `Where: main`, so a finished card's worktree is expected to outlive it. In worktree isolation
 the audit reports one that is clean and has no commits missing from the main branch as a warning, not a hard finding,

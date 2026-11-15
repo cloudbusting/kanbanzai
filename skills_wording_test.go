@@ -512,6 +512,40 @@ func TestRecoveryCoversStoppedCardBetweenSteps(t *testing.T) {
 	}
 }
 
+// BUG-67: a stop must not record a Held line for the card's own preserved work: a hold bars the claim that resolves it.
+func TestDoStopDoesNotHoldRecoverableFinding(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for file, wants := range map[string][]string{
+		"skills/do/SKILL.md": {
+			"If the only hard finding is the card's own unclaimed workspace work, run `kanbanzai wip --audit --card <ID> --recovery`",
+			"when that passes, record no Held line",
+			"Every other hard finding still becomes the Held line",
+			"A Held line that records only this finding is the owner's to clear",
+			"Yours: clear the Held line",
+		},
+		"skills/audit/SKILL.md": {
+			"A stop records no `Held:` line for that finding",
+		},
+		"README.md": {
+			"A stop records no Held line for that finding",
+		},
+	} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s lacks %q", file, want)
+			}
+		}
+	}
+}
+
 func TestBoardOnlyDirtyAuditWorkflow(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {

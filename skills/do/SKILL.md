@@ -137,7 +137,14 @@ another session's work. Renew then release the claim when stopping, including at
 work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. A stop on an
 audit finding must not leave a second blocker: record that finding as the Held line and the Next action, preserve the
 work, and release the claim; once the blocker has gone and the hold is cleared, the next `/do` resumes it through the
-recovery audit, whose warning about that card's own unclaimed work is not a new stop. If unfinished
+recovery audit, whose warning about that card's own unclaimed work is not a new stop. The exception is that one
+finding: a released card's own preserved work always shows as a hard finding in the ordinary audit, and only a claim
+resolves it, which a hold would bar. If the only hard finding is the card's own unclaimed workspace work, run
+`kanbanzai wip --audit --card <ID> --recovery`; when that passes, record no Held line, name the preserved work in
+Next, and say the next `/do` resumes through the recovery audit. Every other hard finding still becomes the Held line,
+and a card the recovery audit does not cover (no workspace, another isolation mode) keeps the ordinary rule. A Held
+line that records only this finding is the owner's to clear: do not clear it and do not claim around it; end the
+stop block with `Yours: clear the Held line (it records only this card's own preserved work)`. If unfinished
 work cannot safely be committed or a workspace removed, preserve it and say so. Do not delete another session's work.
 
 Every stop ends with the same block, last, in plain language. The stage word is the card's actual column
