@@ -1,6 +1,6 @@
 # W-30: Breakdown command and skill: turn a big requirement into triaged, sequenced cards by asking questions
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
