@@ -1,0 +1,13 @@
+{
+  "enabledPlugins": {
+    "kanbanzai@kanbanzai": true
+  },
+  "extraKnownMarketplaces": {
+    "kanbanzai": {
+      "source": {
+        "repo": "cloudbusting/kanbanzai",
+        "source": "github"
+      }
+    }
+  }
+}
