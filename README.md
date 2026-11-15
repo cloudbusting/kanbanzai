@@ -255,7 +255,7 @@ before this release. A command from before presets refuses a config that has the
 Typed ids are the default. Each type has a key (`task`), a label (`Task`) and an upper-case prefix (`TASK`); a card's
 id is `<PREFIX>-<number>`, or `<PROJECT_KEY>-<PREFIX>-<number>` when `project_key` is set. Every type allocates from
 **one global number sequence**, so `BUG-07` is the seventh item overall, not the seventh bug. The shipped defaults
-configure task, bug, change, spike and chore with `default_type = "task"`.
+configure task, bug, change, spike, chore and epic with `default_type = "task"`.
 
 ```toml
 [project]
@@ -519,7 +519,7 @@ and skills, and how to write a local one.
 
 | Preset | Delivery style | Best for | Flow | Gates | Isolation | Types, template and schema | What it does not do |
 |---|---|---|---|---|---|---|---|
-| `software` | software | A product with tests and a release, several cards in flight | todo, design, build, check, QA, ship | owner approval before ship | worktree and branch per card | task, bug, change, spike, chore; the project template | Work with no code or no release |
+| `software` | software | A product with tests and a release, several cards in flight | todo, design, build, check, QA, ship | owner approval before ship | worktree and branch per card | task, bug, change, spike, chore; the project template; epic with its own template/schema | Work with no code or no release |
 | `simple` | software-lite | A small project or a solo developer | todo, building, built, checking, done | none | branch per card, one at a time | task, bug; the project template | Design, QA, release or parallel work |
 | `docs-only` | docs | A docs site or handbook, published by merging | todo, writing, written, checking, done | none | shared checkout | page (with `Audience`), fix; own templates and schemas | Build, test or deploy |
 | `pr-review` | review | A queue of changes to review for someone else | queued, reviewing, reviewed, deciding, done | the author's response before the decision | worktree on `review/<id>` | review (`Change under review`, `Verdict`) | Writing the change itself |

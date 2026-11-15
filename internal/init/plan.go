@@ -534,7 +534,7 @@ func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x0
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
 // template are written only when they differ from the defaults; context only when asked for. With no --prefix the
-// project starts typed (task, bug, change, spike, chore); --prefix writes the legacy single-prefix shape.
+// project starts typed (task, bug, change, spike, chore, epic); --prefix writes the legacy single-prefix shape.
 func ConfigText(owner, mainBranch, template, prefix string, context []string) string {
 	var b strings.Builder
 	b.WriteString(`# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:
