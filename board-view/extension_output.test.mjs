@@ -4,14 +4,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
+import fs from "node:fs";
+import os from "node:os";
 import Module from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
+const projects = require("./projects.js");
 
-const CONFIG = { project: { owner: "Sam", work: ".kanbanzai/work" } };
+const CONFIG = { root: here, config_file: path.join(here, ".kanbanzai/config.toml"), project: { owner: "Sam", work: ".kanbanzai/work" } };
 const VERSIONED_CONFIG = { ...CONFIG, config_version: 1, config_allow_unknown: ["project.future"] };
 
 function card(id, extra = {}) { return { id, title: `T ${id}`, path: `.kanbanzai/work/1-open/${id}-x.md`, ...extra }; }
@@ -23,6 +26,14 @@ const asking = (n) => ({ waiting: n, claims: n, cards: {} });
 // Loads a fresh extension.js. `reads`, `answers` and `configs` are what the three commands print, one per run (the last
 // repeats); an entry of `null` makes that run fail, as a broken command does.
 function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], folders, throwing, missing } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kz-ext-output-"));
+  fs.mkdirSync(path.join(root, ".kanbanzai/work/1-open"), { recursive: true });
+  fs.mkdirSync(path.join(root, ".kanbanzai/cards"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".kanbanzai/config.toml"), "# fixture\n");
+  for (const b of reads) for (const col of b?.columns || []) for (const c of col.cards || []) {
+    fs.writeFileSync(path.join(root, c.path), `# ${c.id}\n`);
+  }
+  const project = projects.key(root);
   const record = (level, text) => {
     if (throwing) throw new Error("the channel is broken");
     // The one line saying which kanbanzai command is in use is tested in extension_init.test.mjs; here the log is the
@@ -49,15 +60,15 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
   };
   const vscode = {
     workspace: {
-      workspaceFolders: folders || [{ uri: { fsPath: here } }],
+      workspaceFolders: folders || [{ name: "board-view", uri: { fsPath: root } }],
       getConfiguration: () => ({ get: () => vscode.command }),
       createFileSystemWatcher: (pattern) => {
-        vscode.patterns.push(pattern && pattern.pattern);
+        vscode.patterns.push(pattern);
         return { onDidChange: () => ({ dispose() {} }), onDidCreate: () => ({ dispose() {} }), onDidDelete: () => ({ dispose() {} }), dispose() {} };
       },
       onDidChangeConfiguration: (f) => { vscode.onConfig = f; return { dispose() {} }; },
     },
-    RelativePattern: class { constructor(_base, pattern) { this.pattern = pattern; } },
+    RelativePattern: class { constructor(base, pattern) { this.base = base; this.pattern = pattern; } },
     ViewColumn: { Active: 1 },
     StatusBarAlignment: { Left: 1 },
     ThemeColor: class { constructor(id) { this.id = id; } },
@@ -68,19 +79,29 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
       showErrorMessage: (...args) => { vscode.errors.push(args); },
       showWarningMessage: () => Promise.resolve(undefined),
       showInformationMessage: (...args) => { vscode.infos.push(args); return Promise.resolve(undefined); },
-      showTextDocument: () => (vscode.openError ? Promise.reject(new Error(vscode.openError)) : Promise.resolve()),
+      showTextDocument: (file) => {
+        vscode.opened.push(file);
+        return vscode.openError ? Promise.reject(new Error(vscode.openError)) : Promise.resolve();
+      },
     },
     commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
-    channels: [], infos: [], errors: [], patterns: [], command: "kz",
+    channels: [], infos: [], errors: [], patterns: [], opened: [], command: "kz",
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const next = (list) => (list.length > 1 ? list.shift() : list[0]);
   const cp = {
     execFile: (_cmd, args, _o, cb) => {
       if (missing) return cb(Object.assign(new Error("spawn kanbanzai ENOENT"), { code: "ENOENT" }), "", "");
+      if (args[0] === "migrate") return cb(null, JSON.stringify({
+        schema_version: 1, pending: false, migrations: [], recovery: "none", warnings: [],
+      }), "");
       const list = args[0] === "sessions" ? answers : args[0] === "config" ? configs : reads;
       const entry = next(list);
       if (entry === null) return cb(new Error("boom"), "", "boom");
+      if (args[0] === "config" && entry.root === here) return cb(null, JSON.stringify({
+        ...entry, root, config_file: path.join(root, ".kanbanzai/config.toml"),
+        project: { ...entry.project, work: path.resolve(root, entry.project.work) },
+      }), "");
       if (args[0] === "board") cb(null, JSON.stringify(entry), "");
       else cb(null, JSON.stringify(entry), "");
     },
@@ -95,21 +116,22 @@ function load({ reads = [board({})], answers = [asking(0)], configs = [CONFIG], 
   const ext = require("./extension.js");
   Module._load = real;
   const context = { subscriptions: [], extensionUri: "/ext", workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
-  ext.activate(context, { sessionsMs: 20, idleMs: 20 });
-  return { panel, vscode, context, ext, item, channel };
+  ext.activate(context, { sessionsMs: 20, idleMs: 20, discoveryMs: 60000 });
+  return { panel, vscode, context, ext, item, channel, root, project };
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 30));
 const texts = (value) => (Array.isArray(value) ? value : (value && value.lines) || []).map((l) => l.text);
 // The lines about the board's content and its reads, without the folder the watcher follows (its own test below):
 // the first good read logs it too.
-const boardLines = (channel) => channel.lines.filter((l) => !l.text.startsWith("watching "));
+const boardLines = (channel) => channel.lines.filter((l) => !l.text.includes(": watching "));
 
 const run = async (opts, body) => {
   const t = load(opts);
   try { await body(t); } finally {
     for (const d of t.context.subscriptions) if (d && d.dispose) d.dispose();
     if (t.panel.disposed) t.panel.disposed();
+    fs.rmSync(t.root, { recursive: true, force: true });
   }
   // The extension never asks a modal question: scan every information message the fake saw.
   for (const call of t.vscode.infos) for (const arg of call) assert.ok(!(arg && typeof arg === "object" && arg.modal), `a modal message: ${JSON.stringify(call)}`);
@@ -132,7 +154,7 @@ test("the board panel carries the extension's icon", () => run({}, async ({ vsco
 
 test("the board writes no log file: its lines live in the channel only", () => {
   const files = readdirSync(here).filter((n) => n.endsWith(".js")).sort();
-  assert.deepEqual(files, ["browser.js", "extension.js", "init.js", "migrate.js", "output.js", "render.js", "sessions.js", "toasts.js"]);
+  assert.deepEqual(files, ["browser.js", "extension.js", "init.js", "migrate.js", "output.js", "projects.js", "render.js", "sessions.js", "toasts.js", "workspace.js"]);
   for (const name of files) {
     // init.js writes the one plan file for `init --plan` into a private temp folder (init.test.mjs holds that to one write)
     if (name === "init.js") continue;
@@ -156,11 +178,11 @@ test("a failed board read logs one error line, and the tab still shows the box",
 }, async ({ panel, vscode, channel }) => {
   vscode.run();
   await settle();
-  assert.deepEqual(channel.lines, [{ level: "error", text: "the board read failed: boom" }]);
-  assert.match(panel.webview.html, /class="error"/, "the red box stays as well");
+  assert.deepEqual(boardLines(channel), [{ level: "error", text: "board-view: the board read failed: boom" }]);
+  assert.match(panel.webview.html, /class="problems project-error"/, "the project error box stays as well");
   panel.viewState({});
   await settle();
-  assert.deepEqual(texts(channel), ["the board read failed: boom"], "the same reason again is silent");
+  assert.deepEqual(texts(boardLines(channel)), ["board-view: the board read failed: boom"], "the same reason again is silent");
   assert.equal(channel.shown, 0, "a failure does not open the channel");
 }));
 
@@ -176,8 +198,8 @@ test("a board that reads again logs the recovery once, with the count", () => ru
   panel.viewState({});
   await settle();
   assert.deepEqual(boardLines(channel), [
-    { level: "error", text: "the board read failed: boom" },
-    { level: "info", text: "the board read ok again after 2 failed reads" },
+    { level: "error", text: "board-view: the board read failed: boom" },
+    { level: "info", text: "board-view: the board read ok again after 2 failed reads" },
   ]);
   assert.equal(channel.shown, 0, "a recovery does not open the channel");
 }));
@@ -186,54 +208,92 @@ test("a failed session poll logs once, not once per poll, and its recovery once"
   answers: [null, null, null, asking(0)],
 }, async ({ channel }) => {
   for (let i = 0; i < 7; i += 1) await settle();
-  const poll = channel.lines.filter((l) => l.text.startsWith("the session poll"));
+  const poll = channel.lines.filter((l) => l.text.startsWith("board-view: the session poll"));
   assert.equal(poll.length, 2, JSON.stringify(channel.lines));
-  assert.deepEqual(poll[0], { level: "warn", text: "the session poll failed: boom" });
+  assert.deepEqual(poll[0], { level: "warn", text: "board-view: the session poll failed: boom" });
   assert.equal(poll[1].level, "info");
-  assert.match(poll[1].text, /^the session poll ok again after \d+ failed polls$/);
+  assert.match(poll[1].text, /^board-view: the session poll ok again after \d+ failed polls$/);
 }));
 
-test("a failed config read says it fell back to the default cards folder, and its recovery", () => run({
+test("a failed config read is a project diagnostic, never a guessed default board; rediscovery recovers it", () => run({
   configs: [null, CONFIG],
 }, async ({ panel, vscode, channel }) => {
   vscode.run();
   await settle();
+  assert.match(panel.webview.html, /project-error[^>]*[^]*boom/);
+  assert.doesNotMatch(panel.webview.html, /data-card=/, "no unsafe default board");
+  assert.ok(!texts(channel).some((t) => /default cards folder/.test(t)));
   assert.deepEqual(boardLines(channel), [
-    { level: "warn", text: "the config read failed: boom (using the default cards folder)" },
+    { level: "error", text: "board-view: the config read failed: boom" },
   ]);
-  panel.viewState({});
-  await settle();
-  assert.deepEqual(texts(boardLines(channel)), [
-    "the config read failed: boom (using the default cards folder)",
-    "the config read ok again after 1 failed read",
-  ], JSON.stringify(channel.lines));
+  vscode.onConfig({ affectsConfiguration: () => true });
+  await new Promise((r) => setTimeout(r, 550));
+  assert.doesNotMatch(panel.webview.html, /class="problems project-error"/);
+  assert.deepEqual(texts(boardLines(channel)).filter((t) => t.includes("the config read")), [
+    "board-view: the config read failed: boom",
+    "board-view: the config read ok again after 1 failed read",
+  ]);
 }));
 
-test("the watched folder is logged when it changes, not on every refresh", () => run({
-  configs: [CONFIG, CONFIG, { project: { owner: "Sam", work: ".kanbanzai/cards" } }],
+test("missing resolved config metadata is diagnosed, not normalized to a default cards directory", () => run({
+  configs: [{ project: { owner: "Sam", work: ".kanbanzai/work" } }],
 }, async ({ panel, vscode, channel }) => {
   vscode.run();
   await settle();
+  assert.match(panel.webview.html, /config answer has no resolved project root, config file or cards folder/);
+  assert.ok(channel.lines.some((l) => l.level === "error" && l.text.includes("board-view: the config read failed:")));
+  assert.ok(!vscode.patterns.some((p) => p.pattern === "**/*.md"), "no guessed cards watcher");
+  assert.deepEqual(vscode.opened, []);
+}));
+
+test("a failed refresh preserves the last good board under a stale banner and recovers silently", () => run({
+  reads: [board({ designed: [card("W-1")] }), null, board({ designed: [card("W-1")] })],
+}, async ({ panel, vscode, channel }) => {
+  await settle(); // open after discovery to isolate a later board failure from initial polling
+  vscode.run();
+  await settle();
+  assert.match(panel.webview.html, /data-card="W-1"/);
   panel.viewState({});
   await settle();
-  const watched = texts(channel).filter((t) => t.startsWith("watching "));
-  assert.deepEqual(watched, ["watching .kanbanzai/work/**/*.md"]);
+  assert.match(panel.webview.html, /data-card="W-1"/, "a failed read keeps the last good card");
+  assert.match(panel.webview.html, /class="problems project-error"/);
+  assert.match(panel.webview.html, /stale/);
   panel.viewState({});
   await settle();
-  assert.deepEqual(texts(channel).filter((t) => t.startsWith("watching ")), [
-    "watching .kanbanzai/work/**/*.md",
-    "watching .kanbanzai/cards/**/*.md",
+  assert.match(panel.webview.html, /data-card="W-1"/);
+  assert.doesNotMatch(panel.webview.html, /class="problems project-error"/);
+  assert.doesNotMatch(panel.webview.html, /class="toast level-/);
+  assert.deepEqual(boardLines(channel), [
+    { level: "error", text: "board-view: the board read failed: boom" },
+    { level: "info", text: "board-view: the board read ok again after 1 failed read" },
+  ]);
+}));
+
+test("the watched folder is logged when it changes, not on every refresh", () => run({
+  configs: [CONFIG, CONFIG, { ...CONFIG, project: { owner: "Sam", work: ".kanbanzai/cards" } }],
+}, async ({ panel, vscode, channel, root }) => {
+  vscode.run();
+  await settle();
+  vscode.onConfig({ affectsConfiguration: () => true });
+  await new Promise((r) => setTimeout(r, 550));
+  const watched = texts(channel).filter((t) => t.includes(": watching "));
+  assert.deepEqual(watched, [`board-view: watching ${root}/.kanbanzai/work/**/*.md`]);
+  vscode.onConfig({ affectsConfiguration: () => true });
+  await new Promise((r) => setTimeout(r, 550));
+  assert.deepEqual(texts(channel).filter((t) => t.includes(": watching ")), [
+    `board-view: watching ${root}/.kanbanzai/work/**/*.md`,
+    `board-view: watching ${root}/.kanbanzai/cards/**/*.md`,
   ]);
 }));
 
 test("old and versioned config JSON resolve the same cards folder", () => run({
   configs: [CONFIG, VERSIONED_CONFIG],
-}, async ({ panel, vscode, channel }) => {
+}, async ({ panel, vscode, channel, root }) => {
   vscode.run();
   await settle();
-  panel.viewState({});
-  await settle();
-  assert.deepEqual(texts(channel).filter((t) => t.startsWith("watching ")), ["watching .kanbanzai/work/**/*.md"]);
+  vscode.onConfig({ affectsConfiguration: () => true });
+  await new Promise((r) => setTimeout(r, 550));
+  assert.deepEqual(texts(channel).filter((t) => t.includes(": watching ")), [`board-view: watching ${root}/.kanbanzai/work/**/*.md`]);
   assert.equal(channel.lines.filter((l) => l.level === "warn" || l.level === "error").length, 0);
 }));
 
@@ -272,10 +332,10 @@ test("moves and holds are logged with the toast's words; a claim alone is not", 
   panel.viewState({});
   await settle();
   assert.deepEqual(boardLines(channel), [
-    { level: "info", text: "W-12 Designing → Designed — T W-12" },
-    { level: "info", text: "W-15 blocked — blocked: W-14" },
-    { level: "info", text: "W-17 waiting on Sam — waiting: Sam" },
-    { level: "info", text: "W-93 interrupted — T W-93" },
+    { level: "info", text: "board-view: W-12 Designing → Designed — T W-12" },
+    { level: "info", text: "board-view: W-15 blocked — blocked: W-14" },
+    { level: "info", text: "board-view: W-17 waiting on Sam — waiting: Sam" },
+    { level: "info", text: "board-view: W-93 interrupted — T W-93" },
   ], JSON.stringify(channel.lines));
   assert.equal(channel.shown, 0, "a move does not open the channel");
 }));
@@ -292,7 +352,7 @@ test("every move in a burst is logged: the log is the record, not the toast's ca
   await settle();
   const moved = boardLines(channel).filter((l) => l.text.includes("Designing → Designed"));
   assert.equal(moved.length, 5, JSON.stringify(channel.lines));
-  assert.ok(moved.every((l) => /^W-\d Designing → Designed — T W-\d$/.test(l.text)), JSON.stringify(moved));
+  assert.ok(moved.every((l) => /^board-view: W-\d Designing → Designed — T W-\d$/.test(l.text)), JSON.stringify(moved));
   assert.match(panel.webview.html, /\+2 more cards moved/, "the tab still shows its cap, the log keeps every move");
 }));
 
@@ -310,18 +370,45 @@ test("a session starting to ask logs nothing: it is a toast and a message, not h
   assert.deepEqual(boardLines(channel), [], JSON.stringify(channel.lines));
 }));
 
-test("a refused brief open is a warning naming the path; a failed one is an error", () => run({}, async ({ panel, channel, vscode }) => {
+test("opens require a project and cached card ID; refused IDs warn and editor failures are errors", () => run({
+  reads: [board({ todo: [card("W-1")] })],
+}, async ({ panel, channel, vscode, project, root }) => {
   vscode.run();
   await settle();
   panel.message({ type: "open" });
   panel.message({ type: "open", path: "../x.md" });
-  vscode.openError = "no such file";
   panel.message({ type: "open", path: ".kanbanzai/work/1-open/W-1-x.md" });
+  panel.message({ type: "open", project: "unknown", id: "W-1" });
+  panel.message({ type: "open", project, id: "../x.md" });
+  assert.deepEqual(vscode.opened, [], "path-only and forged messages never reach the editor");
+  vscode.openError = "no such file";
+  panel.message({ type: "open", project, id: "W-1" });
   await settle();
   assert.deepEqual(boardLines(channel), [
-    { level: "warn", text: "brief not opened: ../x.md (not a brief in the cards folder)" },
-    { level: "error", text: "cannot open .kanbanzai/work/1-open/W-1-x.md: no such file" },
+    { level: "warn", text: "board-view: brief not opened: ../x.md (not a brief in the cards folder)" },
+    { level: "error", text: "board-view: cannot open W-1: no such file" },
   ], JSON.stringify(channel.lines));
+  assert.deepEqual(vscode.opened, [path.join(root, ".kanbanzai/work/1-open/W-1-x.md")]);
+}));
+
+test("a board-listed brief opens from a scoped ID; an unlisted ID and a symlink escape cannot open", () => run({
+  reads: [board({ todo: [card("W-1"), card("W-2")] })],
+}, async ({ panel, vscode, project, root }) => {
+  vscode.run();
+  await settle();
+  panel.message({ type: "open", project, id: "W-1" });
+  await settle();
+  assert.deepEqual(vscode.opened, [path.join(root, ".kanbanzai/work/1-open/W-1-x.md")]);
+  panel.message({ type: "open", project, id: "W-unknown" });
+  if (process.platform !== "win32") {
+    const brief = path.join(root, ".kanbanzai/work/1-open/W-2-x.md");
+    fs.unlinkSync(brief);
+    fs.writeFileSync(path.join(root, "outside.md"), "# Outside\n");
+    fs.symlinkSync(path.join(root, "outside.md"), brief);
+    panel.message({ type: "open", project, id: "W-2" });
+  }
+  await settle();
+  assert.equal(vscode.opened.length, 1, "no unlisted or escaped path reaches the editor");
 }));
 
 test("a channel that throws never breaks the tab or the poll", () => run({

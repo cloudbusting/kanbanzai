@@ -47,6 +47,9 @@ It warns about that card's matching unclaimed workspace work instead of treating
 findings still block. It supports worktree and branch isolation, not shared or external. It does not claim or modify
 work. After claiming, run both the ordinary card audit and the recovery audit again to detect competing branch claims;
 the ordinary and whole-board audit contracts are unchanged.
+A card's own preserved work always shows as a hard finding in the ordinary audit once its claim is released, and only a claim
+resolves it, so a hold written for it could never be cleared by work. A stop records no `Held:` line for that finding when the
+recovery audit passes; a hold already written for only that finding is the owner's to clear.
 
 Anything else the project keeps that can drift (a deploy queue, leases): its context files (`project.context`) say
 how to check it. Run those checks too.

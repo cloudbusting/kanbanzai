@@ -1,11 +1,11 @@
 # BUG-59: Do's carried claim excludes its card from package selection
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-15
-- **Done:** —
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** release: 0.17.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-BUG-59-0.17.0 from main baba09a
-- **Where:** worktree BUG-59
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -50,6 +50,7 @@ Update the selector description in `README.md`; no shipped `/do` skill or adapte
 - 2026-11-15: Built caller-owned selection and package wording test-first; go test ./... and go vet ./... pass. Check must review the selection-to-claim race acceptance.
 - 2026-11-15: Check green: go test ./..., go vet ./..., node board-view 292 pass, node opencode 10 pass, hooks, node --check, claude plugin validate, config/steps, kanbanzai check and the card audit; selector rehearsed from the main checkout. Review added a fail-closed test for an unreadable caller. Commit baba09a.
 - 2026-11-15: Package QA passed at baba09a with BUG-59 alone: artifacts /tmp/kanbanzai-package-BUG-59-0.17.0, 5b9003e1a1eb71ae81b6616cdadc596acfa96534b5b7b7efa08126867ea879c3 kanbanzai-0.17.0.tar.gz; 6f5c907b8f5b71b51ad85bfdca55030bfd412553d4a48ed5bd3179ac42b10cb2 kanbanzai_0.17.0_darwin_amd64.tar.gz; 74b6fc61df690bb151917ae9a782544e42972e9b0225c36efac8c6b44fcec9ff kanbanzai_0.17.0_darwin_arm64.tar.gz; 6f461aef88e6b30b9349a930796c87aef560f07c4c98cd8608a9024852073bb3 kanbanzai_0.17.0_linux_amd64.tar.gz; fd2c0dcc854bef0d5e6f44b38616dddb0f7babda1aa78dd24fc25fc92d1b4b0a kanbanzai_0.17.0_linux_arm64.tar.gz; 4dd825940675f2a4d8fccd57be8e25d7588275ea8fce52cbdfd65b7aed156db1 kanbanzai_0.17.0_windows_amd64.zip; f7201ed7b70fc3b74a03c1e145a4bf8cece444db2d86e7541d5cb946eb0a879c kanbanzai-board-0.17.0.vsix;
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Risk
 

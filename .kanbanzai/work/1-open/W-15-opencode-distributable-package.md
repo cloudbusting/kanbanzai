@@ -4,8 +4,7 @@
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
-- **Next action:** resolve the audit finding that worktree W-15 holds unclaimed work, then resume build through the recovery audit
-- **Held:** audit: worktree W-15 holds unclaimed work; preserve it and resolve the finding before resuming
+- **Next action:** build: finish safe bundle updates and init integration, then prove both hosts
 - **Where:** worktree W-15
 
 ## Goal
@@ -71,5 +70,6 @@ Host plugin APIs and caches move; only claim evidence actually tested. Local ins
 - 2026-11-15: target compatibility starts at Claude Code 2.1.312 and OpenCode 2.2.6 within major 2, contingent on boundary tests. The design specifies embedded, local distribution and safety checks; no product implementation yet.
 - 2026-11-15: build in progress in W-15: embedded plugin assets, initial local install, OpenCode defensive changes, and restricted plugin-plan setting fragments with regression tests. Initial installer is not complete or safe to ship: refresh currently refuses different bundles, symlink checks need race-safe review, and editor/init integration and live host tests are not implemented. The fragment validation still accepts arbitrary absolute local plugin source paths for legacy `--plugin-source`; establish how an approved bundled plan binds the source and embedded version before connecting setup. `go test ./...` and OpenCode fake-harness tests passed during development; a tagged-install test initially failed because the new Go file was untracked and passed after `git add -N` made it visible to its `git ls-files` fixture.
 - 2026-11-15: Designed offline cross-harness bundle and installation safeguards; compatibility claims require host tests.
+- 2026-11-15: owner requested the audit-finding correction; normalized the invalid Held prefix to blocked, preserving the worktree and recovery requirement without resuming W-15's build.
 
 ## Comments

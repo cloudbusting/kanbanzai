@@ -209,3 +209,39 @@ test("askingTooltip names the cards and the sessions with no card that are askin
   assert.equal(S.askingTooltip({ waiting: 0 }), "Kanbanzai board");
   assert.equal(S.askingTooltip(null), "Kanbanzai board");
 });
+
+const ALPHA = { key: "project:a", label: "Alpha" };
+const BETA = { key: "project:b", label: "Beta" };
+
+test("scoped newlyAsking preserves card/session display IDs and adds independent project keys", () => {
+  const prev = ansLoose({});
+  const next = ansLoose({ "opencode:same": rec("waiting") }, { "W-01": rec("waiting") });
+  const a = S.newlyAsking(prev, next, ALPHA);
+  const b = S.newlyAsking(prev, next, BETA);
+  assert.deepEqual(a.map((e) => [e.card, e.session, e.project, e.projectLabel]), [
+    ["W-01", undefined, ALPHA.key, "Alpha"], ["", "opencode:same", ALPHA.key, "Alpha"],
+  ]);
+  assert.equal(new Set([...a, ...b].map((e) => e.key)).size, 4);
+  assert.deepEqual(S.askMessages([...a, ...b].slice(0, 3)), [
+    "Alpha: W-01 asking — proj-7b", "Alpha: session asking — proj-7b", "Beta: W-01 asking — proj-7b",
+  ]);
+});
+
+test("scoped asking keeps first-read/failure/recovery silence and only re-announces a new ask", () => {
+  const waiting = ans({ "W-01": rec("waiting") });
+  assert.deepEqual(S.newlyAsking(null, waiting, ALPHA), []);
+  assert.deepEqual(S.newlyAsking(waiting, null, ALPHA), []);
+  assert.deepEqual(S.newlyAsking(waiting, waiting, ALPHA), []);
+  assert.equal(S.newlyAsking(ans({ "W-01": rec("busy") }), waiting, ALPHA)[0].project, ALPHA.key);
+});
+
+test("askMessages accepts explicit project context and qualifies summaries without showing opaque keys", () => {
+  const list = [1, 2, 3, 4].map((n) => ({ card: `W-${n}`, name: "" }));
+  assert.deepEqual(S.askMessages(list.slice(0, 1), ALPHA), ["Alpha: W-1 asking"]);
+  assert.deepEqual(S.askMessages(list, ALPHA), ["Alpha: 4 sessions asking"]);
+  const mixed = [
+    ...S.newlyAsking(ans({}), ans({ "W-1": rec("waiting"), "W-2": rec("waiting") }), ALPHA),
+    ...S.newlyAsking(ans({}), ans({ "W-1": rec("waiting"), "W-2": rec("waiting") }), BETA),
+  ];
+  assert.deepEqual(S.askMessages(mixed), ["4 sessions asking — Alpha (2), Beta (2)"]);
+});

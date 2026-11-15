@@ -5,7 +5,7 @@ object. The shared renderer gives the editor and browser the same read-only prog
 or infer completion from stage names. Missing or malformed progress is ignored. A cancelled child is not delivery,
 and no progress read closes an EPIC or clears its tracking hold.
 
-A compact, read-only kanban of a project's Kanbanzai board, in an editor tab of VSCodium or VS Code. No drag and
+A compact, read-only kanban of the workspace's Kanbanzai boards, in an editor tab of VSCodium or VS Code. No drag and
 drop and no editing: the cards move when their briefs do.
 
 It runs `kanbanzai board --json` and `kanbanzai config --json` from the workspace root and renders the result, so the
@@ -117,9 +117,52 @@ a replacement; do not run the two setup flows concurrently.
 Click `▦ Board` in the status bar, or run **Kanbanzai: Show Board** from the command palette. The extension starts with
 the editor and shows `▦ Board` in a workspace with `.kanbanzai/config.toml`.
 
-The board refreshes half a second after a brief in the project's cards folder changes, and every 60 seconds while the
+The board refreshes half a second after a brief in a project's cards folder changes, and every 60 seconds while the
 tab is visible (the claims live outside the tree). A click, or Enter on a focused card, opens its brief as a normal
 tab. Only `.md` files inside the cards folder can be opened.
+
+## Several projects
+
+The **Project** selector offers **All projects** and each configured project. With several projects, All projects
+is the default: vertically stacked, labelled boards, each with its own columns, lanes and horizontal scrolling.
+Single-project selection uses the full tab. Every card, asking strip and notification identifies its project, so
+two `W-01` cards cannot be confused. Project/type selections and per-project collapsed columns are remembered for
+the workspace; scroll and focus are retained across board refreshes.
+
+Discovery asks `kanbanzai config --json` from each explicit workspace folder; it does not scan recursively. Add a
+nested project as its own workspace folder. A defaults-only answer with no config file is not a board. The core's
+resolved main root deduplicates aliases and card worktrees; the first matching workspace folder is used for
+commands. The bootstrap config still lives at `.kanbanzai/config.toml`, even with a relocated `project.home`;
+cards/state paths come from resolved config. Folder/config/command changes refresh discovery, with a periodic
+fallback for files outside opened worktrees. Non-file virtual workspace folders are not supported.
+
+The **Type** selector uses the type keys supplied by the core, not card-ID prefixes. In All projects, a key matches
+that type in all selected projects; conflicting labels are qualified in the menu. **Untyped/legacy** includes cards
+with no usable type metadata. A filter that matches nothing shows an explanation rather than removing the project's
+section. Types filter **cards only**: asking counts, asking strips and notifications still cover the selected
+projects. Switching filters is never treated as a card move or a new ask. If a selected project disappears,
+selection falls back to All projects (or the sole remaining project); a vanished type falls back to All types.
+
+Each project has independent watchers, polls, read baselines and notifications. Reads are serialized per folder
+and at most four run concurrently across the workspace. A failed read leaves that project's last good board with
+an error/stale banner; healthy projects remain usable. A first failure shows a diagnostic instead. Asking counts
+retain last-known values during a failed poll, with `⚠` and a tooltip naming stale/unavailable projects; they are
+not a claim that a partial count is current. Counts preserve the core's existing meaning: asking claimed cards
+plus unclaimed asking sessions, not unique sessions across a batch or across different projects.
+
+Opening a card uses its project token and board-listed ID, never a webview-supplied disk root/path. The editor
+checks that the resolved regular Markdown file remains inside that project's configured real cards directory,
+including when that directory is outside the checkout; traversal and symlink escapes are refused.
+
+The board selector does **not** retarget setup: Init, Apply, Show Setup Plan and Cancel Setup retain their documented
+**first workspace folder** target. The setup UI names that target. Migration state is separate for each project.
+For a selected single project, a pending migration retains the **Migrate** status item; in All projects, the status
+item opens Board, its tooltip lists projects needing migration, and **Kanbanzai: Migrate** asks for the target when
+ambiguous. Preview/Apply remain host commands bound to the offered project and plan hash; changing board selection
+cannot approve another project, and removing a project cancels its outstanding approval.
+
+No new board editing, network request, account, global project registry or host-file migration is added.
+`board --web` and `board --tui` remain single-project.
 
 ## What it shows
 
@@ -198,7 +241,8 @@ a merge).
 A blocked toast closes itself, and shows a short `unblocked` toast, when the cause clears. A click on a toast opens the
 card's brief. Nothing raises a toast on the first draw, on a reload, when a claim is taken or released, or when a card
 leaves the board. There is one toast per card, at most 5 shown (the oldest short one goes first; a blocked toast is
-never dropped), and a burst of more than 4 short moves shows the first 3 and `+N more cards moved`. Toasts raised while
+never dropped), and a burst of more than 4 short moves shows the first 3 and `+N more cards moved`. These limits,
+identities and bursts are per project in the editor's combined view. Toasts raised while
 the tab is hidden wait and show, with their time starting, when it is visible again. The timings are `PROGRESS_MS` and
 `DONE_MS` in `toasts.js`.
 
@@ -231,17 +275,18 @@ still shows the red box in the tab as well.
 | Level | Line | When |
 |---|---|---|
 | error | `the board read failed: <reason>` | `kanbanzai board --json` failed, or printed something that is not JSON |
-| error | `cannot open <path>: <message>` | a brief a click asked for would not open |
-| warn | `the config read failed: <reason> (using the default cards folder)` | `kanbanzai config --json` failed; the board uses the default cards folder |
+| error | `cannot open <card>: <message>` | a board-listed brief a click asked for would not open |
+| error | `the config read failed: <reason>` | `kanbanzai config --json` failed or omitted essential resolved metadata; no cards folder is guessed |
 | warn | `the session poll failed: <reason>` | `kanbanzai sessions --json` failed, gave an answer that is not a sessions answer, or there is no project folder open |
-| warn | `brief not opened: <path> (not a brief in the cards folder)` | a click asked for a path outside the cards folder, or not a `.md` |
+| warn | `brief not opened: <card> (not a brief in the cards folder)` | the scoped ID is unlisted or its target is not a confined regular `.md` file |
 | warn | `no project folder to show the board for` | the board was asked for with no project open |
 | info | `the board read ok again after N failed reads` | and the same for the config read and the session poll |
 | info | `watching <folder>/**/*.md` | the folder the watcher follows, when it changes (the first good read counts) |
 | info | `setting kanbanzai.command is now "<value>"` (or `unset`) | a change to the command setting |
 | info | `W-12 Designing → Designed — <title>` | a card moves, is added, gains a hold (blocked, waiting on the owner, interrupted) or clears one, or waits on someone else |
 
-The last are the toasts' own words, from the same comparison of two reads: every move in a read is logged, so a burst
+Editor project-specific lines are prefixed with the project label. The last are the toasts' own words, from the
+same comparison of two reads: every move in a read is logged, so a burst
 of five moves gives five lines even though the tab shows three and `+N more cards moved` (the cap is the tab's, the log
 is the record). Claims and heartbeats are not logged, nor is a session starting to ask (that is a toast and a message,
 not history). A failure is logged once for a run of the same reason, not once per 60 s refresh or 3 s poll, and one

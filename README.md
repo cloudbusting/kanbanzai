@@ -171,6 +171,15 @@ then the per-user folder, then PATH, and it passes its own release to the comman
 Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
 settings, the cards and the claims.
 
+### Several projects in one editor workspace
+
+The editor Board tab offers **All projects** or one project, plus an issue-type filter. All projects stacks
+labelled boards, preserving each project's columns and lanes rather than merging unlike workflows. Explicit
+workspace folders are discovered through the core; aliases and card worktrees of the same project appear once.
+Asking counts cover the selected projects even when a type filter hides their cards. One failed project retains
+its last good board with a warning, without blanking the others. See [board-view/README.md](board-view/README.md#several-projects).
+The browser and terminal boards remain single-project.
+
 ## Board in your terminal
 
 Run `kanbanzai board --tui` in an interactive terminal to see a read-only board. Use the arrow keys or
@@ -661,6 +670,9 @@ all other hard findings in place. It does not claim, rebase or modify work. Clai
 the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a
 competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
 Normal and whole-board audit behavior is unchanged.
+A released card's own preserved work always shows as a hard finding in the ordinary audit, and only a claim resolves it.
+A stop records no Held line for that finding when the recovery audit passes, because a held card is never eligible for
+recovery; a Held line already written for only that finding is the owner's to clear.
 
 Closing a card records `Where: main`, so a finished card's worktree is expected to outlive it. In worktree isolation
 the audit reports one that is clean and has no commits missing from the main branch as a warning, not a hard finding,

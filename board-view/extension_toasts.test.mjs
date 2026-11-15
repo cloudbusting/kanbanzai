@@ -3,11 +3,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import Module from "node:module";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
+const projects = require("./projects.js");
 
 function card(id, extra = {}) { return { id, title: `T ${id}`, path: `.kanbanzai/work/1-open/${id}-x.md`, ...extra }; }
 function board(placed) {
@@ -17,6 +17,13 @@ function board(placed) {
 // Loads a fresh extension.js; `reads` is the list of boards `kanbanzai board --json` will print, one per read.
 // `answers` is the list of what `kanbanzai sessions --json` will print (the last repeats); it never consumes a board read.
 function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "kz-ext-toasts-"));
+  fs.mkdirSync(path.join(root, ".kanbanzai/work/1-open"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".kanbanzai/config.toml"), "# fixture\n");
+  for (const b of reads) for (const col of b.columns || []) for (const c of col.cards || []) {
+    fs.writeFileSync(path.join(root, c.path), `# ${c.id}\n`);
+  }
+  const project = projects.key(root);
   const item = { show() {}, hide() {} };
   const panel = {
     visible: true,
@@ -28,7 +35,7 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
   };
   const vscode = {
     workspace: {
-      workspaceFolders: [{ uri: { fsPath: here } }],
+      workspaceFolders: [{ name: "board-view", uri: { fsPath: root } }],
       getConfiguration: () => ({ get: () => "kz" }),
       createFileSystemWatcher: () => ({ onDidChange: () => ({ dispose() {} }), onDidCreate: () => ({ dispose() {} }), onDidDelete: () => ({ dispose() {} }), dispose() {} }),
       onDidChangeConfiguration: () => ({ dispose() {} }),
@@ -39,15 +46,22 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
     ThemeColor: class { constructor(id) { this.id = id; } },
     window: {
       createOutputChannel: () => ({ info() {}, warn() {}, error() {}, show() {}, dispose() {} }),
-      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showInformationMessage: (...args) => { vscode.infos.push(args); return Promise.resolve(undefined); }, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
+      createWebviewPanel: (_type, _title, _column, options) => { panel.options = options; vscode.panels += 1; return panel; }, createStatusBarItem: () => item, showErrorMessage() {}, showInformationMessage: (...args) => { vscode.infos.push(args); return Promise.resolve(undefined); }, showTextDocument: () => Promise.resolve(), showWarningMessage: (...args) => { vscode.warnings.push(args); return Promise.resolve(vscode.choose); } },
     commands: { registerCommand: (name, f) => { if (name === "kanbanzai.showBoard") vscode.run = f; return { dispose() {} }; }, executeCommand: (name) => { vscode.executed.push(name); return Promise.resolve(); } },
-    warnings: [], infos: [], executed: [], choose: undefined,
+    warnings: [], infos: [], executed: [], choose: undefined, panels: 0,
     Uri: { file: (p) => p, joinPath: (...parts) => parts.join("/") },
   };
   const cp = {
     execFile: (_cmd, args, _o, cb) => {
+      if (args[0] === "sessions" && vscode.holdSessions) {
+        vscode.completeSession = () => cb(null, JSON.stringify(answers[0]), "");
+        return;
+      }
       if (args[0] === "sessions") return cb(null, JSON.stringify(answers.length > 1 ? answers.shift() : answers[0]), "");
-      if (args[0] === "config") return cb(null, JSON.stringify({ project: { owner: "Sam", work: ".kanbanzai/work" } }), "");
+      if (args[0] === "config") return cb(null, JSON.stringify({
+        root, config_file: path.join(root, ".kanbanzai/config.toml"), project: { owner: "Sam", work: path.join(root, ".kanbanzai/work") },
+      }), "");
+      if (args[0] === "migrate") return cb(null, JSON.stringify({ schema_version: 1, pending: false, migrations: [], recovery: "none", warnings: [] }), "");
       return cb(null, JSON.stringify(reads.length > 1 ? reads.shift() : reads[0]), "");
     },
   };
@@ -61,18 +75,32 @@ function load(reads, answers = [{ waiting: 0, claims: 0, cards: {} }]) {
   const ext = require("./extension.js");
   Module._load = real;
   const context = { subscriptions: [], extensionUri: "/ext", workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
-  ext.activate(context, { sessionsMs: 20, idleMs: 20 });
-  return { panel, vscode, context, ext, item };
+  ext.activate(context, { sessionsMs: 20, idleMs: 20, discoveryMs: 60000 });
+  return { panel, vscode, context, ext, item, project, root };
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 30));
-const toastsIn = (panel) => [...panel.webview.html.matchAll(/<div class="toast level-([a-z]+)[^>]*data-key="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+const unescape = (s) => s.replaceAll("&quot;", '"').replaceAll("&#39;", "'").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
+const toastInstances = (panel) => [...panel.webview.html.matchAll(/<div class="toast level-([a-z]+)[^>]*>/g)].map(([tag, level]) => {
+  const attr = (key) => unescape(tag.match(new RegExp(`data-${key}="([^"]*)"`))?.[1] || "");
+  return { level, key: attr("key"), project: attr("project"), seq: Number(attr("seq")) };
+});
+const toastsIn = (panel) => toastInstances(panel).map((t) => {
+  const [, kind, id] = JSON.parse(t.key);
+  return [t.level, kind === "ask-card" ? `ask:${id}` : kind === "ask-session" ? `ask-session:${id}` : id];
+});
+const toastKey = (panel, id) => {
+  const found = toastInstances(panel).find((t) => JSON.parse(t.key)[2] === id);
+  assert.ok(found, `a rendered toast for ${id}`);
+  return found.key;
+};
 
 const run = async (reads, body, answers) => {
   const t = load(reads, answers);
   try { await body(t); } finally {
     for (const d of t.context.subscriptions) if (d && d.dispose) d.dispose(); // the sessions poll
     if (t.panel.disposed) t.panel.disposed(); // and the 60 s refresh timer, once the tab was opened
+    fs.rmSync(t.root, { recursive: true, force: true });
   }
   // The extension never asks a modal question: scan every information message the fake saw.
   for (const call of t.vscode.infos) for (const arg of call) assert.ok(!(arg && typeof arg === "object" && arg.modal), `a modal message: ${JSON.stringify(call)}`);
@@ -88,20 +116,20 @@ test("no toast on the first draw; a move on the next read raises one; a blocked 
   panel.viewState({}); // a visible tab refreshes
   await settle();
   assert.deepEqual(toastsIn(panel).sort(), [["blocked", "W-2"], ["progress", "W-1"]].sort());
-  assert.match(panel.webview.html, /data-close="W-2"/);
+  assert.match(panel.webview.html, /data-close=/);
 }));
 
 test("a toast closed in the page stays closed through later rerenders, and a later change keeps the others", () => run([
   board({ building: [card("W-2")], todo: [card("W-5")] }),
   board({ building: [card("W-2", { mark: "blocked" })], todo: [card("W-5", { mark: "blocked" })] }),
   board({ building: [card("W-2", { mark: "blocked" })], todo: [card("W-5", { mark: "blocked" })], built: [card("W-4")] }),
-], async ({ panel, vscode }) => {
+], async ({ panel, vscode, project }) => {
   vscode.run();
   await settle();
   panel.viewState({}); await settle();
   assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-2", "W-5"]);
-  panel.message({ type: "toast-close", key: "W-2" });
-  panel.message({ type: "toast-close", key: "../x" }); // refused, not a card id
+  panel.message({ type: "toast-close", project, key: toastKey(panel, "W-2") });
+  panel.message({ type: "toast-close", project, key: "../x" }); // refused, not a registered toast
   panel.viewState({}); await settle();
   assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-4", "W-5"].sort(), "W-2 stays closed; W-5 stays; W-4 is new");
 }));
@@ -115,8 +143,9 @@ test("close all survives a redraw without discarding a newer toast for the same 
   vscode.run(); await settle();
   panel.viewState({}); await settle();
   assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-1", "W-2"]);
+  const instances = toastInstances(panel).map(({ project, key, seq }) => ({ project, key, seq }));
   panel.viewState({}); await settle(); // W-1 is replaced by a new instance before the old page's message arrives
-  panel.message({ type: "toast-close-all", instances: [{ key: "W-1", seq: 2 }, { key: "W-2", seq: 1 }] });
+  panel.message({ type: "toast-close-all", instances });
   panel.viewState({}); await settle();
   assert.deepEqual(toastsIn(panel).map((t) => t[1]).sort(), ["W-1", "W-3"]);
 }));
@@ -158,11 +187,12 @@ test("with no asking card the status bar is the plain label with no background",
   assert.equal(item.backgroundColor, undefined);
 }, [asking(0)]));
 
-test("a command that fails or prints rubbish leaves the plain label and no error", () => run([
+test("a command that fails or prints rubbish marks the asking total unavailable", () => run([
   board({ building: [card("W-1")] }),
 ], async ({ item }) => {
   await slow();
-  assert.equal(item.text, "▦ Board");
+  assert.equal(item.text, "▦ Board ⚠");
+  assert.match(item.tooltip, /partial\/stale: board-view/);
 }, ["not the shape"]));
 
 test("when the sessions answer changes the visible tab reads the board again; when it does not, it does not", () => run([
@@ -194,12 +224,19 @@ test("the poll stops when the extension is disposed", () => run([board({})], asy
   assert.equal(item.text, "marker");
 }));
 
-test("a poll still running when the extension is disposed writes nothing to the status bar", () => run([board({})], async ({ context, item }) => {
-  for (const d of context.subscriptions) if (d && d.dispose) d.dispose(); // before the first answer arrives
+test("a poll still running when the extension is disposed writes nothing to the status bar", () => run([board({})], async ({ context, item, vscode }) => {
+  vscode.holdSessions = true;
+  await settle();
+  assert.equal(typeof vscode.completeSession, "function", "a real session poll is in flight");
+  for (const d of context.subscriptions) if (d && d.dispose) d.dispose();
+  item.text = "disposed marker";
+  item.tooltip = "disposed tooltip";
+  item.backgroundColor = undefined;
+  vscode.completeSession();
   await slow();
-  assert.equal(item.text, "▦ Board", "the label it had at start is untouched");
+  assert.equal(item.text, "disposed marker", "a late reply cannot overwrite the disposed status");
   assert.equal(item.backgroundColor, undefined);
-  assert.equal(item.tooltip, "Kanbanzai board");
+  assert.equal(item.tooltip, "disposed tooltip");
 }, [asking(3)]));
 
 // ---- W-102: a session newly asking while the Board tab is not in front raises a message in the editor ----
@@ -211,8 +248,8 @@ const ASK = answer({ "W-12": rec("waiting") });
 test("the tab closed: a card newly asking raises one message with Open Board, and the button opens the board", () => run([board({})], async ({ vscode }) => {
   vscode.choose = "Open Board";
   await settle(); await settle();
-  assert.deepEqual(vscode.warnings, [["W-12 asking — proj-7b", "Open Board"]]);
-  assert.deepEqual(vscode.executed, ["kanbanzai.showBoard"]);
+  assert.deepEqual(vscode.warnings, [["board-view: W-12 asking — proj-7b", "Open Board"]]);
+  assert.equal(vscode.panels, 1, "Open Board opens the captured project directly");
 }, [NONE, ASK]));
 
 test("dismissing the message does not open the board", () => run([board({})], async ({ vscode }) => {
@@ -220,6 +257,7 @@ test("dismissing the message does not open the board", () => run([board({})], as
   await settle(); await settle();
   assert.equal(vscode.warnings.length, 1);
   assert.deepEqual(vscode.executed, []);
+  assert.equal(vscode.panels, 0);
 }, [NONE, ASK]));
 
 test("the tab open but hidden counts as not in front", () => run([board({})], async ({ vscode, panel }) => {
@@ -249,13 +287,13 @@ test("closing an asking toast with its ✕ keeps it closed through the next redr
   board({ building: [card("W-12", { session: rec("busy") })] }),
   board({ building: [card("W-12", { session: rec("waiting") })] }),
   board({ building: [card("W-12", { session: rec("waiting") }), card("W-13")] }),
-], async ({ panel, vscode }) => {
+], async ({ panel, vscode, project }) => {
   vscode.run();
   await settle();
   panel.viewState({}); await settle();
   assert.ok(toastsIn(panel).some((t) => t[1] === "ask:W-12"), "the ask is shown");
-  panel.message({ type: "toast-close", key: "ask:W-12" });
-  panel.message({ type: "toast-close", key: "ask:../x" }); // still refused
+  panel.message({ type: "toast-close", project, key: toastKey(panel, "W-12") });
+  panel.message({ type: "toast-close", project, key: "ask:../x" }); // still refused
   panel.viewState({}); await settle();
   assert.ok(!toastsIn(panel).some((t) => t[1] === "ask:W-12"), "closed stays closed");
 }));
@@ -264,6 +302,23 @@ test("a failed poll keeps the last good answer as the baseline: the ask after it
   for (let i = 0; i < 8; i += 1) await settle();
   assert.equal(vscode.warnings.length, 1);
 }, [NONE, null, ASK]));
+
+test("failed polls retain the last asking total as stale and recovery does not re-announce it", () => {
+  const answers = [ASK];
+  return run([board({})], async ({ item, vscode }) => {
+    await settle();
+    assert.equal(item.text, "▦ Board ❓1");
+    answers[0] = null;
+    await settle();
+    assert.equal(item.text, "▦ Board ❓1 ⚠");
+    assert.match(item.tooltip, /partial\/stale: board-view/);
+    answers[0] = ASK;
+    await settle();
+    assert.equal(item.text, "▦ Board ❓1");
+    assert.doesNotMatch(item.tooltip, /partial\/stale/);
+    assert.deepEqual(vscode.warnings, [], "recovery retains the already-asking baseline");
+  }, answers);
+});
 
 // ---- BUG-64: a session asking with no card ----
 const LOOSE = { "claude:c5e836e4": { state: "waiting", since: 1, name: "proj-b5" } };
@@ -279,8 +334,8 @@ test("the status bar counts a session asking with no card, and the tooltip says 
 test("the tab closed: a session newly asking with no card raises one message with its name", () => run([board({})], async ({ vscode }) => {
   vscode.choose = "Open Board";
   await settle(); await settle();
-  assert.deepEqual(vscode.warnings, [["session asking — proj-b5", "Open Board"]]);
-  assert.deepEqual(vscode.executed, ["kanbanzai.showBoard"]);
+  assert.deepEqual(vscode.warnings, [["board-view: session asking — proj-b5", "Open Board"]]);
+  assert.equal(vscode.panels, 1, "Open Board opens the captured project directly");
 }, [looseAnswer({}), looseAnswer(LOOSE)]));
 
 test("no message for a session already asking at the first poll, or still asking at the next", () => run([board({})], async ({ vscode }) => {
@@ -292,14 +347,15 @@ test("the tab in front: a session asking with no card is a toast and a strip, an
   { ...board({}), unclaimed: {} },
   { ...board({}), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
   { ...board({ todo: [card("W-13")] }), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
-], async ({ panel, vscode }) => {
+], async ({ panel, vscode, project }) => {
   vscode.run();
   await settle();
   panel.viewState({}); await settle();
-  const key = "ask:sc-c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+  const label = "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+  const key = `ask-session:${label}`;
   assert.ok(toastsIn(panel).some((t) => t[1] === key), "the ask is shown");
   assert.match(panel.webview.html, /class="asking-sessions"/);
-  panel.message({ type: "toast-close", key });
+  panel.message({ type: "toast-close", project, key: toastKey(panel, label) });
   panel.viewState({}); await settle();
   assert.ok(!toastsIn(panel).some((t) => t[1] === key), "closed stays closed");
   assert.match(panel.webview.html, /class="asking-sessions"/, "the strip stays while it asks");

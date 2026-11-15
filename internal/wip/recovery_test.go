@@ -1,8 +1,10 @@
 package wip
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 )
 
@@ -60,5 +62,59 @@ func TestRecoveryAcceptsFinishedStepColumns(t *testing.T) {
 	todo := CardsByColumn{"todo": {{Item: "W-07", Where: "—"}}}
 	if recoveryEligible(project, todo, worktrees, nil, "W-07", nil) {
 		t.Fatal("a card with no recorded workspace must be ineligible")
+	}
+}
+
+// BUG-67: the W-15 shape. A card stopped mid-build, its claim released, its work preserved in its own worktree. The
+// ordinary audit calls that unclaimed work a hard finding; the stop rule must not turn it into a hold, because a hold
+// bars the claim that resolves it. These tests pin the safe route and every case that must still stop.
+func TestRecoveryAfterStopWithoutHold(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	cards := CardsByColumn{"building": {{Item: "W-15", Where: "worktree W-15"}}}
+	trees := []Worktree{tree("/x/W-15", "W-15", 9, 0, "W-15")}
+
+	hard, _, _ := reconcile(project, cards, trees, nil, "W-15", nil, false)
+	if len(hard) != 1 || !strings.Contains(hard[0], "holds unclaimed work for W-15") {
+		t.Fatalf("ordinary audit should report exactly the card's own unclaimed work: %v", hard)
+	}
+	if !recoveryEligible(project, cards, trees, nil, "W-15", nil) {
+		t.Fatal("an unheld, unclaimed card with its one worktree must be eligible for recovery")
+	}
+	hard, soft, _ := reconcile(project, cards, trees, nil, "W-15", nil, true)
+	if len(hard) != 0 || !strings.Contains(strings.Join(soft, "\n"), "recovery requires a claim") {
+		t.Fatalf("recovery audit: hard %v soft %v", hard, soft)
+	}
+
+	// After the caller claims it, the ordinary audit passes without any hold being cleared.
+	mine := map[string]map[string]any{"W-15": liveRecord("W-15", claim.OwnerLabel(project))}
+	hard, _, _ = reconcile(project, cards, trees, mine, "W-15", nil, false)
+	if len(hard) != 0 {
+		t.Fatalf("a caller claim must resolve the finding: %v", hard)
+	}
+}
+
+func TestRecoveryAfterStopStillStopsForGenuineBlockers(t *testing.T) {
+	project := testProject(t, defaultConfig)
+	cards := CardsByColumn{"building": {{Item: "W-15", Where: "worktree W-15"}}}
+	trees := []Worktree{tree("/x/W-15", "W-15", 9, 0, "W-15")}
+
+	if recoveryEligible(project, cards, trees, nil, "W-15", map[string]bool{"W-15": true}) {
+		t.Fatal("a hold, including one written for this finding, keeps the card ineligible: the owner clears it")
+	}
+	other := map[string]map[string]any{"W-15": liveRecord("W-15", "opencode:ses_other")}
+	if recoveryEligible(project, cards, trees, other, "W-15", nil) {
+		t.Fatal("another session's live claim must stop recovery")
+	}
+	split := append(append([]Worktree{}, trees...), tree("/y/W-15", "W-15", 0, 1, "W-15"))
+	if recoveryEligible(project, cards, split, nil, "W-15", nil) {
+		t.Fatal("work in two worktrees must stop recovery")
+	}
+	hard, _, _ := reconcile(project, cards, split, nil, "W-15", nil, true)
+	if len(hard) == 0 {
+		t.Fatalf("the recovery audit must keep an unrelated hard finding: %v", hard)
+	}
+	hard, _, _ = reconcile(project, cards, nil, nil, "W-15", nil, true)
+	if len(hard) == 0 {
+		t.Fatalf("a missing worktree must stay hard under recovery: %v", hard)
 	}
 }

@@ -11,6 +11,19 @@ and the editor extension carry the same version.
   rejects invalid/nested membership and `board --json` adds optional read-only `epic` progress counters, displayed
   by terminal/editor/browser boards. Cancellation is not delivery; closure remains explicit through the workflow.
 
+## [0.18.0] — 2026-11-15
+
+- BUG-64: the board shows `❓ asking`, the glow and the toast for a Claude Code session that has the question tool open, instead of showing the card as blocked.
+- BUG-59: the package step accepts a Checked card that `/do` carries in a live claim, so a `/do` run can package it; cards held by another session, with an expired claim or not merged stay out.
+- BUG-67: `/do` no longer deadlocks on a card's own preserved work. A released card's work always shows as a hard
+  finding in the ordinary audit and only a claim resolves it, yet the stop rule recorded that finding as a Held line,
+  which bars both the recovery audit and the claim. A stop now records no Held line for that one finding when
+  `wip --audit --card ID --recovery` passes; every other hard finding still holds the card, and a Held line already
+  written for only this finding is the owner's to clear. Skill wording only: the audit commands are unchanged.
+- W-16: the editor board discovers configured workspace projects, deduplicates worktree aliases, and offers
+  grouped All projects / single-project boards and a type filter. Project-scoped cards, notifications and opening
+  prevent duplicate-ID collisions; independent reads retain last-good boards and explicitly mark stale counts.
+  Setup keeps its first-folder target, migration approvals remain project-bound, and browser/TUI scope is unchanged.
 - CHANGE-66: `kanbanzai install`, and so the editor's Kanbanzai: Apply, links the command as `~/.local/bin/kanbanzai`
   on Linux and macOS (making the folder if it is missing, never replacing anything already there) and warns when
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user

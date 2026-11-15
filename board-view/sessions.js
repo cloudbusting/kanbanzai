@@ -55,6 +55,21 @@ function plainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Optional editor context. The browser and old callers stay unscoped; opaque keys are never display labels.
+function projectContext(value) {
+  if (!plainObject(value) || typeof value.key !== 'string' || !value.key) return null;
+  return { key: value.key, label: typeof value.label === 'string' && value.label ? value.label : 'Project' };
+}
+
+function projectFields(project) {
+  return project ? { project: project.key, projectLabel: project.label } : {};
+}
+
+// JSON tuples preserve full identities without delimiter, sanitization or truncation collisions.
+function scopedKey(project, kind, id = '') {
+  return JSON.stringify([project.key, kind, String(id)]);
+}
+
 // The sessions asking with no card in `unclaimed` (the sessions answer's or the board's): [{ label, name, since }], in label
 // order, only those waiting for the owner. Anything else in the object is ignored.
 function looseAsking(unclaimed) {
@@ -67,7 +82,7 @@ function looseAsking(unclaimed) {
 // W-102: the cards asking in `next` that were not asking in `prev` (two parsed answers), each with its session's name.
 // Nothing without a previous answer (the first poll, or one that failed), so a session already asking when the window
 // opens is not announced.
-function newlyAsking(prev, next) {
+function newlyAsking(prev, next, project) {
   const cards = (a) => (a && typeof a === 'object' && a.cards && typeof a.cards === 'object' && !Array.isArray(a.cards) ? a.cards : null);
   const before = cards(prev);
   const after = cards(next);
@@ -78,18 +93,37 @@ function newlyAsking(prev, next) {
   // BUG-64: a session asking with no card is new when its label was not asking before; its entry has no card.
   const wasAsking = new Set(looseAsking(prev.unclaimed).map((e) => e.label));
   for (const e of looseAsking(next.unclaimed)) if (!wasAsking.has(e.label)) found.push({ card: '', session: e.label, name: e.name });
-  return found;
+  const scope = projectContext(project);
+  return scope ? found.map((e) => ({
+    ...e, ...projectFields(scope), key: scopedKey(scope, e.card ? 'ask-card' : 'ask-session', e.card || e.session),
+  })) : found;
 }
 
 const MAX_MESSAGES = 3;
 
 // The editor messages for those cards: one line each up to three, then one summary.
-function askMessages(list) {
+function askMessages(list, project) {
   const l = Array.isArray(list) ? list : [];
-  if (l.length > MAX_MESSAGES) return [`${l.length} sessions asking`];
+  const fallback = projectContext(project);
+  const scopeOf = (c) => projectContext({ key: c.project, label: c.projectLabel }) || fallback;
+  const prefix = (scope, text) => scope ? `${scope.label}: ${text}` : text;
+  if (l.length > MAX_MESSAGES) {
+    const groups = new Map();
+    for (const c of l) {
+      const scope = scopeOf(c);
+      const key = scope ? scope.key : null;
+      if (!groups.has(key)) groups.set(key, { scope, count: 0 });
+      groups.get(key).count += 1;
+    }
+    const summary = `${l.length} sessions asking`;
+    if (groups.size === 1) return [prefix(groups.values().next().value.scope, summary)];
+    return [`${summary} — ${Array.from(groups.values(), (g) => `${g.scope ? g.scope.label : 'Unscoped'} (${g.count})`).join(', ')}`];
+  }
   return l.map((c) => {
-    if (!c.card) return c.name ? `session asking — ${c.name}` : 'a session asking'; // no card to name
-    return c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`;
+    const text = !c.card
+      ? (c.name ? `session asking — ${c.name}` : 'a session asking') // no card to name
+      : (c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`);
+    return prefix(scopeOf(c), text);
   });
 }
 
@@ -105,7 +139,10 @@ function askingTooltip(answer) {
   return parts.length ? `Kanbanzai board: ${parts.join('; ')}` : 'Kanbanzai board';
 }
 
-const api = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, askingTooltip, looseAsking, PLAIN };
+const api = {
+  elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, askingTooltip, looseAsking, PLAIN,
+  projectContext, projectFields, scopedKey,
+};
 if (typeof module === 'object' && module.exports) module.exports = api;
 else globalThis.KanbanzaiSessions = api;
 })();

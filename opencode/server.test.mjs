@@ -130,7 +130,8 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
 
     for (const [name, patterns] of [
       ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/,
-        /after `kanbanzai tree --merge <ID>`/]],
+        /after `kanbanzai tree --merge <ID>`/,
+        /when that passes, record no Held line/, /A Held line that records only this finding is the owner's to clear/]],
       ["next", [/batch handoff/, /kanbanzai ask <ID>/, /releases that card's claim/, /`\/answer`/, /`kanbanzai tree --json`/]],
       ["audit", [/`kanbanzai tree --json`/, /`board-only`/]],
       ["check", [/### The integration merge/, /`kanbanzai tree --merge <ID>`/, /Exit 1 \(`blocked`\)/, /Never stash, stage, commit, reset, discard/]],

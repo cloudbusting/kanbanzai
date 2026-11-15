@@ -77,7 +77,9 @@ function load({ root, script, choices = [] }) {
       const a = (script && script(args)) || {};
       if (a.code) return cb(Object.assign(new Error("failed"), { code: a.code }), a.stdout || "", a.stderr || "");
       if (a.stdout !== undefined) return cb(null, a.stdout, "");
-      return cb(null, JSON.stringify(args[0] === "sessions" ? SESSIONS : { columns: [], problems: [] }), "");
+      return cb(null, JSON.stringify(args[0] === "sessions" ? SESSIONS : args[0] === "config" ? {
+        root, config_file: path.join(root, ".kanbanzai/config.toml"), project: { owner: "Sam", work: path.join(root, ".kanbanzai/work") },
+      } : { columns: [], problems: [] }), "");
     },
   };
   const real = Module._load;
@@ -170,6 +172,7 @@ test("with nothing pending, or a command too old to know migrate, nothing is sho
 
 test("the Kanbanzai: Migrate command looks now and says when there is nothing to migrate", async () => {
   await run({ root: project(), script: (args) => (args[0] === "migrate" ? { stdout: NONE } : undefined) }, async (t) => {
+    await settle(); // inventory establishes the host-owned migration target
     assert.equal(typeof t.commands["kanbanzai.migrate"], "function");
     await t.commands["kanbanzai.migrate"]();
     await settle();
