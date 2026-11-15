@@ -1,10 +1,10 @@
 # W-16: Board view: multi-project workspace selector, combined and separate boards
 
-- **Stage:** building
+- **Stage:** in-qa
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** this brief's Design and Decisions (W-16); grouped layout accepted by the owner on 2026-11-15
-- **Next action:** build: task 1, write failing project model/inventory tests in board-view/projects.test.mjs, then implement board-view/projects.js
+- **Next action:** package: export committed main, build five binaries and real VSIX, run artifact install proofs, record checksums; manual editor QA remains
 - **Where:** worktree W-16
 
 ## Goal
@@ -17,35 +17,35 @@ workflow, identity and asking counts. Claims, sessions, watchers, toasts and bri
 
 ## Acceptance checks
 
-- [ ] `node --test board-view/projects.test.mjs board-view/extension_projects.test.mjs` proves three configured
+- [x] `node --test board-view/projects.test.mjs board-view/extension_projects.test.mjs` proves three configured
   projects (two matching flows, one different flow), plus an unconfigured folder. Every configured project appears
   once in workspace order; the unconfigured folder does not acquire a default board. Main/worktree/symlink aliases
   of one resolved root do not duplicate its board, watcher, asking count or notifications. Relocated home/work/state
   paths come from `config --json`, not guesses.
-- [ ] Discovery tests prove `KANBANZAI_PROJECT` inherited by the editor cannot redirect another folder's commands;
+- [x] Discovery tests prove `KANBANZAI_PROJECT` inherited by the editor cannot redirect another folder's commands;
   adding/removing folders, creating/deleting the bootstrap config and changing config/command refresh the inventory
   without restarting the editor. A missing/malformed command answer produces a project-local diagnostic, not a crash.
-- [ ] `node --test board-view/board_view.test.mjs` proves All projects stacks labelled boards without merging,
+- [x] `node --test board-view/board_view.test.mjs` proves All projects stacks labelled boards without merging,
   renaming or reordering their columns/lanes. Every card and unclaimed-session strip identifies its project;
   equal column keys and duplicate `W-01` IDs remain independent, including owner-specific hover text.
-- [ ] Project and type selectors are keyboard accessible and restored after panel/window reload. Project selection
+- [x] Project and type selectors are keyboard accessible and restored after panel/window reload. Project selection
   changes board and status scope immediately. Type filtering uses core-supplied type keys (never ID parsing),
   includes an explicit Untyped/legacy option, and changes cards only, not asking counts or alerts. Removing a
   selected project/type falls back safely as specified below; merely changing a filter raises no move/asking toast.
-- [ ] Collision tests cover two `W-01` cards, equal column keys and the same unclaimed-session label in two projects:
+- [x] Collision tests cover two `W-01` cards, equal column keys and the same unclaimed-session label in two projects:
   open, toast close/close-all, collapse, scroll and focus restoration never affect the other project. Unknown
   project tokens, arbitrary paths, forged/mismatched card IDs, traversal and symlink escapes cannot open a file.
   A core-configured cards directory outside the main checkout can still open its board-listed briefs safely.
-- [ ] Per-project failure tests preserve the last good board with a stale/error banner and leave other projects
+- [x] Per-project failure tests preserve the last good board with a stale/error banner and leave other projects
   live. Session-poll failures retain baselines and mark partial/stale asking totals; recovery does not re-announce
   every ask. A slow read cannot overwrite a newer inventory or resurrect a removed/disposed project.
-- [ ] Watch/poll tests prove 500 ms brief debounce, visible-board 60 s refresh and per-project session cadence
+- [x] Watch/poll tests prove 500 ms brief debounce, visible-board 60 s refresh and per-project session cadence
   (3 s active/asking, 15 s otherwise), even with the panel closed. Disposal/removal releases watchers and timers;
   one in-flight read per project and bounded workspace-wide concurrency prevent refresh multiplication.
-- [ ] Setup regression tests retain the documented first-folder target and its pending-plan/approval semantics.
+- [x] Setup regression tests retain the documented first-folder target and its pending-plan/approval semantics.
   Per-project migration tests bind Preview/Apply to the offered project and hash even if selection changes, keep
   pending state separate for identical hashes, and never apply from discovery or a board webview message.
-- [ ] `node --test board-view/*.test.mjs opencode/*.test.mjs` and `go test ./...` pass, including the existing
+- [x] `node --test board-view/*.test.mjs opencode/*.test.mjs` and `go test ./...` pass, including the existing
   single-project browser, fake-harness and embedded-asset tests. `go vet ./...` passes. No CLI JSON/config/brief
   contract, dependency, outbound network request or browser hosting scope changes.
 - [ ] Owner's manual QA (not claimed by automated tests): in a trusted VS Code/VSCodium multi-root workspace,
@@ -64,44 +64,44 @@ step builds/proves the distributable set; release/version/publication remain own
 Tests are written before their implementation. Tasks 1–3 can run in parallel: their owned files do not overlap.
 Then do 4, 5, 6 and 7 in order; task 4 integrates the interfaces established by 1–3.
 
-- [ ] 1. Project model, inventory and selection state — owns new `board-view/projects.js` and
+- [x] 1. Project model, inventory and selection state — owns new `board-view/projects.js` and
   `board-view/projects.test.mjs`. Implement defensive config-answer normalization, canonical-root deduplication,
   collision-free project/card/column identities, workspace/type selection restoration, and the board-membership /
   realpath-confinement helper for brief opening. Inject filesystem/command dependencies for tests. Prove configured
   vs unconfigured roots, aliases/worktrees, outside-root work folders, optional/bad metadata and malicious opens
   with `node --test board-view/projects.test.mjs`. Export the small interface task 4 consumes; no workflow rules.
-- [ ] 2. Scoped notification helpers — owns `board-view/toasts.js`, `board-view/toasts.test.mjs`,
+- [x] 2. Scoped notification helpers — owns `board-view/toasts.js`, `board-view/toasts.test.mjs`,
   `board-view/sessions.js`, `board-view/sessions.test.mjs`, `board-view/output.js`, `board-view/output.test.mjs`.
   Add optional project context and collision-free identities while preserving unscoped single-project APIs/output.
   Qualify multi-project headlines/logs; preserve first-read silence, sticky causes, hidden queues, failure baselines,
   burst caps and sequence-specific close-all. Prove duplicate card/session IDs cannot overwrite or close one another
   with `node --test board-view/toasts.test.mjs board-view/sessions.test.mjs board-view/output.test.mjs`.
-- [ ] 3. Grouped presentation — owns `board-view/render.js` and `board-view/board_view.test.mjs`. Add an editor
+- [x] 3. Grouped presentation — owns `board-view/render.js` and `board-view/board_view.test.mjs`. Add an editor
   workspace renderer around the existing single-board renderer: project/type toolbar, labelled independent boards,
   project chips, per-project banners, accessible filter messages and project-scoped open/collapse/focus/scroll
   state. Keep `renderHtml(board, opts)` / script-free `renderContent(board, opts)` compatible by default for the
   browser. Test unlike flows, owner names, type metadata, collisions, escaped labels and nonce CSP with
   `node --test board-view/board_view.test.mjs`.
-- [ ] 4. Editor integration and lifecycle — owns `board-view/extension.js`, new `board-view/workspace.js`, new
+- [x] 4. Editor integration and lifecycle — owns `board-view/extension.js`, new `board-view/workspace.js`, new
   `board-view/extension_projects.test.mjs`, `board-view/extension_toasts.test.mjs`,
   `board-view/extension_output.test.mjs`. Replace single-root panel/session state with inventory-backed project
   controllers; wire selectors, watchers, bounded reads, polling, last-good caches, status totals, notifications
   and registry-validated open/close/collapse messages. Clear inherited project override in subprocess environments.
   Keep machine command resolution and install-refresh activation-wide. Prove the three-project fixture, inventory
   changes, duplicates, partial failures, stale asynchronous replies and complete disposal with those three tests.
-- [ ] 5. Bind setup/migration targets — owns `board-view/extension.js` (after task 4),
+- [x] 5. Bind setup/migration targets — owns `board-view/extension.js` (after task 4),
   `board-view/migrate.js`, `board-view/migrate.test.mjs`, `board-view/extension_migrate.test.mjs`,
   `board-view/extension_init.test.mjs`. Use project-bound migration controllers/labels and select an explicit
   migration target in All projects. Preserve the first-folder setup contract and saved-plan binding; board selection
   must never retarget an approval. Reconcile inventory after setup/migration completes. Prove a selector change
   during Preview/Apply, identical hashes on two roots, removal during a prompt and the existing setup suite.
-- [ ] 6. Shared-host and distribution regression proof — owns `board-view/browser.test.mjs` and
+- [x] 6. Shared-host and distribution regression proof — owns `board-view/browser.test.mjs` and
   `internal/webboard/server_test.go` for regression tests only. Prove the existing browser remains single-project,
   retains script-free content rendering, literal brief opening, collapse/focus and local capability/CSP boundaries
   when shared helpers change. Run `node --test board-view/*.test.mjs opencode/*.test.mjs`, `go test ./...` and
   `go vet ./...`; fix red only in the task-owned implementation files by returning to that task. Confirm new editor
   helpers are included by the VSIX packer's existing `.js` enumeration; do not add editor code to browser assets.
-- [ ] 7. Document and hand off — owns `README.md`, `board-view/README.md`, `CHANGELOG.md` (Unreleased only).
+- [x] 7. Document and hand off — owns `README.md`, `board-view/README.md`, `CHANGELOG.md` (Unreleased only).
   Document grouped boards, discovery/non-recursion, filters, count semantics, error/stale behavior, setup/migration
   targets and browser non-scope. Link the manual QA above and record what remains for the owner. Run
   `kanbanzai check` and review docs against the automated fixture; packaging/release owns version changes.
@@ -235,10 +235,24 @@ unchanged because their contracts do. Do not take over W-18's broader documentat
   removed-project migration approvals. Initial broad checks found wording caught by the neutral-text guard and a
   stale worktree copy of this brief containing session labels; preserve the current sanitized design in git before
   rerunning the complete checks. Manual editor QA remains unrun.
+- 2026-11-15: build complete: grouped workspace boards, project/type state, confined ID-based opens,
+  scoped notifications/logs, independent last-good caches, bounded per-root reads and project-bound migrations.
+  Red runs proved the missing multi-root behavior, type-sentinel collisions, removed-target migration writes,
+  and unbounded migration reads; all are fixed. Complete Node run: 349 passed, zero failed/skipped; `go test ./...`
+  and `go vet ./...` pass. Existing browser/server regression tests suffice without changing their files.
+  Reserved UI type values are escaped so valid core types named all or untyped remain selectable.
+- 2026-11-15: check/review passed: Go suite, vet, board 340/340 and OpenCode 10/10, hooks and JS syntax,
+  Claude plugin validation, resolved workflow/config, card audit and 64-card board check. A review regression proved
+  that config-only flow changes with unchanged paths initially left the old view until polling; event-triggered
+  rediscovery now refreshes that board immediately and its new test passes. VSIX development dry run includes all
+  runtime helpers and no baked checkout path or bin.json; the preferred temp directory was not writable, so this
+  non-release dry run is in the worktree's ignored dist/qa-W-16-dryrun/. Owner's editor QA remains explicitly unrun.
 - 2026-11-15: Design and owned-file build plan recorded; completion stopped because kanbanzai check reports W-15's invalid Held prefix (audit: instead of blocked: or waiting:). W-16 itself has no reported validation error; no unrelated card was edited.
 - 2026-11-15: Owner-authorized W-15 Held-prefix bookkeeping correction preserved its recovery hold; kanbanzai check now passes (64 cards). W-16's validation blocker is cleared.
 - 2026-11-15: Design complete: owner-approved grouped boards, project/type scope and identity model, read-only boundaries, ordered owned-file build tasks, and automated/manual acceptance checks. kanbanzai check passes after the authorized W-15 prefix correction.
 - 2026-11-15: Build starting from the recorded design after passing the recovery audits; worktree fast-forwarded to current main before implementation.
+- 2026-11-15: Build finished; all seven tasks implemented/proved and documented. Node 349/349 pass; go test ./... and go vet ./... pass. No product version bump, outbound network or core-contract change.
+- 2026-11-15: Check complete and full diff reviewed; committed bf3cd5a (W-16 grouped workspace boards). Go/vet, 340 board tests, 10 OpenCode tests, syntax/hooks/manifests, config, audit/check and VSIX development dry run passed. Owner's multi-root editor QA is not run; package will produce the real bundled-command artifact.
 
 ## Out of scope
 

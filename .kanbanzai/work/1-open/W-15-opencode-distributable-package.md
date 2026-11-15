@@ -4,8 +4,7 @@
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
-- **Next action:** resolve the audit finding that worktree W-15 holds unclaimed work, then resume build through the recovery audit
-- **Held:** blocked: worktree W-15 holds unclaimed work; preserve it and resolve the finding before resuming through the recovery audit
+- **Next action:** build: finish safe bundle updates and init integration, then prove both hosts
 - **Where:** worktree W-15
 
 ## Goal
