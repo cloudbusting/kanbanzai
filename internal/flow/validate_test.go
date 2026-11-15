@@ -238,6 +238,18 @@ func TestTheShippedSkillListMatchesSkillsFolder(t *testing.T) {
 	}
 }
 
+// W-07: the workflow skill is shipped, so the name list the validator checks against accepts it; the list still
+// matches the skills folder exactly (TestShippedSkillsMatchTheSkillsFolder).
+func TestTheWorkflowSkillIsAShippedSkillName(t *testing.T) {
+	if !contains(ShippedSkills, "workflow") {
+		t.Fatalf("ShippedSkills = %v, want workflow among them", ShippedSkills)
+	}
+	text := strings.Replace(base, `skill = "kanbanzai:check"`, `skill = "kanbanzai:workflow"`, 1)
+	if r := validate(t, "", text); !r.OK || len(r.Findings) != 0 {
+		t.Fatalf("kanbanzai:workflow is refused: %+v", r.Findings)
+	}
+}
+
 func TestInvalidGatesAndSkipRulesAreReportedOnce(t *testing.T) {
 	cases := []struct {
 		name string

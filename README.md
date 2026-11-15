@@ -27,7 +27,7 @@ assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
 templates/{task,bug,change}.md, schemas.example.toml   opt-in per-type examples (embedded; see "Type templates and brief schemas")
-skills/                    setup, triage, design, do, next, answer, wip, audit, cleanup, build, check
+skills/                    setup, workflow, triage, design, do, next, answer, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
@@ -99,6 +99,14 @@ clone to board.
 A project that is not software can start from a **delivery preset** instead of the shipped software flow:
 `kanbanzai init --preset docs-only` (see the [cookbook](#delivery-presets) and [docs/presets.md](docs/presets.md)).
 `kanbanzai workflow presets` lists them and `init --preset NAME --dry-run` explains what one would write.
+
+For an existing board, `/kanbanzai:workflow` (`/workflow` in OpenCode) explains the current flow before proposing
+changes. Ask “what is my workflow?” to inspect it, or “replace the check skill” for a targeted change. It compares
+presets using the project's delivery needs: for example, it may recommend `docs-only` for documentation delivery,
+explain its trade-offs, or recommend keeping a customised flow. A preset changes the flow, not existing issue types,
+schemas or project paths. The skill validates a candidate and shows its card and configuration impact; only explicit
+approval of the exact saved plan permits applying it. A no-op or refusal leaves the host unchanged.
+See [docs/workflow.md](docs/workflow.md).
 
 `init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
 only branch; anything it cannot tell is exit 2 asking for `--main-branch NAME`), the owner (`git config user.name`,

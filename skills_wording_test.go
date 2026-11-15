@@ -703,6 +703,210 @@ func TestTheDoSkillContinuesThroughTheRouteAndOnlyTheStepSkillsStopAtAStep(t *te
 	}
 }
 
+// W-07: `/kanbanzai:workflow` is one shared, control-plane skill. These tests guard the shipped instruction: they
+// prove what the text says, not how a live model interviews the owner.
+
+func workflowSkillText(t *testing.T) string {
+	t.Helper()
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "workflow", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(strings.Fields(string(data)), " ")
+}
+
+// firstBefore asserts both words are in the text and first comes before second.
+func firstBefore(t *testing.T, text, first, second string) {
+	t.Helper()
+	at, then := strings.Index(text, first), strings.Index(text, second)
+	if at < 0 || then < 0 || at > then {
+		t.Errorf("the workflow skill must say %q before %q", first, second)
+	}
+}
+
+func TestWorkflowSkillIsASharedControlPlaneSkill(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "workflow", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	front := regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n`).FindStringSubmatch(string(data))
+	if front == nil {
+		t.Fatal("skills/workflow has no frontmatter")
+	}
+	for _, key := range []string{"name: workflow", "description: ", "argument-hint: "} {
+		if !strings.Contains(front[1], key) {
+			t.Errorf("skills/workflow frontmatter lacks %q", key)
+		}
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"inspect", "change", "/kanbanzai:workflow", "main session", "control plane",
+		"not a step on a card", "does not call `kanbanzai step`", "does not claim", "no new card",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q", want)
+		}
+	}
+	if strings.Contains(lower, "kanbanzai step workflow") {
+		t.Error("skills/workflow invents a `kanbanzai step workflow` step")
+	}
+	if strings.Contains(lower, "git add") || strings.Contains(lower, "git commit ") {
+		t.Error("skills/workflow carries a git write recipe")
+	}
+}
+
+func TestWorkflowSkillPreflightStopsWhenTheCommandCannotApplyIt(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"kanbanzai --version", "kanbanzai context", "kanbanzai workflow --help", "kanbanzai workflow show",
+		"kanbanzai config --json", "kanbanzai wip --audit",
+		"unknown verb", "is not installed", "newer release", "`/kanbanzai:setup`", "kanbanzai config upgrade",
+		"kanbanzai doctor", "guessed fallback", "hard finding", "does not repair",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its preflight", want)
+		}
+	}
+	firstBefore(t, lower, "kanbanzai workflow --help", "question tool")
+	firstBefore(t, lower, "explain the current flow", "ask the owner")
+}
+
+func TestWorkflowSkillRecommendsAPresetWithReasons(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"kanbanzai workflow presets --json", "kanbanzai workflow presets <name>", "summary", "best_for", "not_for",
+		"recommend", "report before making a proposal", "delivery evidence", "why it fits", "trade-off",
+		"keeping the current flow", "customis", "focused question", "no preset is applied by default",
+		"no network request",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its preset recommendation", want)
+		}
+	}
+	for _, banned := range []string{"curl ", "wget ", "gh issue", "gh api", "fetch("} {
+		if strings.Contains(lower, banned) {
+			t.Errorf("skills/workflow tells the agent to make a network request (%q)", banned)
+		}
+	}
+}
+
+func TestWorkflowSkillInterviewsOnlyWhatTheCommandCanChange(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"question tool", "recommended option first", "preserve the current flow", "`skill`", "`extend`", "`checks`",
+		"`context`", "lane", "gate", "`wip_limit`", "isolation", "pull order",
+		"issue types", "schemas", "project paths", "outside", "proceed with the supported portion or stop",
+		"enable a plugin", "silently",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its interview and scope", want)
+		}
+	}
+}
+
+func TestWorkflowSkillPlansFromACompleteExportAndValidates(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"kanbanzai workflow export --out", "outside the repository", "temporary", "only that copy",
+		"kanbanzai workflow validate", "kanbanzai workflow plan --file", "kanbanzai workflow plan --preset",
+		"--out", "--map", "stranded", "every warning", "blocker", "question tool",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its candidate and plan steps", want)
+		}
+	}
+	firstBefore(t, lower, "kanbanzai workflow validate", "kanbanzai workflow plan")
+	firstBefore(t, lower, "kanbanzai workflow export --out", "kanbanzai workflow plan")
+}
+
+func TestWorkflowSkillShowsTheWholeImpactBeforeApproval(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"plan.config.content", "plan.before", "plan.cards", "id", "stage", "folder", "path before", "clear_done",
+		"clear_held", "template", "unused_folders", "folders to be created", "workspace", "semantic change",
+		"nothing to change", "even when `plan.cards` is empty",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its impact report", want)
+		}
+	}
+	firstBefore(t, lower, "plan.config.content", "whether to apply")
+	if !strings.Contains(lower, "a preset is still not approval to apply") {
+		t.Error("skills/workflow does not say choosing a preset is not approval to apply it")
+	}
+}
+
+func TestWorkflowSkillAppliesOnlyTheExactApprovedPlan(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"kanbanzai workflow apply --plan <reviewed-file>", "sole migration writer", "apply this plan",
+		"change an answer", "stop", "exact saved plan is the approval unit", "never applies the old plan",
+		"fresh approval", "stale plan", "dirty board", "live claim", "main branch", "unfinished journal",
+		"replan", "never commit", "release another session's claim", "forc",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its approval and apply steps", want)
+		}
+	}
+	firstBefore(t, lower, "kanbanzai workflow plan", "kanbanzai workflow apply --plan")
+	if !strings.Contains(lower, "workflow apply --rollback") {
+		t.Error("skills/workflow does not name the journal's rollback command")
+	}
+}
+
+func TestWorkflowSkillVerifiesTheResultAndReportsHonestly(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"kanbanzai check", "kanbanzai wip --audit", "kanbanzai doctor", "kanbanzai workflow show",
+		"a red verification is not success", "not silently repaired", "files the owner can commit",
+		"git status", "report each result as it came",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its verification", want)
+		}
+	}
+}
+
+func TestWorkflowSkillNeverRulesAndLeavesTheBoardAlone(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	never := strings.Index(lower, "**never:**")
+	if never < 0 {
+		t.Fatal("skills/workflow has no Never list")
+	}
+	for _, want := range []string{"commit", "push", "network", "dependenc", "by hand", "force", "before the owner"} {
+		if !strings.Contains(lower[never:], want) {
+			t.Errorf("skills/workflow's Never list lacks %q", want)
+		}
+	}
+	for _, banned := range []string{"kanbanzai claim claim", "kanbanzai move ", "kanbanzai ask ", "---\nstage"} {
+		if strings.Contains(lower, banned) {
+			t.Errorf("skills/workflow changes the board itself (%q)", banned)
+		}
+	}
+	for _, banned := range []string{"/home/", "/Users/", "C:\\\\Users"} {
+		if strings.Contains(text, banned) {
+			t.Errorf("skills/workflow hardcodes a host path (%q)", banned)
+		}
+	}
+}
+
 // CHANGE-51: other sessions keep editing briefs in the main checkout, so a merge, the audit and next read the
 // checkout through `kanbanzai tree` (one deterministic rule) and never touch another session's files.
 func TestIntegrationUsesTheTreePreflight(t *testing.T) {

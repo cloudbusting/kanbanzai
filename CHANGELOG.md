@@ -10,6 +10,8 @@ and the editor extension carry the same version.
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user
   `PATH`. It still edits no `PATH` or profile. New flag `install --no-link`; `--refresh` makes no link. The setup plan
   names the link and Apply shows what `install` noted.
+- W-07: `/kanbanzai:workflow` inspects and conversationally reconfigures an existing flow, recommends presets,
+  and applies only an explicitly approved migration plan.
 - W-14: delivery presets. `kanbanzai init --preset NAME` sets a project up for a kind of work (`software`, `simple`,
   `docs-only`, `pr-review`, `release-train`, `marketing`, `homework`, or a folder of your own) with its flow, issue
   types, brief templates and schemas, written out in full; `--type`, `--step-skill` and `--step-extend` compose it.

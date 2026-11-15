@@ -4,6 +4,9 @@ From nothing to a board. There are two ways in: the editor extension, which inst
 the command line, for a machine that does not use the editor. Everything runs on your machine; the only downloads are
 the ones you do yourself in step 1 of the command-line route and, later, Claude Code's own fetch of the plugin.
 
+Already have a board? Use `/kanbanzai:workflow` to inspect or change its flow with a reviewed plan rather than
+reinitialising it. See [Changing the workflow](workflow.md).
+
 ## In VS Code or VSCodium (one install)
 
 1. Install the **Kanbanzai Board** extension from its `.vsix` (**Extensions: Install from VSIX…**) and reload the
