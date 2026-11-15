@@ -1,7 +1,10 @@
 # The command
 
 Every `kanbanzai` command and the rules a session follows when it uses one. `kanbanzai --help` prints the same list, and
-`kanbanzai config --json` prints the resolved settings these commands read.
+`kanbanzai config --json` prints the resolved settings these commands read. Outside a git checkout, with no
+`KANBANZAI_PROJECT`, it prints `{"no_project": true, "root": null, "config_file": null, "reason": "..."}` and exits 0, so
+a program can tell a folder that is not a project from one that failed; plain `config` and every other command exit 1
+there.
 
 ```
 kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser

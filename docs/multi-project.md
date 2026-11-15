@@ -12,7 +12,9 @@ never merged into one. Every card, asking strip and notification names its proje
 confused. Project and type selections are remembered for the workspace.
 
 - **Discovery.** The extension asks `kanbanzai config --json` of each explicit workspace folder; it does not scan
-  recursively. Add a nested project as its own workspace folder. A folder with no config file is not a board.
+  recursively. Add a nested project as its own workspace folder. A folder with no config file is not a board, and a
+  folder that is not a git checkout at all (the core answers `config --json` with `"no_project": true`) is skipped
+  silently; a folder whose config or checkout fails for any other reason is shown with its error.
 - **Aliases and worktrees.** The core resolves each folder to its main checkout, so a card's worktree and an alias of the
   same project appear once.
 - **One failure is not all failures.** A project whose read fails keeps its last good board with a warning; the others

@@ -130,7 +130,10 @@ two `W-01` cards cannot be confused. Project/type selections and per-project col
 the workspace; scroll and focus are retained across board refreshes.
 
 Discovery asks `kanbanzai config --json` from each explicit workspace folder; it does not scan recursively. Add a
-nested project as its own workspace folder. A defaults-only answer with no config file is not a board. The core's
+nested project as its own workspace folder. A defaults-only answer with no config file is not a board, and neither is a folder the core answers
+`"no_project": true` for (not a git checkout, no override): both are skipped without a box, a log line or a toast, and
+picked up by the config watcher or the periodic discovery once the folder gains `.kanbanzai/config.toml` or becomes a
+checkout. Any other failure is still drawn as a labelled project-local error. The core's
 resolved main root deduplicates aliases and card worktrees; the first matching workspace folder is used for
 commands. The bootstrap config still lives at `.kanbanzai/config.toml`, even with a relocated `project.home`;
 cards/state paths come from resolved config. Folder/config/command changes refresh discovery, with a periodic

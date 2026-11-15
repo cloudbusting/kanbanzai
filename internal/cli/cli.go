@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -198,6 +199,14 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		if config.IsNoProject(err) {
 			if quiet {
 				return 0
+			}
+			if command == "config" && config.IsNotAProject(err) && slices.Contains(rest, "--json") {
+				// BUG-68: a program asking whether this folder is a board gets the answer, not an error.
+				if data, merr := fsutil.MarshalIndent(map[string]any{"no_project": true,
+					"root": nil, "config_file": nil, "reason": err.Error()}); merr == nil {
+					_, _ = out.Write(append(data, '\n'))
+					return 0
+				}
 			}
 			fmt.Fprintf(errOut, "kanbanzai: %v\n", err)
 			return 1
