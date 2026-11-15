@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-11-15
+
 - CHANGE-69: a card can be named by its number alone. Every command that takes a card id (`claim`, `move`, `ask`,
   `answer`, `gate`, `step --for`, `wip --title` and `--card`, `tree --merge`, `template`, `workspace`) also takes
   `123` for the one card whose brief carries that number, in any worktree and folder; a number with no card, or with
