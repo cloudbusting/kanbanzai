@@ -1,10 +1,10 @@
 # BUG-67: Audit hold blocks recovery of the card's own work
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
-- **Next action:** deploy-qa: package the checked card (kanbanzai-package)
+- **Next action:** release: after the owner approves (version, public release); package artifacts at /tmp/kanbanzai-package-BUG-67-0.17.0 from main bca9d14
 - **Where:** worktree BUG-67
 
 ## Goal
@@ -104,6 +104,7 @@ Do not discard W-15's workspace or bypass its hold as part of triage.
 
 ## Progress
 
+- 2026-11-15: Packaged at bca9d14 (v0.17.0 rehearsal, alone): artifacts /tmp/kanbanzai-package-BUG-67-0.17.0, SHA256SUMS there (source bundle f2830...vsix: kanbanzai-board-0.17.0.vsix f2830efc…1634; kanbanzai-0.17.0.tar.gz 41447917…2744). Proof: fresh-project init/check/board --json, claude plugin validate and throwaway install, opencode check, skills in bundle carry the new text, no .git/state/machine paths. Version unchanged: the owner sets the release version.
 - 2026-11-15: Checked: kanbanzai-qa green (go test/vet, board-view 340, opencode 10, hooks, claude plugin validate, check, audit); diff in scope, skills/docs only, no contract change. Manual: none.
 - 2026-11-15: Built (d3f1e01 on BUG-67): wording tests and the W-15 scenario tests; internal/wip tests were already green (the command was right), the wording and OpenCode checks were red then green. go test ./..., node tests pass.
 - 2026-11-15: Designed: fix the stop rule in skills/do (no Held line for the recoverable own-work finding); no command change.
@@ -111,5 +112,6 @@ Do not discard W-15's workspace or bypass its hold as part of triage.
 - 2026-11-15: Designed: the stop rule, not the command, is the fault; fix its wording
 - 2026-11-15: Built: stop rule wording, scenario and wording tests green (d3f1e01)
 - 2026-11-15: Checked: QA green, review done
+- 2026-11-15: Package QA passed at bca9d14 alone: artifacts /tmp/kanbanzai-package-BUG-67-0.17.0, sha256 in SHA256SUMS there
 
 ## Comments
