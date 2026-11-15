@@ -947,7 +947,7 @@ func TestAFreshProjectStartsTypedAndPrefixKeepsTheLegacyShape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 5 {
+	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 6 {
 		t.Fatalf("typed = %v, default = %q, types = %d", project.Typed, project.DefaultType, len(project.Types))
 	}
 

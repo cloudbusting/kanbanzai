@@ -19,6 +19,20 @@ const html = renderHtml(board, { nonce: NONCE, cspSource: "vscode-webview://x", 
 const ORDER = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"];
 const COUNTS = [2, 2, 2, 1, 1, 1, 1];
 
+test("epic progress renders core counts only and ignores malformed optional data", () => {
+  const view = (epic) => renderHtml({ columns: [{ key: 'todo', cards: [{ id: 'EPIC-01', title: '<source>', epic }] }] }, { nonce: NONCE });
+  const output = view({ total: 3, delivered: 1, cancelled: 1, remaining: 2, complete: false });
+  assert.match(output, /1\/3 delivered/);
+  assert.match(output, /2 remaining/);
+  assert.match(output, /1 cancelled/);
+  assert.match(output, /&lt;source&gt;/);
+  for (const epic of [undefined, null, [], {}, { total: '<script>', delivered: 1 }, { total: 1, delivered: 2, cancelled: 0, remaining: 0 }, { total: 1, delivered: -1, cancelled: 0, remaining: 2 }]) {
+    const rendered = view(epic);
+    assert.doesNotMatch(rendered, /class="epic-progress"/);
+    assert.doesNotMatch(rendered, /<script>/);
+  }
+});
+
 test('valid core types named all or untyped remain distinct from filter controls', () => {
   const projects = [{ key: 'p', label: 'P', board: { columns: [{ key: 'todo', cards: [
     { id: 'W-01', title: 'Actual all type', type: { key: 'all' } },

@@ -257,7 +257,7 @@ func TestDescribeNamesTheColumnsTypesAndFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Name != "software" || len(info.Columns) != 12 || len(info.Steps) != 5 || info.Isolation != "worktree-per-card" || len(info.Types) != 5 {
+	if info.Name != "software" || len(info.Columns) != 12 || len(info.Steps) != 5 || info.Isolation != "worktree-per-card" || len(info.Types) != 6 {
 		t.Fatalf("info = %+v", info)
 	}
 	text := info.Text()

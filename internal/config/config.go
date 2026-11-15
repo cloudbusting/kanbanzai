@@ -1056,7 +1056,8 @@ func (p *Project) TemplateText() (string, error) {
 }
 
 // TemplateTextFor is the template for a new card of the given type: the type's own template when it names one
-// (never replaced by another when it cannot be read), otherwise the project template or the shipped card template.
+// (never replaced by another when it cannot be read), otherwise the shipped epic template for epic or the
+// project/shipped card template for other types.
 // The second result says where it came from.
 func (p *Project) TemplateTextFor(item typeid.Type) (text, source string, err error) {
 	if item.Template != "" {
@@ -1065,6 +1066,10 @@ func (p *Project) TemplateTextFor(item typeid.Type) (text, source string, err er
 			return "", "", errf("type %s: its template %s cannot be read: %v", item.Key, p.Rel(item.Template), err)
 		}
 		return strings.ReplaceAll(string(data), "\r\n", "\n"), p.Rel(item.Template), nil
+	}
+	if item.Key == "epic" {
+		data, err := kanbanzai.Files.ReadFile("templates/epic.md")
+		return strings.ReplaceAll(string(data), "\r\n", "\n"), "templates/epic.md (shipped)", err
 	}
 	text, err = p.TemplateText()
 	if p.TemplateIsShipped {

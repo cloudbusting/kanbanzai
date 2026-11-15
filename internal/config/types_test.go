@@ -153,7 +153,7 @@ func TestTypedConfigErrors(t *testing.T) {
 
 func TestTheShippedDefaultsAreTyped(t *testing.T) {
 	project := loadProject(t, testutil.Repo(t, ""))
-	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 5 {
+	if !project.Typed || project.DefaultType != "task" || len(project.Types) != 6 {
 		t.Fatalf("typed = %v, default = %q, types = %d", project.Typed, project.DefaultType, len(project.Types))
 	}
 	if project.Prefix != "W" {

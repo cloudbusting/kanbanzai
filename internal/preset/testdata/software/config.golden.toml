@@ -44,6 +44,13 @@ label = "Chore"
 prefix = "CHORE"
 description = "Maintenance with no behaviour change"
 
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+schema = "epic"
+description = "A requirement and its linked work items"
+
 # The flow of the software preset.
 [flow]
 wip_limit = 5

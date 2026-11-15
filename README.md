@@ -69,6 +69,12 @@ project, and:
 /kanbanzai:do <the card>                    # does it, step by step, and stops where it needs you
 ```
 
+For a large requirement, `/kanbanzai:breakdown <pasted text>` (also `/breakdown` in OpenCode) proposes a split and
+asks only unanswered questions. Nothing is allocated or written until you approve the exact source and split.
+It creates an EPIC with linked triaged cards and `Needs` prerequisites, without fetching tickets or starting work.
+Default types, fresh init and the software preset include EPIC; explicit custom type lists are never rewritten.
+See [EPIC membership, progress and compatibility](docs/types.md#epics-and-breakdown).
+
 `kanbanzai board --tui` (terminal), `kanbanzai board --web` (browser) and the editor tab show the board, read-only.
 If anything is red, run `kanbanzai doctor` and see [docs/troubleshooting.md](docs/troubleshooting.md).
 
@@ -94,6 +100,7 @@ explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
 | Set a project up (editor, command line, or with an agent) | [docs/setup.md](docs/setup.md) |
 | Add Kanbanzai to a host project and keep the host's own rules | [docs/host-integration.md](docs/host-integration.md) |
 | Understand the board, claims, holds and questions | [docs/concepts.md](docs/concepts.md) |
+| Break a requirement into linked work | [EPICs and breakdown](docs/types.md#epics-and-breakdown) |
 | Change the columns, steps, pull order or WIP cap | [docs/workflow.md](docs/workflow.md) |
 | Set a project's keys: paths, owner, steps and skills | [docs/configuration.md](docs/configuration.md) |
 | Choose or write issue types and numbering | [docs/types.md](docs/types.md) |
