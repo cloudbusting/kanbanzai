@@ -115,9 +115,13 @@ directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets t
 added, a plugin you disabled stays disabled, and a settings file that is not plain JSON is left alone with the
 lines to add by hand. `kanbanzai install` copies the running command to `$XDG_DATA_HOME/kanbanzai/bin` (else
 `~/.local/share/kanbanzai/bin`; `%LOCALAPPDATA%\kanbanzai\bin` on Windows), where the hooks, the OpenCode adapter and
-the editor look after `PATH`. It replaces a copy of another release (written to a temporary file and renamed over it),
+the editor look after `PATH`. On Linux and macOS it also links `~/.local/bin/kanbanzai` to that copy (making
+`~/.local/bin` if it is missing) so a terminal and an agent's shell find the command, and says so when that folder is
+not on your `PATH`; it never edits `PATH` or a shell profile, and it leaves anything already at that path alone with a
+note. `--no-link` copies only. On Windows there is no link: it says where the file is and how to add its folder to your
+user `PATH`. It replaces a copy of another release (written to a temporary file and renamed over it),
 so running it again from the same command is a no-op and an interrupted run is finished by the next. `install --refresh`
-only replaces a copy that is already there and never makes one: the editor extension runs it from its bundled command
+only replaces a copy that is already there and never makes a copy or a link: the editor extension runs it from its bundled command
 every time it starts, so the per-user copy is always the extension's own release. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
 finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
 never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad

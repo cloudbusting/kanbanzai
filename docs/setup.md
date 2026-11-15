@@ -42,7 +42,10 @@ do not commit it as it is).
    kanbanzai --version
    ```
 
-   Run `kanbanzai install` once if you want the plugins' hooks to find it without a `PATH` entry.
+   Run `kanbanzai install` once if you want the plugins' hooks to find it without a `PATH` entry. It copies the
+   command to the per-user folder and, on Linux and macOS, links it as `~/.local/bin/kanbanzai`; it tells you if
+   `~/.local/bin` is not on your `PATH` and what to add to your shell profile (it edits nothing). On Windows it says
+   where the file is and how to add its folder to your user `PATH`. `kanbanzai install --no-link` copies only.
 2. **Look at the plan.** In the project:
 
    ```bash

@@ -173,7 +173,21 @@ test("planText prints the config text and each merge fragment, and the warnings"
 test("planText ends with the Also line naming the folder", () => {
   const text = init.planText(report, FOLDER);
   assert.ok(text.includes(`Also: copy the command to ${FOLDER} (kanbanzai install)`), text);
-  assert.ok(text.trimEnd().split("\n").slice(-7).join("\n").includes(`Also: copy the command to ${FOLDER}`), "the Also line is just above the closing block");
+  assert.ok(text.trimEnd().split("\n").slice(-8).join("\n").includes(`Also: copy the command to ${FOLDER}`), "the Also lines are just above the closing block");
+});
+
+test("planText names the link and the PATH warning on Linux and macOS, and the PATH instruction on Windows", () => {
+  for (const platform of ["linux", "darwin"]) {
+    const text = init.planText(report, FOLDER, platform);
+    assert.ok(text.includes("Also: link it as ~/.local/bin/kanbanzai"), text);
+    assert.ok(text.includes("not on your PATH"), "the warning is said ahead of time");
+    assert.doesNotMatch(text, /user PATH/);
+  }
+  const win = init.planText(report, "C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin", "win32");
+  assert.doesNotMatch(win, /~\/\.local\/bin/);
+  assert.ok(win.includes("no link is made on Windows"), win);
+  assert.ok(win.includes("add C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin to your user PATH"), win);
+  assert.ok(init.planText(report, FOLDER).includes("Also: copy the command to"), "no platform given: the running one");
 });
 
 test("planText starts and ends with the same clear block saying what to click, and no longer claims nothing is written", () => {
@@ -526,6 +540,24 @@ test("Apply: success deletes the file and the empty folders it made, re-evaluate
   assert.match(message, /\.claude\/settings\.json/);
   assert.match(message, /\/kanbanzai:setup/);
   assert.equal(ui.errors, undefined);
+});
+
+test("Apply: the notes install printed (PATH advice, a link left alone) are in the final message, and nothing else changes", async () => {
+  const root = project(); plantPending(root);
+  const notes = "installed /a to /b\nnote: ~/.local/bin is not on your PATH; add  export PATH=\"$HOME/.local/bin:$PATH\"  to your profile\nnote: not linked: /x exists\n";
+  const exec = fakeExec((cmd, args) => (args[0] === "install" ? { stdout: notes } : happy(cmd, args)));
+  const ui = fakeUi();
+  await init.applyPending(flowDeps(exec, root, ui));
+  const message = ui.infos.join("\n");
+  assert.match(message, /Kanbanzai is set up\./);
+  assert.ok(message.includes("~/.local/bin is not on your PATH"), message);
+  assert.ok(message.includes("not linked: /x exists"), message);
+  assert.doesNotMatch(message, /note:/, "the prefix is install's, not the owner's");
+  assert.doesNotMatch(message, /installed \/a/, "only the notes");
+  const quiet = fakeUi();
+  const root2 = project(); plantPending(root2);
+  await init.applyPending(flowDeps(fakeExec(happy), root2, quiet));
+  assert.doesNotMatch(quiet.infos.join("\n"), /PATH|linked/, "no notes, the old message");
 });
 
 test("Apply: a state folder that holds other files is kept", async () => {

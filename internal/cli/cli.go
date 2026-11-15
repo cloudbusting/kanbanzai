@@ -62,7 +62,7 @@ commands:
   workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
   template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
   workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
-` + initUsage + `  install [--dry-run|--refresh|--where]  copy this command to the per-user folder (works outside a project)
+` + initUsage + `  install [--dry-run|--refresh|--where|--no-link]  copy this command to the per-user folder and link it as ~/.local/bin/kanbanzai (works outside a project)
 
   --version                      print the version
   --help                         this help
@@ -131,11 +131,11 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
 	}
 	if command == "install" {
-		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true}, nil)
+		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true, "no-link": true}, nil)
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Refresh: set["refresh"], Out: out, Err: errOut})
+		return install.Run(install.Options{DryRun: set["dry-run"], Where: set["where"], Refresh: set["refresh"], NoLink: set["no-link"], Out: out, Err: errOut})
 	}
 	if command == "workflow" && len(rest) > 0 && rest[0] == "presets" {
 		return runWorkflowPresets(rest[1:], out, errOut)
