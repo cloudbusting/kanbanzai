@@ -14,7 +14,7 @@ Read `number --status` with that in mind.
 
 ## Configure it
 
-The shipped defaults configure task, bug, change, spike and chore and set `default_type = "task"`, so a project with
+The shipped defaults configure task, bug, change, spike, chore and epic and set `default_type = "task"`, so a project with
 no `[[types]]` of its own is already typed. A project's own config can add or replace types:
 
 ```toml
@@ -56,7 +56,7 @@ Rules, enforced before a command runs:
 - `prefix` is the **legacy** prefix, not a type. A project with `types = []` at the root of its config opts out of
   typed ids and uses `prefix` as its only card id (`W-01`, `W-02`) and its `<prefix>.json` ledger.
 
-`kanbanzai init` writes a typed config for a fresh project with task, bug, change, spike and chore, `default_type =
+`kanbanzai init` writes a typed config for a fresh project with task, bug, change, spike, chore and epic, `default_type =
 "task"` and `prefix = ""` (no legacy alias). `kanbanzai init --prefix W` writes a single-prefix config (`types = []`)
 instead.
 
@@ -68,7 +68,8 @@ adds a Type line: the id's prefix is still the only source of type.
 **Template.** `template = "templates/incident.md"` is resolved from the main project root, must exist and be readable,
 and is what `kanbanzai template <type|ID>` prints. If a named template is missing or unreadable that is an error
 (`check`, `init`, `workflow plan` and `template` all say so); no other template is used instead. A type with no
-`template` gets the project's `[project] template`, or the embedded `templates/card.md`.
+`template` gets the project's `[project] template`, or the embedded `templates/card.md`, except that the `epic`
+type uses the embedded `templates/epic.md`. A named custom epic template still takes precedence and must be readable.
 
 **Schema.** `schema = "incident"` names a `[schemas.incident]` table. Without it the legacy checker applies to the type's
 cards unchanged (the head fields and a final Comments, with any other field or section allowed), and legacy ids
@@ -103,6 +104,54 @@ kanbanzai template --example schemas                     # the [schemas.*] table
 Add the `[schemas.*]` tables to `config.toml` and the `template` and `schema` lines to your existing `task`, `bug` and
 `change` types; do not repeat a type, because a repeated key is refused. A bug's template adds Reproduction, Expected and Actual; a change's adds Before and After; a task's is the plain
 card. Each passes its own schema's check, and `kanbanzai check` validates the template against the schema as well.
+
+### Epics and breakdown
+
+`epic` is a default type with prefix `EPIC` and `schema = "epic"`. The schema requires the usual lifecycle fields,
+the `Work items` head field, Source and Work items sections, and the ordinary card sections ending in Comments.
+`kanbanzai template epic` prints its built-in template; `template --example epic` exports a copy for customisation.
+
+On a project with an explicit type list, retain every existing entry and add this one if wanted:
+
+```toml
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+schema = "epic"
+```
+
+The schema is inherited from shipped defaults; inspect `defaults/config.toml` to customise it. A legacy-only board
+must deliberately opt into typed IDs first; breakdown does not change its configuration. Existing cards are not
+migrated. EPIC is recognised by configured **key**, so a different prefix or project key is supported.
+
+```markdown
+- **Work items:** TASK-02, BUG-03, W-04
+```
+
+This is an authoritative comma-separated membership list, not Markdown links or free text; `—` means empty.
+`check` rejects unknown/malformed/duplicate IDs, self-membership, nested epics and the field on a non-epic.
+An ordinary card, including a legacy ID, may be linked from several epics. Keep readable references and the
+approved split in the Work items section; use plain IDs when moving cards would break relative links.
+Keep the approved source once in Source (quoted as data; encode literal Markdown link brackets in the shown
+approval preview). Children reference the epic in Goal. Membership is unrelated to Needs prerequisite edges.
+
+The shared `/kanbanzai:breakdown` skill proposes before interviewing, reuses `/triage`, asks only unanswered
+questions and waits for approval of the exact source/split/dispositions before allocation or writes. Declining
+writes nothing. A partial write is reported and preserved; resuming inspects its recorded IDs before allocating
+more. It never fetches tickets, claims a card or starts work.
+
+Core `board --json` adds `epic` only on epic cards:
+
+```json
+{"total": 3, "delivered": 1, "cancelled": 1, "remaining": 2, "complete": false}
+```
+
+Delivered children are in configured done columns, excluding early-close/no-change cancellations. Remaining is
+total minus delivered (including cancelled work that still needs a scope decision). Complete is true only for a
+non-empty valid membership with every child delivered. Missing/broken references cannot produce completion.
+Roll-up only reads; it does not close/reopen an epic, clear its tracking hold, pass a gate or rewrite progress.
+The owner reviews outcomes and resolves cancellations before explicit closure through the configured route.
 
 ### A complete project-specific example
 

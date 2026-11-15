@@ -81,6 +81,22 @@ label = "Chore"
 prefix = "CHORE"
 description = "Maintenance with no behaviour change"
 
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+description = "A requirement and its linked work items"
+schema = "epic"
+
+[schemas.epic]
+required_fields = ["Stage", "Updated", "Next action", "Where", "Work items"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Source", "Work items", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
+optional_sections = ["Design", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Source", "Work items", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"]
+final_section = "Comments"
+
 # The delivery preset a project was set up from (`kanbanzai init --preset NAME`, `kanbanzai workflow plan --preset NAME`).
 # It is a record, not a setting: the columns, steps, gates and paths it chose are written out in this file, and
 # `kanbanzai workflow show` names the preset and says whether the flow still equals the shipped one. Absent: no preset.

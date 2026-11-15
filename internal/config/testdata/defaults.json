@@ -160,6 +160,17 @@
     "work": ".kanbanzai/work",
     "worktree": "../worktrees/{repo}/{id}"
   },
+  "schemas": {
+    "epic": {
+      "required_fields": ["Stage", "Updated", "Next action", "Where", "Work items"],
+      "optional_fields": ["Done", "ADR", "Held", "Gate", "Needs"],
+      "required_sections": ["Goal", "Source", "Work items", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"],
+      "optional_sections": ["Design", "Questions"],
+      "repeatable_sections": [],
+      "section_order": ["Goal", "Source", "Work items", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"],
+      "final_section": "Comments"
+    }
+  },
   "steps": {
     "build": {
       "context": [],
@@ -236,6 +247,13 @@
       "key": "chore",
       "label": "Chore",
       "prefix": "CHORE"
+    },
+    {
+      "description": "A requirement and its linked work items",
+      "key": "epic",
+      "label": "Epic",
+      "prefix": "EPIC",
+      "schema": "epic"
     }
   ]
 }

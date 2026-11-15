@@ -27,7 +27,7 @@ assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
 templates/{task,bug,change}.md, schemas.example.toml   opt-in per-type examples (embedded; see "Type templates and brief schemas")
-skills/                    setup, workflow, triage, design, do, next, answer, wip, audit, cleanup, build, check
+skills/                    setup, workflow, breakdown, triage, design, do, next, answer, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
@@ -273,7 +273,7 @@ above the highest legacy number; the old ledger is left in place as the historic
 appears later is still counted. A project can opt out of typed ids entirely with `types = []` at the root of its
 config, which restores the single-prefix shape and its `<prefix>.json` ledger.
 
-`kanbanzai init` writes a typed config for a fresh project (task, bug, change, spike, chore; `default_type = "task"`;
+`kanbanzai init` writes a typed config for a fresh project (task, bug, change, spike, chore, epic; `default_type = "task"`;
 `prefix = ""`, so there is no legacy alias). `init --prefix W` writes a single-prefix config (`types = []`) instead.
 
 The type is the id's prefix and nothing else: there is no separate Type field to disagree with it, and changing a
@@ -281,6 +281,9 @@ card's type in place is not supported. [docs/types.md](docs/types.md) has the mo
 legacy boundary.
 
 ### Type templates and brief schemas
+
+The default `epic` type selects the shipped `epic` schema and its own embedded template (unless it names a custom
+template). Other types keep the opt-in behavior below.
 
 A type can have its own brief template and, separately, opt into a brief schema. Both are optional and per type; a
 project that sets neither behaves exactly as before: one template, and a checker that requires the head fields
@@ -540,6 +543,30 @@ A flow file holds only `[flow]`, `[[columns]]` and `[steps.<name>]`, and **repla
 blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed. Apply never commits.
 
 ## The command
+
+### Break down a large requirement
+
+`/kanbanzai:breakdown <pasted text>` (also `/breakdown` in OpenCode) proposes a split, searches for existing work,
+asks only unanswered scope questions, then waits for approval of the exact split before allocating IDs or writing
+cards. It reuses triage for each piece and never starts its work. There is no `kanbanzai breakdown` subcommand and
+no ticket fetch or outbound network request.
+
+One `EPIC` card keeps the approved source and links all new or folded work in its required `Work items` head field
+and Source/Work items sections. Children use `Needs` for real prerequisites; only configured card gates enforce
+them. EPIC membership itself does not block a child. The epic stays held for delivery/review; closing it is explicit
+and still follows the configured route and gates.
+
+`board --json` adds optional `epic: {total, delivered, cancelled, remaining, complete}` to epic cards. The core
+computes progress on every read; the editor/browser and terminal board display the same counts. A configured done
+column counts as delivered unless the child was early-closed with no change. Cancelled children remain in
+`remaining`, and an empty or invalid membership list is not complete. No Stage, hold or approval is changed by a
+roll-up. See [docs/types.md](docs/types.md#epics-and-breakdown).
+
+Default types, fresh init and the software preset include epic. Explicit type lists and legacy-only boards are
+never rewritten: add the epic type explicitly before using breakdown. Older commands do not understand EPIC
+membership/roll-up; use the matching release with these records.
+
+### CLI reference
 
 ```
 kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser

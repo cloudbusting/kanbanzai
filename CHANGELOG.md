@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-30: shared `/kanbanzai:breakdown` (also `/breakdown` in OpenCode) proposes an approved split of pasted text into
+  triaged cards with Needs prerequisites, without fetching tickets or starting work. Default types, fresh init and
+  the software preset add EPIC with a built-in template/schema, Source and Work items membership. Core validation
+  rejects invalid/nested membership and `board --json` adds optional read-only `epic` progress counters, displayed
+  by terminal/editor/browser boards. Cancellation is not delivery; closure remains explicit through the workflow.
+
 - CHANGE-66: `kanbanzai install`, and so the editor's Kanbanzai: Apply, links the command as `~/.local/bin/kanbanzai`
   on Linux and macOS (making the folder if it is missing, never replacing anything already there) and warns when
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user

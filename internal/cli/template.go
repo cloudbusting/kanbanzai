@@ -14,6 +14,7 @@ import (
 var examples = map[string]string{
 	"task": "templates/task.md", "bug": "templates/bug.md", "change": "templates/change.md",
 	"schemas": "templates/schemas.example.toml",
+	"epic":    "templates/epic.md",
 }
 
 // runTemplate prints the brief template for a type, a card id or the project, or one embedded example. The ID
@@ -26,7 +27,7 @@ func runTemplate(project *config.Project, args []string, out, errOut io.Writer) 
 	if name, ok := flags["example"]; ok {
 		file, known := examples[name]
 		if !known || len(positionals) != 0 || set["where"] {
-			fmt.Fprintf(errOut, "kanbanzai: template: --example takes one of task, bug, change, schemas, and nothing else\n")
+			fmt.Fprintf(errOut, "kanbanzai: template: --example takes one of task, bug, change, epic, schemas, and nothing else\n")
 			return 2
 		}
 		data, err := kanbanzai.Files.ReadFile(file)

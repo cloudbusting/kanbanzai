@@ -89,6 +89,15 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       .filter((name) => existsSync(path.join(ROOT, "skills", name, "SKILL.md")))
       .sort();
     assert.deepEqual(added.map((skill) => skill.id).sort(), expected);
+    const breakdown = added.find((skill) => skill.id === "breakdown");
+    assert.ok(breakdown, "the shared breakdown skill was not registered");
+    for (const name of ["breakdown", "kanbanzai:breakdown"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      await command.execute({ sessionID: "ses_test1", prompt: { text: "split this requirement" }, delivery: "steer" });
+      assert.match(prompts.at(-1).text, /# Breakdown/);
+      assert.match(prompts.at(-1).text, /split this requirement/);
+    }
     assert.ok(added.some((skill) => skill.id === "answer"), "the answer skill was not registered");
     assert.ok(commands.some((entry) => entry.name === "answer"), "the /answer command was not registered");
     const prefixed = expected.map((name) => `kanbanzai:${name}`);

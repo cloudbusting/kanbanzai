@@ -147,6 +147,15 @@ function cardHtml(card, colKey, ownerName, now) {
 
   let body = `<div class="head"><span class="id">${esc(id)}</span>${glyphs}</div>`;
   body += `<div class="title">${esc(title)}</div>`;
+  // Counters come from the core. This validates the optional JSON shape, not membership or workflow policy.
+  const epic = obj(c.epic);
+  const counts = [epic.total, epic.delivered, epic.cancelled, epic.remaining];
+  if (counts.every((n) => Number.isSafeInteger(n) && n >= 0)
+      && epic.delivered <= epic.total && epic.cancelled <= epic.remaining
+      && epic.remaining === epic.total - epic.delivered) {
+    const label = `${epic.delivered}/${epic.total} delivered; ${epic.remaining} remaining; ${epic.cancelled} cancelled`;
+    body += `<div class="epic-progress">${esc(label)}</div>`;
+  }
 
   return `<div class="${classes.join(' ')}" tabindex="0" role="button" data-path="${esc(c.path || '')}" title="${esc(hover.join('\n'))}">${body}</div>`;
 }

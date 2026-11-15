@@ -18,6 +18,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/epic"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
@@ -52,6 +53,7 @@ type Card struct {
 	Path              string           `json:"path"`
 	Gate              *gate.Status     `json:"gate"`
 	Question          *Question        `json:"question,omitempty"`
+	Epic              *epic.Progress   `json:"epic,omitempty"`
 
 	column   string
 	gateLine string
@@ -131,7 +133,8 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 		byColumn[column.Key] = []*Card{}
 	}
 	seen := map[string]string{}
-	for _, path := range Briefs(project) {
+	paths := Briefs(project)
+	for _, path := range paths {
 		card, found := ReadCard(project, path)
 		result.Problems = append(result.Problems, found...)
 		if card == nil {
@@ -178,6 +181,13 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 				result.Problems = append(result.Problems, fmt.Sprintf("%s: not in a board folder (%s)",
 					project.Rel(briefPath), strings.Join(project.Folders, ", ")))
 			}
+		}
+	}
+	progress, epicProblems := epic.Load(project, paths)
+	result.Problems = append(result.Problems, epicProblems...)
+	for _, cards := range byColumn {
+		for _, card := range cards {
+			card.Epic = progress[card.ID]
 		}
 	}
 	doneKeys := map[string]bool{}
@@ -480,6 +490,10 @@ func cardText(card *Card) string {
 	}
 	if card.Question != nil || (card.Session != nil && card.Session.State == "waiting") {
 		builder.WriteString(" ❓")
+	}
+	if card.Epic != nil {
+		p := card.Epic
+		fmt.Fprintf(&builder, " [%d/%d delivered; %d remaining; %d cancelled]", p.Delivered, p.Total, p.Remaining, p.Cancelled)
 	}
 	return builder.String()
 }

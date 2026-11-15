@@ -1,5 +1,10 @@
 # Kanbanzai Board
 
+EPIC cards show core-computed delivered/total, remaining and cancelled counts from the optional `epic` board JSON
+object. The shared renderer gives the editor and browser the same read-only progress; it does not parse membership
+or infer completion from stage names. Missing or malformed progress is ignored. A cancelled child is not delivery,
+and no progress read closes an EPIC or clears its tracking hold.
+
 A compact, read-only kanban of a project's Kanbanzai board, in an editor tab of VSCodium or VS Code. No drag and
 drop and no editing: the cards move when their briefs do.
 
