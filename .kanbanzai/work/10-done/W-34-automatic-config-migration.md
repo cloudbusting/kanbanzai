@@ -1,11 +1,11 @@
 # W-34: The command and the extension migrate a host's config and cards on a release (slice 2 of automatic upgrade)
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-14
-- **Done:** —
+- **Done:** 2026-11-14, dadc2ef (v0.17.0), shipped in the combined v0.17.0 release
 - **ADR:** none (the Decisions below are the record)
-- **Next action:** release: after the owner approves (version, the editor check below, public release); package artifacts at /tmp/kanbanzai-package-W-34-0.17.0 from main ea8c4c9
-- **Where:** worktree W-34
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

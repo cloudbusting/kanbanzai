@@ -1,11 +1,11 @@
 # W-16: Board view: multi-project workspace selector, combined and separate boards
 
-- **Stage:** todo
-- **Updated:** 2026-11-11
+- **Stage:** designing
+- **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
 - **Next action:** design: choose the combined layout and the project/type filter model
-- **Where:** —
+- **Where:** worktree W-16
 
 ## Goal
 
@@ -42,6 +42,22 @@ A combined board can imply that cards from different flows are in the same state
 ## Progress
 
 - 2026-11-11: captured from the Kanbanzai review of the plugin, the host contract and the marketplace goal.
+- 2026-11-15: waiting for an answer in ## Questions
+
+## Questions
+
+### Q1 — 2026-11-15
+
+- **Asked by:** opencode:ses_e22982401ffewaT7i065l8ruVR (The question tool was interrupted by a server restart and its retry returned no answer. No layout decision is recorded.)
+- **Question:** How should All projects display projects with different workflows?
+- **Options:** Grouped boards: stacked labelled boards preserving each project's columns and lanes, with project and type selectors (recommended).; Union of columns: combine matching column keys, compact but requires handling conflicting meanings and order.; Single-project switcher: simplest but omits the requested combined overview.
+- **Recommendation:** Grouped boards
+- **Then:** design: choose the combined layout and the project/type filter model
+- **Answer:** Grouped boards (Recommended)
+- **Answered:** 2026-11-15 by opencode:ses_e22982401ffewaT7i065l8ruVR
+
 
 ## Comments
 
+- 2026-11-15 — OpenCode design session: research found that `config --json` already supplies canonical `root`, `config_file` and absolute work/state paths; deduplicate workspace aliases/worktrees by that root and do not infer relocated discovery from `project.home`. Config success with no `config_file` is not a configured board.
+- 2026-11-15 — OpenCode design session: design must isolate per-project reads/watchers/poll and last-good baselines, namespace card/session/column events, retain setup/migration approval target binding, and preserve the shared renderer's single-project browser contract. The existing `Deploy: None` needs correction to `package and release` when the design is written, because extension code ships.

@@ -1,11 +1,11 @@
 # W-32: /kanbanzai:setup knows about init --plugins and the Init/Apply pending plan
 
-- **Stage:** in-qa
+- **Stage:** done
 - **Updated:** 2026-11-14
-- **Done:** —
+- **Done:** 2026-11-14, dadc2ef (v0.17.0), shipped in the combined v0.17.0 release
 - **ADR:** none
-- **Next action:** Run the recovery audit and integration merge preflight, then package.
-- **Where:** worktree W-32
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -68,5 +68,6 @@ Applying a different plan than the owner approved, exposing machine-specific plu
 - 2026-11-14: Design agreed: agent selection, pending editor plan choice and interview re-planning; use editor controls to resolve pending plans safely.
 - 2026-11-14: Implemented setup interview and editor-plan coordination; Go suite and 267 Node tests passed.
 - 2026-11-14: QA passed: Go tests and vet, 267 Node tests, hook and JS syntax, Claude validation, board checks and VSIX inspection; reviewed the diff.
+- 2026-11-14: Package QA passed alone at a33296f, v0.16.0, artifacts /tmp/kanbanzai-package-W-32-0.16.0-ugGsfr0q; SHA256SUMS: source 07ecdf3f451e695b99505b0b186867d00189fe4b474df06dcfa6fec8390f6376; darwin-amd64 2ae4b9bf42f089e34475ae02c40203c9fc1370a636389cb26ec5c0637cb5b1b1; darwin-arm64 b89c9b0e098653224ff27e6159c6842324dd221ce10f9ab84dc4c2eccd7f4fa6; linux-amd64 e9e963a5379555f1e958a2d3bae56d6689fff4dbc8034913796b6812f0416824; linux-arm64 2530efda1ffc131b0ec9f6ac72e0a2960ea11a6a74d3f23960b6285a8badb61d; windows-amd64 dcbf187e493081e9f9f4906424b15cd7317fa3ed4114e300ce3c65c25a10a574; VSIX bd19c854504198d12449c203530162bb0fbb930e03a9e21d706630ed0dffc99a. Bundle command, isolated Claude install, OpenCode syntax and VSIX listing passed; real editor install remains manual.
 
 ## Comments

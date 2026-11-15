@@ -1,11 +1,11 @@
 # W-33: Closed batch and card records carry local paths and session ids into the public plugin
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-14
-- **Done:** —
+- **Done:** 2026-11-14 — v0.17.0, dadc2ef, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.17.0
 - **ADR:** none
-- **Next action:** Integrate the reviewed branch, then package the release artifacts
-- **Where:** worktree W-33
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -62,5 +62,7 @@ Rewriting git history or moving published tags; the fictional fixture path in `b
 - 2026-11-14: Started build: release-check regression test fails as expected for home paths and session IDs; no guard or scrub implemented yet.
 - 2026-11-14: Implemented record scrub and release guard; Go tests, vet, release check and 267 Node tests pass.
 - 2026-11-14: QA passed: Go tests and vet, 267 Node tests, hooks and JS syntax, Claude validation, config, board audit and check; reviewed and committed 811d78d.
+- 2026-11-14: Merged reviewed commit 811d78d into main; packaging selector excluded the live claim and the v0.15 command lacks tree.
+- 2026-11-14: Package QA passed at df7a0353e720a58b7075861fe60b515ba91310a1 with TASK-60: artifacts /tmp/kanbanzai-package-W-33-0.16.0-CzHXfvzd/out; sha256 source 66ab3d79810e879cd9440000377e13758f08dab1c03ee358c55549829b26f3ff, darwin-amd64 ad4d49255e4c9e839b08ea685c68a222291a745817e9595815f64be87cae428c, darwin-arm64 16b7d8ea947a9d4f8996f765676002e096ec7efa5ddd861bc1d802bdaf0e18c4, linux-amd64 4d9d0474ae91a56b17619c7e93738329b82f0b9c67f90c408c737c8e853f2d7c, linux-arm64 436c9dd12e5a19b62f78ba259ba5d63371c836101f040cf48c0c1fe91a4e06cb, windows-amd64 a18f4752bb6dff91c3de16647a6fb2b8e8c374e871849f924f29137935137eda, VSIX afef039ea28ccace2317b908e7702345e59f8341537518e414cea75f7bf10fac
 
 ## Comments
