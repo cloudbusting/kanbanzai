@@ -381,3 +381,64 @@ test("close all removes only the specified toast instances, preserving newer rep
   assert.equal(closed.stack[0].seq, newer.stack[0].seq);
   assert.equal(T.closeInstances(first, [{ key: view.key, seq: view.seq }]).stack.length, 0);
 });
+
+// BUG-64: a session asking the owner that holds no card (`board.unclaimed`) raises a sticky toast of its own.
+const withUnclaimed = (b, unclaimed) => ({ ...b, unclaimed });
+const loose = (name = "proj-b5", state = "waiting") => ({ state, since: 1000, started: 500, name });
+const LABEL = "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+const LOOSE_KEY = "ask:sc-c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+
+test("a session that starts asking with no card is one asking event with no card or brief to open", () => {
+  const prev = withUnclaimed(board({ todo: [card("W-1")] }), {});
+  const next = withUnclaimed(board({ todo: [card("W-1")] }), { [LABEL]: loose() });
+  const ev = T.diffBoards(prev, next, "Sam");
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].level, "asking");
+  assert.equal(ev[0].kind, "asking");
+  assert.equal(ev[0].key, LOOSE_KEY);
+  assert.equal(ev[0].headline, "proj-b5 asking");
+  assert.equal(ev[0].path, "");
+  assert.match(ev[0].key, /^ask:[A-Za-z0-9][A-Za-z0-9-]{0,40}$/, "a key the extension accepts back from the page");
+  assert.equal(T.toViews(T.applyEvents(empty(), ev, NOW), NOW)[0].path, "");
+});
+
+test("a session with no name still asks, and an opencode session gets a key of its own", () => {
+  const ev = T.diffBoards(board({}), withUnclaimed(board({}), { [LABEL]: loose(""), "opencode:ses_e371d1356ffe8spvPHfytWCO00": loose("oc") }), "Sam");
+  assert.deepEqual(ev.map((e) => e.headline).sort(), ["a session asking", "oc asking"]);
+  assert.equal(new Set(ev.map((e) => e.key)).size, 2);
+  for (const e of ev) assert.match(e.key, /^ask:[A-Za-z0-9][A-Za-z0-9-]{0,40}$/);
+});
+
+test("no loose asking event for the first draw, one already asking, no field, junk, or a session that is not waiting", () => {
+  const asking1 = withUnclaimed(board({}), { [LABEL]: loose() });
+  assert.deepEqual(T.diffBoards(null, asking1, "Sam"), []);
+  assert.deepEqual(T.diffBoards(asking1, asking1, "Sam"), []);
+  assert.deepEqual(T.diffBoards(board({}), board({}), "Sam"), []);
+  for (const junk of [null, 5, "x", [], { [LABEL]: null }, { [LABEL]: 7 }, { [LABEL]: { state: "asleep", since: 1 } }, { [LABEL]: loose("n", "busy") }]) {
+    assert.deepEqual(T.diffBoards(board({}), withUnclaimed(board({}), junk), "Sam"), [], JSON.stringify(junk));
+  }
+});
+
+test("a session that stops asking, or takes a card, closes its toast; the card then asks in the ordinary way", () => {
+  const asking1 = withUnclaimed(board({ todo: [card("W-1")] }), { [LABEL]: loose() });
+  const state = T.applyEvents(empty(), T.diffBoards(withUnclaimed(board({ todo: [card("W-1")] }), {}), asking1, "Sam"), NOW);
+  assert.equal(state.stack.length, 1);
+  const answered = T.applyEvents(state, T.diffBoards(asking1, withUnclaimed(board({ todo: [card("W-1")] }), {}), "Sam"), NOW);
+  assert.equal(answered.stack.length, 0);
+  const claimed = T.diffBoards(asking1, withUnclaimed(board({ building: [card("W-1", { session: sess("waiting") })] }), {}), "Sam");
+  const after = T.applyEvents(state, claimed, NOW);
+  assert.deepEqual(after.stack.filter((t) => t.level === "asking").map((t) => t.key), ["ask:W-1"]);
+});
+
+test("a loose asking toast never expires, is not dropped by the cap, and closing it keeps it closed while the session still asks", () => {
+  const events = T.diffBoards(board({}), withUnclaimed(board({}), { [LABEL]: loose() }), "Sam");
+  let s = T.applyEvents(empty(), events, NOW);
+  assert.equal(T.toViews(s, NOW)[0].closable, true);
+  assert.equal(T.toViews(s, NOW)[0].remainingMs, null);
+  s = T.applyEvents(s, [1, 2, 3, 4, 5, 6].map((n) => ({ card: `W-${n}`, level: "progress", kind: "move", headline: `W-${n} moved`, title: "", path: "" })), NOW);
+  assert.ok(s.stack.some((t) => t.key === LOOSE_KEY));
+  s = T.close(s, LOOSE_KEY);
+  const still = withUnclaimed(board({}), { [LABEL]: loose() });
+  assert.deepEqual(T.diffBoards(still, still, "Sam"), [], "the next read of the same ask raises nothing");
+  assert.ok(!s.stack.some((t) => t.key === LOOSE_KEY));
+});

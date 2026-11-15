@@ -53,7 +53,7 @@ commands:
   number [PREFIX] [--type KEY] [--peek|--status|--release ID|--mark ID]   allocate the next card number
   check                          validate every brief
   step NAME | --for ID           what runs a step
-  sessions [--json]              the claimed cards with a live session
+  sessions [--json]              the claimed cards with a live session, and the sessions asking with no card
   config [--json]                the versioned, resolved settings
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   migrate [--json | --apply --plan HASH | --rollback]  preview, apply (on the hash it printed) or roll back the migration this release needs
@@ -453,14 +453,15 @@ func runClaim(project *config.Project, args []string, in io.Reader, out, errOut 
 func runSessions(project *config.Project, asJSON bool, out io.Writer) int {
 	claims := board.LiveClaims(project)
 	cards := sessionstate.ForClaims(claims, project)
-	waiting := 0
+	unclaimed := sessionstate.UnclaimedAsking(claims, project)
+	waiting := len(unclaimed)
 	for _, record := range cards {
 		if record.State == "waiting" {
 			waiting++
 		}
 	}
 	if asJSON {
-		writeCompact(out, map[string]any{"waiting": waiting, "claims": len(claims), "cards": cards})
+		writeCompact(out, map[string]any{"waiting": waiting, "claims": len(claims), "cards": cards, "unclaimed": unclaimed})
 		return 0
 	}
 	keys := make([]string, 0, len(cards))
@@ -476,7 +477,19 @@ func runSessions(project *config.Project, asJSON bool, out io.Writer) int {
 		}
 		fmt.Fprintf(out, "%s: %s (%s)\n", card, record.State, name)
 	}
-	if len(cards) == 0 {
+	labels := make([]string, 0, len(unclaimed))
+	for label := range unclaimed {
+		labels = append(labels, label)
+	}
+	sortStrings(labels)
+	for _, label := range labels {
+		name := unclaimed[label].Name
+		if name == "" {
+			name = "unnamed"
+		}
+		fmt.Fprintf(out, "asking, no card: %s (%s)\n", board.PlainText(name), label)
+	}
+	if len(cards) == 0 && len(unclaimed) == 0 {
 		fmt.Fprintln(out, "no claimed card has a live session")
 	}
 	return 0

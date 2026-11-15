@@ -359,9 +359,7 @@ function watchSessions(context, item, opts, log, status, migration) {
       if (!(migration && migration.pending)) {
         item.text = sessions.statusLabel(answer);
         item.backgroundColor = answer && answer.waiting > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
-        item.tooltip = answer && answer.waiting > 0
-          ? `Kanbanzai board: ${answer.waiting} card${answer.waiting === 1 ? '' : 's'} with a session asking you`
-          : 'Kanbanzai board';
+        item.tooltip = sessions.askingTooltip(answer);
       }
       const key = JSON.stringify(answer);
       const inFront = !!(current && current.panel.visible);
@@ -373,7 +371,7 @@ function watchSessions(context, item, opts, log, status, migration) {
         lastAnswer = answer;
       }
       last = key;
-      if (answer && answer.claims > 0) wait = fast;
+      if (answer && (answer.claims > 0 || answer.waiting > 0)) wait = fast; // a session asking is answered soon: follow it closely
     } catch (e) { /* the next poll tries again */ }
     if (!stopped) timer = setTimeout(poll, wait);
   }

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
@@ -101,6 +102,22 @@ func terminalRender(b *board.Board, width, height, column, row int) string {
 			fmt.Fprintf(&l, "%-*s", cell, text)
 		}
 		line(l.String())
+	}
+	if height > 2 && len(b.Unclaimed) > 0 {
+		labels := make([]string, 0, len(b.Unclaimed))
+		for label := range b.Unclaimed {
+			labels = append(labels, label)
+		}
+		sort.Strings(labels)
+		names := make([]string, 0, len(labels))
+		for _, label := range labels {
+			name := terminalText(b.Unclaimed[label].Name)
+			if name == "" {
+				name = "unnamed"
+			}
+			names = append(names, name)
+		}
+		line("[asking] session " + strings.Join(names, ", ") + " (no card)")
 	}
 	if height > 2 && len(b.Problems) > 0 {
 		line("Problems: " + terminalText(strings.Join(b.Problems, "; ")))

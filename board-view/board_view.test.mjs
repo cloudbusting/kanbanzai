@@ -571,3 +571,31 @@ test("typed cards and the additive schema field never change or break the view",
     assert.doesNotThrow(() => renderHtml({ columns: [{ key: 'todo', name: 'Todo', cards: [{ ...card, type: odd }] }], types: odd }, { nonce: NONCE }));
   }
 });
+
+// ---- BUG-64: the strip of sessions asking with no card ----
+const ASKING_BOARD = { ...board, unclaimed: { "claude:c5e836e4": { state: "waiting", since: 1000, started: 500, name: "proj-<b>5" } } };
+
+test("a session asking with no card is listed above the columns, escaped, with its time and no brief to open", () => {
+  const out = renderHtml(ASKING_BOARD, { nonce: NONCE, now: 181000 });
+  const strip = out.match(/<div class="asking-sessions"[^>]*>(.*?)<\/div>\n/s)[1];
+  assert.ok(out.indexOf('class="asking-sessions"') < out.indexOf('class="board"'));
+  assert.match(strip, /proj-&lt;b&gt;5/);
+  assert.doesNotMatch(strip, /proj-<b>5/);
+  assert.match(strip, /data-since="1000"/);
+  assert.match(strip, /❓ session asking — proj-&lt;b&gt;5/);
+  assert.match(strip, /3m/);
+  assert.doesNotMatch(strip, /data-path/);
+});
+
+test("no strip without an asking session: absent, empty, junk or not waiting", () => {
+  for (const unclaimed of [undefined, {}, null, 5, [], { a: null }, { a: 7 }, { a: { state: "busy", since: 1 } }, { a: { state: "waiting" } }]) {
+    assert.doesNotMatch(renderHtml({ ...board, unclaimed }, { nonce: NONCE }), /class="asking-sessions"/, JSON.stringify(unclaimed));
+  }
+});
+
+test("the strip is styled with theme variables and a session with no name reads as a session", () => {
+  const out = renderHtml({ ...board, unclaimed: { a: { state: "waiting", since: 1 } } }, { nonce: NONCE });
+  assert.match(out, /a session asking|session asking/);
+  const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  assert.match(css, /\.asking-sessions\s*\{[^}]*var\(--vscode-/s);
+});

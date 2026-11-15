@@ -42,7 +42,26 @@ function parseSessions(text) {
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   if (!Number.isInteger(value.waiting) || value.waiting < 0) return null;
-  return { waiting: value.waiting, claims: Number.isInteger(value.claims) ? value.claims : 0, cards: value.cards && typeof value.cards === 'object' ? value.cards : {} };
+  return {
+    waiting: value.waiting,
+    claims: Number.isInteger(value.claims) ? value.claims : 0,
+    cards: value.cards && typeof value.cards === 'object' ? value.cards : {},
+    // BUG-64: the sessions asking the owner that hold no card; an older command does not say, which reads as none.
+    unclaimed: plainObject(value.unclaimed) ? value.unclaimed : {},
+  };
+}
+
+function plainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+// The sessions asking with no card in `unclaimed` (the sessions answer's or the board's): [{ label, name, since }], in label
+// order, only those waiting for the owner. Anything else in the object is ignored.
+function looseAsking(unclaimed) {
+  if (!plainObject(unclaimed)) return [];
+  return Object.keys(unclaimed).sort().map((label) => ({ label, s: sessionOf(unclaimed[label]) }))
+    .filter((e) => e.s && e.s.state === 'waiting')
+    .map((e) => ({ label: e.label, name: e.s.name, since: e.s.since }));
 }
 
 // W-102: the cards asking in `next` that were not asking in `prev` (two parsed answers), each with its session's name.
@@ -54,8 +73,12 @@ function newlyAsking(prev, next) {
   const after = cards(next);
   if (!before || !after) return [];
   const asking = (c) => !!c && typeof c === 'object' && c.state === 'waiting';
-  return Object.keys(after).filter((id) => asking(after[id]) && !asking(before[id]))
+  const found = Object.keys(after).filter((id) => asking(after[id]) && !asking(before[id]))
     .map((id) => ({ card: id, name: typeof after[id].name === 'string' ? after[id].name : '' }));
+  // BUG-64: a session asking with no card is new when its label was not asking before; its entry has no card.
+  const wasAsking = new Set(looseAsking(prev.unclaimed).map((e) => e.label));
+  for (const e of looseAsking(next.unclaimed)) if (!wasAsking.has(e.label)) found.push({ card: '', session: e.label, name: e.name });
+  return found;
 }
 
 const MAX_MESSAGES = 3;
@@ -64,10 +87,25 @@ const MAX_MESSAGES = 3;
 function askMessages(list) {
   const l = Array.isArray(list) ? list : [];
   if (l.length > MAX_MESSAGES) return [`${l.length} sessions asking`];
-  return l.map((c) => (c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`));
+  return l.map((c) => {
+    if (!c.card) return c.name ? `session asking — ${c.name}` : 'a session asking'; // no card to name
+    return c.name ? `${c.card} asking — ${c.name}` : `${c.card} asking`;
+  });
 }
 
-const api = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, PLAIN };
+// The status bar's tooltip: how many cards, and how many sessions with no card, have a session asking the owner.
+function askingTooltip(answer) {
+  const a = plainObject(answer) ? answer : {};
+  const loose = looseAsking(a.unclaimed).length;
+  const waiting = Number.isInteger(a.waiting) && a.waiting > 0 ? a.waiting : 0;
+  const cards = Math.max(0, waiting - loose);
+  const parts = [];
+  if (cards > 0) parts.push(`${cards} card${cards === 1 ? '' : 's'} with a session asking you`);
+  if (loose > 0) parts.push(`${loose} session${loose === 1 ? '' : 's'} asking you with no card`);
+  return parts.length ? `Kanbanzai board: ${parts.join('; ')}` : 'Kanbanzai board';
+}
+
+const api = { elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, askingTooltip, looseAsking, PLAIN };
 if (typeof module === 'object' && module.exports) module.exports = api;
 else globalThis.KanbanzaiSessions = api;
 })();

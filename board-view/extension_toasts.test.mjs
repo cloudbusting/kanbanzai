@@ -264,3 +264,43 @@ test("a failed poll keeps the last good answer as the baseline: the ask after it
   for (let i = 0; i < 8; i += 1) await settle();
   assert.equal(vscode.warnings.length, 1);
 }, [NONE, null, ASK]));
+
+// ---- BUG-64: a session asking with no card ----
+const LOOSE = { "claude:c5e836e4": { state: "waiting", since: 1, name: "proj-b5" } };
+const looseAnswer = (loose) => ({ waiting: Object.keys(loose).length, claims: 0, cards: {}, unclaimed: loose });
+
+test("the status bar counts a session asking with no card, and the tooltip says so", () => run([board({})], async ({ item }) => {
+  await slow();
+  assert.equal(item.text, "▦ Board ❓1");
+  assert.equal(item.backgroundColor.id, "statusBarItem.warningBackground");
+  assert.match(item.tooltip, /1 session asking you with no card/);
+}, [looseAnswer(LOOSE)]));
+
+test("the tab closed: a session newly asking with no card raises one message with its name", () => run([board({})], async ({ vscode }) => {
+  vscode.choose = "Open Board";
+  await settle(); await settle();
+  assert.deepEqual(vscode.warnings, [["session asking — proj-b5", "Open Board"]]);
+  assert.deepEqual(vscode.executed, ["kanbanzai.showBoard"]);
+}, [looseAnswer({}), looseAnswer(LOOSE)]));
+
+test("no message for a session already asking at the first poll, or still asking at the next", () => run([board({})], async ({ vscode }) => {
+  for (let i = 0; i < 4; i += 1) await settle();
+  assert.equal(vscode.warnings.length, 0);
+}, [looseAnswer(LOOSE), looseAnswer(LOOSE)]));
+
+test("the tab in front: a session asking with no card is a toast and a strip, and closing the toast keeps it closed", () => run([
+  { ...board({}), unclaimed: {} },
+  { ...board({}), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
+  { ...board({ todo: [card("W-13")] }), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  panel.viewState({}); await settle();
+  const key = "ask:sc-c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+  assert.ok(toastsIn(panel).some((t) => t[1] === key), "the ask is shown");
+  assert.match(panel.webview.html, /class="asking-sessions"/);
+  panel.message({ type: "toast-close", key });
+  panel.viewState({}); await settle();
+  assert.ok(!toastsIn(panel).some((t) => t[1] === key), "closed stays closed");
+  assert.match(panel.webview.html, /class="asking-sessions"/, "the strip stays while it asks");
+}));

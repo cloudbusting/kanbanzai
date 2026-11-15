@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -357,5 +358,106 @@ func TestASessionFileMustBeRegularAndSmall(t *testing.T) {
 	}
 	if records := ReadAll(); len(records) != 1 {
 		t.Fatalf("records = %#v", records)
+	}
+}
+
+func unclaimedIDs(found map[string]Record) []string {
+	keys := make([]string, 0, len(found))
+	for key := range found {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func TestUnclaimedAskingListsAWaitingSessionInTheProject(t *testing.T) {
+	dir := claudeDir(t)
+	project := testProject(t)
+	writeSession(t, dir, "proj-b5", map[string]any{"cwd": project.Root})
+	found := UnclaimedAsking(map[string]string{}, project)
+	record, ok := found["claude:"+SID]
+	if !ok || len(found) != 1 {
+		t.Fatalf("found = %#v", found)
+	}
+	if record.State != "waiting" || record.Name != "proj-b5" || record.Since != 1794343821000 {
+		t.Fatalf("record = %#v", record)
+	}
+}
+
+func TestUnclaimedAskingCoversTheProjectsFoldersAndNoOthers(t *testing.T) {
+	dir := claudeDir(t)
+	project := testProject(t)
+	inside := filepath.Join(project.Root, "board-view")
+	worktree := project.WorktreePath("W-77")
+	for name, cwd := range map[string]string{"subfolder": inside, "worktree": worktree} {
+		writeSession(t, dir, name, map[string]any{"cwd": cwd})
+		if found := UnclaimedAsking(nil, project); len(found) != 1 {
+			t.Fatalf("%s: found = %#v", name, found)
+		}
+		if err := os.Remove(filepath.Join(dir, "sessions", name+".json")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A folder that only shares the project's name as a prefix, a sibling checkout, an unrelated folder and a file
+	// with no folder at all are not this project's.
+	for name, cwd := range map[string]any{
+		"prefix": project.Root + "-other", "sibling": filepath.Join(filepath.Dir(project.Root), "elsewhere"),
+		"unrelated": t.TempDir(), "none": nil,
+	} {
+		writeSession(t, dir, name, map[string]any{"cwd": cwd})
+		if found := UnclaimedAsking(nil, project); len(found) != 0 {
+			t.Fatalf("%s: found = %#v", name, found)
+		}
+		if err := os.Remove(filepath.Join(dir, "sessions", name+".json")); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestUnclaimedAskingNeedsAWaitingLiveSessionWithNoClaim(t *testing.T) {
+	dir := claudeDir(t)
+	project := testProject(t)
+	for _, state := range []string{"busy", "idle"} {
+		writeSession(t, dir, "state", map[string]any{"cwd": project.Root, "status": state})
+		if found := UnclaimedAsking(nil, project); len(found) != 0 {
+			t.Fatalf("%s: found = %#v", state, found)
+		}
+	}
+	writeSession(t, dir, "state", map[string]any{"cwd": project.Root, "pid": 999999999})
+	if found := UnclaimedAsking(nil, project); len(found) != 0 {
+		t.Fatalf("dead process: found = %#v", found)
+	}
+	writeSession(t, dir, "state", map[string]any{"cwd": project.Root})
+	if found := UnclaimedAsking(map[string]string{"W-99": "claude:" + SID}, project); len(found) != 0 {
+		t.Fatalf("a session holding a claim: found = %#v", found)
+	}
+	if found := UnclaimedAsking(map[string]string{"W-99": "claude:another"}, project); len(found) != 1 {
+		t.Fatalf("another session's claim: found = %#v", found)
+	}
+}
+
+func TestUnclaimedAskingReadsOpenCodeSessionsOfTheProject(t *testing.T) {
+	claudeDir(t)
+	project := testProject(t)
+	writeOpenCode(t, project, "proj-oc", nil)
+	writeOpenCode(t, project, "foreign", map[string]any{"sessionId": "ses_foreign", "directory": filepath.Join(t.TempDir(), "elsewhere")})
+	writeOpenCode(t, project, "busy", map[string]any{"sessionId": "ses_busy", "state": "busy"})
+	got := unclaimedIDs(UnclaimedAsking(map[string]string{}, project))
+	if len(got) != 1 || got[0] != "opencode:"+OC {
+		t.Fatalf("got = %#v", got)
+	}
+	if found := UnclaimedAsking(map[string]string{"W-10": "opencode:" + OC}, project); len(found) != 0 {
+		t.Fatalf("an OpenCode session holding a claim: found = %#v", found)
+	}
+}
+
+func TestUnclaimedAskingIsEmptyNotNilAndNeverRaises(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(t.TempDir(), "missing"))
+	project := testProject(t)
+	if found := UnclaimedAsking(nil, project); found == nil || len(found) != 0 {
+		t.Fatalf("found = %#v", found)
+	}
+	if found := UnclaimedAsking(nil, nil); found == nil || len(found) != 0 {
+		t.Fatalf("no project: found = %#v", found)
 	}
 }

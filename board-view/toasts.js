@@ -4,6 +4,9 @@
 // diffBoards compares two reads of `kanbanzai board --json` card by card and says what moved; applyEvents keeps the
 // stack of toasts those events raise (one per card, a cap, a summary for a burst). The clock is always passed in.
 
+const commonJS = typeof module === 'object' && !!module.exports;
+const sessions = commonJS ? require('./sessions') : globalThis.KanbanzaiSessions;
+
 const PROGRESS_MS = 5000; // a card changes column
 const DONE_MS = 15000; // a card reaches Done
 const MAX_SHOWN = 5; // the stack's cap; a blocked toast is never dropped to keep it
@@ -53,6 +56,22 @@ function sticky(level) {
 }
 
 const askKey = (id) => `ask:${id}`;
+
+// BUG-64: the toast key of a session asking with no card, from its owner label (`claude:<id>`, `opencode:<id>`): `ask:`,
+// the harness's first letter after an `s`, and the id with anything but letters, digits and hyphens turned into a hyphen,
+// cut to the 41 characters the page's close message may carry. Never a card id, which starts with its prefix.
+function askSessionKey(label) {
+  const [harness, ...rest] = String(label).split(':');
+  const id = (rest.length ? rest.join(':') : harness).replace(/[^A-Za-z0-9-]/g, '-');
+  return `ask:${`s${harness.charAt(0).toLowerCase() || 'x'}-${id}`.slice(0, 41)}`;
+}
+
+// label -> { name } for the sessions asking with no card on a read of the board; empty for a board without any.
+function looseOf(board) {
+  const found = new Map();
+  for (const e of sessions.looseAsking(obj(board).unclaimed)) found.set(e.label, { name: e.name });
+  return found;
+}
 
 // What needs a look: blocked, waiting on the owner, or interrupted (null when none).
 function causeOf(card) {
@@ -109,6 +128,17 @@ function diffBoards(prev, next, ownerName) {
   for (const [id, p] of before) {
     const n = after.get(id);
     if (p.asking && !(n && n.asking)) events.push({ card: id, closes: askKey(id) });
+  }
+  // BUG-64: a session that starts asking with no card raises a toast of its own (no brief to open); it closes when the
+  // session stops asking, ends or takes a card (the card then raises its own, above).
+  const looseBefore = looseOf(prev);
+  const looseAfter = looseOf(next);
+  for (const [label, n] of looseAfter) {
+    if (looseBefore.has(label)) continue;
+    events.push({ card: '', key: askSessionKey(label), level: 'asking', kind: 'asking', headline: n.name ? `${n.name} asking` : 'a session asking', title: '', name: '', path: '' });
+  }
+  for (const label of looseBefore.keys()) {
+    if (!looseAfter.has(label)) events.push({ card: '', closes: askSessionKey(label) });
   }
   return events;
 }

@@ -135,6 +135,10 @@ same strip; click the strip to expand it. Which columns are collapsed is remembe
 | `❓ asking 3m`, filled card | the session holding the card (Claude Code's or OpenCode's) is waiting for you (a question or a permission prompt) and has been for 3 minutes: the card is filled with the theme's button colours and glows (no glow with reduced motion) |
 | `● busy 12m` / `● idle 4m` | the session holding the card is working / idle, and has been for that long |
 
+A session that is asking you but holds no card (it could not start one, or asked before claiming, or after releasing
+its claim) has no card to mark. It is listed in a strip above the columns instead, `❓ session asking — <name> 3m`
+(see Sessions).
+
 Done cards are muted. Problems the core finds in a brief show in a strip above the columns.
 
 ## Sessions
@@ -152,10 +156,19 @@ The core reads them (`kanbanzai sessions --json`, and a `session` field on each 
 --json`) and the view only shows it. The times count up on the page by themselves, so the board is not rebuilt for a
 clock.
 
-- **The status bar** reads `▦ Board ❓2` on the theme's warning background while two cards have a session asking, so a
-  waiting session shows with the tab closed. With none it is `▦ Board`.
+- **The status bar** reads `▦ Board ❓2` on the theme's warning background while two sessions are asking (cards and
+  sessions with no card together), so a waiting session shows with the tab closed. With none it is `▦ Board`.
+- **A session asking with no card:** a session of this project that is waiting for you and holds no live claim has no
+  card to mark, so it is listed in a strip above the columns (`❓ session asking — proj-b5 3m`), counted in the status
+  bar, and given a toast and a corner message (below). The core decides which sessions these are
+  (`kanbanzai sessions --json` and `board --json` carry them as `unclaimed`, keyed by the claim label the session would
+  use, `claude:<id>` or `opencode:<id>`; only waiting ones are listed). A Claude Code session belongs to the project
+  when the folder it was started in is the project, inside it, or inside the folder card worktrees are made in; one
+  started somewhere else and working here is not seen, and a session started in a folder shared by several projects
+  counts for each. `kanbanzai board`, `board --tui` and `board --web` list them too.
 - **One session, several cards:** a session that holds more than one card (a batch) marks each of them.
-- **How fast:** every 3 seconds while any card is claimed (every 15 s while none is); a change refreshes the open tab.
+- **How fast:** every 3 seconds while any card is claimed or any session is asking (every 15 s otherwise, so a session
+  that starts asking with no card at a quiet moment shows within 15 s); a change refreshes the open tab.
 - **When nothing shows:** each record is the harness's own and not documented, so a card shows no session mark, and no
   error, when its file is missing, its shape has changed, or its process is not alive on this machine (the process
   start time must match the one the file recorded, so a dead session's last status is never shown). A session with no
@@ -173,7 +186,7 @@ a merge).
 | Progress `▸` | a card changes column, a card is added, a card waits on someone other than the owner, a hold or interruption clears (`unblocked`) | 5 seconds |
 | Done `✓` | a card reaches Done | 15 seconds |
 | Blocked `⛔` `⏳` `⚠` | a card becomes blocked, waits on the project's owner, or is interrupted | until closed with its `✕` |
-| Asking `❓` | a claimed card's session starts asking the owner (its `session.state` becomes `waiting`), or a card appears already asking | until its session stops asking (answered, ended, claim released, card gone), or closed with its `✕` |
+| Asking `❓` | a claimed card's session starts asking the owner (its `session.state` becomes `waiting`), or a card appears already asking; or a session with no card starts asking (it appears in `unclaimed`) | until its session stops asking (answered, ended, claim released, card gone, or the session takes a card, which then asks on its own), or closed with its `✕` |
 
 A blocked toast closes itself, and shows a short `unblocked` toast, when the cause clears. A click on a toast opens the
 card's brief. Nothing raises a toast on the first draw, on a reload, when a claim is taken or released, or when a card
@@ -185,13 +198,16 @@ the tab is hidden wait and show, with their time starting, when it is visible ag
 When more than one toast is visible, the `✕` beside the stack (tooltip `close all`) dismisses the displayed toasts,
 including blocked and asking notifications. It does not change the cards or their claims; later events can raise new toasts.
 
+A session asking with no card raises `<name> asking` (or `a session asking`), with no card behind it, so a click on it
+opens nothing; its key is `ask:` and the harness and id of the session (`ask:sc-<id>`).
+
 An asking toast has a key of its own (`ask:W-12`), so a move or a hold on the same card neither replaces it nor is
 replaced by it. It is sticky like a blocked one (never dropped, never part of a burst), and closing it with `✕` while the
 session still asks does not bring it back; a new ask does. A session already asking at the first draw or after a reload
 raises nothing. It reads the card's `session`, so it covers every harness that fills that field.
 
 **When the Board tab is not in front** its toasts cannot be seen, so a card newly asking also raises a VS Code message
-in the editor's corner, `W-12 asking — <session name>`, with an `Open Board` button (up to three; more at once give
+in the editor's corner, `W-12 asking — <session name>` (`session asking — <session name>` for one with no card), with an `Open Board` button (up to three; more at once give
 `N sessions asking`). It comes from the 3 s sessions poll, not from the board read, so it works with the tab closed. A
 session already asking when the window opens is not announced, and a failed poll does not make every asking card new
 at the next one. VS Code cannot withdraw a message from code, so it stays until dismissed; the toast and the card clear

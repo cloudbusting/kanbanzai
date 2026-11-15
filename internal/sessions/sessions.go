@@ -80,6 +80,73 @@ func ReadOpenCode(state, root string) map[string]Record {
 	return out
 }
 
+// UnclaimedAsking is {owner label: session} for the live sessions of this project that are waiting for the owner and
+// hold no live claim in it, so no card can show them asking (BUG-64). `owners` is {card: owner label} for the live
+// claims. A Claude Code session belongs to the project when the folder it started in is the project root, inside it,
+// or inside the folder the worktree setting puts card worktrees in; a file with no folder is not placed. An OpenCode
+// session belongs to it as ReadOpenCode decides. Only waiting sessions are returned, never busy or idle ones. It
+// never raises and the result is never nil.
+func UnclaimedAsking(owners map[string]string, project *config.Project) (out map[string]Record) {
+	out = map[string]Record{}
+	defer func() {
+		if recover() != nil {
+			out = map[string]Record{}
+		}
+	}()
+	if project == nil {
+		return out
+	}
+	held := map[string]bool{}
+	for _, owner := range owners {
+		held[owner] = true
+	}
+	folders := projectFolders(project)
+	for id, record := range readFolder(SessionsDir(), claudeShape) {
+		label := claudePrefix + id
+		if record.Record.State != "waiting" || held[label] || !within(record.Directory, folders) {
+			continue
+		}
+		out[label] = record.Record
+	}
+	for id, record := range ReadOpenCode(project.State, project.Root) {
+		label := opencodePrefix + id
+		if record.State != "waiting" || held[label] {
+			continue
+		}
+		out[label] = record
+	}
+	return out
+}
+
+// projectFolders is the project root and the folder card worktrees are made in: where a session's folder must be.
+func projectFolders(project *config.Project) []string {
+	folders := []string{canonicalPath(project.Root)}
+	// The setting's last element holds {id}; its parent is the folder every card worktree lives in.
+	if strings.Contains(filepath.Base(project.WorktreePattern), "{id}") {
+		if path := project.WorktreePath("card"); path != "" {
+			folders = append(folders, canonicalPath(filepath.Dir(path)))
+		}
+	}
+	return folders
+}
+
+// within is true when directory is one of the folders or inside one; an empty directory is within none.
+func within(directory string, folders []string) bool {
+	if directory == "" {
+		return false
+	}
+	path := canonicalPath(directory)
+	for _, folder := range folders {
+		if folder == "" {
+			continue
+		}
+		if path == folder || strings.HasPrefix(path, folder+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
+}
+
 // OfOwner is the session of a claim's owner label, or nil: the label's harness decides which folder it may come from.
 func OfOwner(owner string, claude, opencode map[string]Record) *Record {
 	if strings.HasPrefix(owner, claudePrefix) {
@@ -168,8 +235,9 @@ func claudeShape(data map[string]any) *fileRecord {
 	if value, ok := integerOf(data["startedAt"]); ok {
 		started = &value
 	}
+	directory, _ := data["cwd"].(string)
 	return &fileRecord{
-		ID: session, Updated: updated,
+		ID: session, Updated: updated, Directory: directory,
 		Record: Record{State: state, Since: since, Started: started, Name: name},
 	}
 }

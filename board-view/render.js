@@ -6,7 +6,7 @@
 // names none.
 
 const commonJS = typeof module === 'object' && !!module.exports;
-const { elapsed, sessionOf } = commonJS ? require('./sessions') : globalThis.KanbanzaiSessions;
+const { elapsed, sessionOf, looseAsking } = commonJS ? require('./sessions') : globalThis.KanbanzaiSessions;
 
 const COLUMNS = [
   ['todo', 'Todo'],
@@ -245,6 +245,13 @@ const STYLE = `
     color: var(--vscode-errorForeground);
   }
   .problems div { margin: 2px 0; }
+  .asking-sessions {
+    flex: none; padding: 4px 8px;
+    border: 1px solid var(--vscode-button-background);
+    border-left-width: 4px; border-radius: 3px;
+    background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+  }
+  .asking-session { margin: 2px 0; font-weight: 600; }
   .error { padding: 8px; color: var(--vscode-errorForeground); white-space: pre-wrap; }
   .board { flex: 1; min-height: 0; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
   .lane { flex: none; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -459,6 +466,18 @@ ${inner}
 `;
 }
 
+// BUG-64: the sessions asking the owner that hold no card, one line each above the columns. The time counts up on the
+// page like a card's (data-since and data-label). Nothing when there are none, or the board has no such field.
+function askingSessionsHtml(board, now) {
+  const list = looseAsking(obj(board).unclaimed);
+  if (!list.length) return '';
+  const lines = list.map((e) => {
+    const label = e.name ? `❓ session asking — ${e.name}` : '❓ a session asking';
+    return `<div class="asking-session" data-since="${e.since}" data-label="${esc(label)}">${esc(label)} ${esc(elapsed(e.since, now))}</div>`;
+  });
+  return `<div class="asking-sessions" role="status" title="A session in this project is waiting for you and holds no card">${lines.join('')}</div>\n`;
+}
+
 // opts.collapsed: the keys of the columns the user collapsed (kept by the extension per workspace).
 // opts.toasts: the toasts to draw (toasts.toViews), in the lower left over the board.
 function renderContent(board, opts) {
@@ -467,6 +486,7 @@ function renderContent(board, opts) {
   if (problems.length) {
     inner += `<div class="problems" role="alert">${problems.map((p) => `<div>${esc(p)}</div>`).join('')}</div>\n`;
   }
+  inner += askingSessionsHtml(board, typeof obj(opts).now === 'number' ? obj(opts).now : Date.now());
   inner += `<div class="board">${boardColumns(board, obj(opts).collapsed, obj(opts).owner, typeof obj(opts).now === 'number' ? obj(opts).now : Date.now()).join('\n')}</div>`;
   inner += toastsHtml(obj(opts).toasts);
   return inner;

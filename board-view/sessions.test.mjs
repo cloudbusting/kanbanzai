@@ -170,3 +170,42 @@ test("askMessages: one line per card up to three, then one summary", () => {
   assert.equal(S.askMessages([c("W-1"), c("W-2"), c("W-3")]).length, 3);
   assert.deepEqual(S.askMessages([c("W-1"), c("W-2"), c("W-3"), c("W-4")]), ["4 sessions asking"]);
 });
+
+// ---- BUG-64: sessions asking with no card ----
+const ansLoose = (loose, cards = {}) => ({ waiting: loose ? Object.keys(loose).length : 0, claims: 0, cards, unclaimed: loose });
+
+test("parseSessions keeps the unclaimed object, and an absent or wrong one is empty", () => {
+  const ok = parseSessions('{"waiting": 1, "claims": 0, "cards": {}, "unclaimed": {"claude:a": {"state": "waiting", "since": 5, "name": "n"}}}');
+  assert.deepEqual(Object.keys(ok.unclaimed), ["claude:a"]);
+  assert.deepEqual(parseSessions('{"waiting": 0, "claims": 0, "cards": {}}').unclaimed, {});
+  for (const junk of ["1", "[]", "null", '"x"']) assert.deepEqual(parseSessions(`{"waiting": 0, "claims": 0, "cards": {}, "unclaimed": ${junk}}`).unclaimed, {}, junk);
+});
+
+test("newlyAsking: a session asking with no card that was not before, with its name and no card", () => {
+  const a = { state: "waiting", since: 1, name: "proj-b5" };
+  assert.deepEqual(S.newlyAsking(ansLoose({}), ansLoose({ "claude:a": a })), [{ card: "", session: "claude:a", name: "proj-b5" }]);
+  assert.deepEqual(S.newlyAsking(ansLoose({ "claude:a": a }), ansLoose({ "claude:a": a })), []);
+  assert.deepEqual(S.newlyAsking(null, ansLoose({ "claude:a": a })), []);
+  assert.deepEqual(S.newlyAsking(ansLoose({}), ansLoose({ "claude:a": { state: "busy", since: 1 }, "claude:b": null, "claude:c": 5 })), []);
+  assert.deepEqual(S.newlyAsking({ waiting: 0, claims: 0, cards: {} }, { waiting: 0, claims: 0, cards: {} }), [], "an old core has no unclaimed");
+});
+
+test("newlyAsking: a card and a loose session together, cards first", () => {
+  const found = S.newlyAsking(ansLoose({}, {}), ansLoose({ "claude:a": { state: "waiting", since: 1, name: "n" } }, { "W-12": rec("waiting") }));
+  assert.deepEqual(found.map((f) => f.card), ["W-12", ""]);
+});
+
+test("askMessages: a loose session reads as a session, with its name when it has one", () => {
+  assert.deepEqual(S.askMessages([{ card: "", session: "claude:a", name: "proj-b5" }]), ["session asking — proj-b5"]);
+  assert.deepEqual(S.askMessages([{ card: "", session: "claude:a", name: "" }]), ["a session asking"]);
+  assert.deepEqual(S.askMessages([{ card: "W-1", name: "" }, { card: "", session: "x", name: "n" }, { card: "W-2", name: "" }, { card: "W-3", name: "" }]), ["4 sessions asking"]);
+});
+
+test("askingTooltip names the cards and the sessions with no card that are asking", () => {
+  assert.equal(S.askingTooltip({ waiting: 2, unclaimed: {} }), "Kanbanzai board: 2 cards with a session asking you");
+  assert.equal(S.askingTooltip({ waiting: 1, unclaimed: { "claude:a": { state: "waiting", since: 1 } } }), "Kanbanzai board: 1 session asking you with no card");
+  assert.equal(S.askingTooltip({ waiting: 3, unclaimed: { "claude:a": { state: "waiting", since: 1 } } }), "Kanbanzai board: 2 cards with a session asking you; 1 session asking you with no card");
+  assert.equal(S.askingTooltip({ waiting: 1, unclaimed: {} }), "Kanbanzai board: 1 card with a session asking you");
+  assert.equal(S.askingTooltip({ waiting: 0 }), "Kanbanzai board");
+  assert.equal(S.askingTooltip(null), "Kanbanzai board");
+});

@@ -87,6 +87,9 @@ type Board struct {
 	Columns  []Column          `json:"columns"`
 	Problems []string          `json:"problems"`
 	Types    []typeid.TypeInfo `json:"types"`
+	// Unclaimed is {owner label: session} for the sessions of this project that are waiting for the owner and hold
+	// no card (BUG-64): no card can show them asking. Always an object; empty unless the board read the live claims.
+	Unclaimed map[string]sessions.Record `json:"unclaimed"`
 }
 
 // CardAt is one card and the column it sits in.
@@ -114,11 +117,15 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 	if owners == nil {
 		owners = map[string]string{}
 	}
-	if sessionMap == nil {
+	readsSessions := sessionMap == nil
+	if readsSessions {
 		sessionMap = sessions.ForClaims(owners, project)
 	}
 	now := timeutil.Now()
-	result := &Board{Problems: []string{}, Types: project.TypeInfoList()}
+	result := &Board{Problems: []string{}, Types: project.TypeInfoList(), Unclaimed: map[string]sessions.Record{}}
+	if claims == nil && readsSessions {
+		result.Unclaimed = sessions.UnclaimedAsking(owners, project)
+	}
 	byColumn := map[string][]*Card{}
 	for _, column := range project.Columns {
 		byColumn[column.Key] = []*Card{}
@@ -354,6 +361,23 @@ func AsText(board *Board, owner string) string {
 	if summary := HeldSummary(board, owner); summary != "" {
 		lines = append(lines, "", "  "+summary)
 	}
+	if len(board.Unclaimed) > 0 {
+		labels := make([]string, 0, len(board.Unclaimed))
+		for label := range board.Unclaimed {
+			labels = append(labels, label)
+		}
+		sort.Strings(labels)
+		lines = append(lines, "")
+		for _, label := range labels {
+			record := board.Unclaimed[label]
+			name := PlainText(record.Name)
+			if name == "" {
+				name = "unnamed"
+			}
+			harness, _, _ := strings.Cut(label, ":")
+			lines = append(lines, fmt.Sprintf("  ❓ asking, no card: %s (%s) %s", name, harness, askingFor(record.Since)))
+		}
+	}
 	if len(board.Problems) > 0 {
 		lines = append(lines, "", "Problems")
 		for _, problem := range board.Problems {
@@ -361,6 +385,29 @@ func AsText(board *Board, owner string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// askingFor is how long ago since (milliseconds) was: "<1m", "3m", "1h 2m". A time ahead of the clock reads "<1m".
+func askingFor(since int64) string {
+	minutes := (time.Now().UnixMilli() - since) / 60000
+	switch {
+	case minutes < 1:
+		return "<1m"
+	case minutes < 60:
+		return fmt.Sprintf("%dm", minutes)
+	}
+	return fmt.Sprintf("%dh %dm", minutes/60, minutes%60)
+}
+
+// PlainText is text with every control character turned into a space, so a name read from a file cannot drive the
+// terminal.
+func PlainText(text string) string {
+	return strings.TrimSpace(strings.Map(func(r rune) rune {
+		if r < 32 || r == 127 || (r >= 0x80 && r < 0xa0) {
+			return ' '
+		}
+		return r
+	}, text))
 }
 
 // HeldSummary is one line on the held cards: who they wait on, then what is waiting, then what is blocked.
