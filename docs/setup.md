@@ -82,7 +82,7 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
 
 ## Special cases
 
-- **A monorepo** gets one board, at the repository root. Several boards in one workspace are not supported yet.
+- **A monorepo** gets one board, at the repository root. Several repositories in one editor workspace each keep their own board, which the Board tab can show together ([multi-project.md](multi-project.md)).
 - **A worktree:** setup run from a linked worktree works on the main checkout, where the board lives. A project that
   cannot give each card a worktree sets `[flow] isolation` afterwards (see [isolation.md](isolation.md)); setup does not ask.
 - **A main branch that is not `main`:** `origin/HEAD`, or the only `main`, `master` or `trunk`, is used and shown; if

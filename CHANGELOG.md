@@ -5,6 +5,15 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-18: the documentation is install-first. The README opens with what Kanbanzai is, who it is for, the supported
+  agents, editors and platforms and a five-minute install; its reference material moved into guides under `docs/`
+  (`commands`, `configuration`, `concepts`, `boards`, `contributing`). New guides: `host-integration` (the minimal
+  changes a host project makes, and that its own rules and skills stay in the host), `multi-project`, `upgrade`,
+  `troubleshooting` (each `doctor` finding mapped to its fix) and `security` (what runs, reads, writes and sends).
+  Docs tests now fail on a broken link or heading, a configuration example with a key the command does not accept, a
+  configuration key no guide names, a command the command does not have, and a `doctor` finding with no fix. Docs only:
+  no command or setting changed.
+
 ## [0.18.0] — 2026-11-15
 
 - BUG-64: the board shows `❓ asking`, the glow and the toast for a Claude Code session that has the question tool open, instead of showing the card as blocked.

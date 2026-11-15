@@ -12,7 +12,28 @@ kanbanzai init --preset docs-only --dry-run   # what init would write for it; no
 kanbanzai init --preset docs-only             # a new project, set up from it
 ```
 
-The README has the cookbook table that says which preset is for what.
+The cookbook below says which preset is for what.
+
+## The cookbook
+
+A preset is a complete starting configuration for a kind of work: a flow (columns, steps, gates, isolation and pull
+order), the issue types with their brief templates and schemas, and the paths that follow from the work. It is not a
+second format: a preset folder holds a flow file, a config fragment and templates, and `init --preset` writes all of it
+into `.kanbanzai/config.toml` in full. The sections below say how to compose one with your own types
+and skills, and how to write a local one.
+
+| Preset | Delivery style | Best for | Flow | Gates | Isolation | Types, template and schema | What it does not do |
+|---|---|---|---|---|---|---|---|
+| `software` | software | A product with tests and a release, several cards in flight | todo, design, build, check, QA, ship | owner approval before ship | worktree and branch per card | task, bug, change, spike, chore; the project template | Work with no code or no release |
+| `simple` | software-lite | A small project or a solo developer | todo, building, built, checking, done | none | branch per card, one at a time | task, bug; the project template | Design, QA, release or parallel work |
+| `docs-only` | docs | A docs site or handbook, published by merging | todo, writing, written, checking, done | none | shared checkout | page (with `Audience`), fix; own templates and schemas | Build, test or deploy |
+| `pr-review` | review | A queue of changes to review for someone else | queued, reviewing, reviewed, deciding, done | the author's response before the decision | worktree on `review/<id>` | review (`Change under review`, `Verdict`) | Writing the change itself |
+| `release-train` | train | Scheduled or batched releases | todo, building, approved, shipping, done | the train, before ship | worktree and branch per card | task, bug, change; the project template | Shipping each card alone |
+| `marketing` | campaign | Campaigns and assets the owner signs off | todo, drafting, drafted, reviewing, approved, publishing, done | owner approval before publishing | shared checkout | campaign, asset (`Audience`, `Channel`, `Publish on`) | Builds or test runs |
+| `homework` | study | Coursework: a few things at once, each with a due date | todo, working, ready, self-check, handed in | none | shared checkout, WIP cap of 3 | assignment, reading (`Due`, `Course`) | Group work, reviews or branches |
+
+Each preset is proved in CI: `internal/cli/presets_test.go` sets it up in an empty repository, checks its golden
+config and fixture board, and drives a card through every column, gate and close with the real commands.
 
 ## What init writes
 

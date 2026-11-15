@@ -5,10 +5,11 @@ extension.
 
 ## Where to look first
 
-- [README](README.md) — install, set up a project, the settings, the command and the
+- [README](README.md) — what it is, the five-minute install, the guides and the
   [compatibility table](README.md#compatibility).
+- [Troubleshooting](docs/troubleshooting.md) — `kanbanzai doctor`, and what each finding and failure means.
 - [board-view/README.md](board-view/README.md) — the editor tab, its install and its settings.
-- `kanbanzai --version`, `kanbanzai check` and `kanbanzai config` — the version, the briefs' state and the resolved
+- `kanbanzai --version`, `kanbanzai doctor`, `kanbanzai check` and `kanbanzai config` — the version, the briefs' state and the resolved
   settings. Most setup problems show up in one of them.
 
 ## Ask a question or report a bug
