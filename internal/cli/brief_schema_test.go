@@ -349,17 +349,17 @@ func fencedAll(t *testing.T, file string) string {
 	return string(data)
 }
 
-func TestTheReadmeSchemaExampleLoadsAndItsBugTemplateChecks(t *testing.T) {
-	readme := fencedAll(t, "README.md")
+func TestTheTypesGuideSchemaExampleLoadsAndItsBugTemplateChecks(t *testing.T) {
+	readme := fencedAll(t, "docs/types.md")
 	at := strings.Index(readme, "[schemas.bug]")
 	if at < 0 {
-		t.Fatal("README.md has no [schemas.bug] example")
+		t.Fatal("docs/types.md has no [schemas.bug] example")
 	}
 	start := strings.LastIndex(readme[:at], "\n```toml\n") + len("\n```toml\n")
 	configText := readme[start : at+strings.Index(readme[at:], "\n```")]
 	project := newProject(t, configText+"\n[flow]\nisolation = \"shared\"\n")
 	testutil.Write(t, filepath.Join(project.Root, "templates", "bug.md"), example(t, "bug.md"))
 	if code, out, errOut := runCLI(t, "check"); code != 0 {
-		t.Fatalf("the README example fails check: %d %s %s", code, out, errOut)
+		t.Fatalf("the docs/types.md example fails check: %d %s %s", code, out, errOut)
 	}
 }

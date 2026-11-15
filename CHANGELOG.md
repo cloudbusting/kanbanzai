@@ -10,6 +10,14 @@ and the editor extension carry the same version.
   the software preset add EPIC with a built-in template/schema, Source and Work items membership. Core validation
   rejects invalid/nested membership and `board --json` adds optional read-only `epic` progress counters, displayed
   by terminal/editor/browser boards. Cancellation is not delivery; closure remains explicit through the workflow.
+- W-18: the documentation is install-first. The README opens with what Kanbanzai is, who it is for, the supported
+  agents, editors and platforms and a five-minute install; its reference material moved into guides under `docs/`
+  (`commands`, `configuration`, `concepts`, `boards`, `contributing`). New guides: `host-integration` (the minimal
+  changes a host project makes, and that its own rules and skills stay in the host), `multi-project`, `upgrade`,
+  `troubleshooting` (each `doctor` finding mapped to its fix) and `security` (what runs, reads, writes and sends).
+  Docs tests now fail on a broken link or heading, a configuration example with a key the command does not accept, a
+  configuration key no guide names, a command the command does not have, and a `doctor` finding with no fix. Docs only:
+  no command or setting changed.
 
 ## [0.18.0] — 2026-11-15
 

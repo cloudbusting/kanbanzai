@@ -297,3 +297,47 @@ worktree. There is no implicit rename and no re-key command; a card whose file n
 
 Per-type flows, columns or gates are not part of the model: a type selects an identity, a template and an optional
 brief shape, not a workflow. A schema checks presence and order, never content, and is not a rules language. A remote backing store is a separate card.
+
+## A bug type with a template and a schema, in one block
+
+A type can have its own brief template and, separately, opt into a brief schema. Both are optional and per type; a
+project that sets neither behaves exactly as before: one template, and a checker that requires the head fields
+(Stage, Updated, Next action, Where) and a final `## Comments` section while allowing any other field or section.
+
+```toml
+[project]
+default_type = "bug"            # [[types]] replace the shipped list: list every type you use
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "templates/bug.md"   # relative to the main project root; must exist and be readable (no fallback)
+schema = "bug"                  # opt in: names [schemas.bug]; without it the legacy checker applies
+
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
+optional_sections = ["Design", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"]
+final_section = "Comments"
+```
+
+A schema constrains presence and order only: required head fields, declared fields, required and declared `##`
+sections in `section_order`, sections that may repeat, and one final section. `kanbanzai check` names the brief, the
+field or section and what is wrong (missing, undeclared, out of order, duplicated, not last). It cannot disable the
+command's own invariants: a schema must require Stage, Updated, Next action and Where, permit Done, Held, Gate and
+Needs, permit Progress and Questions, and end with a required Comments section, or the config is refused before any
+command uses it. `move`, `ask` and `answer` insert Progress and Questions where `section_order` puts them.
+
+The card's type comes from its id prefix; there is no Type line. `kanbanzai template <type|ID>` prints the template a
+new card of that type starts from (`--where` names its file and schema); a type with no `template` gets the project
+template or the embedded card template, and a named template that is missing or unreadable is an error, not a silent
+fallback (epic uses its own shipped template). `kanbanzai template --example task|bug|change|epic|schemas` prints the embedded templates
+and an opt-in schema example for them. `kanbanzai init` and `workflow plan` check every named type template (it must
+exist, stay inside the project and fit its schema) and never create, replace or overwrite one; a workflow plan that
+renames the first column rewrites each template's Stage word like the project template. `board --json` and
+`config --json` add an optional `schema` to a type; nothing else changed. The section above has a full
+example, the validation errors and the compatibility rules.

@@ -1,64 +1,119 @@
 # Kanbanzai
 
-A kanban of work-item cards, built for coding agents. One plugin for **Claude Code** and **OpenCode**, usable side
-by side in the same project.
+A kanban of work-item cards, built for coding agents. One plugin for **Claude Code** and **OpenCode**, with a read-only
+board in **VS Code** or **VSCodium**, a terminal and a browser, all working on the same project at once.
 
-- **The cards are the board.** Each work item is one Markdown brief in git; its **Stage** line is its column. There
-  is no board file to keep in step, and a session that stops leaves a brief the next one resumes from.
-- **A pull system.** Each step has a Doing column (the step in progress) and a Done column (the last step finished,
-  in the past tense); the board shows a card's state by where it sits. A session pulls the furthest-along card
-  nobody is on, moves it into the next step's Doing column and does the step, then moves it to that step's Done
-  column; a cap on started cards keeps work reaching Done.
-- **Leases, not locks.** A session claims a card before it works on it; the claim is a lease a hook renews while the
-  session works, so parallel sessions (in either tool) never take the same card, and a crashed one frees its card.
-- **One worktree per card, by default.** The main checkout holds only the board; each card's change is made on its own
-  branch. A small project can choose a branch per card in one checkout, a shared checkout, or a workspace its host
-  owns (`[flow] isolation`; [docs/isolation.md](docs/isolation.md) says what each gives up).
-- **The workflow is yours.** The shipped columns and skills are a default. A project renames, adds or drops columns,
-  and decides which skill runs each step, in one settings file.
+## Who it is for
 
-## What it ships
+You work with one or more coding agents on a git project and want them to share a plain list of work: what is next, who
+has it, what is stuck, what is waiting on you. Kanbanzai keeps that list as Markdown in your repository, so there is
+nothing to host, no account and no service to keep running. It suits one person with a few parallel agent sessions as
+well as a team. It does not replace your tests, your CI or your release process: it records and sequences the work and
+leaves the doing to the agents and the rules you already have.
 
-```
-cmd/kanbanzai              the command's entry point
-internal/                  the core: config, brief, board, claim, move, number, step, context, check, sessions, wip, flow, cli
-go.mod                     the Go module (Go 1.24+, standard library only, no require)
-assets.go                  the embedded shipped defaults and card template
-defaults/config.toml       the shipped workflow (embedded in the binary)
-templates/card.md          the brief template (embedded in the binary)
-templates/{task,bug,change}.md, schemas.example.toml   opt-in per-type examples (embedded; see "Type templates and brief schemas")
-skills/                    setup, workflow, breakdown, triage, design, do, next, answer, wip, audit, cleanup, build, check
-.claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
-hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
-opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH
-board-view/                a read-only board in a VSCodium/VS Code tab, with each claimed card's session state
-icon/                      the Kanbanzai mark's SVG source
-tools/icon/                the stdlib renderer for the plugin and extension PNGs
-tools/vsix/                the .vsix packer
-tools/release/             the per-OS/arch release builder and version check
-LICENSE                    MIT
-CHANGELOG.md               what each release changed
-SECURITY.md                how to report a vulnerability
-SUPPORT.md                 where to ask a question
-```
+## What it is
 
-## Install Kanbanzai
+- **The cards are the board.** Each work item is one Markdown brief in git; its **Stage** line is its column. There is
+  no board file to keep in step, and a session that stops leaves a brief the next one resumes from.
+- **A pull system.** A session pulls the furthest-along card nobody is on, does the next step and moves it on; a cap on
+  started cards keeps work reaching Done.
+- **Leases, not locks.** A session claims a card before it works on it; the claim is a lease its hook renews, so
+  parallel sessions never take the same card and a crashed one frees its card.
+- **One worktree per card, by default.** The main checkout holds only the board. A small project can choose a branch
+  per card, a shared checkout or a workspace its host owns ([docs/isolation.md](docs/isolation.md)).
+- **The workflow is yours.** The shipped columns, steps and gates are a default. A project renames, adds or drops them,
+  or starts from a [delivery preset](docs/presets.md).
+- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)).
 
-Download the archive for your OS/arch from
+## Supported
+
+| | |
+|---|---|
+| Agents | **Claude Code** and **OpenCode** (V2), alone or together |
+| Editors | **VS Code** and **VSCodium** 1.85 or later, for the board tab and one-click setup |
+| Platforms | Linux amd64/arm64, macOS amd64/arm64 and Windows amd64 |
+| Needs | `git`. The command is one self-contained binary: no runtime, no package manager, no network |
+
+The [Compatibility](#compatibility) table says exactly what was tested.
+
+## Install in five minutes
+
+**1. Get the command.** Download the archive for your OS and architecture from
 [GitHub Releases](https://github.com/cloudbusting/kanbanzai/releases), verify it against `SHA256SUMS`, extract
-`kanbanzai` (`kanbanzai.exe` on Windows) and put it on PATH:
+`kanbanzai` (`kanbanzai.exe` on Windows) and put it on your `PATH`. With Go 1.24 or later,
+`go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` does the same.
 
 ```bash
 kanbanzai --version
-kanbanzai init
+kanbanzai install          # copy it where the plugins and the editor look (and, on Linux and macOS, link ~/.local/bin/kanbanzai)
 ```
 
-Supported: Linux amd64/arm64, macOS amd64/arm64 and Windows amd64. The binary is self-contained (no runtime
-prerequisite) and makes no outbound network request. The explicitly started browser board uses loopback HTTP only.
-A Go developer can build it instead with
-`go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@latest` (Go 1.24+).
-`kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
-build. An explicitly stamped release-build version takes precedence over module metadata.
+**2. Set up your project.** In the project's git checkout:
+
+```bash
+kanbanzai init --dry-run --plugins claude   # the plan: what it would make, keep or append; writes nothing
+kanbanzai init --plugins claude             # apply it: .kanbanzai/, and the plugin settings
+```
+
+It shows the plan, applies exactly that, checks the result and lists the files to commit. It never commits. For
+OpenCode use `--plugins claude,opencode --plugin-source <a Kanbanzai checkout>`: its plugin is not published as a package yet.
+(In the editor, the **Kanbanzai: Init** status-bar item does the same with the whole plan in a tab you read before
+you click **Apply**: [docs/setup.md](docs/setup.md). With the plugin enabled, `/kanbanzai:setup` does it as a
+conversation.)
+
+**3. Start a session and give the board its first card.** Commit what init listed, open Claude Code or OpenCode in the
+project, and:
+
+```text
+/kanbanzai:triage <what you want done>      # turns the request into a card
+/kanbanzai:do <the card>                    # does it, step by step, and stops where it needs you
+```
+
+For a large requirement, `/kanbanzai:breakdown <pasted text>` (also `/breakdown` in OpenCode) proposes a split and
+asks only unanswered questions. Nothing is allocated or written until you approve the exact source and split.
+It creates an EPIC with linked triaged cards and `Needs` prerequisites, without fetching tickets or starting work.
+Default types, fresh init and the software preset include EPIC; explicit custom type lists are never rewritten.
+See [EPIC membership, progress and compatibility](docs/types.md#epics-and-breakdown).
+
+`kanbanzai board --tui` (terminal), `kanbanzai board --web` (browser) and the editor tab show the board, read-only.
+If anything is red, run `kanbanzai doctor` and see [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## How it works, briefly
+
+The shipped flow is twelve columns in five lanes, one **Doing** and one **Done** column per step:
+
+```
+todo ─design→ designing │ designed ─build→ building │ built ─check→ checking │ checked
+      ─deploy-qa→ in-qa │ qa-approved ─ship→ shipping → done                     paused
+```
+
+A session claims a card, moves it into the step's Doing column, does the step and moves it into the Done column with
+the next action written in its brief. A card in a Doing column with no live claim is interrupted and is offered first.
+A card that cannot move carries a `Held` line and is never pulled. Each decision that is yours (a design choice, an
+approval to ship) stops the session and waits. This is an example, not a requirement: [docs/concepts.md](docs/concepts.md)
+explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
+
+## The documentation
+
+| To… | Read |
+|---|---|
+| Set a project up (editor, command line, or with an agent) | [docs/setup.md](docs/setup.md) |
+| Add Kanbanzai to a host project and keep the host's own rules | [docs/host-integration.md](docs/host-integration.md) |
+| Understand the board, claims, holds and questions | [docs/concepts.md](docs/concepts.md) |
+| Break a requirement into linked work | [EPICs and breakdown](docs/types.md#epics-and-breakdown) |
+| Change the columns, steps, pull order or WIP cap | [docs/workflow.md](docs/workflow.md) |
+| Set a project's keys: paths, owner, steps and skills | [docs/configuration.md](docs/configuration.md) |
+| Choose or write issue types and numbering | [docs/types.md](docs/types.md) |
+| Decide how a change is kept apart: worktree, branch, shared, external | [docs/isolation.md](docs/isolation.md) |
+| Add gates, skip rules and a delivery process | [docs/delivery.md](docs/delivery.md) |
+| Start from a preset (software, docs, review, release train, …) | [docs/presets.md](docs/presets.md) |
+| Run several projects in one workspace | [docs/multi-project.md](docs/multi-project.md) |
+| Look at the board in a terminal, browser or editor | [docs/boards.md](docs/boards.md) |
+| Look up a command | [docs/commands.md](docs/commands.md) |
+| Upgrade the command, plugins and a project | [docs/upgrade.md](docs/upgrade.md), [docs/migrate.md](docs/migrate.md) |
+| Fix something that is red | [docs/troubleshooting.md](docs/troubleshooting.md) |
+| Decide whether to trust it | [docs/security.md](docs/security.md), [SECURITY.md](SECURITY.md) |
+| Build or change Kanbanzai itself | [docs/contributing.md](docs/contributing.md) |
 
 ## Compatibility
 
@@ -70,664 +125,14 @@ promise about versions that were not tested; raising a pin is a change to this t
 | The `kanbanzai` command | Go 1.24 or later (the module's floor) | Go 1.24 on Linux, macOS and Windows in CI; Go 1.26.10 in development |
 | Claude Code plugin and marketplace | Claude Code 2.1.312 | `claude plugin validate --strict .` in CI, and an install from a packaged artifact into a throwaway project |
 | OpenCode plugin | OpenCode V2 (2.2.6 tested) | OpenCode 2.2.6 in development; the fake-harness test (`opencode/server.test.mjs`) proves registration, PATH, owner, heartbeat and context in CI, not a live OpenCode session |
-| Board extension | VS Code and VSCodium 1.85 or later (`engines.vscode` in `board-view/package.json`) | The extension's JavaScript with `node --test` in CI; the editor host is not run in CI, so check the tab by hand in your editor |
+| Board extension | VS Code and VSCodium 1.85 or later (`engines.vscode` in `board-view/package.json`) | The extension's JavaScript with Node's built-in test runner in CI; the editor host is not run in CI, so check the tab by hand in your editor |
 
-## Install in the editor, in one step
+`kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
+build. An explicitly stamped release-build version takes precedence over module metadata.
 
-The `.vsix` of the **Kanbanzai Board** extension carries the `kanbanzai` command for Linux and macOS (amd64, arm64)
-and Windows (amd64), so one install is enough on a machine that has nothing else. In a git project with no board
-the status bar shows **Kanbanzai: Init**. It asks which agents to set up (Claude Code, OpenCode), shows the whole
-plan in a tab you can scroll, keeps it pending (the status bar then reads **Kanbanzai: Apply**) and does nothing
-until you click that; then it copies the command to a per-user folder, enables the
-plugins for the project and makes the board. [board-view/README.md](board-view/README.md) says exactly what it runs,
-reads and writes; [docs/setup.md](docs/setup.md) walks through it, and through the same setup without the editor.
+## Contributing
 
-## Set up a project
-
-```bash
-cd <your project>
-kanbanzai init --dry-run   # show the plan: what it would make, keep or append; writes nothing
-kanbanzai init             # .kanbanzai/: config.toml, work/ (cards, batches), state/ (gitignored)
-```
-
-Or let the agent do it: with the plugin enabled, `/kanbanzai:setup` (`/setup` where the harness allows) inspects the
-repository, shows what it found, asks only the owner's open decisions (owner, main branch if unclear, whether to
-keep the typed starter or use a single prefix, context files), shows the plan and waits for approval, applies
-exactly that plan with `init --plan`, and proves it with `check`, `wip --audit` and `doctor`. It never commits. [docs/setup.md](docs/setup.md) walks from
-clone to board.
-
-A project that is not software can start from a **delivery preset** instead of the shipped software flow:
-`kanbanzai init --preset docs-only` (see the [cookbook](#delivery-presets) and [docs/presets.md](docs/presets.md)).
-`kanbanzai workflow presets` lists them and `init --preset NAME --dry-run` explains what one would write.
-
-For an existing board, `/kanbanzai:workflow` (`/workflow` in OpenCode) explains the current flow before proposing
-changes. Ask “what is my workflow?” to inspect it, or “replace the check skill” for a targeted change. It compares
-presets using the project's delivery needs: for example, it may recommend `docs-only` for documentation delivery,
-explain its trade-offs, or recommend keeping a customised flow. A preset changes the flow, not existing issue types,
-schemas or project paths. The skill validates a candidate and shows its card and configuration impact; only explicit
-approval of the exact saved plan permits applying it. A no-op or refusal leaves the host unchanged.
-See [docs/workflow.md](docs/workflow.md).
-
-`init` detects the checkout first: the main branch (`origin/HEAD`, else the only `main`/`master`/`trunk`, else the
-only branch; anything it cannot tell is exit 2 asking for `--main-branch NAME`), the owner (`git config user.name`,
-or `--owner NAME`), an existing config and board, and the rule files you already keep (`AGENTS.md`, `CLAUDE.md`,
-…, listed, never edited). It then builds one plan, the same JSON for `--dry-run --json`, for the real run and for
-`--plan FILE`, which applies a plan you were shown (and refuses it if the tree changed since). It creates the card
-folders, the batches folder, the ignore entries for every state path and, with `--with-template`, a project card
-template; `--prefix KEY` writes the older single-prefix card ids (`types = []`) instead of the typed starter, and
-`--context FILE[,FILE]` the files every skill reads first (both only for a config
-`init` writes; an existing one is edited by hand, or replaced with `--force`); `--plugins claude,opencode` adds the project's plugin settings to the plan: `.claude/settings.json` gets the
-marketplace and `enabledPlugins` entries (a GitHub source, or with `--plugin-source <a Kanbanzai checkout>` a local
-directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets the plugin path (OpenCode needs
-`--plugin-source` until its package is published). Settings are merged, never overwritten: only what is missing is
-added, a plugin you disabled stays disabled, and a settings file that is not plain JSON is left alone with the
-lines to add by hand. `kanbanzai install` copies the running command to `$XDG_DATA_HOME/kanbanzai/bin` (else
-`~/.local/share/kanbanzai/bin`; `%LOCALAPPDATA%\kanbanzai\bin` on Windows), where the hooks, the OpenCode adapter and
-the editor look after `PATH`. On Linux and macOS it also links `~/.local/bin/kanbanzai` to that copy (making
-`~/.local/bin` if it is missing) so a terminal and an agent's shell find the command, and says so when that folder is
-not on your `PATH`; it never edits `PATH` or a shell profile, and it leaves anything already at that path alone with a
-note. `--no-link` copies only. On Windows there is no link: it says where the file is and how to add its folder to your
-user `PATH`. It replaces a copy of another release (written to a temporary file and renamed over it),
-so running it again from the same command is a no-op and an interrupted run is finished by the next. `install --refresh`
-only replaces a copy that is already there and never makes a copy or a link: the editor extension runs it from its bundled command
-every time it starts, so the per-user copy is always the extension's own release. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
-finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
-never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
-arguments, with nothing written.
-
-**Claude Code** — in the project's `.claude/settings.json`:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "kanbanzai": { "source": { "source": "directory", "path": "<path to kanbanzai>" } }
-  },
-  "enabledPlugins": { "kanbanzai@kanbanzai": true }
-}
-```
-
-The skills answer to `/do`, `/triage`, `/next` … (and always to `/kanbanzai:do` …). The hooks run the `kanbanzai`
-command from `KANBANZAI_BIN`, then the per-user folder `kanbanzai install` fills (the copy the editor extension keeps at its own
-release), then PATH, then a local build in `bin/`; to run your own build, set `KANBANZAI_BIN`. At session start a hook passes the
-plugin's release to `kanbanzai context --adapter-version`, and if the command is another release the context starts with one
-line saying so (a plugin installed without the editor extension has no command to refresh, so it is told, not changed:
-update the extension, or run `kanbanzai install` from the new release). The plugin loads in place: an edit
-here reaches a project at its next session (or `/reload-plugins`). This repository is also its own public
-marketplace: `/plugin marketplace add cloudbusting/kanbanzai`, then `/plugin install kanbanzai@kanbanzai`.
-
-**OpenCode** — in the project's `.opencode/opencode.json`:
-
-```json
-{ "plugins": ["<path to kanbanzai>/opencode"] }
-```
-
-The plugin registers the same skills and commands (`/build` and `/kanbanzai:build`), puts the command's directory on
-the PATH of the shells OpenCode starts, labels them with the session (`KANBANZAI_OWNER=opencode:<session>`), renews
-the session's claims after each tool call, adds the board's context to each request, and writes each session's state
-(busy, idle or asking) into the project's state folder so the board can show it, as it shows a Claude Code session's.
-The plugin is plain JavaScript with nothing to install, but it needs the `kanbanzai` command: `KANBANZAI_BIN` first,
-then the per-user folder, then PATH, and it passes its own release to the command the same way (the line above).
-
-Both can be enabled at once. Neither tool reads the other's plugin, so nothing loads twice; both share the core, the
-settings, the cards and the claims.
-
-### Several projects in one editor workspace
-
-The editor Board tab offers **All projects** or one project, plus an issue-type filter. All projects stacks
-labelled boards, preserving each project's columns and lanes rather than merging unlike workflows. Explicit
-workspace folders are discovered through the core; aliases and card worktrees of the same project appear once.
-Asking counts cover the selected projects even when a type filter hides their cards. One failed project retains
-its last good board with a warning, without blanking the others. See [board-view/README.md](board-view/README.md#several-projects).
-The browser and terminal boards remain single-project.
-
-## Board in your terminal
-
-Run `kanbanzai board --tui` in an interactive terminal to see a read-only board. Use the arrow keys or
-`h`/`j`/`k`/`l` to scroll columns and cards; `q` or Ctrl-C exits. The display refreshes every second. It requires
-terminal input and output and supports Linux, macOS and Windows consoles with ANSI support. To keep untrusted card
-text from sending terminal controls and to fit fixed-width columns, non-ASCII characters are shown as `?`.
-Use the browser or editor board for full Unicode text. Existing `board`, `--json` and `--web` modes are unchanged.
-
-## Board in your browser
-
-Outside VS Code (for example nvim and OpenCode in tmux), run from the project or one of its worktrees:
-
-```bash
-kanbanzai board --web                     # open the default browser; foreground until Ctrl-C
-kanbanzai board --web --no-open            # print the URL without opening a browser
-kanbanzai board --web --no-open --port 8765 # choose a port, for manual use or an SSH tunnel
-```
-
-The binary includes the view: no Node, editor, extra files or dependencies are needed. It binds only to
-`127.0.0.1`, choosing a random available port by default (`--port 0`). Keep its printed, per-run access URL private:
-it permits reading this project's board, session marks and briefs. A browser-opening failure prints a warning
-and leaves the server running so you can open the URL yourself. Ctrl-C stops it; closing the tab does not.
-There is no background service, LAN binding, account, telemetry, external asset or outbound network request.
-
-The read-only board shares the editor's renderer, columns, lanes, marks and toast model, with a live poll every
-three seconds while visible. Click a card to read its literal Markdown in the browser; it does not open an editor
-or edit anything. Read failures leave a visible banner and preserve the last good board. Browser-local collapse
-state lasts for that access URL, not across server invocations. The editor's setup UI and desktop notices are not
-part of the browser host. `board` and `board --json` keep their existing behavior; `--json` cannot combine with `--web`.
-
-For SSH use, explicitly forward the same chosen port (for example `ssh -L 8765:127.0.0.1:8765 host`) and open the
-printed URL on your machine. Kanbanzai does not create tunnels or support public/reverse-proxy hosting. See
-[SECURITY.md](SECURITY.md) for the local HTTP boundary.
-
-## Where things live
-
-By default everything is in the project's `.kanbanzai/`, in the **main checkout** (found from any worktree through
-`git rev-parse --git-common-dir`, so every worktree shares one board and one set of claims):
-
-| | Default | In git |
-|---|---|---|
-| The settings | `.kanbanzai/config.toml` | yes |
-| The cards | `.kanbanzai/work/<folder>/<ID>-<slug>.md` | yes |
-| The leases | `.kanbanzai/state/claims/` | no |
-| The number ledger | `.kanbanzai/state/numbers/` (one `_ledger.json`, seeded from the legacy `<prefix>.json`; a `types = []` project keeps `<prefix>.json`) | no |
-
-Each path can be moved in the settings (`[project] work`, `state`, `claims`, `numbers`).
-
-## The settings
-
-**Isolation.** `[flow] isolation` says how a card's change is kept apart from the board: `worktree` (the default: a git
-worktree and a branch per card), `branch` (a branch per card in the one checkout), `shared` (the one checkout, no
-workspace record) or `external` (a workspace the host owns, recorded as `Where: external <ref>`). A config with no
-`isolation` key behaves as `worktree`. `kanbanzai workspace ID` prints what the mode asks of a card; `wip --audit`
-applies the mode's rules. [docs/isolation.md](docs/isolation.md) has the trade-offs: `branch` and `shared` give up the
-safety that lets sessions work in parallel.
-
-`.kanbanzai/config.toml` overrides [defaults/config.toml](defaults/config.toml) key by key (read its comments for
-every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
-The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate
-config discovery. `init` writes the config only there (never a second one in a relocated home) and never overwrites one without `--force`, which backs it up first. The existing worktree fallback is
-used only when the main checkout has no config. Changing `home` does not implicitly change `work` or `state`;
-set those paths explicitly (paths remain relative to the main checkout).
-
-**The preset record.** A config made with `init --preset NAME` (or changed with `workflow plan --preset NAME`) carries
-a `[preset]` table: `name`, `delivery_style` and `version`. It is a record, not a setting: every column, step, gate
-and path the preset chose is written out in the file, and `kanbanzai workflow show` names the preset and says whether
-the flow still matches the shipped one. A config with no `[preset]` is a hand-made workflow, which is every project
-before this release. A command from before presets refuses a config that has the table (unknown key); update it first.
-
-### Issue types and numbering
-
-Typed ids are the default. Each type has a key (`task`), a label (`Task`) and an upper-case prefix (`TASK`); a card's
-id is `<PREFIX>-<number>`, or `<PROJECT_KEY>-<PREFIX>-<number>` when `project_key` is set. Every type allocates from
-**one global number sequence**, so `BUG-07` is the seventh item overall, not the seventh bug. The shipped defaults
-configure task, bug, change, spike, chore and epic with `default_type = "task"`.
-
-```toml
-[project]
-prefix = "W"              # the LEGACY prefix: W-01 stays valid and is not rewritten
-default_type = "task"
-project_key = ""          # optional, e.g. KANZ for KANZ-BUG-07
-
-[[types]]
-key = "task"
-label = "Task"
-prefix = "TASK"
-```
-
-`kanbanzai number --type bug` allocates the next number for that type; `kanbanzai number` uses `default_type`. The
-ledger is one file, `.kanbanzai/state/numbers/_ledger.json`, holding every issued number and each live reservation's
-item, type, owner and time; `kanbanzai number --status` prints it. Type keys are lower-case; prefixes and the project
-key are upper-case letters and digits. The optional `template`, `schema`, `colour`, `icon` and `description` on a type
-select its brief template and schema (below) and are metadata for the board.
-
-**The old cards stay.** `project.prefix` is the legacy prefix: a card called `W-01` remains a valid card with no type,
-is not rewritten, and can be claimed, moved and closed like any other. On the first typed allocation the ledger is
-seeded from the legacy `<prefix>.json` and every `<prefix>-` brief in every worktree, so the first typed number is one
-above the highest legacy number; the old ledger is left in place as the historical record. A legacy brief that
-appears later is still counted. A project can opt out of typed ids entirely with `types = []` at the root of its
-config, which restores the single-prefix shape and its `<prefix>.json` ledger.
-
-`kanbanzai init` writes a typed config for a fresh project (task, bug, change, spike, chore, epic; `default_type = "task"`;
-`prefix = ""`, so there is no legacy alias). `init --prefix W` writes a single-prefix config (`types = []`) instead.
-
-The type is the id's prefix and nothing else: there is no separate Type field to disagree with it, and changing a
-card's type in place is not supported. [docs/types.md](docs/types.md) has the model, the grammar, the seed and the
-legacy boundary.
-
-### Type templates and brief schemas
-
-The default `epic` type selects the shipped `epic` schema and its own embedded template (unless it names a custom
-template). Other types keep the opt-in behavior below.
-
-A type can have its own brief template and, separately, opt into a brief schema. Both are optional and per type; a
-project that sets neither behaves exactly as before: one template, and a checker that requires the head fields
-(Stage, Updated, Next action, Where) and a final `## Comments` section while allowing any other field or section.
-
-```toml
-[project]
-default_type = "bug"            # [[types]] replace the shipped list: list every type you use
-
-[[types]]
-key = "bug"
-label = "Bug"
-prefix = "BUG"
-template = "templates/bug.md"   # relative to the main project root; must exist and be readable (no fallback)
-schema = "bug"                  # opt in: names [schemas.bug]; without it the legacy checker applies
-
-[schemas.bug]
-required_fields = ["Stage", "Updated", "Next action", "Where"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
-required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
-optional_sections = ["Design", "Questions"]
-repeatable_sections = []
-section_order = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"]
-final_section = "Comments"
-```
-
-A schema constrains presence and order only: required head fields, declared fields, required and declared `##`
-sections in `section_order`, sections that may repeat, and one final section. `kanbanzai check` names the brief, the
-field or section and what is wrong (missing, undeclared, out of order, duplicated, not last). It cannot disable the
-command's own invariants: a schema must require Stage, Updated, Next action and Where, permit Done, Held, Gate and
-Needs, permit Progress and Questions, and end with a required Comments section, or the config is refused before any
-command uses it. `move`, `ask` and `answer` insert Progress and Questions where `section_order` puts them.
-
-The card's type comes from its id prefix; there is no Type line. `kanbanzai template <type|ID>` prints the template a
-new card of that type starts from (`--where` names its file and schema); a type with no `template` gets the project
-template or the embedded card template, and a named template that is missing or unreadable is an error, not a silent
-fallback. `kanbanzai template --example task|bug|change|schemas` prints the embedded task, bug and change templates
-and an opt-in schema example for them. `kanbanzai init` and `workflow plan` check every named type template (it must
-exist, stay inside the project and fit its schema) and never create, replace or overwrite one; a workflow plan that
-renames the first column rewrites each template's Stage word like the project template. `board --json` and
-`config --json` add an optional `schema` to a type; nothing else changed. [docs/types.md](docs/types.md) has a full
-example, the validation errors and the compatibility rules.
-
-### Config contract and upgrades
-
-New configs start with the root key `config_version = 1`. A project with no file uses the embedded version-1
-defaults. An existing unversioned file is version 0: normal commands refuse it with an upgrade instruction, rather
-than silently changing it. From either the main checkout or a worktree:
-
-```bash
-kanbanzai config upgrade           # preview; writes nothing
-kanbanzai config upgrade --apply   # validate, back up config.toml.v0.bak, then write atomically
-```
-
-A release that needs a host's files migrated says so itself: the editor extension offers Preview and Apply, and a
-Claude Code or OpenCode session starts with a line telling it to preview, ask you and apply only on your approval. By hand,
-`kanbanzai migrate` previews the whole migration as one plan and prints its hash, `kanbanzai migrate --apply --plan
-HASH` applies exactly that plan (journalled, backed up, checked, rolled back on any failure) and `kanbanzai migrate
---rollback` restores the files after a crash. Nothing runs without your approval and nothing is committed;
-[docs/migrate.md](docs/migrate.md) has the contract and how a release adds a migration. `config upgrade` is the
-config-only form of it.
-
-The v0→v1 upgrade only adds or replaces the root version value; it preserves comments, formatting and settings.
-It first validates the prospective config, including references. Unknown or invalid settings require a correction
-before upgrading: none are dropped or renamed automatically. Apply refuses a symlink or a pre-existing backup,
-and a repeated apply on version 1 changes nothing. Keep the backup until you have verified the installation; it
-can contain private project settings. Do not edit the source concurrently with an upgrade. A newer version is
-always refused: install a compatible newer binary, never lower the file's version to bypass validation.
-
-Every table has an allowlist: root, `[project]`, `[claims]`, `[flow]`, each `[[columns]]`, each `[[types]]`, each `[schemas.<name>]`, and each
-`[steps.<name>]` (step names remain user-defined). Errors identify the source file and key and suggest a repair or
-the nearest valid key. Values are not coerced: strings, booleans, integers and lists of strings must have their
-declared types. `digits` is an integer from 1 through 18; `wip_limit` and `stale_days` are positive integers;
-`lease_minutes` and `move_grace_minutes` are positive finite numbers at most 153722867 minutes (the duration
-limit). Zero is not an alias for a default. `started` accepts only `true`, `false` or `"claimed"`; `kind` accepts
-`"open"`, `"parked"` or `"done"`. Existing custom-column behavior is retained: inherited steps with no destination
-on that board are inactive and absent Doing columns are dropped. Referenced steps and pull-order columns must exist.
-See `defaults/config.toml` for every key, optional value and merge rule.
-
-To intentionally retain a setting from a future version, opt in by **exact unknown dotted path** at the root:
-
-```toml
-config_version = 1
-config_allow_unknown = ["project.future_key", "extensions"]
-
-[project]
-future_key = "not used by this binary"
-```
-
-Unknown table paths may be allowlisted as a whole. Column keys use `columns.<setting>` (applies to all entries);
-steps use `steps.<step-name>.<setting>`. No wildcards are accepted. An exception never bypasses a known key's type,
-range, version or reference checks; it does not make the setting work. Doctor warns for every actually ignored
-path. `config --json` adds `config_version` and `config_allow_unknown` alongside the existing resolved fields;
-consumers should keep treating fields defensively and tolerate additive fields.
-
-### Diagnose an installation
-
-```bash
-kanbanzai doctor
-kanbanzai doctor --json
-```
-
-Doctor diagnoses even a malformed or old config. It checks git and the main branch, binary version and command
-resolution, config, folders and template, state ignore/tracking rules, write/lock access and local adapter wiring.
-It never repairs configuration, runs adapter code or makes a network request. Temporary access probes are removed.
-Config-dependent checks are skipped when the config cannot load, while independent findings are still reported.
-Missing adapters and development binaries are warnings (CLI-only use is valid); declared broken local wiring is
-an error. Wiring inspection is not proof that a live harness loaded the plugin; remote/global installs and settings
-the local inspector cannot evaluate require manual verification.
-
-Exit 0 means no blocking finding; exit 1 means an error; invalid arguments exit 2. The JSON contract is
-`{ "schema_version": 1, "ok": true, "findings": [...] }`; each finding has `id`, `status`, `message`, `fix`, with
-status `pass`, `warning`, `error` or `skipped`. This report version is distinct from `config_version`.
-
-The following is an **example of the shipped workflow**, not a required workflow for every project:
-
-```
-todo ─design→ designing │ designed ─build→ building │ built ─check→ checking │ checked
-      ─deploy-qa→ in-qa │ qa-approved ─ship→ shipping → done                     paused
-```
-
-Twelve columns. The shipped lanes are Design, Build, Check, QA and Ship; each lane is a Doing column and a Done
-column, and Todo, Paused and Done stand alone:
-
-| Lane | Doing | Done |
-|---|---|---|
-| | | `todo` |
-| Design | `designing` | `designed` |
-| Build | `building` | `built` |
-| Check | `checking` | `checked` |
-| QA | `in-qa` (deploying to QA, then tested) | `qa-approved` (tested and passed) |
-| Ship | `shipping` | `done` |
-| | | `paused` |
-
-A session moves a card **twice** per step: first, right after it claims the card (and, from Building on, after the
-card's worktree exists), to the step's Doing word; last, when the step is finished, to the Done word with the new
-Next action. `kanbanzai step --for <ID>` prints both words ("start: Stage `building`; finish: Stage `built`"). A
-settled Todo card goes straight to Building.
-
-What a card's place means:
-
-- **Doing column, live claim:** a session is working it. Nobody else takes it.
-- **Doing column, no live claim and no Held line:** interrupted (the lease expired, or the claim was released
-  mid-step). The board marks it `⚠`; `kanbanzai wip --next` offers it first; it is taken over with
-  `kanbanzai claim claim <ID> --takeover "<why>"`.
-- **Done column (or Todo), no live claim:** available; a session pulls it.
-- **Done column, live claim:** a session carrying straight on to the next step, which keeps the claim between steps.
-  It is not offered.
-
-`deploy-qa` and `ship` have no skill by default, so a checked card closes straight to done. Cap of five started
-cards (Designing through In QA count; QA-approved, which waits on the owner, and Shipping do not), two-hour leases,
-pull order checked → built → designed → todo (from the Done columns), interrupted cards first. A project whose own
-`[[columns]]` have no Doing column works as a one-column-per-step board: the claim is the doing.
-
-A card that cannot move (blocked on another card or an account; waiting on the owner, an outside service or a date)
-stays in its column, Doing or Done, and carries a `- **Held:** blocked: …` or `- **Held:** waiting: …` line in its
-brief (an In QA card held `waiting:` for the owner's own test, for example). A held card is never pulled and is never
-stale or interrupted, but it still counts toward the cap. Delete the line when the blocker clears. Paused is a column
-of its own: only the owner un-parks a card.
-
-A main session with a question tool asks the owner directly and, once answered, continues the permitted route while
-keeping its claim. It may record the decision in the brief without opening a question. An existing open question still
-uses `/answer`.
-
-A batch agent that needs a decision reports its question to the main session, which uses `kanbanzai ask` to record it
-in `## Questions`, hold the card and release its claim. The board marks the question. `/answer ID` re-asks it and
-records the owner's answer without starting work; a later pull resumes the card and reuses its workspace. If a return
-to the preceding column is refused, the card remains interrupted rather than forcing the move.
-
-## Extending it
-
-Neither tool can override a plugin's skill, so Kanbanzai does it the same way in both: every step skill starts by
-asking `kanbanzai step <step>`, and the project's settings answer. Per step:
-
-| Key | Meaning | Example |
-|---|---|---|
-| `skill` | the skill that runs the step: Kanbanzai's (`kanbanzai:check`) or the project's, which replaces it | `skill = "deploy"` |
-| `extend` | project skills the step also follows, at the points the step's skill names | `extend = ["our-code-rules"]` |
-| `context` | project files the step reads first | `context = ["docs/architecture.md"]` |
-| `checks` | (check) the project skills that make up the checks, in order | `checks = ["lint", "test", "review"]` |
-| `during` | the Doing column a card sits in while the step runs (optional; that column's `doing` names the step) | `during = "building"` |
-
-`[project] context` lists files every Kanbanzai skill reads first (the project's rules, where things stand), and
-`[project] owner` is the person the skills address.
-
-Two optional column keys draw the lanes: `lane` (the step's name on the board, shown over its Doing and Done
-columns; empty for Todo, Paused and Done) and `doing` (on a Doing column: the step in progress; absent on a Done
-column). A `doing` that names no step, or a Doing column and its step that disagree (the step's `during` is another column, or
-two Doing columns for one step), are errors; a `during` that names a column the board does not have is dropped, so a
-project that sets its own columns keeps the shipped step keys.
-
-A project that wants a different board:
-
-```toml
-[flow]
-wip_limit = 3
-pull_order = ["review", "doing", "todo"]
-
-[[columns]]
-key = "todo"
-label = "To do"
-folder = "1-open"
-kind = "open"
-started = "claimed"
-next = "build"
-title = "BUILDING"
-
-[[columns]]
-key = "doing"
-# …
-
-[steps.build]
-into = "doing"
-skill = "kanbanzai:build"
-```
-
-### Delivery presets
-
-A preset is a complete starting configuration for a kind of work: a flow (columns, steps, gates, isolation and pull
-order), the issue types with their brief templates and schemas, and the paths that follow from the work. It is not a
-second format: a preset folder holds a flow file, a config fragment and templates, and `init --preset` writes all of it
-into `.kanbanzai/config.toml` in full. [docs/presets.md](docs/presets.md) says how to compose one with your own types
-and skills, and how to write a local one.
-
-| Preset | Delivery style | Best for | Flow | Gates | Isolation | Types, template and schema | What it does not do |
-|---|---|---|---|---|---|---|---|
-| `software` | software | A product with tests and a release, several cards in flight | todo, design, build, check, QA, ship | owner approval before ship | worktree and branch per card | task, bug, change, spike, chore; the project template; epic with its own template/schema | Work with no code or no release |
-| `simple` | software-lite | A small project or a solo developer | todo, building, built, checking, done | none | branch per card, one at a time | task, bug; the project template | Design, QA, release or parallel work |
-| `docs-only` | docs | A docs site or handbook, published by merging | todo, writing, written, checking, done | none | shared checkout | page (with `Audience`), fix; own templates and schemas | Build, test or deploy |
-| `pr-review` | review | A queue of changes to review for someone else | queued, reviewing, reviewed, deciding, done | the author's response before the decision | worktree on `review/<id>` | review (`Change under review`, `Verdict`) | Writing the change itself |
-| `release-train` | train | Scheduled or batched releases | todo, building, approved, shipping, done | the train, before ship | worktree and branch per card | task, bug, change; the project template | Shipping each card alone |
-| `marketing` | campaign | Campaigns and assets the owner signs off | todo, drafting, drafted, reviewing, approved, publishing, done | owner approval before publishing | shared checkout | campaign, asset (`Audience`, `Channel`, `Publish on`) | Builds or test runs |
-| `homework` | study | Coursework: a few things at once, each with a due date | todo, working, ready, self-check, handed in | none | shared checkout, WIP cap of 3 | assignment, reading (`Due`, `Course`) | Group work, reviews or branches |
-
-Each preset is proved in CI: `internal/cli/presets_test.go` sets it up in an empty repository, checks its golden
-config and fixture board, and drives a card through every column, gate and close with the real commands.
-
-### Change the workflow with a command
-
-Renaming or dropping a column by hand strands the cards whose Stage word no longer exists. `kanbanzai workflow` does it
-with a report first and a way back; [docs/workflow.md](docs/workflow.md) walks through a rename.
-
-```bash
-kanbanzai workflow show                       # the resolved flow: columns, steps, transitions, gates, WIP, isolation, pull order
-kanbanzai workflow export --out flow.toml     # the flow as a file (--format json|mermaid too)
-# edit flow.toml
-kanbanzai workflow validate --file flow.toml  # every problem, one message each; writes nothing
-kanbanzai workflow plan --file flow.toml --out plan.json [--map OLD=NEW]
-kanbanzai workflow apply --plan plan.json     # backup, migrate the briefs, write the config, check + doctor; undo on failure
-kanbanzai workflow apply --rollback           # undo an apply that did not finish
-kanbanzai workflow presets [NAME]             # the shipped delivery presets, or one explained (works outside a project)
-kanbanzai workflow plan --preset docs-only --out plan.json   # a preset's flow, planned the same way (--file's equal)
-```
-
-A flow file holds only `[flow]`, `[[columns]]` and `[steps.<name>]`, and **replaces** those tables in
-`.kanbanzai/config.toml`; the rest of the config is untouched. A card whose Stage word the new flow does not know is a
-blocker in the plan until `--map OLD=NEW` says where it goes; nothing is guessed. Apply never commits.
-
-## The command
-
-### Break down a large requirement
-
-`/kanbanzai:breakdown <pasted text>` (also `/breakdown` in OpenCode) proposes a split, searches for existing work,
-asks only unanswered scope questions, then waits for approval of the exact split before allocating IDs or writing
-cards. It reuses triage for each piece and never starts its work. There is no `kanbanzai breakdown` subcommand and
-no ticket fetch or outbound network request.
-
-One `EPIC` card keeps the approved source and links all new or folded work in its required `Work items` head field
-and Source/Work items sections. Children use `Needs` for real prerequisites; only configured card gates enforce
-them. EPIC membership itself does not block a child. The epic stays held for delivery/review; closing it is explicit
-and still follows the configured route and gates.
-
-`board --json` adds optional `epic: {total, delivered, cancelled, remaining, complete}` to epic cards. The core
-computes progress on every read; the editor/browser and terminal board display the same counts. A configured done
-column counts as delivered unless the child was early-closed with no change. Cancelled children remain in
-`remaining`, and an empty or invalid membership list is not complete. No Stage, hold or approval is changed by a
-roll-up. See [docs/types.md](docs/types.md#epics-and-breakdown).
-
-Default types, fresh init and the software preset include epic. Explicit type lists and legacy-only boards are
-never rewritten: add the epic type explicitly before using breakdown. Older commands do not understand EPIC
-membership/roll-up; use the matching release with these records.
-
-### CLI reference
-
-```
-kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser
-kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
-kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
-kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
-kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
-kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
-kanbanzai answer ID [--text T] [--next T]
-kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
-kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
-kanbanzai check                          validate every brief against the settings
-kanbanzai step NAME | --for ID           what runs a step, and what extends it
-kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
-kanbanzai config [--json]                the versioned, resolved settings
-kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
-kanbanzai migrate [--json | --apply --plan HASH | --rollback]
-                                         preview, apply (on the hash the preview printed) or roll back what this release
-                                         needs migrated in the project
-kanbanzai doctor [--json]                local installation diagnostics (no repairs)
-kanbanzai workflow show|validate|plan|apply|export|presets
-                                         show, check, plan, apply and export the flow (columns and steps)
-kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
-kanbanzai context                        the standing context the hooks inject
-kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-                                         [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR]
-                                         [--with-template] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
-                                         [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
-                                         set a project up: detect, plan, apply, verify; never commits
-kanbanzai install [--dry-run|--refresh|--where]    copy this command to the per-user folder the plugins and the editor search
-kanbanzai --version                      the command's version
-```
-
-**Moving a card.** `kanbanzai move ID TARGET` is how a session moves a card; nobody edits a **Stage** line by hand.
-`TARGET` is a column (key or label), or `start` (the Doing column of the card's next step) or `finish` (the Done
-column of the step it is in; for a step with no Doing column, the column the step moves a card into, which needs your
-live claim because the claim is the only proof the step ran). `kanbanzai move ID close --reason "<why>"` instead cancels an open card with no
-change, not a delivery. It records the reason without `--force` and preserves the workspace and its work. It may
-leave a closed current-column gate, but not a hold or parked card; another live or an expired claim refuses, and a
-Doing card requires your live claim. Inspect retained work before cleanup. `close` is reserved even if a custom
-column uses that key or alias; use another key or label, or rename the column. One move sets **Stage** and **Updated**, and what is asked besides (**Next action**,
-**Where**, **Held**, a dated **Progress** line, **Done**), in one atomic rewrite of the brief, moving its folder for
-Paused and Done. It refuses (exit 2) an unknown column or card, a skipped step, a move into a Doing column without
-your claim, a Held card (add `--clear-held`), a column that needs a workspace the card has not got (a worktree, a branch or an external record, as the isolation
-mode says), leaving Paused
-(only the owner un-parks a card) and Done without `--done`; and (exit 3) a card another live session holds.
-`--force --reason "<why>"` overrides every refusal but an unknown column or card, another session's live claim and a
-missing `--done`. Each move is a line in `<state>/moves.jsonl`.
-
-**Delivery is data.** A step can declare who skips it (`skip_field`, `skip_values`: in the shipped flow a **Deploy** of
-`None` skips the deploy steps and the card closes from Checked), and a column can declare a **gate** a card waits at
-until it is open: `owner`, `ci`, `external`, `date` or `card` (`gate = "ci"`). `move` refuses to take a card out of a
-closed gate and `wip --next` does not offer it; `gate pass ID` records the result (the owner gate needs `--note` with
-their words), `gate status` says where it stands, and `step --for ID` says what a card skips and what holds it. A card
-held by a `card` gate also gets a table of the cards in its `Needs:` line (`N of M needs are met`, the ones that do
-not satisfy the gate first, each with the column it is in and the one the gate wants); `board --json` carries it as
-`gate.needs`, present only on a closed `card` gate. A card in a parked column (Paused) never counts as having reached
-an open column.
-
-`kanbanzai step --for <ID> --json` also includes a `route` object describing the immediate action, step, target,
-whether a gate or hold blocks it, workspace facts, the column `finish` lands in (`finish`), and whether closing needs
-`--done`. Its text output includes the same route. A route does not grant a claim or override a gate: check its blocked
-flag and reason before acting. `workflow show` describes the whole project; `workspace <ID>` describes the selected
-isolation mode. A step with no Doing column routes as `step` with no `target`: keep your claim while you work, then
-`move <ID> finish`. A step with no skill that is followed by a skilled step routes as `skip` to the column the card
-lands in (stopping at the first gated column on the way), and `move <ID> <that column>` makes the hop.
-[docs/delivery.md](docs/delivery.md) has the cookbook (docs site, library, release train, store review, scheduled
-release, dependent work) and says what the flow cannot express.
-
-A skipped step cannot be started, including by a claim's automatic start. The claim remains recorded and reports
-the explicit skip or close route; gates and normal move requirements still apply. `--force --reason` remains an
-audited override, and an already-running step can still be resumed or finished.
-
-**A claim starts the step.** `claim claim` (and `claim takeover`) moves a Todo or Done-column card into the Doing column
-of its next step, the way `move ID start` does, unless the card is held, the step's column needs a workspace (the output
-then says to make it and run `move ID start --where "<the record>"`; under `isolation = "shared"` there is none), or the claim is made with `--no-move` (a claim
-that is not a step: it is recorded as `step: false`). A live step claim that has sat for `flow.move_grace_minutes`
-(default 10, counted from the claim or the card's last move) on a card still in Todo or a Done column is **claimed, not
-started**: `⚑` on the board (text, and a glyph and hover text in the board tab; `claimed_not_started` in
-`board --json`), a line in `wip`, and a hard finding in `wip --audit`.
-
-A claim's owner is the session, so it survives a restart: `opencode:<session id>` in OpenCode, `claude:<session id>`
-in Claude Code (`CLAUDE_CODE_SESSION_ID`, which the heartbeat hook reads from `session_id` on its stdin). Only a shell
-with no session id falls back to `claude:<process id>`, which a restart changes.
-
-Claim exit codes: 0 free, mine or done; 1 an error; 3 held by another live session; 4 expired, needs `--takeover`.
-
-For an unheld card without a live claim that is interrupted in a Doing column, or stopped between steps in a column
-that needs a workspace (a built or checked card whose work was preserved when its claim was released), `kanbanzai wip --audit --card ID --recovery` is a pre-claim
-check in worktree or branch isolation. It reports the matching unclaimed workspace work as a warning while leaving
-all other hard findings in place. It does not claim, rebase or modify work. Claim or take over normally, then run both
-the ordinary card audit and the recovery audit again before resuming; the second recovery check also detects a
-competing branch claim. The recovery check accepts only an absent, expired or caller-owned claim for the target.
-Normal and whole-board audit behavior is unchanged.
-A released card's own preserved work always shows as a hard finding in the ordinary audit, and only a claim resolves it.
-A stop records no Held line for that finding when the recovery audit passes, because a held card is never eligible for
-recovery; a Held line already written for only that finding is the owner's to clear.
-
-Closing a card records `Where: main`, so a finished card's worktree is expected to outlive it. In worktree isolation
-the audit reports one that is clean and has no commits missing from the main branch as a warning, not a hard finding,
-and `wip --cleanup` lists it (never an open card's, nor an early-closed card's) for `/cleanup`, which removes it after
-proving it clean, merged and Done. A finished card's worktree that is dirty, holds unmerged commits or belongs to an
-early close stays a hard finding.
-
-**The main checkout while others work.** Sessions keep editing card briefs in the main checkout, and that must not stop
-a merge, a package or a release. `kanbanzai tree` reads `git status` there and sorts every changed path: **board** (a
-card brief or batch record in a configured folder, a regular file whose first heading is the card's own), **other**
-(anything else) or **uncertain** (a symlink, an unmerged entry, a file that is shaped like a brief but is not one, a
-git failure). The verdict is `clean`, `board-only` or `blocked`; it is also `blocked` while a merge, rebase,
-cherry-pick, revert or bisect is under way, or when the checkout is off the integration branch. Exit 0 means go ahead,
-1 means stop, 2 is a usage error. `--merge ID` also checks the card's branch: it lists the files the merge brings
-that are changed or untracked in the checkout (`overlap`), stops on staged changes, and prints the plan
-(`fast-forward`, `merge`, `up-to-date`, `not-applicable` in shared or external isolation) and the `git merge` to run.
-Git still refuses a merge that would overwrite a changed file; it leaves unstaged and untracked board edits alone.
-`--json` prints `{verdict, branch, head, board[], other[], uncertain[], staged[], in_progress, reasons[], merge?}`
-with `merge` = `{card, branch, plan, overlap[], command}`; every list is present, never null. The command writes
-nothing: it never stages, commits, stashes, resets or edits another session's files, and `wip --audit` and its exit
-status are unchanged.
-
-## Development
-
-```bash
-go build -o bin/kanbanzai ./cmd/kanbanzai   # a local build, ignored by git
-go test ./...
-go vet ./...
-node --test board-view/*.test.mjs opencode/*.test.mjs
-go run ./tools/icon                        # icon/kanbanzai.svg → the plugin and extension PNGs
-go run ./tools/icon -check                 # prove the committed PNGs are the source's render
-go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
-go run ./tools/packageset                  # which Checked cards one package run includes, and why not the rest
-go run ./tools/release -check              # the manifests and CHANGELOG.md agree
-go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
-KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
-```
-
-The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
-five archives from a tag, and `tools/vsix` builds the editor package. CI validates the plugin and marketplace with
-`claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
-`CHANGELOG.md` and the version agree; a tag runs the same version check before it builds. The release check also
-rejects apparent personal home paths and OpenCode session IDs in `.kanbanzai/work/` when that directory is present:
-marketplace installs can include repository records. The curated source bundle omits the board, so the check also
-works in an export without it. Explicit `/home/example/`, `/Users/example/` and `C:\Users\example\` paths are
-reserved for fictional examples; the guard is a targeted check, not a general secret scanner.
-
-This repository's package skill (`.claude/skills/kanbanzai-package/`) packages every Checked card that is ready in
-one run: one claim per card, one build from the main commit, and a record on each card naming the cards packaged with
-it. `tools/packageset` chooses the set from the board and git, read-only. A card it is unsure about is left out and
-reported, never asked about, and a left-out card whose code is already merged is reported as in the artifact but not
-packaged. Eligible cards may be free or carry the caller's live claim; the selector checks claim status through the
-core and excludes expired or uncertain claims. The package step reclaims or renews each selected card before starting,
-so a selection does not override a competing claim. Releasing the packaged cards stays one card and one owner approval
-at a time.
+To build Kanbanzai from a checkout, run its tests or package it, see [docs/contributing.md](docs/contributing.md).
 
 ## Support and security
 

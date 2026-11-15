@@ -302,18 +302,18 @@ func TestTheShippedTreeNamesNoObsSkill(t *testing.T) {
 	}
 }
 
-func TestTheReadmeDocumentsTheClaimMoveAndTheUnstartedFlag(t *testing.T) {
+func TestTheCommandGuideDocumentsTheClaimMoveAndTheUnstartedFlag(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(root, "README.md"))
+	data, err := os.ReadFile(filepath.Join(root, "docs", "commands.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, words := range []string{"--no-move", "move_grace_minutes", "⚑", "kanbanzai move", "--force --reason"} {
 		if !strings.Contains(string(data), words) {
-			t.Fatalf("README.md lacks %q", words)
+			t.Fatalf("docs/commands.md lacks %q", words)
 		}
 	}
 }
@@ -529,7 +529,7 @@ func TestDoStopDoesNotHoldRecoverableFinding(t *testing.T) {
 		"skills/audit/SKILL.md": {
 			"A stop records no `Held:` line for that finding",
 		},
-		"README.md": {
+		"docs/commands.md": {
 			"A stop records no Held line for that finding",
 		},
 	} {
