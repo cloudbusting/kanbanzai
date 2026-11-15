@@ -162,7 +162,7 @@ const BLOCK = [
   '==============================================================================',
 ];
 
-function planText(report, folder) {
+function planText(report, folder, platform = process.platform) {
   const plan = report && typeof report === 'object' && report.plan && typeof report.plan === 'object' ? report.plan : {};
   const actions = (Array.isArray(plan.actions) ? plan.actions : []).filter((a) => a && typeof a === 'object' && typeof a.op === 'string');
   const warnings = (Array.isArray(plan.warnings) ? plan.warnings : []).filter((w) => typeof w === 'string' && w);
@@ -205,9 +205,20 @@ function planText(report, folder) {
     for (const w of warnings) out.push(`  ! ${w}`);
     out.push('');
   }
-  out.push(`Also: copy the command to ${nonEmpty(folder) ? folder : 'the per-user folder'} (kanbanzai install)`);
+  const where = nonEmpty(folder) ? folder : 'the per-user folder';
+  if (platform === 'win32') {
+    out.push(`Also: no link is made on Windows; the result says where the command is, and you add ${where} to your user PATH to run it from a terminal`);
+  } else {
+    out.push('Also: link it as ~/.local/bin/kanbanzai (the folder is made if it is missing; you are warned if it is not on your PATH, and no profile is edited)');
+  }
+  out.push(`Also: copy the command to ${where} (kanbanzai install)`);
   out.push('', ...BLOCK);
   return out.join('\n') + '\n';
+}
+
+// What `install` asked the owner to know (the PATH advice, a link left alone): its `note:` lines, without the prefix.
+function installNotes(output) {
+  return text(output).split('\n').filter((l) => l.startsWith('note: ')).map((l) => l.slice(6).trim()).filter(Boolean).join(' ');
 }
 
 // The "files to commit:" list of init's text report: the indented lines under it.
@@ -418,7 +429,7 @@ async function planSetup(deps) {
     const saved = writePending(fs, root, result.stdout);
     if (!saved.ok) return fail(saved.error);
     changed(); // the item is the Apply item from here on, whether or not the tab opens
-    await ui.showPlan(planText(report, folder));
+    await ui.showPlan(planText(report, folder, deps.platform));
     return { status: 'planned' };
   } catch (e) {
     return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
@@ -464,7 +475,8 @@ async function applyPending(deps) {
     try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the board catches up on the next poll */ }
     const files = filesToCommit(applied.stdout);
     const list = files.length ? ` Files to commit: ${files.join(', ')}.` : '';
-    ui.info(`Kanbanzai is set up.${list} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
+    const said = installNotes(installed.stdout);
+    ui.info(`Kanbanzai is set up.${list}${said ? ` ${said}` : ''} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
     return { status: 'applied', files };
   } catch (e) {
     return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
@@ -480,7 +492,7 @@ async function showPending(deps) {
     if (raw === null) return fail(NO_PENDING);
     const report = parseReport(raw);
     if (!report) return fail('Kanbanzai: the pending setup plan cannot be read. Run Kanbanzai: Cancel Setup, then Kanbanzai: Init.');
-    await ui.showPlan(planText(report, folder));
+    await ui.showPlan(planText(report, folder, deps.platform));
     return { status: 'shown' };
   } catch (e) {
     return fail(`Kanbanzai: cannot show the setup plan: ${e && e.message ? e.message : e}`);

@@ -61,9 +61,11 @@ clicks with as much time between them as you like:
    `.kanbanzai/state/setup-plan.json`, and opens it in an ordinary tab that you can scroll and search. The first and
    the last lines of the plan are a boxed reminder: *Click "Kanbanzai: Apply" in the status bar.* The status-bar item
    has become **Kanbanzai: Apply**. Nothing else has been written or run.
-2. **Apply.** Clicking it is the approval. It runs `kanbanzai install` (copies the command to the per-user folder),
-   then `kanbanzai init --plan` on the saved plan, exactly the plan you read, deletes the saved plan, and tells you
-   the files to commit. A failing step shows the command's own error; after a write failure the plan is kept, so
+2. **Apply.** Clicking it is the approval. It runs `kanbanzai install` (copies the command to the per-user folder and, on Linux and
+   macOS, links it as `~/.local/bin/kanbanzai`; on Windows it makes no link), then `kanbanzai init --plan` on the saved plan, exactly the plan you read, deletes the saved plan, and tells you
+   the files to commit, with anything `install` asked you to know: `~/.local/bin` is not on your `PATH` (and what to
+   add), a `kanbanzai` of your own already at the link path (left alone), or on Windows the folder to add to your
+   user `PATH`. The plan lists the link before you click. A failing step shows the command's own error; after a write failure the plan is kept, so
    Apply can be clicked again (`init` finishes where it stopped).
 
 Until you apply, the plan stays pending: closing the tab, reloading the window or restarting the editor changes

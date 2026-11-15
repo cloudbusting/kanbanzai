@@ -1,5 +1,6 @@
 // Package install copies the running kanbanzai executable to the per-user folder, so a harness or an editor can
-// find the command without a checkout or a PATH edit. It never edits PATH and never touches the network.
+// find the command without a checkout or a PATH edit, and links it as ~/.local/bin/kanbanzai when nothing else is
+// there. It never edits PATH or a shell profile (it says what to add instead) and never touches the network.
 package install
 
 import (
@@ -23,6 +24,7 @@ type Options struct {
 	DryRun     bool
 	Where      bool
 	Refresh    bool                     // only replace a copy that is already there; never create one
+	NoLink     bool                     // copy only: no link in ~/.local/bin and no PATH notes
 	Current    string                   // the running command's release, for the refresh message; "" reads the build's own
 	VersionOf  func(path string) string // the release a command file says it is; "" reads it by running `path --version`
 	Out, Err   io.Writer
@@ -110,6 +112,9 @@ func Run(options Options) int {
 		os.Remove(target + ".old") // left by an earlier refresh, when the running command could not be replaced
 	}
 	err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
+	if err == nil && !options.Refresh && !options.NoLink {
+		err = onPath(options.DryRun, goos, getenv, folder, target, out)
+	}
 	if err != nil {
 		fmt.Fprintf(errOut, "kanbanzai: install: %v\n", err)
 		var refused refusal
@@ -119,6 +124,94 @@ func Run(options Options) int {
 		return 1
 	}
 	return 0
+}
+
+// onPath makes the command reachable from a terminal, after the copy is in place. Unix-like systems get a symlink
+// $HOME/.local/bin/kanbanzai to the copy; Windows gets no link, only where the file is and how to add its folder to
+// PATH. Nothing here edits PATH or a profile. What is already at the link path is never replaced: it is left alone with
+// a note, and that is not a failure. A failed write is.
+func onPath(dryRun bool, goos string, getenv func(string) string, folder, target string, out io.Writer) error {
+	if goos == "windows" {
+		if !pathHas(goos, getenv("PATH"), folder) {
+			fmt.Fprintf(out, "note: kanbanzai.exe is at %s\n", target)
+			fmt.Fprintf(out, "note: to run it from a terminal add %s to your user PATH: Settings > System > About > "+
+				"Advanced system settings > Environment Variables > Path > Edit > New; then open a new terminal\n", folder)
+		}
+		return nil
+	}
+	home := strings.TrimRight(getenv("HOME"), "/")
+	if home == "" {
+		fmt.Fprintf(out, "note: not linked: HOME is not set, so there is no ~/.local/bin; run the command at %s\n", target)
+		return nil
+	}
+	dir := home + "/.local/bin"
+	link := dir + "/kanbanzai"
+
+	switch _, err := os.Lstat(dir); {
+	case err == nil:
+		if resolved, err := os.Stat(dir); err != nil || !resolved.IsDir() {
+			return fmt.Errorf("cannot link the command: %s is not a folder", dir)
+		}
+	case errors.Is(err, os.ErrNotExist):
+		if !dryRun {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return fmt.Errorf("cannot create %s: %w", dir, err)
+			}
+		}
+	default:
+		return fmt.Errorf("cannot inspect %s: %w", dir, err)
+	}
+
+	switch info, err := os.Lstat(link); {
+	case err == nil:
+		if info.Mode()&os.ModeSymlink != 0 {
+			if to, err := os.Readlink(link); err == nil && to == target {
+				fmt.Fprintf(out, "already linked: %s\n", link)
+				pathNote(goos, getenv, dir, out)
+				return nil
+			}
+		}
+		fmt.Fprintf(out, "note: not linked: %s already exists and is not a link to %s; replace it yourself with "+
+			"ln -sf %s %s\n", link, target, target, link)
+		return nil
+	case !errors.Is(err, os.ErrNotExist):
+		return fmt.Errorf("cannot inspect %s: %w", link, err)
+	}
+	if dryRun {
+		fmt.Fprintf(out, "would link %s -> %s (dry run, nothing written)\n", link, target)
+		return nil
+	}
+	if err := os.Symlink(target, link); err != nil {
+		return fmt.Errorf("cannot link %s: %w", link, err)
+	}
+	fmt.Fprintf(out, "linked %s -> %s\n", link, target)
+	pathNote(goos, getenv, dir, out)
+	return nil
+}
+
+// pathNote says what to add to the shell profile when dir is not on the running PATH. It edits nothing.
+func pathNote(goos string, getenv func(string) string, dir string, out io.Writer) {
+	if pathHas(goos, getenv("PATH"), dir) {
+		return
+	}
+	fmt.Fprintf(out, "note: ~/.local/bin is not on your PATH; add  export PATH=\"$HOME/.local/bin:$PATH\"  to your shell "+
+		"profile (~/.profile, ~/.bashrc or ~/.zshrc) and open a new terminal\n")
+}
+
+// pathHas reports whether dir is one of the entries of a PATH value; an empty entry is ignored.
+func pathHas(goos, value, dir string) bool {
+	separator, clean := ":", func(s string) string { return filepath.Clean(s) }
+	if goos == "windows" {
+		separator = ";"
+		clean = func(s string) string { return strings.ToLower(strings.TrimRight(strings.ReplaceAll(s, "/", `\`), `\`)) }
+	}
+	want := clean(dir)
+	for _, entry := range strings.Split(value, separator) {
+		if entry != "" && clean(entry) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func install(dryRun, refresh, windows bool, executable func() (string, error), folder, target string, out io.Writer,

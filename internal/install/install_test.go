@@ -353,3 +353,289 @@ func TestRefreshOfTheSameBytesChangesNothing(t *testing.T) {
 		t.Fatalf("output = %q", f.out.String())
 	}
 }
+
+// ---- the link in ~/.local/bin ----
+
+func (f *fixture) linkDir() string { return filepath.Join(f.home, ".local", "bin") }
+func (f *fixture) link() string    { return filepath.Join(f.linkDir(), "kanbanzai") }
+
+// runWith runs install with the fixture's fake command and the options the test sets.
+func (f *fixture) runWith(set func(*Options)) int {
+	f.out.Reset()
+	f.errOut.Reset()
+	options := Options{Out: f.out, Err: f.errOut, Executable: func() (string, error) { return f.source, nil }}
+	if set != nil {
+		set(&options)
+	}
+	return Run(options)
+}
+
+// onPath puts the link folder on the running PATH; offPath leaves it out.
+func (f *fixture) onPath(t *testing.T) {
+	t.Helper()
+	t.Setenv("PATH", "/usr/bin"+string(os.PathListSeparator)+f.linkDir())
+}
+func (f *fixture) offPath(t *testing.T) { t.Helper(); t.Setenv("PATH", "/usr/bin") }
+
+func skipWithoutSymlinks(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the link is not made on Windows")
+	}
+}
+
+func TestInstallLinksIntoLocalBin(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.onPath(t)
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	got, err := os.Readlink(f.link())
+	if err != nil || got != f.target() {
+		t.Fatalf("link = %q, %v; want a symlink to %q", got, err, f.target())
+	}
+	if !strings.Contains(f.out.String(), "linked "+f.link()+" -> "+f.target()) {
+		t.Fatalf("output = %q", f.out.String())
+	}
+	if strings.Contains(f.out.String(), "note:") {
+		t.Fatalf("a folder on PATH needs no note: %q", f.out.String())
+	}
+}
+
+func TestMissingLocalBinIsCreatedAndOffPathIsNoted(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.offPath(t)
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	info, err := os.Stat(f.linkDir())
+	if err != nil || info.Mode().Perm() != 0o755 {
+		t.Fatalf("link folder = %v, %v", info, err)
+	}
+	if _, err := os.Readlink(f.link()); err != nil {
+		t.Fatalf("not linked: %v", err)
+	}
+	out := f.out.String()
+	if strings.Count(out, "note:") != 1 || !strings.Contains(out, "~/.local/bin") ||
+		!strings.Contains(out, `export PATH="$HOME/.local/bin:$PATH"`) {
+		t.Fatalf("output = %q", out)
+	}
+}
+
+func TestSecondRunIsAlreadyLinkedAndStillNotesThePath(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.offPath(t)
+	f.run(false, false)
+	before, _ := os.Lstat(f.link())
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	out := f.out.String()
+	if !strings.Contains(out, "already installed") || !strings.Contains(out, "already linked: "+f.link()) ||
+		!strings.Contains(out, "note:") {
+		t.Fatalf("output = %q", out)
+	}
+	after, _ := os.Lstat(f.link())
+	if !os.SameFile(before, after) || !before.ModTime().Equal(after.ModTime()) {
+		t.Fatal("the link was rewritten")
+	}
+}
+
+func TestAnOlderInstallWithoutALinkGetsOne(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.onPath(t)
+	f.runWith(func(o *Options) { o.NoLink = true })
+	if _, err := os.Lstat(f.link()); !os.IsNotExist(err) {
+		t.Fatalf("--no-link made %s: %v", f.link(), err)
+	}
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if !strings.Contains(f.out.String(), "already installed") || !strings.Contains(f.out.String(), "linked ") {
+		t.Fatalf("output = %q", f.out.String())
+	}
+	if _, err := os.Readlink(f.link()); err != nil {
+		t.Fatalf("not linked: %v", err)
+	}
+}
+
+func TestSomethingElseAtTheLinkIsLeftAlone(t *testing.T) {
+	skipWithoutSymlinks(t)
+	cases := map[string]func(f *fixture){
+		"a file": func(f *fixture) { os.WriteFile(f.link(), []byte("mine"), 0o755) },
+		"a link elsewhere": func(f *fixture) {
+			os.WriteFile(filepath.Join(f.home, "other"), []byte("mine"), 0o755)
+			os.Symlink(filepath.Join(f.home, "other"), f.link())
+		},
+		"a relative link to the copy": func(f *fixture) { os.Symlink("../share/kanbanzai/bin/kanbanzai", f.link()) },
+		"a folder":                    func(f *fixture) { os.MkdirAll(f.link(), 0o755) },
+	}
+	for name, make := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			f.onPath(t)
+			os.MkdirAll(f.linkDir(), 0o755)
+			make(f)
+			before := snapshot(t, f.linkDir())
+			was, _ := os.Readlink(f.link())
+			if code := f.run(false, false); code != 0 {
+				t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+			}
+			if snapshot(t, f.linkDir()) != before {
+				t.Fatal("the entry at the link path was changed")
+			}
+			if now, _ := os.Readlink(f.link()); now != was {
+				t.Fatalf("link changed from %q to %q", was, now)
+			}
+			out := f.out.String()
+			if !strings.Contains(out, "note: not linked: "+f.link()) || !strings.Contains(out, "ln -sf "+f.target()+" "+f.link()) {
+				t.Fatalf("output = %q", out)
+			}
+			if _, err := os.Stat(f.target()); err != nil {
+				t.Fatalf("the copy was not made: %v", err)
+			}
+		})
+	}
+}
+
+func TestALinkedLocalBinFolderIsUsed(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.onPath(t)
+	real := filepath.Join(f.home, "dotfiles", "bin")
+	os.MkdirAll(real, 0o755)
+	os.MkdirAll(filepath.Dir(f.linkDir()), 0o755)
+	os.Symlink(real, f.linkDir())
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if got, err := os.Readlink(filepath.Join(real, "kanbanzai")); err != nil || got != f.target() {
+		t.Fatalf("link = %q, %v", got, err)
+	}
+}
+
+func TestLocalBinThatIsAFileIsExit1(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	os.MkdirAll(filepath.Dir(f.linkDir()), 0o755)
+	os.WriteFile(f.linkDir(), []byte("x"), 0o644)
+	if code := f.run(false, false); code != 1 || !strings.Contains(f.errOut.String(), f.linkDir()) {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+}
+
+func TestADanglingLinkToTheCopyWorksAgainOnceTheCopyIsBack(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.onPath(t)
+	f.run(false, false)
+	os.Remove(f.target())
+	if code := f.run(false, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if _, err := os.Stat(f.link()); err != nil {
+		t.Fatalf("the link does not resolve: %v", err)
+	}
+	if !strings.Contains(f.out.String(), "already linked") {
+		t.Fatalf("output = %q", f.out.String())
+	}
+}
+
+func TestDryRunNamesTheLinkAndWritesNothing(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.offPath(t)
+	before := snapshot(t, f.home)
+	if code := f.run(true, false); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if !strings.Contains(f.out.String(), "would link "+f.link()+" -> "+f.target()) {
+		t.Fatalf("output = %q", f.out.String())
+	}
+	if snapshot(t, f.home) != before {
+		t.Fatal("dry run changed the tree")
+	}
+}
+
+func TestRefreshNeverMakesALink(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.runWith(func(o *Options) { o.NoLink = true })
+	os.WriteFile(f.source, []byte("pretend binary v2\n"), 0o644)
+	if code := f.refresh("v0.7.2", nil); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if _, err := os.Lstat(f.linkDir()); !os.IsNotExist(err) {
+		t.Fatalf("refresh made %s: %v", f.linkDir(), err)
+	}
+	if strings.Contains(f.out.String(), "note:") {
+		t.Fatalf("output = %q", f.out.String())
+	}
+}
+
+func TestNoLinkMakesTheCopyOnly(t *testing.T) {
+	f := newFixture(t)
+	f.offPath(t)
+	if code := f.runWith(func(o *Options) { o.NoLink = true }); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, f.errOut.String())
+	}
+	if _, err := os.Stat(f.target()); err != nil {
+		t.Fatalf("the copy was not made: %v", err)
+	}
+	if _, err := os.Lstat(f.linkDir()); !os.IsNotExist(err) || strings.Contains(f.out.String(), "note:") {
+		t.Fatalf("--no-link touched %s or noted: %v %q", f.linkDir(), err, f.out.String())
+	}
+}
+
+func TestNoHomeIsNotedNotAFailure(t *testing.T) {
+	f := newFixture(t)
+	code := f.runWith(func(o *Options) {
+		o.Getenv = func(name string) string {
+			if name == "HOME" {
+				return ""
+			}
+			return os.Getenv(name)
+		}
+	})
+	if code != 0 || !strings.Contains(f.out.String(), "note: not linked") {
+		t.Fatalf("exit %d, out %q, err %q", code, f.out.String(), f.errOut.String())
+	}
+}
+
+// On Windows there is no link: the output says where the file is and how to put its folder on PATH, unless it is there.
+func TestWindowsSaysWhereTheFileIsAndHowToPutItOnPath(t *testing.T) {
+	local := t.TempDir()
+	run := func(path string, set func(*Options)) (string, int) {
+		var out, errOut bytes.Buffer
+		options := Options{GOOS: "windows", DryRun: true, Out: &out, Err: &errOut,
+			Getenv:     env(map[string]string{"LOCALAPPDATA": local, "PATH": path}),
+			Executable: func() (string, error) { return os.Args[0], nil }}
+		if set != nil {
+			set(&options)
+		}
+		code := Run(options)
+		if code != 0 {
+			t.Fatalf("exit %d, stderr %q", code, errOut.String())
+		}
+		return out.String(), code
+	}
+	folder := local + `\kanbanzai\bin`
+	out, _ := run(`C:\Windows`, nil)
+	if !strings.Contains(out, "note: kanbanzai.exe is at "+folder+`\kanbanzai.exe`) ||
+		!strings.Contains(out, "add "+folder+" to your user PATH") ||
+		!strings.Contains(out, "Environment Variables") || strings.Contains(out, "would link") {
+		t.Fatalf("output = %q", out)
+	}
+	out, _ = run(`C:\Windows;`+folder, nil)
+	if strings.Contains(out, "note:") {
+		t.Fatalf("a folder already on PATH needs no note: %q", out)
+	}
+	out, _ = run(`C:\Windows`, func(o *Options) { o.NoLink = true })
+	if strings.Contains(out, "note:") {
+		t.Fatalf("--no-link needs no note: %q", out)
+	}
+}

@@ -330,6 +330,23 @@ func TestInstallCommand(t *testing.T) {
 	}
 }
 
+func TestInstallNoLinkFlag(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("KANBANZAI_PROJECT", "")
+	t.Chdir(t.TempDir())
+	if code, out, errOut := runCLI(t, "install", "--dry-run", "--no-link"); code != 0 || strings.Contains(out, "would link") {
+		t.Fatalf("install --dry-run --no-link = %d %q %q", code, out, errOut)
+	}
+	if code, out, errOut := runCLI(t, "install", "--dry-run"); runtime.GOOS != "windows" && (code != 0 || !strings.Contains(out, "would link")) {
+		t.Fatalf("install --dry-run = %d %q %q", code, out, errOut)
+	}
+	if _, out, _ := runCLI(t, "--help"); !strings.Contains(out, "install [--dry-run|--refresh|--where|--no-link]") {
+		t.Fatalf("the usage does not list --no-link:\n%s", out)
+	}
+}
+
 func installFolder() (string, error) {
 	return install.Folder(runtime.GOOS, os.Getenv)
 }
