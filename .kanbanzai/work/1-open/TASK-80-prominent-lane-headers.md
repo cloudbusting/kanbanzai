@@ -1,6 +1,6 @@
 # TASK-80: Board lane headers (the column group names) should be prominent
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none

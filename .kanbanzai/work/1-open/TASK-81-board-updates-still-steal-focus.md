@@ -1,6 +1,6 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none

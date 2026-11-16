@@ -1,6 +1,6 @@
 # BUG-82: `plugins link` refuses an empty pointer file, which `doctor` says to fix with `plugins link`
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
