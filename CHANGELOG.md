@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-11-16
+
 - W-15: the editor's command carries both agent plugins. Approved setup installs them locally, configures OpenCode
   using an ignored machine-local reference, and registers Claude Code's local plugin through its CLI. Plugin updates
   check an ownership manifest and keep one previous bundle; setup refuses conflicting or disabled registrations, and
