@@ -51,6 +51,7 @@ Each finding has an `id`, a status and, when it is not a pass, a `fix` line. Loo
 | You see | Because | Do |
 |---|---|---|
 | `kanbanzai: not in a git checkout (and KANBANZAI_PROJECT is not set)` | The command ran outside a project. | `cd` into the project, or set `KANBANZAI_PROJECT` to its main checkout. |
+| OpenCode in a card's worktree says `Plugin entrypoint not found:` with no plugin name, or loads no Kanbanzai skills there | The bundled install's pointer file `.kanbanzai/state/kanbanzai-opencode-path` is ignored by git, so a worktree has none; `doctor` run in the worktree names it as an `adapter.opencode` error. | `kanbanzai plugins link` inside the worktree (`move ID start` does it for a card's worktree). If it refuses, merge `main` into the branch so `.kanbanzai/.gitignore` lists `state/`. Claude Code is not affected. |
 | A session says Kanbanzai is not set up | The project has no `.kanbanzai/`. | `/kanbanzai:setup`, or `kanbanzai init`. |
 | `config_version is missing (version 0)` | An old config. | `kanbanzai config upgrade`, review, then `--apply`. |
 | A session's first line says the command and plugin are different releases | They were updated separately. | Update the editor extension, or run `kanbanzai install` from the new release. |
