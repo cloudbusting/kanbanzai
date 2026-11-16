@@ -5,6 +5,17 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-11-16
+
+- TASK-72: the editor extension is published to the Visual Studio Marketplace and to Open VSX (what VSCodium reads),
+  not only attached to the GitHub release. The tag push does it: the Release workflow scans the unpacked `.vsix`,
+  attaches it to the release, then publishes that same file to Open VSX with a repository secret and to the Visual
+  Studio Marketplace by trusted publishing (no stored secret). The extension itself is unchanged.
+- TASK-73: a `team-pr` delivery preset (`kanbanzai init --preset team-pr`) for a team that ships through reviewed pull
+  requests, with a new `integration = "remote"` setting: a card waits in an In review column until the remote has
+  merged its branch, `tree --merge` reports nothing to merge, and the audit and cleanup treat a branch as landed once
+  it is on the remote or its upstream is gone. The default (`local`) behaves as before.
+
 ## [0.22.0] — 2026-11-16
 
 - TASK-71: nothing the project ships carries one machine's paths, session ids or settings any more. The release check
