@@ -1,11 +1,11 @@
 # TASK-71: Scan everything packaged and published for personal paths, personal config and sensitive data
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-16
-- **Done:** —
+- **Done:** 2026-11-16 — v0.22.0, ff96607, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.22.0
 - **ADR:** none
-- **Next action:** release after the owner approves: version (suggest 0.21.1) and changelog entry; package artifacts at /tmp/kanbanzai-package-TASK-71-0.21.0 from main 6ce9faf; the release step rebuilds from its tag and scans again
-- **Where:** worktree TASK-71
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
