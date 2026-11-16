@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -289,6 +290,9 @@ func Worktrees(project *config.Project) []Worktree {
 // CardOf is the card a worktree belongs to: its branch, its folder name, or a batch map ("batch"). A branch that
 // names several cards (a release prep branch) belongs to the one its folder names, else to the first.
 func CardOf(project *config.Project, worktree Worktree, spaces []string) string {
+	if IsBoardWorktree(project, worktree) {
+		return "board"
+	}
 	if named := project.CardIDsIn(worktree.Branch); len(named) > 0 {
 		if folder, ok := project.CardIDIn(filepath.Base(worktree.Path)); ok {
 			for _, card := range named {
@@ -313,6 +317,12 @@ func CardOf(project *config.Project, worktree Worktree, spaces []string) string 
 		}
 	}
 	return ""
+}
+
+// IsBoardWorktree is the worktree a board branch is checked out in (`[board] home = "branch"`): the board itself, not
+// work on a card, so it is never an orphan, never offered for removal and never compared with the main branch.
+func IsBoardWorktree(project *config.Project, worktree Worktree) bool {
+	return project.BoardOnBranch() && samePath(worktree.Path, project.Work)
 }
 
 // OnHold is the ids of the cards with a Held line, or waiting at a gate that is not open: never pulled, never
@@ -543,8 +553,11 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 				continue
 			}
 			if wt.Branch != project.MainBranch {
-				hard = append(hard, fmt.Sprintf("the main checkout is on '%s', not %s; a card's change goes in "+
-					"%s", wt.Branch, project.MainBranch, where))
+				// Not a stop: the briefs here are that branch's view of the board, and the branch is merged into main
+				// through the project's review. Work in a card's workspace goes on as usual.
+				soft = append(soft, fmt.Sprintf("the main checkout is on '%s', not %s; a card's change goes in "+
+					"%s (merge '%s' into %s through your review, or switch back)", wt.Branch, project.MainBranch, where,
+					wt.Branch, project.MainBranch))
 			}
 			if wt.Dirty > 0 {
 				hard = append(hard, fmt.Sprintf("the main checkout has %d uncommitted file(s); the board is "+
@@ -562,6 +575,13 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			continue
 		}
 		card := wt.Card
+		if IsBoardWorktree(project, wt) {
+			// The board is whole-board business: a card-scoped audit leaves it out, and it is only ever a warning.
+			if only == "" {
+				soft = append(soft, boardBranchFindings(project, wt)...)
+			}
+			continue
+		}
 		if only != "" && card != only {
 			continue
 		}
@@ -999,4 +1019,21 @@ func writers(out, errOut io.Writer) (io.Writer, io.Writer) {
 		errOut = io.Discard
 	}
 	return out, errOut
+}
+
+// boardBranchFindings are the warnings about the board branch's worktree: files nobody has committed and commits
+// nobody has published. `kanbanzai sync` settles both.
+func boardBranchFindings(project *config.Project, wt Worktree) []string {
+	var found []string
+	if wt.Dirty > 0 {
+		found = append(found, fmt.Sprintf("the board branch has %d uncommitted board file(s): `kanbanzai sync` saves and publishes them", wt.Dirty))
+	}
+	board, err := boardbranch.New(project)
+	if err != nil {
+		return found
+	}
+	if status := board.Status(); status.RemoteConfigured && status.Ahead > 0 {
+		found = append(found, fmt.Sprintf("the board branch has %d board commit(s) not published: run `kanbanzai sync` so the team sees them", status.Ahead))
+	}
+	return found
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
@@ -85,7 +86,10 @@ func Verify(start string, plan *Plan) *Verification {
 		v.NextActions = append(v.NextActions, "commit the files listed above (init never commits): git add "+
 			strings.Join(v.Commit, " ")+" && git commit -m \"Set up Kanbanzai\"")
 	}
-	if !v.Check.OK {
+	if project.BoardOnBranch() && !boardAttached(project) {
+		v.NextActions = append(v.NextActions, "make the board branch's worktree with `kanbanzai sync --attach`, then publish it with `kanbanzai sync` "+
+			"(the config goes to main through your pull request; the board never does)")
+	} else if !v.Check.OK {
 		v.NextActions = append(v.NextActions, "fix what kanbanzai check reports, then run it again")
 	}
 	other := 0
@@ -161,4 +165,10 @@ func firstLine(text string) string {
 		return text[:index]
 	}
 	return text
+}
+
+// boardAttached reports whether the board branch is checked out at the work folder.
+func boardAttached(project *config.Project) bool {
+	board, err := boardbranch.New(project)
+	return err == nil && board.Attached()
 }

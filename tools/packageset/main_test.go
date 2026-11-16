@@ -375,4 +375,7 @@ func TestSelectRefusesACheckoutNotOnMain(t *testing.T) {
 	if err == nil || len(got.Include) != 0 {
 		t.Fatalf("%+v %v", got, err)
 	}
+	if !strings.Contains(err.Error(), "merge") || !strings.Contains(err.Error(), "switch to main") {
+		t.Errorf("the refusal must say how to get to main: %v", err)
+	}
 }

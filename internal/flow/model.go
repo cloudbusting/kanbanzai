@@ -96,6 +96,18 @@ type Isolation struct {
 	Integration string `json:"integration"`
 }
 
+// Board is `[board]`: where the cards, the number ledger and the claims live. Recommended is true when the board is
+// still on the main branch and the project reviews its work through pull requests (the team-pr preset, or
+// `integration = "remote"`): a protected main cannot take the board's own commits, and the board branch can.
+type Board struct {
+	Home        string `json:"home"`
+	Branch      string `json:"branch"`
+	Remote      string `json:"remote"`
+	Publish     string `json:"publish"`
+	Recommended bool   `json:"recommended"`
+	Reason      string `json:"reason"`
+}
+
 // Preset is the [preset] record of the config: which delivery preset the project was set up from. Flow says whether
 // the project's flow still equals that preset's flow file today: "matches", "differs", or empty when there is no
 // preset or it is not one this command ships (the cli fills it in; this package cannot read presets).
@@ -115,6 +127,7 @@ type Model struct {
 	Gates         []Gate       `json:"gates"`
 	WIP           WIP          `json:"wip"`
 	Isolation     Isolation    `json:"isolation"`
+	Board         Board        `json:"board"`
 	PullOrder     []string     `json:"pull_order"`
 	Preset        Preset       `json:"preset"`
 }
@@ -151,6 +164,15 @@ func Build(p *config.Project) *Model {
 		WhereVocabulary: workspace.Vocabulary(p), WorktreeColumns: []string{}, WorktreePattern: p.WorktreePattern,
 		BranchPattern: p.BranchPattern, BatchBranch: p.BatchBranchPattern, MainBranch: p.MainBranch,
 		Integration: p.Integration}
+	m.Board = Board{Home: p.BoardHome, Branch: p.BoardBranch, Remote: p.BoardRemote, Publish: p.BoardPublish}
+	if !p.BoardOnBranch() {
+		switch {
+		case p.Preset.Name == "team-pr":
+			m.Board.Recommended, m.Board.Reason = true, "the team-pr preset is for a team that merges through reviewed pull requests, so its main branch is usually protected and cannot take the board's own commits"
+		case p.Integration == "remote":
+			m.Board.Recommended, m.Board.Reason = true, "integration is remote: the host merges through reviewed pull requests, so main is usually protected and cannot take the board's own commits"
+		}
+	}
 	for _, c := range p.Columns {
 		if c.Gate.Set() {
 			kind := c.Gate.Type

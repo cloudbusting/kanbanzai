@@ -42,6 +42,8 @@ Each finding has an `id`, a status and, when it is not a pass, a `fix` line. Loo
 | `template.<type>` | A type's own template is unreadable; no other template is used instead. | Restore the file, or clear the type's `template`. |
 | `state.tracked`, `claims.tracked`, `numbers.tracked` | Runtime state is tracked by git. | Remove it from the index (`git rm -r --cached <path>`) after keeping any data you need, and ignore it. Doctor never changes the index. |
 | `state.ignore`, `claims.ignore`, `numbers.ignore` | A runtime folder is not fully ignored. | Add an ignore rule: the default is `.kanbanzai/.gitignore` containing `state/`. |
+| `board.branch`, `board.worktree`, `board.remote`, `board.ignore` | (Board on a branch.) The branch does not exist yet, is not checked out at the work folder, the remote is not configured, or the work folder shows in the main checkout's `git status`. | `kanbanzai sync --attach`; `git remote add origin <address>`. [team-board.md](team-board.md). |
+| `board.hooks.git`, `board.hooks.agent` | A git hook, or an agent hook or permission rule, will run on or deny the board's commits and pushes. Warnings: doctor never runs a hook. | See [team-board.md](team-board.md#what-can-stand-in-the-way). Also available with `kanbanzai doctor --board` before you adopt a board branch. |
 | `adapter.claude`, `adapter.opencode` | The project's plugin settings are missing (warning: CLI-only use is valid) or point at files that are not readable (error). | Enable the plugin ([host-integration.md](host-integration.md)), or correct the declared path. A remote or global install cannot be inspected: verify it in the harness itself. |
 
 ## Other failures

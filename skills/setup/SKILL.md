@@ -122,6 +122,14 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    preset writes (`plan.preset`). A project that already has a config is not changed by `--preset`: point to
    `kanbanzai workflow plan --preset NAME`, which makes a plan to review and does nothing until `workflow apply`.
    If the flag is absent, say so and ask nothing.
+7. **Board branch:** only when `init --help` lists `--board-branch`, and when the owner says main is protected (commits to it are
+   blocked, every change goes through a reviewed pull request) or the chosen preset is `team-pr`: recommend it, and ask. With it
+   the cards, the claims and the number ledger live on a branch of their own, so nothing the board writes is ever committed to
+   main; pass `--board-branch`. Before recommending, run `kanbanzai doctor --board --json` once the project exists and report
+   `board.hooks.git` and `board.hooks.agent` (git hooks, and agent hooks or permission rules, that would stand in its way);
+   the remote's branch protection cannot be seen offline, so say to ask the administrator that the branch name may be created.
+   The next steps are `kanbanzai sync --attach` and `kanbanzai sync`; `publish = "auto"` (pushing the board branch unasked) is
+   the owner's decision and is never set here.
 
 The card template, digits, lease, WIP cap and pull order are the shipped defaults and are not asked.
 

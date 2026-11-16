@@ -242,8 +242,9 @@ func TestExternalKeepsTheBoardCheckoutClean(t *testing.T) {
 	requireHas(t, "dirty board checkout", hard, "the main checkout has 1 uncommitted file(s)")
 	testutil.Git(t, project.Root, "switch", "-q", "-c", "feature")
 	_ = os.Remove(filepath.Join(project.Root, "src.go"))
-	hard, _, _ = audit(t, project)
-	requireHas(t, "board checkout off main", hard, "the main checkout is on 'feature'")
+	hard, soft, _ := audit(t, project)
+	requireNone(t, "off main is a warning, not a hard finding", hard)
+	requireHas(t, "board checkout off main", soft, "the main checkout is on 'feature'")
 }
 
 func TestTheAuditReportNamesTheMode(t *testing.T) {
@@ -267,6 +268,8 @@ func TestTheDefaultModesCheckoutMessagesAreUnchanged(t *testing.T) {
 	hard, _, _ := audit(t, project)
 	requireHas(t, "dirty main", hard, "the main checkout has 1 uncommitted file(s); the board is edited there and the change in a worktree — src.go")
 	testutil.Git(t, project.Root, "switch", "-q", "-c", "feature")
-	hard, _, _ = audit(t, project)
-	requireHas(t, "off main", hard, "the main checkout is on 'feature', not main; a card's change goes in its worktree")
+	_ = os.Remove(filepath.Join(project.Root, "src.go"))
+	hard, soft, _ := audit(t, project)
+	requireNone(t, "off main is a warning, not a hard finding", hard)
+	requireHas(t, "off main", soft, "the main checkout is on 'feature', not main; a card's change goes in its worktree")
 }

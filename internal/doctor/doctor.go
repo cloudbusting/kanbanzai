@@ -20,7 +20,10 @@ import (
 
 // Options controls the report format and destinations. Nil writers discard output.
 type Options struct {
-	JSON     bool
+	JSON bool
+	// Board adds the board-branch checks to a project whose board is on main: would a board branch work here (git hooks
+	// and agent settings that stand in its way)? A project that keeps its board on a branch always gets them.
+	Board    bool
 	Out, Err io.Writer
 }
 
@@ -151,6 +154,12 @@ func Run(start string, options Options) int {
 			}
 		}
 		for _, item := range []struct{ name, path string }{{"state", p.State}, {"claims", p.Claims}, {"numbers", p.Numbers}} {
+			if p.BoardOnBranch() && item.name != "state" {
+				// shared by design: the claims and the ledger are committed on the board branch
+				r.add(item.name+".tracked", "pass", "Kept on the board branch, so tracked there by design: "+item.path, "")
+				r.add(item.name+".ignore", "pass", "Kept on the board branch; its lock and event log are ignored there: "+item.path, "")
+				continue
+			}
 			r.state(p.Root, p.GitCommon, item.name, item.path, gitErr == nil)
 		}
 	}
@@ -166,6 +175,9 @@ func Run(start string, options Options) int {
 		}
 		r.claude(bases)
 		r.opencode(bases)
+		if p != nil && gitErr == nil && (p.BoardOnBranch() || options.Board) {
+			r.board(p, !p.BoardOnBranch(), bases)
+		}
 	}
 	if options.JSON {
 		encoder := json.NewEncoder(out)

@@ -40,7 +40,7 @@ func schemaFor(path string) string {
 	switch {
 	case path == "":
 		return ""
-	case path == "project" || path == "claims" || path == "flow" || path == "preset" || path == "columns" || path == "types":
+	case path == "project" || path == "claims" || path == "flow" || path == "preset" || path == "board" || path == "columns" || path == "types":
 		return path
 	case strings.HasPrefix(path, "steps."):
 		return "step"

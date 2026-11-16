@@ -281,3 +281,20 @@ func TestOverlapMatchesFilesAndParentFolders(t *testing.T) {
 		t.Errorf("overlap with a clean checkout = %v", got)
 	}
 }
+
+func TestMergeOffTheIntegrationBranchIsDeferredWithAnInstruction(t *testing.T) {
+	b := newBoard(t, defaultConfig)
+	b.card(map[string]string{"src/a.txt": "card\n"}, false)
+	testutil.Git(t, b.root, "switch", "-q", "-c", "elsewhere")
+	got := b.preflight("W-05")
+	wantVerdict(t, got, Clean)
+	if got.Merge.Plan != "deferred" || got.Merge.Command != "" || len(got.Merge.Args) != 0 {
+		t.Fatalf("merge = %+v", got.Merge)
+	}
+	if !strings.Contains(strings.Join(got.Notes, " "), "merge") {
+		t.Errorf("notes %v", got.Notes)
+	}
+	if !strings.Contains(Text(got), "deferred") {
+		t.Errorf("text: %q", Text(got))
+	}
+}

@@ -84,7 +84,9 @@ When the checks are green and the review is done:
    (`git add <files>`, never `-A`); never stage another session's files. If the index is not clean, use
    `git commit --only -- <files>`. Don't amend a commit that is pushed.
 2. Follow the configured finish instruction using `kanbanzai move`, recording the next action and checks and ticking
-   the tasks. If the move cannot perform the route, stop and report it. Commit the brief separately when appropriate.
+   the tasks. If the move cannot perform the route, stop and report it. Commit the brief separately when appropriate; when the board lives on a
+   board branch (`kanbanzai context` says so) the move has already committed it there, and `kanbanzai sync` publishes it: never commit
+   it with the code or to the main branch.
 3. Ask where the card goes next: `kanbanzai step --for <ID>`. Follow its skip, no-skill, close and gate instructions;
    do not execute a closed gate or assume a particular delivery route. Merge only if the configured workspace and
    project rules require it, into the configured integration branch, by the integration preflight below.
@@ -99,10 +101,13 @@ files the merge would bring against them.
 
 - Exit 0 (`clean` or `board-only`): run the merge it prints (its `run` line, `merge.command` in `--json`) from the
   main checkout, and nothing else. Git keeps other sessions' unstaged and untracked briefs. `up-to-date` and
-  `not-applicable` (shared or external isolation) mean there is nothing to merge.
+  `not-applicable` (shared or external isolation, or a remote merge) mean there is nothing to merge. `deferred` means
+  the main checkout is on another branch, so a merge here would land in the wrong place: no merge command is printed.
+  Pass on the `notes` (push the branch and merge it through the project's review, or switch to the integration branch
+  and run the preflight again); it is not a failure and not a reason to stop the rest of the step.
 - Exit 1 (`blocked`): stop and report the reasons and paths: changes outside the board, a path that cannot be
-  verified, staged changes, a file the merge would overwrite (`overlap`), a merge or rebase already under way, the
-  wrong branch, or a missing card branch. Mixed and uncertain changes block even alongside board-only ones.
+  verified, staged changes, a file the merge would overwrite (`overlap`), a merge or rebase already under way, or a
+  missing card branch. Mixed and uncertain changes block even alongside board-only ones.
 - An `overlap` on this card's own brief (changed on its branch and also changed in the main checkout) is this
   session's to settle: commit that brief by path (`git commit --only -- <brief>`), run the preflight again, and merge
   only on exit 0. An overlap on any other file is another session's: stop and report it.

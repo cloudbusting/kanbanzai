@@ -33,6 +33,14 @@ func Preflight(p *config.Project, card string) (Report, error) {
 		return r, nil
 	}
 	merge.Branch = p.Branch(canon, false)
+	if !r.OnIntegrationBranch && r.Head != "" {
+		// A merge lands in whatever is checked out, so one run here would put the card in the wrong branch. The
+		// branch reaches the integration branch through review, or from a checkout of the integration branch.
+		merge.Plan = "deferred"
+		r.Notes = append(r.Notes, fmt.Sprintf("the merge of %s is deferred: this checkout is on %q, so a merge here would not reach %s; "+
+			"push the branch and merge it through your review, or switch to %s and run this again", canon, r.Branch, p.MainBranch, p.MainBranch))
+		return r, nil
+	}
 	if strings.HasPrefix(merge.Branch, "-") || strings.ContainsAny(merge.Branch, " \t\n") {
 		return Report{}, fmt.Errorf("the branch pattern gives %q for %s, which is not a usable branch name", merge.Branch, canon)
 	}

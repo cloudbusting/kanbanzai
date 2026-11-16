@@ -227,9 +227,6 @@ func TestApplyRefusesABoardThatIsNotAsPlanned(t *testing.T) {
 			_ = store.Save(map[string]any{"card": "W-03", "owner": "sam", "claimed_at": timeutil.ToISO(now),
 				"renewed_at": timeutil.ToISO(now), "expires_at": timeutil.ToISO(now.Add(time.Hour)), "minutes": 120.0})
 		}, "claimed by sam"},
-		"not on the main branch": {func(t *testing.T, p *config.Project) {
-			testutil.Git(t, p.Root, "checkout", "-q", "-b", "other")
-		}, "must be on main"},
 	}
 	for name, c := range cases {
 		p := shippedBoard(t, ownConfig, fivestages)
@@ -292,5 +289,30 @@ func TestRollbackWithNothingToRollBack(t *testing.T) {
 	p := shippedBoard(t, "", fivestages)
 	if _, err := Rollback(p); err == nil || !strings.Contains(err.Error(), "nothing to roll back") && !strings.Contains(err.Error(), "no apply") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestApplyWorksOnABranchAndSaysToMergeIt(t *testing.T) {
+	p := shippedBoard(t, ownConfig, fivestages)
+	got := plan(t, p, smaller, mergeMap)
+	testutil.Git(t, p.Root, "checkout", "-q", "-b", "other")
+	result, err := Apply(p, got, ApplyOptions{Doctor: fine})
+	if err != nil {
+		t.Fatalf("an apply on a branch must go ahead: %v", err)
+	}
+	notes := strings.Join(result.Notes, " ")
+	if !strings.Contains(notes, "other") || !strings.Contains(notes, "main") || !strings.Contains(notes, "merge") {
+		t.Errorf("the notes must name the branch and say to merge it into main: %v", result.Notes)
+	}
+}
+
+func TestApplyOnTheMainBranchHasNoNote(t *testing.T) {
+	p := shippedBoard(t, ownConfig, fivestages)
+	_, result, err := planAndApply(t, p, ApplyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Notes == nil || len(result.Notes) != 0 {
+		t.Errorf("notes = %#v", result.Notes)
 	}
 }

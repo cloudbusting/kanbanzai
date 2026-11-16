@@ -34,7 +34,7 @@ import (
 // initUsage is the init line of the usage text, and what `init --help` prints: the setup skill reads it to learn which
 // flags the installed command has.
 const initUsage = `  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template]
+       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template] [--board-branch]
        [--preset NAME|DIR [--type KEY=PREFIX[:Label][,...]] [--step-skill STEP=SKILL[,...]]
         [--step-extend STEP=SKILL[+SKILL][,...]]]
                                  set a project up (detect, plan, apply, verify; never commits)
@@ -46,6 +46,7 @@ commands:
   board [--json | --tui | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
   wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
+  sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch and push it
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   ask ID --text T [--option O] [--recommend R] [--note T]  record a question and release the claim
@@ -58,7 +59,7 @@ commands:
   config [--json]                the versioned, resolved settings
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   migrate [--json | --apply --plan HASH | --rollback]  preview, apply (on the hash it printed) or roll back the migration this release needs
-  doctor [--json]                diagnose this installation without repairs
+  doctor [--json] [--board]      diagnose this installation without repairs; --board adds the board-branch checks (git and agent hooks)
   context [--adapter-version V] the standing context
   workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
   template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
@@ -126,11 +127,11 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		return runMigrate(rest, out, errOut)
 	}
 	if command == "doctor" {
-		positionals, _, set, err := parse(rest, map[string]bool{"json": true}, nil)
+		positionals, _, set, err := parse(rest, map[string]bool{"json": true, "board": true}, nil)
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
-		return doctor.Run("", doctor.Options{JSON: set["json"], Out: out, Err: errOut})
+		return doctor.Run("", doctor.Options{JSON: set["json"], Board: set["board"], Out: out, Err: errOut})
 	}
 	if command == "install" {
 		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true, "no-link": true}, nil)
@@ -144,7 +145,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
-			"with-template": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
+			"with-template": true, "board-branch": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
 			"plugins": true, "plugin-source": true, "preset": true, "type": true, "step-skill": true, "step-extend": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
@@ -157,9 +158,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 						"combined with it", name))
 				}
 			}
-			if set["force"] || set["with-template"] {
-				return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --force and "+
-					"--with-template cannot be combined with it"))
+			if set["force"] || set["with-template"] || set["board-branch"] {
+				return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --force, "+
+					"--with-template and --board-branch cannot be combined with it"))
 			}
 		}
 		var context []string
@@ -178,7 +179,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		return initcmd.Run("", initcmd.Options{Preset: flags["preset"], Types: split("type"), StepSkills: split("step-skill"),
 			StepExtends: split("step-extend"), DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
-			WithTemplate: set["with-template"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
+			WithTemplate: set["with-template"], BoardBranch: set["board-branch"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
 			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
 			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})
 	}
@@ -284,6 +285,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "tree":
 		return runTree(project, args, out, errOut)
+	case "sync":
+		return runSync(project, args, out, errOut)
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
 	case "template":

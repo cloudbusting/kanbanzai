@@ -104,8 +104,8 @@ func Folders(project *config.Project) []string {
 	}
 	entries, _ := os.ReadDir(project.Work)
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue // a hidden folder is the board's own state (a board branch's claims and ledger), never a column
 		}
 		path := filepath.Join(project.Work, entry.Name())
 		if contains(project.Folders, entry.Name()) || filepath.Clean(path) == filepath.Clean(project.Batches) {

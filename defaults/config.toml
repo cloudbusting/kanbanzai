@@ -126,6 +126,22 @@ isolation = "worktree"
 #           clean workspace once its branch has landed (on main, on a remote, or its remote branch is gone)
 integration = "local"
 
+# Where the board lives. `main` (the default) keeps the cards, the number ledger and the claims where they have always
+# been: briefs in git on the main branch, state in .kanbanzai/state. A team whose main branch is protected (every change
+# reaches it through a reviewed pull request) cannot commit a card or a move there, so it keeps the board on its own branch:
+#   home     main | branch. `branch` checks the board branch out as a worktree at project.work (which must then be a
+#            folder inside the main checkout), and keeps the ledger and the claims on it, so a team shares one board
+#   branch   the board branch's name (default kanbanzai-board); it must not be the main branch
+#   remote   the git remote, by name, the board branch is fetched from and pushed to (default origin)
+#   publish  ask | auto. `ask` (the default) commits the board branch locally and never fetches or pushes; `auto` lets the
+#            board commands fetch and push the board branch (only that branch, never main, a card's branch or a tag)
+# `kanbanzai sync --attach` makes the worktree; `kanbanzai sync` publishes; docs/team-board.md has the whole story.
+[board]
+home = "main"
+branch = "kanbanzai-board"
+remote = "origin"
+publish = "ask"
+
 # The columns, in the board's order. Keys:
 #   key      the column's id, and the Stage word that puts a card in it (unless `words` says more)
 #   label    its name on the board

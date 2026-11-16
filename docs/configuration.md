@@ -36,6 +36,14 @@ to merge, and `wip --audit` and `/cleanup` treat a Done card's clean workspace a
 landed: reachable from the main branch or a remote-tracking branch, or its remote branch is gone. It has no effect with
 `shared` or `external` isolation, and `workflow validate` says so. [isolation.md](isolation.md) has the detail.
 
+**Board.** `[board] home` says where the cards, the number ledger and the claims live: `main` (the default: the briefs are
+committed on the main branch, the ledger and claims are per-clone state) or `branch` (a branch of its own, checked out at
+`[project] work`, shared by a team through git, for a project whose main branch is protected). `branch` names it
+(default `kanbanzai-board`, never the main branch), `remote` names the git remote by name (default `origin`, never an address) and
+`publish` is `ask` (the default: commit locally, never fetch or push on its own) or `auto` (the board commands fetch and push that
+branch after each change). `work` must then be inside the main checkout, and `claims` and `numbers` default to folders beside the
+cards. [team-board.md](team-board.md) has the setup and what can stand in the way.
+
 `.kanbanzai/config.toml` overrides [defaults/config.toml](../defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
 The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate

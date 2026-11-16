@@ -123,6 +123,7 @@ func Build(project *config.Project) string {
 			"Stage word `kanbanzai step --for ID` prints), then into its Done column when the step ends, release the " +
 			"claim when work stops.",
 		workspace.Rule(project),
+		boardRule(project),
 		"Each skill starts with `kanbanzai step <name>`; `kanbanzai step --for ID` says what to do next to a card.",
 		fmt.Sprintf("The owner is %s: decisions that are theirs go to them.", project.Owner),
 	}
@@ -200,4 +201,20 @@ func gateLine(project *config.Project) string {
 		}
 	}
 	return ""
+}
+
+// boardRule says where the board lives when it is not on the main branch, and what that asks of a session. It is
+// empty (and left out) for a board kept on the main branch.
+func boardRule(project *config.Project) string {
+	if !project.BoardOnBranch() {
+		return ""
+	}
+	publish := "publish is ask: board commands commit there and the core does not push; run `kanbanzai sync` to publish"
+	if project.BoardPublish == "auto" {
+		publish = "publish is auto: each board command commits there and pushes it, and only that branch"
+	}
+	return fmt.Sprintf("The board lives on the branch %s (checked out at %s; %s). Moves, claims and numbers commit "+
+		"there themselves; a brief you edit by hand (a new card, a Comment) is published with `kanbanzai sync`. "+
+		"The main branch is protected: never commit a card, a claim or the ledger to the main branch.",
+		project.BoardBranch, project.Work, publish)
 }

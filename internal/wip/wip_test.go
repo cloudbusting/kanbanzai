@@ -434,9 +434,12 @@ func TestMainCheckoutMustBeCleanAndOnMain(t *testing.T) {
 		t.Fatalf("dirty = %v", hard)
 	}
 	main = tree(project.Root, "", 0, 0, "W-07")
-	hard, _, _ = Reconcile(project, nil, []Worktree{main}, nil, "", nil)
-	if !has(hard, "not main") {
-		t.Fatalf("branch = %v", hard)
+	hard, soft, _ := Reconcile(project, nil, []Worktree{main}, nil, "", nil)
+	if has(hard, "not main") || len(hard) != 0 {
+		t.Fatalf("a branch is not a hard finding: %v", hard)
+	}
+	if !has(soft, "not main") || !has(soft, "merge 'W-07' into main through your review") {
+		t.Fatalf("branch = %v", soft)
 	}
 }
 
@@ -462,9 +465,9 @@ func TestAnUnpushedWorktreeNamesTheOwner(t *testing.T) {
 
 func TestTheMainBranchIsConfigurable(t *testing.T) {
 	project := testProject(t, "[project]\nowner = \"Sam\"\nmain_branch = \"trunk\"\n")
-	hard, _, _ := Reconcile(project, nil, []Worktree{tree(project.Root, "", 0, 0, "main")}, nil, "", nil)
-	if !has(hard, "is on 'main', not trunk") {
-		t.Fatalf("hard = %v", hard)
+	hard, soft, _ := Reconcile(project, nil, []Worktree{tree(project.Root, "", 0, 0, "main")}, nil, "", nil)
+	if len(hard) != 0 || !has(soft, "is on 'main', not trunk") {
+		t.Fatalf("hard = %v soft = %v", hard, soft)
 	}
 }
 

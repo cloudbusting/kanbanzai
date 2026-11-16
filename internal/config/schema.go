@@ -17,13 +17,21 @@ var IsolationModes = map[string]bool{"worktree": true, "branch": true, "shared":
 // IntegrationModes are the values of flow.integration: where a finished card's branch is merged into the main branch.
 var IntegrationModes = map[string]bool{"local": true, "remote": true}
 
+// BoardHomes are the values of board.home: where the cards, the number ledger and the claims live.
+var BoardHomes = map[string]bool{"main": true, "branch": true}
+
+// BoardPublishModes are the values of board.publish: whether the board commands may fetch and push the board branch
+// without being asked each time.
+var BoardPublishModes = map[string]bool{"ask": true, "auto": true}
+
 // schemaKeys is the single allowlist for all supported configuration tables. Step names are user-defined.
 func schemaKeys() map[string]map[string]string {
 	return map[string]map[string]string{
-		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas", "preset": "table"},
+		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas", "preset": "table", "board": "table"},
 		"project": {
 			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
+		"board":        {"home": "board home", "branch": "string", "remote": "string", "publish": "board publish"},
 		"preset":       {"name": "string", "delivery_style": "string", "version": "positive integer"},
 		"claims":       {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":         {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation", "integration": "integration"},
@@ -119,6 +127,10 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 					want = `one of "worktree", "branch", "shared" or "external"`
 				case "integration":
 					want = `"local" or "remote"`
+				case "board home":
+					want = `"main" or "branch"`
+				case "board publish":
+					want = `"ask" or "auto"`
 				}
 				return errf("%s: %s must be %s; correct the value in the config", source, full, want)
 			}
@@ -185,6 +197,12 @@ func validType(value any, typ string) bool {
 	case "integration":
 		text, ok := value.(string)
 		return ok && IntegrationModes[text]
+	case "board home":
+		text, ok := value.(string)
+		return ok && BoardHomes[text]
+	case "board publish":
+		text, ok := value.(string)
+		return ok && BoardPublishModes[text]
 	case "started":
 		if _, ok := value.(bool); ok {
 			return true

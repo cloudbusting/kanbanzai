@@ -21,6 +21,9 @@ type Options struct {
 	JSON         bool
 	Force        bool
 	WithTemplate bool
+	// BoardBranch writes `[board] home = "branch"`: the board lives on a branch of its own, for a project whose main
+	// branch is protected. The config goes to main through the project's pull request; the board never does.
+	BoardBranch  bool
 	PlanFile     string
 	MainBranch   string
 	Owner        string

@@ -5,6 +5,17 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-77: a team whose main branch is protected can keep the board off it. `[board] home = "branch"` puts the cards, the
+  number ledger and the claims on a branch of their own, checked out as a worktree at the work folder and shared through git:
+  a number or a claim is taken by committing and pushing, and a rejected push means another clone won, so two clones never take
+  the same number or card. New `kanbanzai sync` (`--attach`, `--status`), `init --board-branch`, `doctor --board` and the
+  `board.*` checks, which report the git hooks and the agent hooks and permission rules that would stand in the way. `[board]
+  publish = "auto"` (default `ask`) lets the board commands fetch and push that one branch; nothing is pushed otherwise. The
+  workflow skill recommends it for the `team-pr` preset and for `integration = "remote"`. Board commits read `<ID>: <what changed>`.
+  Also: `tree`, `workflow apply` and `wip --audit` no longer insist on the main branch (a branch is a note that says to merge it
+  through your review; `tree --merge` off main is `deferred`), and `check` ignores dot-folders in the work folder. A board on
+  `main` is exactly as before.
+
 ## [0.23.2] — 2026-11-16
 
 - BUG-76: a board toast or a card change no longer takes the keyboard focus from the editor or terminal you are typing

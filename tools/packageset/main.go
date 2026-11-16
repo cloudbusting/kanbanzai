@@ -147,7 +147,10 @@ func Select(r Runner, column, main string) (Report, error) {
 	report.Tree = readTree(r)
 	report.Clean = report.Tree.Verdict == "clean"
 	if report.Branch != main {
-		return report, fmt.Errorf("the checkout is on %q, not the main branch %q", report.Branch, main)
+		// Essential, unlike the other branch checks: the release tags the main branch and the artifact must be built from
+		// exactly what is tagged. Say how to get there; the merge of a reviewed pull request reaches main on the remote.
+		return report, fmt.Errorf("the checkout is on %q, not the main branch %q: packaging is of what the release will tag, so "+
+			"merge %q into %s through your review, switch to %s and pull it, then run this again", report.Branch, main, report.Branch, main, main)
 	}
 	ownerOut, ownerCode, ownerErr := r.Run("kanbanzai", "claim", "owner")
 	ownerLines := strings.Split(strings.TrimSpace(string(ownerOut)), "\n")

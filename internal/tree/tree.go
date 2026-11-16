@@ -31,16 +31,20 @@ const (
 
 // Report is the answer, and the JSON `kanbanzai tree --json` prints. Every list is present and never null.
 type Report struct {
-	Verdict    string   `json:"verdict"`
-	Branch     string   `json:"branch"`
-	Head       string   `json:"head"`
-	Board      []string `json:"board"`       // changed card briefs and batch records, verified
-	Other      []string `json:"other"`       // changed paths that are not board files
-	Uncertain  []string `json:"uncertain"`   // changed paths that could not be verified either way
-	Staged     []string `json:"staged"`      // paths with a change in the index (any class)
-	InProgress string   `json:"in_progress"` // merge, rebase, cherry-pick, revert or bisect under way, or ""
-	Reasons    []string `json:"reasons"`     // why the verdict is blocked, one line each
-	Merge      *Merge   `json:"merge,omitempty"`
+	Verdict string `json:"verdict"`
+	Branch  string `json:"branch"`
+	// OnIntegrationBranch is true when the main checkout is on the configured main branch. Being elsewhere is a note, not
+	// a reason to stop: work on a branch is merged into the main branch by the project's review.
+	OnIntegrationBranch bool     `json:"on_integration_branch"`
+	Head                string   `json:"head"`
+	Board               []string `json:"board"`       // changed card briefs and batch records, verified
+	Other               []string `json:"other"`       // changed paths that are not board files
+	Uncertain           []string `json:"uncertain"`   // changed paths that could not be verified either way
+	Staged              []string `json:"staged"`      // paths with a change in the index (any class)
+	InProgress          string   `json:"in_progress"` // merge, rebase, cherry-pick, revert or bisect under way, or ""
+	Reasons             []string `json:"reasons"`     // why the verdict is blocked, one line each
+	Notes               []string `json:"notes"`       // what a session should know and do, never a reason to stop
+	Merge               *Merge   `json:"merge,omitempty"`
 
 	dirty []string // every changed path, including a rename's source: what a merge must not overwrite
 }
@@ -59,7 +63,7 @@ type Merge struct {
 func (r Report) OK() bool { return r.Verdict != Blocked }
 
 func newReport() Report {
-	return Report{Board: []string{}, Other: []string{}, Uncertain: []string{}, Staged: []string{}, Reasons: []string{}}
+	return Report{Board: []string{}, Other: []string{}, Uncertain: []string{}, Staged: []string{}, Reasons: []string{}, Notes: []string{}}
 }
 
 var (
@@ -135,9 +139,11 @@ func Classify(p *config.Project) Report {
 		r.Reasons = append(r.Reasons, "a "+r.InProgress+" is under way in the main checkout")
 		r.Verdict = Blocked
 	}
-	if p.MainBranch != "" && r.Branch != p.MainBranch {
-		r.Reasons = append(r.Reasons, fmt.Sprintf("the main checkout is on %q, not on the integration branch %q", r.Branch, p.MainBranch))
-		r.Verdict = Blocked
+	r.OnIntegrationBranch = p.MainBranch == "" || r.Branch == p.MainBranch
+	if !r.OnIntegrationBranch {
+		r.Notes = append(r.Notes, fmt.Sprintf("the main checkout is on branch %q, not on the integration branch %q: its commits "+
+			"reach %s when you push %q and merge it through your review (or switch to %s and merge it here)",
+			r.Branch, p.MainBranch, p.MainBranch, r.Branch, p.MainBranch))
 	}
 	if r.Head == "" {
 		r.Verdict = Blocked
@@ -328,6 +334,9 @@ func Text(r Report) string {
 		if m.Command != "" {
 			fmt.Fprintf(&b, "  run       %s\n", m.Command)
 		}
+	}
+	for _, note := range r.Notes {
+		fmt.Fprintf(&b, "note: %s\n", note)
 	}
 	for _, reason := range r.Reasons {
 		fmt.Fprintf(&b, "blocked: %s\n", reason)

@@ -8,6 +8,7 @@ package claim
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
@@ -444,75 +446,100 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 	}
 	defer lock.Close()
 
-	record, ok := store.Load(card)
-	if ok {
-		recordOwner := stringOf(record["owner"], "unknown")
-		if recordOwner == me {
-			updateLease(record, now, minutes)
-			if opts.Note != "" {
-				record["note"] = opts.Note
+	// What the claim did and what to say about it: said only once the claim stands. On a board branch the take may
+	// run again (another clone's push got in first), so nothing is printed from inside it.
+	type outcome struct {
+		code int
+		say  func()
+	}
+	var result outcome
+	event := "claimed"
+	take := func() error {
+		result = outcome{}
+		record, ok := store.Load(card)
+		if ok {
+			recordOwner := stringOf(record["owner"], "unknown")
+			if recordOwner == me {
+				event = "renewed"
+				updateLease(record, now, minutes)
+				if opts.Note != "" {
+					record["note"] = opts.Note
+				}
+				if opts.NoMove {
+					record["step"] = false
+				} else {
+					delete(record, "step")
+				}
+				if err := store.Save(record); err != nil {
+					return err
+				}
+				if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "renew",
+					"owner": me}); err != nil {
+					return err
+				}
+				result = outcome{OK, func() {
+					fmt.Fprintf(out, "renewed %s for you until %s (%s)\n", card, When(record["expires_at"]), Remaining(record, now))
+					if !opts.NoMove {
+						start(out, opts.Start, card, me)
+					}
+				}}
+				return nil
 			}
-			if opts.NoMove {
-				record["step"] = false
-			} else {
-				delete(record, "step")
+			if opts.Takeover == "" {
+				code := Expired
+				if Live(record, now) {
+					code = Held
+				}
+				result = outcome{code, func() { fmt.Fprintf(errOut, "claim: %s\n", Describe(record, me)) }}
+				return errAbort
 			}
-			if err := store.Save(record); err != nil {
-				return printErr(errOut, err)
+			event = "taken over"
+			if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "takeover",
+				"owner": me, "previous_owner": recordOwner, "reason": opts.Takeover}); err != nil {
+				return err
 			}
-			if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "renew",
-				"owner": me}); err != nil {
-				return printErr(errOut, err)
-			}
-			fmt.Fprintf(out, "renewed %s for you until %s (%s)\n", card, When(record["expires_at"]),
-				Remaining(record, now))
+		}
+		record = map[string]any{
+			"card":       card,
+			"owner":      me,
+			"claimed_at": timeutil.ToISO(now),
+			"branch":     branchOrCurrent(project, opts.Branch),
+			"where":      whereLabel(project),
+		}
+		for key, value := range Lease(now, minutes) {
+			record[key] = value
+		}
+		if opts.Note != "" {
+			record["note"] = opts.Note
+		}
+		if opts.NoMove {
+			record["step"] = false
+		}
+		if err := store.Save(record); err != nil {
+			return err
+		}
+		if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "claim",
+			"owner": me}); err != nil {
+			return err
+		}
+		result = outcome{OK, func() {
+			fmt.Fprintf(out, "claimed %s by %s until %s (%s)\n", card, me, When(record["expires_at"]), Remaining(record, now))
+			fmt.Fprintf(out, "owner: %s\n", me)
 			if !opts.NoMove {
 				start(out, opts.Start, card, me)
 			}
-			return OK
-		}
-		if opts.Takeover == "" {
-			fmt.Fprintf(errOut, "claim: %s\n", Describe(record, me))
-			if Live(record, now) {
-				return Held
-			}
-			return Expired
-		}
-		if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "takeover",
-			"owner": me, "previous_owner": recordOwner, "reason": opts.Takeover}); err != nil {
-			return printErr(errOut, err)
-		}
+		}}
+		return nil
 	}
-	record = map[string]any{
-		"card":       card,
-		"owner":      me,
-		"claimed_at": timeutil.ToISO(now),
-		"branch":     branchOrCurrent(project, opts.Branch),
-		"where":      project.Toplevel,
-	}
-	for key, value := range Lease(now, minutes) {
-		record[key] = value
-	}
-	if opts.Note != "" {
-		record["note"] = opts.Note
-	}
-	if opts.NoMove {
-		record["step"] = false
-	}
-	if err := store.Save(record); err != nil {
+	note, err := sharedTake(project, store, card, func() string { return card + ": " + event + " by " + me }, take)
+	if err != nil && !errors.Is(err, errAbort) {
 		return printErr(errOut, err)
 	}
-	if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "claim",
-		"owner": me}); err != nil {
-		return printErr(errOut, err)
+	if note != "" {
+		fmt.Fprintln(errOut, "claim: "+note)
 	}
-	fmt.Fprintf(out, "claimed %s by %s until %s (%s)\n", card, me, When(record["expires_at"]),
-		Remaining(record, now))
-	fmt.Fprintf(out, "owner: %s\n", me)
-	if !opts.NoMove {
-		start(out, opts.Start, card, me)
-	}
-	return OK
+	result.say()
+	return result.code
 }
 
 // Takeover is the takeover command: a claim with a reason.
@@ -556,6 +583,9 @@ func Renew(project *config.Project, owner, card string, minutes *float64, out, e
 		}
 		return Expired
 	}
+	// A renewal stays on this clone until the lease is half used, so an active session publishes about once an hour
+	// instead of on every renewal; the published claim stays live in other clones until its recorded expiry.
+	publishDue := LeaseLeft(record, now) < length*30
 	updateLease(record, now, length)
 	if err := store.Save(record); err != nil {
 		return printErr(errOut, err)
@@ -565,6 +595,9 @@ func Renew(project *config.Project, owner, card string, minutes *float64, out, e
 		return printErr(errOut, err)
 	}
 	fmt.Fprintf(out, "renewed %s until %s (%s)\n", card, When(record["expires_at"]), Remaining(record, now))
+	if publishDue {
+		boardbranch.Saved(project, card+": claim renewed", store.Path(card))
+	}
 	return OK
 }
 
@@ -614,6 +647,7 @@ func Release(project *config.Project, owner, card string, out, errOut io.Writer)
 		suffix = fmt.Sprintf(" (expired claim by %s)", recordOwner)
 	}
 	fmt.Fprintf(out, "released %s%s\n", card, suffix)
+	boardbranch.Saved(project, card+": claim released", store.Path(card))
 	return OK
 }
 
@@ -664,7 +698,11 @@ func Heartbeat(project *config.Project, opts HeartbeatOptions) int {
 			continue
 		}
 		updateLease(record, now, minutes)
-		_ = store.Save(record)
+		if store.Save(record) == nil {
+			// best effort, and quick: the hook that runs this has a short budget, and a hook never fails
+			boardbranch.NetworkLimit = 15 * time.Second
+			boardbranch.Saved(project, card+": claim renewed", store.Path(card))
+		}
 	}
 	return OK
 }
@@ -735,4 +773,38 @@ func readObject(data []byte) (map[string]any, bool) {
 	}
 	object, ok := value.(map[string]any)
 	return object, ok
+}
+
+// errAbort is a take that found the card held: nothing was written, and the outcome says what to report.
+var errAbort = errors.New("claim not taken")
+
+// whereLabel is where a claim says its session works. A claim on a shared board branch is read by the whole team, so
+// it names the folder, never a path on this machine.
+func whereLabel(project *config.Project) string {
+	if project.BoardOnBranch() {
+		return filepath.Base(project.Toplevel)
+	}
+	return project.Toplevel
+}
+
+// sharedTake runs the change to a card's claim. On a board kept on the main branch that is the change itself. On a board
+// branch it is a transaction on that branch: the remote's claims are read first, so a claim another clone already
+// pushed is seen as held, and the push that follows decides a race (see boardbranch.Transact). The returned line is
+// for the user when the claim could not be published.
+func sharedTake(project *config.Project, store *Store, card string, message func() string, take func() error) (string, error) {
+	if !project.BoardOnBranch() {
+		return "", take()
+	}
+	board, err := boardbranch.New(project)
+	if err != nil {
+		return "", err
+	}
+	if !board.Attached() {
+		return "", claimErr("the board branch is not checked out at %s: run `kanbanzai sync --attach` first", project.Rel(board.Dir()))
+	}
+	res, err := board.Transact(message, []string{store.Path(card)}, take)
+	if err != nil {
+		return "", err
+	}
+	return res.Note, nil
 }

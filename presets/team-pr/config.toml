@@ -5,7 +5,7 @@ name = "team-pr"
 delivery_style = "team"
 version = 1
 summary = "Design, build and check each card in its own git worktree, open a pull request, wait for review and a merge on the host, then close."
-best_for = "A team or company whose branches are pushed, reviewed and merged to main on the remote, never merged by the author in a local checkout."
+best_for = "A team or company whose branches are pushed, reviewed and merged to main on the remote, never merged by the author in a local checkout. Where main is protected, add the board branch (init --board-branch): the board is then never committed to main."
 not_for = "A solo developer who merges locally (use software or simple), reviewing someone else's change (use pr-review), or a project that releases from the board (use software)."
 
 [project]

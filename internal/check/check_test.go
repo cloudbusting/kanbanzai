@@ -289,6 +289,24 @@ func TestTheBatchesFolderIsAllowed(t *testing.T) {
 	}
 }
 
+// CHANGE-77: the shared state of a board branch (.claims, .ledger) lives in dot-folders beside the cards; the board's own
+// folders are named plainly, so a hidden one is never a stray column.
+func TestHiddenFoldersAreTheBoardsOwnState(t *testing.T) {
+	project := soundProject(t)
+	for _, name := range []string{".claims", ".ledger"} {
+		if err := os.MkdirAll(filepath.Join(project.Work, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		put(t, project, name, "notes.md", "# not a card\n")
+	}
+	if problems := Folders(project); len(problems) != 0 {
+		t.Fatalf("problems = %v", problems)
+	}
+	if problems := ProblemsOf(project); len(problems) != 0 {
+		t.Fatalf("problems = %v", problems)
+	}
+}
+
 func TestTheTemplate(t *testing.T) {
 	project := soundProject(t)
 	template := filepath.Join(project.Root, "template.md")

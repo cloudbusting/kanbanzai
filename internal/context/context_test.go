@@ -215,3 +215,22 @@ func TestMigrationNoticeSaysToPreviewAskAndOnlyThenApply(t *testing.T) {
 		t.Fatalf("nothing pending: %q", got)
 	}
 }
+
+func TestContextSaysWhereTheBoardLivesOnlyWhenItIsOnABranch(t *testing.T) {
+	plain := Build(testProject(t, contextConfig))
+	if strings.Contains(plain, "board branch") || strings.Contains(plain, "kanbanzai sync") {
+		t.Errorf("a board on main must not mention a board branch:\n%s", plain)
+	}
+	for publish, wants := range map[string][]string{
+		"ask":  {"publish is ask", "does not push"},
+		"auto": {"publish is auto", "pushes it"},
+	} {
+		got := Build(testProject(t, contextConfig+"\n[board]\nhome = \"branch\"\npublish = \""+publish+"\"\n"))
+		for _, want := range append(wants, "The board lives on the branch kanbanzai-board", "kanbanzai sync",
+			"never commit a card, a claim or the ledger to the main branch") {
+			if !strings.Contains(got, want) {
+				t.Errorf("publish %s: context lacks %q:\n%s", publish, want, got)
+			}
+		}
+	}
+}

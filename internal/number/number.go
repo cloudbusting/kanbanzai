@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
@@ -300,131 +301,192 @@ func Allocate(project *config.Project, peek bool, note string) (string, error) {
 
 // AllocateType is the next free number for one type, from the project's single global sequence.
 func AllocateType(project *config.Project, typeKey string, peek bool, note string) (string, error) {
+	id, _, err := AllocateNote(project, typeKey, peek, note)
+	return id, err
+}
+
+// AllocateNote is AllocateType and a line for the user when the number could not be published (a board branch whose
+// publish setting is "ask"). On a board branch the take is a transaction against the remote: a rejected push means
+// another clone took a number first, so the ledger is read again and the next number is taken.
+func AllocateNote(project *config.Project, typeKey string, peek bool, note string) (id, userNote string, err error) {
 	item, err := resolveType(project, typeKey)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	now := timeutil.Now()
 	lock, err := lock(project)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer lock.Close()
-	taken := RepoTaken(project)
-	issued, reserved, err := load(project)
+	take := func() error {
+		taken := RepoTaken(project)
+		issued, reserved, err := load(project)
+		if err != nil {
+			if project.TypeSet != nil {
+				return err
+			}
+			issued, reserved = nil, nil
+		}
+		reserved = StillReserved(reserved, taken)
+		value := NextNumber(taken, issued, reserved)
+		if value <= 0 {
+			return numberErr("the number sequence is exhausted; no further card can be allocated")
+		}
+		id = project.FormatID(value)
+		if project.TypeSet != nil {
+			id = project.TypeSet.Format(item, value)
+		}
+		if !peek {
+			issued = append(issued, value)
+			record := map[string]any{
+				"number": value, "item": id, "owner": claim.OwnerLabel(project), "at": timeutil.ToISO(now),
+				"note": note,
+			}
+			if project.TypeSet != nil {
+				record["type"] = item.Key
+			}
+			reserved = append(reserved, record)
+			if err := save(project, issued, reserved); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if peek {
+		return id, "", take()
+	}
+	userNote, err = shared(project, func() string { return id + ": number issued" }, take)
+	return id, userNote, err
+}
+
+// shared runs a change to the number ledger. On a board kept on the main branch that is just the change; on a board
+// branch it is a transaction on that branch (see boardbranch.Transact), so the ledger a clone writes is one the remote
+// agrees with.
+func shared(project *config.Project, message func() string, change func() error) (string, error) {
+	if !project.BoardOnBranch() {
+		return "", change()
+	}
+	board, err := boardbranch.New(project)
 	if err != nil {
-		if project.TypeSet != nil {
-			return "", err
-		}
-		issued, reserved = nil, nil
+		return "", err
 	}
-	reserved = StillReserved(reserved, taken)
-	value := NextNumber(taken, issued, reserved)
-	if value <= 0 {
-		return "", numberErr("the number sequence is exhausted; no further card can be allocated")
+	if !board.Attached() {
+		return "", numberErr("the board branch is not checked out at %s: run `kanbanzai sync --attach` first", project.Rel(board.Dir()))
 	}
-	id := project.FormatID(value)
-	if project.TypeSet != nil {
-		id = project.TypeSet.Format(item, value)
+	path, err := StatePath(project)
+	if err != nil {
+		return "", err
 	}
-	if !peek {
-		issued = append(issued, value)
-		record := map[string]any{
-			"number": value, "item": id, "owner": claim.OwnerLabel(project), "at": timeutil.ToISO(now),
-			"note": note,
-		}
-		if project.TypeSet != nil {
-			record["type"] = item.Key
-		}
-		reserved = append(reserved, record)
-		if err := save(project, issued, reserved); err != nil {
-			return "", err
-		}
+	res, err := board.Transact(message, []string{path}, change)
+	if err != nil {
+		return "", err
 	}
-	return id, nil
+	return res.Note, nil
 }
 
 // Release gives an abandoned number back.
 func Release(project *config.Project, item string) (string, error) {
+	label, _, err := ReleaseNote(project, item)
+	return label, err
+}
+
+// ReleaseNote is Release and the line for the user about an unpublished ledger change.
+func ReleaseNote(project *config.Project, item string) (result, userNote string, err error) {
 	value, err := ParseItem(project, item, "release")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	lock, err := lock(project)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer lock.Close()
-	issued, reserved, err := load(project)
-	if err != nil {
-		if project.TypeSet != nil {
-			return "", err
+	label := ""
+	change := func() error {
+		issued, reserved, err := load(project)
+		if err != nil {
+			if project.TypeSet != nil {
+				return err
+			}
+			issued, reserved = nil, nil
 		}
-		issued, reserved = nil, nil
-	}
-	label := numberLabel(reserved, value)
-	keptIssued := make([]int, 0, len(issued))
-	for _, number := range issued {
-		if number != value {
-			keptIssued = append(keptIssued, number)
+		label = numberLabel(reserved, value)
+		keptIssued := make([]int, 0, len(issued))
+		for _, number := range issued {
+			if number != value {
+				keptIssued = append(keptIssued, number)
+			}
 		}
-	}
-	keptReserved := make([]map[string]any, 0, len(reserved))
-	for _, record := range reserved {
-		if number, ok := numberOf(record["number"]); !ok || number != value {
-			keptReserved = append(keptReserved, record)
+		keptReserved := make([]map[string]any, 0, len(reserved))
+		for _, record := range reserved {
+			if number, ok := numberOf(record["number"]); !ok || number != value {
+				keptReserved = append(keptReserved, record)
+			}
 		}
+		return save(project, keptIssued, keptReserved)
 	}
-	if err := save(project, keptIssued, keptReserved); err != nil {
-		return "", err
+	if userNote, err = shared(project, func() string { return project.FormatID(value) + ": number released" }, change); err != nil {
+		return "", "", err
 	}
 	if card, ok := project.CanonicalCardID(item); ok {
-		return card, nil
+		return card, userNote, nil
 	}
 	if _, bare := BareNumber(item); bare {
-		return label, nil
+		return label, userNote, nil
 	}
-	return project.FormatID(value), nil
+	return project.FormatID(value), userNote, nil
 }
 
 // Mark records a number chosen by hand, so it is never handed to another item.
 func Mark(project *config.Project, item string) (string, error) {
+	label, _, err := MarkNote(project, item)
+	return label, err
+}
+
+// MarkNote is Mark and the line for the user about an unpublished ledger change.
+func MarkNote(project *config.Project, item string) (result, userNote string, err error) {
 	value, err := ParseItem(project, item, "mark")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	lock, err := lock(project)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer lock.Close()
-	issued, reserved, err := load(project)
-	if err != nil {
-		if project.TypeSet != nil {
-			return "", err
+	var reservedNow []map[string]any
+	change := func() error {
+		issued, reserved, err := load(project)
+		if err != nil {
+			if project.TypeSet != nil {
+				return err
+			}
+			issued, reserved = nil, nil
 		}
-		issued, reserved = nil, nil
-	}
-	found := false
-	for _, number := range issued {
-		if number == value {
-			found = true
-			break
+		reservedNow = reserved
+		found := false
+		for _, number := range issued {
+			if number == value {
+				found = true
+				break
+			}
 		}
+		if !found {
+			issued = append(issued, value)
+		}
+		return save(project, issued, reserved)
 	}
-	if !found {
-		issued = append(issued, value)
-	}
-	if err := save(project, issued, reserved); err != nil {
-		return "", err
+	if userNote, err = shared(project, func() string { return project.FormatID(value) + ": number marked" }, change); err != nil {
+		return "", "", err
 	}
 	if card, ok := project.CanonicalCardID(item); ok {
-		return card, nil
+		return card, userNote, nil
 	}
 	if _, bare := BareNumber(item); bare {
-		return numberLabel(reserved, value), nil
+		return numberLabel(reservedNow, value), userNote, nil
 	}
-	return project.FormatID(value), nil
+	return project.FormatID(value), userNote, nil
 }
 
 // Status prints the ledger, the reservations and the next free number.
@@ -507,21 +569,23 @@ func Run(project *config.Project, opts Options) int {
 		return 0
 	}
 	if opts.Release != "" {
-		item, err := Release(project, opts.Release)
+		item, note, err := ReleaseNote(project, opts.Release)
 		if err != nil {
 			fmt.Fprintf(errOut, "number: %v\n", err)
 			return 1
 		}
 		fmt.Fprintln(out, item)
+		tellUser(errOut, note)
 		return 0
 	}
 	if opts.Mark != "" {
-		item, err := Mark(project, opts.Mark)
+		item, note, err := MarkNote(project, opts.Mark)
 		if err != nil {
 			fmt.Fprintf(errOut, "number: %v\n", err)
 			return 1
 		}
 		fmt.Fprintln(out, item)
+		tellUser(errOut, note)
 		return 0
 	}
 	if project.TypeSet != nil {
@@ -541,13 +605,21 @@ func Run(project *config.Project, opts Options) int {
 			return 2
 		}
 	}
-	item, err := AllocateType(project, opts.Type, opts.Peek, opts.Note)
+	item, note, err := AllocateNote(project, opts.Type, opts.Peek, opts.Note)
 	if err != nil {
 		fmt.Fprintf(errOut, "number: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(out, item)
+	tellUser(errOut, note)
 	return 0
+}
+
+// tellUser prints the line about a board change that was kept here, on stderr so the number on stdout stays clean.
+func tellUser(errOut io.Writer, note string) {
+	if note != "" {
+		fmt.Fprintln(errOut, "number: "+note)
+	}
 }
 
 func numberOf(value any) (int, bool) {

@@ -217,6 +217,9 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		for _, line := range result.Changed {
 			fmt.Fprintln(out, "  "+line)
 		}
+		for _, note := range result.Notes {
+			fmt.Fprintf(out, "  note: %s\n", note)
+		}
 		for _, folder := range result.Unused {
 			fmt.Fprintf(out, "  now unused (left in place, remove it when you like): %s\n", folder)
 		}
@@ -367,6 +370,16 @@ func showText(m *flow.Model) string {
 			extra = append(extra, text)
 		}
 		fmt.Fprintf(&b, "  %-14s %-14s %-9s %-8s %s\n", c.Key, c.Label, c.Folder, c.Kind, strings.Join(extra, ", "))
+	}
+	if m.Board.Home == "branch" || m.Board.Recommended {
+		fmt.Fprintf(&b, "Board       %s", m.Board.Home)
+		if m.Board.Home == "branch" {
+			fmt.Fprintf(&b, " (branch %s, remote %s, publish %s)", m.Board.Branch, m.Board.Remote, m.Board.Publish)
+		}
+		b.WriteString("\n")
+		if m.Board.Recommended {
+			fmt.Fprintf(&b, "  recommended: keep the board on a branch of its own ([board] home = \"branch\"): %s (see docs/team-board.md)\n", m.Board.Reason)
+		}
 	}
 	fmt.Fprintf(&b, "Steps (%d)\n", len(m.Steps))
 	for _, s := range m.Steps {

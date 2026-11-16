@@ -10,6 +10,7 @@ there.
 kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
+kanbanzai sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch, merge and push it
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
@@ -24,7 +25,7 @@ kanbanzai config upgrade [--apply]       preview/apply a non-destructive config 
 kanbanzai migrate [--json | --apply --plan HASH | --rollback]
                                          preview, apply (on the hash the preview printed) or roll back what this release
                                          needs migrated in the project
-kanbanzai doctor [--json]                local installation diagnostics (no repairs)
+kanbanzai doctor [--json] [--board]        local installation diagnostics (no repairs); --board adds the board-branch checks (git and agent hooks)
 kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)
 kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
@@ -32,7 +33,7 @@ kanbanzai resolve ID|NUMBER              the canonical card id for an id or a ba
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR|@bundled]
-                                         [--with-template] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
+                                         [--with-template] [--board-branch] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
                                          [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
                                          set a project up: detect, plan, apply, verify; never commits
 kanbanzai install [--dry-run|--refresh|--where]    copy this command, and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
@@ -118,17 +119,30 @@ and `wip --cleanup` lists it (never an open card's, nor an early-closed card's) 
 proving it clean, merged and Done. A finished card's worktree that is dirty, holds unmerged commits or belongs to an
 early close stays a hard finding.
 
+**The board branch.** `kanbanzai sync` belongs to a project whose board lives on a branch of its own (`[board] home = "branch"`;
+[team-board.md](team-board.md)). `sync --attach` makes the worktree at the work folder (creating the branch, or checking it out of
+the remote), `sync --status [--json]` reports it without the network (attached, remote configured, ahead, behind, uncommitted
+files), and plain `sync` commits uncommitted board files, fetches the board branch, merges it and pushes it, trying again when
+another clone's push got in first. It is the one command that touches the remote because you ran it, whatever `publish` says; it only
+names the board branch's own ref. Exit 0 done, 1 a failure that kept your commits (a declined push, a conflict, no remote), 2 usage.
+`doctor --board` adds the git-hook and agent-hook checks to a project that has not adopted the board branch yet.
+
 **The main checkout while others work.** Sessions keep editing card briefs in the main checkout, and that must not stop
 a merge, a package or a release. `kanbanzai tree` reads `git status` there and sorts every changed path: **board** (a
 card brief or batch record in a configured folder, a regular file whose first heading is the card's own), **other**
 (anything else) or **uncertain** (a symlink, an unmerged entry, a file that is shaped like a brief but is not one, a
 git failure). The verdict is `clean`, `board-only` or `blocked`; it is also `blocked` while a merge, rebase,
-cherry-pick, revert or bisect is under way, or when the checkout is off the integration branch. Exit 0 means go ahead,
+cherry-pick, revert or bisect is under way. A checkout on another branch is never a reason to stop: `branch` and
+`on_integration_branch` say so, and a `notes` line names the branch and says to merge it into the integration branch
+through your review (a team whose main is protected works this way). Exit 0 means go ahead,
 1 means stop, 2 is a usage error. `--merge ID` also checks the card's branch: it lists the files the merge brings
 that are changed or untracked in the checkout (`overlap`), stops on staged changes, and prints the plan
-(`fast-forward`, `merge`, `up-to-date`, `not-applicable` in shared or external isolation) and the `git merge` to run.
+(`fast-forward`, `merge`, `up-to-date`, `not-applicable` in shared or external isolation or under `integration = "remote"`,
+`deferred` when the checkout is not on the integration branch: a merge here would land in the wrong branch, so no
+command is printed and the note says to merge through review, or to switch to the integration branch and run it again)
+and the `git merge` to run.
 Git still refuses a merge that would overwrite a changed file; it leaves unstaged and untracked board edits alone.
-`--json` prints `{verdict, branch, head, board[], other[], uncertain[], staged[], in_progress, reasons[], merge?}`
+`--json` prints `{verdict, branch, on_integration_branch, head, board[], other[], uncertain[], staged[], in_progress, reasons[], notes[], merge?}`
 with `merge` = `{card, branch, plan, overlap[], command}`; every list is present, never null. The command writes
 nothing: it never stages, commits, stashes, resets or edits another session's files, and `wip --audit` and its exit
 status are unchanged.

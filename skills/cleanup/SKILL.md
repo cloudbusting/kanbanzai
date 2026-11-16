@@ -23,7 +23,8 @@ card's workspace is never listed. The **Keep** list is work that still lives onl
 a finished card's clean, merged worktree as a warning, not a hard finding, so it never stops a batch; this skill is
 what clears it. Under `shared` and
 `external` there is nothing to list: the audit does not own those workspaces, so skip to the batches and claims.
-Read `kanbanzai context` and `kanbanzai workflow show`; for each card consult `kanbanzai step --for <ID>` and
+The board branch's worktree (the work folder, when `[board] home = "branch"`) is the board: it is never on the Cleanup list and
+never removed here. Read `kanbanzai context` and `kanbanzai workflow show`; for each card consult `kanbanzai step --for <ID>` and
 `kanbanzai workspace <ID>` for its actual close and workspace requirements. Get the integration branch from
 `kanbanzai config`, not a guessed branch name.
 

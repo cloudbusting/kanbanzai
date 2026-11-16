@@ -1,4 +1,10 @@
 {
+  "board": {
+    "branch": "kanbanzai-board",
+    "home": "main",
+    "publish": "ask",
+    "remote": "origin"
+  },
   "claims": {
     "lease_minutes": 120,
     "owner_env": "KANBANZAI_OWNER"

@@ -255,13 +255,53 @@ func TestTreeAMergeOrRebaseUnderWayBlocksEvenWhenClean(t *testing.T) {
 	}
 }
 
-func TestTreeOffTheIntegrationBranchBlocks(t *testing.T) {
+func TestTreeOffTheIntegrationBranchIsANoteNotABlock(t *testing.T) {
 	b := newBoard(t, defaultConfig)
 	testutil.Git(t, b.root, "switch", "-q", "-c", "elsewhere")
 	got := b.classify()
+	wantVerdict(t, got, Clean)
+	if got.Branch != "elsewhere" || got.OnIntegrationBranch {
+		t.Errorf("branch %q on_integration_branch %v", got.Branch, got.OnIntegrationBranch)
+	}
+	notes := strings.Join(got.Notes, " ")
+	if !strings.Contains(notes, "elsewhere") || !strings.Contains(notes, "main") || !strings.Contains(notes, "merge") {
+		t.Errorf("the note must name the branch, the integration branch and say to merge: %v", got.Notes)
+	}
+	if len(got.Reasons) != 0 {
+		t.Errorf("a branch is not a reason to stop: %v", got.Reasons)
+	}
+	if !strings.Contains(Text(got), "note:") {
+		t.Errorf("text report has no note: %q", Text(got))
+	}
+}
+
+func TestTreeOffTheIntegrationBranchStillBlocksOnOtherChanges(t *testing.T) {
+	b := newBoard(t, defaultConfig)
+	testutil.Git(t, b.root, "switch", "-q", "-c", "elsewhere")
+	b.write(b.path("src", "a.txt"), "two\n")
+	got := b.classify()
 	wantVerdict(t, got, Blocked)
-	if got.Branch != "elsewhere" || !strings.Contains(strings.Join(got.Reasons, " "), "main") {
-		t.Errorf("branch %q reasons %v", got.Branch, got.Reasons)
+	if strings.Contains(strings.Join(got.Reasons, " "), "elsewhere") {
+		t.Errorf("the reason must not be about the branch: %v", got.Reasons)
+	}
+}
+
+func TestTreeBoardOnlyOffTheIntegrationBranchGoesAhead(t *testing.T) {
+	b := newBoard(t, defaultConfig)
+	testutil.Git(t, b.root, "switch", "-q", "-c", "elsewhere")
+	b.write(b.brief("W-01-first.md"), testutil.Brief("W-01", "First", "todo")+"\nmore\n")
+	got := b.classify()
+	wantVerdict(t, got, BoardOnly)
+	if len(got.Notes) == 0 {
+		t.Errorf("want a note: %+v", got)
+	}
+}
+
+func TestTreeOnTheIntegrationBranchHasNoNote(t *testing.T) {
+	b := newBoard(t, defaultConfig)
+	got := b.classify()
+	if !got.OnIntegrationBranch || got.Notes == nil || len(got.Notes) != 0 {
+		t.Errorf("on_integration_branch %v notes %#v", got.OnIntegrationBranch, got.Notes)
 	}
 }
 

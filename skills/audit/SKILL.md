@@ -27,7 +27,8 @@ kanbanzai claim status                   # who holds each card, and until when
 `--audit` exits 1 on a **hard** finding: an orphan worktree, a card with work in two places, a worktree holding a
 card the board doesn't claim, a card claiming a worktree that isn't there, unclaimed work in a worktree, a claim for
 a card that has no brief, an open card whose **Where** is `main`, a claimed card in a column that needs a workspace
-with none, the main checkout off its main branch, or uncommitted files in the main checkout. These are the default
+with none, or uncommitted files in the main checkout. A main checkout on another branch is a warning, not a hard finding: say
+so, and that the branch is merged into main through the project's review. These are the default
 `worktree` mode's rules; `[flow] isolation` changes them (the report's `Isolation:` line names the mode): under `branch`
 the one checkout must be on the claimed card's branch, with a hard finding for two live claims; under `external` a
 claimed card must record `external <ref>`, which the audit trusts; under `shared` there is no layout finding, only a
@@ -81,6 +82,8 @@ Bookkeeping only, in the main session:
 - **Claims:** a live claim by another session is its own, even if its work looks stalled — report it, do not release
   it or take it over. An expired claim may be released, or taken over with a reason when the work is wanted.
 - **Anything another part of the project owns** (a deploy lease, a queue): release only what this session holds.
+- **The board branch** (`[board] home = "branch"`): its worktree is the board, never an orphan, and `wip --audit` only warns about
+  board files not committed or board commits not published. Say so and that `kanbanzai sync` settles both; do not remove it.
 - **An orphan worktree with uncommitted work** — say what it holds; only the owner decides whether it is kept,
   merged or dropped.
 - **A card whose brief and column disagree** beyond a bookkeeping fix, or whose work has outrun its brief — hand it

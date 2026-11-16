@@ -131,6 +131,10 @@ type Project struct {
 	Preset             PresetRecord // the delivery preset the config was written from; empty for a hand-made config
 	Isolation          string       // worktree, branch, shared or external: how a card's change is kept apart
 	Integration        string       // local or remote: whether a finished card's branch is merged here or on the remote
+	BoardHome          string       // main or branch: where the cards, the number ledger and the claims live
+	BoardBranch        string       // the board branch's name, when BoardHome is branch
+	BoardRemote        string       // the remote the board branch is fetched from and pushed to, by name
+	BoardPublish       string       // ask or auto: whether the board commands may fetch and push the board branch unasked
 	WorktreePattern    string
 	BranchPattern      string
 	BatchBranchPattern string
@@ -452,6 +456,9 @@ func (p *Project) build() error {
 	}
 	p.Isolation = asString(flow["isolation"], "worktree")
 	p.Integration = asString(flow["integration"], "local")
+	if err := p.loadBoard(); err != nil {
+		return err
+	}
 	preset, err := p.section("preset")
 	if err != nil {
 		return err
@@ -783,6 +790,69 @@ func (p *Project) steps() error {
 	}
 	return nil
 }
+
+var (
+	// A conservative subset of what git allows in a branch name, so a name never reads as an option and never needs quoting.
+	boardBranchName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
+	// A remote is named, never given as a URL: the address stays in git's own configuration.
+	boardRemoteName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+)
+
+// loadBoard reads [board]: where the cards, the number ledger and the claims live. The default is the main branch,
+// which is how a project has always worked.
+func (p *Project) loadBoard() error {
+	board, err := p.section("board")
+	if err != nil {
+		return err
+	}
+	p.BoardHome = asString(board["home"], "main")
+	p.BoardBranch = asString(board["branch"], "kanbanzai-board")
+	p.BoardRemote = asString(board["remote"], "origin")
+	p.BoardPublish = asString(board["publish"], "ask")
+	// an empty string is a mistake, not a request for the default
+	for _, key := range []string{"branch", "remote"} {
+		if text, set := board[key].(string); set && strings.TrimSpace(text) == "" {
+			return errf("board.%s must not be empty: leave the key out to use its default", key)
+		}
+	}
+	name := p.BoardBranch
+	if !boardBranchName.MatchString(name) || strings.Contains(name, "..") || strings.Contains(name, "//") ||
+		strings.HasSuffix(name, "/") || strings.HasSuffix(name, ".") || strings.HasSuffix(name, ".lock") ||
+		strings.Contains(name, "/.") || strings.Contains(name, ".lock/") {
+		return errf("board.branch '%s' is not a usable branch name: use letters, digits, '.', '_', '-' and '/', starting with a "+
+			"letter or digit, with no '..', '//', trailing '/', '.' or '.lock'", name)
+	}
+	if !boardRemoteName.MatchString(p.BoardRemote) {
+		return errf("board.remote '%s' must be the name of a git remote (letters, digits, '.', '_', '-'), not an address", p.BoardRemote)
+	}
+	if !p.BoardOnBranch() {
+		return nil
+	}
+	if name == p.MainBranch {
+		return errf("board.branch '%s' is the main branch: the board branch exists to keep the board off it", name)
+	}
+	rel, err := filepath.Rel(p.Root, p.Work)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return errf("board.home is \"branch\", so project.work must be a folder inside the main checkout (the board branch is "+
+			"checked out there), not %s", p.Work)
+	}
+	// The number ledger and the claims are shared state: they live on the board branch, beside the cards, so a push
+	// decides who took a number or a card first. A folder the project chose itself stays where it put it.
+	project, err := p.section("project")
+	if err != nil {
+		return err
+	}
+	if asString(project["numbers"], "") == "" {
+		p.Numbers = filepath.Join(p.Work, ".ledger")
+	}
+	if asString(project["claims"], "") == "" {
+		p.Claims = filepath.Join(p.Work, ".claims")
+	}
+	return nil
+}
+
+// BoardOnBranch reports whether the board lives on its own branch, off the main branch.
+func (p *Project) BoardOnBranch() bool { return p.BoardHome == "branch" }
 
 // Expand replaces {git_common}, {repo} and {id} in a setting.
 func (p *Project) Expand(text, card string) (string, error) {
@@ -1154,6 +1224,8 @@ func (p *Project) AsDict() map[string]any {
 		"flow": map[string]any{"wip_limit": p.WIPLimit, "stale_days": p.StaleDays,
 			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder, "isolation": p.Isolation,
 			"integration": p.Integration},
+		"board": map[string]any{"home": p.BoardHome, "branch": p.BoardBranch, "remote": p.BoardRemote,
+			"publish": p.BoardPublish},
 		"preset": map[string]any{"name": p.Preset.Name, "delivery_style": p.Preset.DeliveryStyle,
 			"version": p.Preset.Version},
 		"columns": columns,

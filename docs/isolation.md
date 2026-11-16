@@ -55,7 +55,7 @@ files and switch the same branches); use `worktree` mode for parallel work. `/ne
 
 The host (a runner, a cloud workspace) makes the card's workspace. The card records it as `Where: external <ref>`, a
 one-line reference such as a runner id or URL, and the audit trusts that record: it does not look inside the workspace.
-The main checkout is still the board's home, so it must be on the main branch and hold nothing but board changes (see
+The main checkout is still the board's home, so it should hold nothing but board changes (see
 [the main checkout while others work](#the-main-checkout-while-others-work)).
 
 ## Integration: local or remote
@@ -77,6 +77,9 @@ the branch, a squash-merged branch stays on the Keep list for the owner. A dirty
 pushed and are not in main, are never listed. The setting has no effect under `shared` or `external` isolation (they
 never merge a branch here) and `workflow validate` warns about that. The `team-pr` preset sets it ([presets.md](presets.md)).
 
+A board that lives on a branch of its own ([team-board.md](team-board.md)) is a worktree too, but it is the board, not a card's:
+the audit never calls it an orphan, `/cleanup` never removes it, and unpublished board work is only a warning.
+
 ## The main checkout while others work
 
 In every mode the main checkout is where the board lives, so sessions keep editing card briefs in it while one of them
@@ -85,7 +88,10 @@ merges, packages or releases. Those edits must not stop that work, and a change 
 folder, a regular file whose first heading is the card's own; **other** is anything else; **uncertain** is a path it
 cannot verify (a symlink, an unmerged entry, a brief-shaped file that is not one, a git failure). A checkout with only
 board changes is `board-only`, and a merge, package or release goes ahead; `blocked` stops it, as does a merge,
-rebase or bisect under way and a checkout off the main branch. `kanbanzai tree --merge ID` adds the card's merge:
+rebase or bisect under way. A checkout on another branch is only a note (`on_integration_branch` is false and the note
+says to merge that branch into main through your review): a team whose main is protected keeps board changes on a branch,
+and `workflow apply` and `wip --audit` go ahead there too, the audit with a warning. `kanbanzai tree --merge ID` adds the card's merge
+(`deferred`, with no command, when the checkout is not on the main branch, since a merge would land in the wrong branch):
 it lists the files the merge would overwrite, stops on staged changes (a merge cannot start over them and they are
 not the merging session's to unstage), and prints the `git merge` to run. Git keeps unstaged and untracked board
 edits through a merge and refuses one that would overwrite a changed file, changing nothing. Nothing here stages,

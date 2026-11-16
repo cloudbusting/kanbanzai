@@ -44,7 +44,7 @@ pull request, and the card waits in **In review** until the host has merged it. 
 `kanbanzai move ID building` (a back move is never gated).
 
 ```bash
-kanbanzai init --preset team-pr
+kanbanzai init --preset team-pr          # add --board-branch where main is protected (below)
 # ... check finishes into In review; push the branch and open the pull request; write its link on the card's
 #     `Pull request` line; the team reviews and the host merges it ...
 kanbanzai gate pass ID --note "PR #123 merged, 1a2b3c4"
@@ -58,6 +58,10 @@ a started column, so a card waiting for reviewers does not use a slot of the wor
 The preset sets `[flow] integration = "remote"`: `kanbanzai tree --merge ID` has nothing to merge, and `wip --audit`
 and `/cleanup` count a branch as landed when its commits are on the main branch, on a remote-tracking branch, or
 already in the main branch's content (a squash merge). See [isolation.md](isolation.md#integration-local-or-remote).
+
+Where `main` is protected, the board's own commits (a new card, a move, the Done record) cannot go to `main` either: pair the preset
+with a board branch, `kanbanzai init --preset team-pr --board-branch` ([team-board.md](team-board.md)). `kanbanzai workflow show` and
+`/kanbanzai:workflow` recommend it for this preset; neither sets it for you.
 Release and QA are outside this board; add them with `workflow plan` when the team wants them on it.
 
 ## What init writes

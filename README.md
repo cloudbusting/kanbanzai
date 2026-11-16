@@ -23,7 +23,8 @@ leaves the doing to the agents and the rules you already have.
   per card, a shared checkout or a workspace its host owns ([docs/isolation.md](docs/isolation.md)).
 - **The workflow is yours.** The shipped columns, steps and gates are a default. A project renames, adds or drops them,
   or starts from a [delivery preset](docs/presets.md).
-- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)).
+- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). The one
+  opt-in exception is a [board branch](docs/team-board.md) for a team whose `main` is protected: `git push` of that one branch.
 
 ## Supported
 
@@ -32,7 +33,7 @@ leaves the doing to the agents and the rules you already have.
 | Agents | **Claude Code** and **OpenCode** (V2), alone or together |
 | Editors | **VS Code** and **VSCodium** 1.85 or later, for the board tab and one-click setup |
 | Platforms | Linux amd64/arm64, macOS amd64/arm64 and Windows amd64 |
-| Needs | `git`. The command is one self-contained binary: no runtime, no package manager, no network |
+| Needs | `git`. The command is one self-contained binary: no runtime, no package manager, no network of its own |
 
 The [Compatibility](#compatibility) table says exactly what was tested.
 

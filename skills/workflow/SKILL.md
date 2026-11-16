@@ -67,6 +67,43 @@ flow. Say when keeping the current flow is better — it already fits, or it car
 settling anything; do not guess from the language the project is written in, and do not invent a second preset
 catalogue. No preset is applied by default, and a preset is still not approval to apply its migration.
 
+### The board branch, for a team whose main branch is protected
+
+`[board] home = "branch"` keeps the cards, the number ledger and the claims on a branch of their own (checked out as a
+worktree at the work folder) instead of on the main branch, so nothing the board writes is ever committed to a protected
+main. A team shares it by pushing that branch. The core's `tree`, `workflow apply` and `wip --audit` already work from any
+branch; this is the other half. `kanbanzai workflow show` prints a `Board` line, and in `--json` a `board` object with
+`recommended` and `reason`.
+
+**Recommend it** (it recommends it and never applies it) when the project's board is still on `main` and any of these is
+true: the preset in play or recommended is `team-pr`, `integration = "remote"`, the owner says main is protected, that
+commits to main are blocked, or that every change goes through a reviewed pull request. Do not recommend it to a solo
+project that commits to its own main.
+
+**Check before recommending** (reads only): run `kanbanzai doctor --board --json` and report what it says about the two
+things in this repository that would stand in the way of the commits and pushes the core makes on the board branch:
+
+- `board.hooks.git` lists the **git hooks** that will run (`pre-commit`, `commit-msg`, `pre-push` and the others, wherever
+  `core.hooksPath` points). The core never skips a hook, and the board's commit messages begin with the card id, so say
+  which hook might reject them or the board branch's name, and that its owner is who can change it.
+- `board.hooks.agent` lists the **agent hooks** and permission rules in the repository's Claude Code (`.claude/settings*.json`)
+  and OpenCode (`opencode.json`) settings that deny, ask before or intercept `git commit`, `git push` or `kanbanzai sync`.
+  A rule that denies them stops a session publishing the board; allow `Bash(kanbanzai:*)`. A `PreToolUse` Bash hook sees the
+  commands a skill runs, not the git calls made inside `kanbanzai sync`.
+
+Neither check can see the remote's **branch protection** (that needs the network, and this skill makes none): say so, and
+that the owner should ask the administrator that the board branch's name (`kanbanzai-board` unless `board.branch` says
+otherwise) may be created and pushed to.
+
+**Hand over, do not write:** `workflow apply` does not write `[board]`, so this skill never edits `.kanbanzai/config.toml`.
+For a new project the setup is `kanbanzai init --board-branch` (add `--preset team-pr`). For an existing one, show the owner
+the lines to add to the config (`[board]` with `home = "branch"` and `publish = "ask"`), say that the config change goes to
+main through their own pull request, then `kanbanzai sync --attach` makes the worktree and `kanbanzai sync` publishes the
+branch; cards already on main move onto the board branch as `docs/team-board.md` describes. `publish = "auto"` lets the
+board commands fetch and push the board branch (only that branch, never main) without asking each time: that is the owner's
+decision, so explain it and ask, never set it. Ask through the question tool whether to go ahead; a recommendation is not
+approval, and the owner decides.
+
 ## 3. The interview
 
 Ask through the question tool, each question standing on its own, the recommended option first, and only what the
@@ -144,7 +181,8 @@ config, briefs or templates. Run it alone on the command line.
 - **Exit 2** is a refusal with nothing written. A stale plan (a brief, the config or the template changed since it
   was made) needs a fresh `workflow plan`, a shown impact and fresh approval. A dirty board blocks even when every
   changed path is a card brief; `kanbanzai tree` calling it board-only does not waive it. A live claim on a migrated
-  card, a main checkout off its main branch, a blocked plan and an unfinished journal each stop it. Report the
+  card, a blocked plan and an unfinished journal each stop it. A main checkout on another branch does not: the apply goes
+  ahead and its `notes` say to merge that branch into the main branch through the project's review; pass that on. Report the
   refusal and what must happen first: the skill never commits, discards or resets someone's work, never releases
   another session's claim, never edits the plan's hashes and never forces the migration.
 - **Exit 1** is a failed write: report exactly what the command said, including whether it rolled back. If the

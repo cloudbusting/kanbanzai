@@ -122,6 +122,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	switch {
 	case d.Config.Exists && !d.Config.Regular:
 		return nil, refuse("%s exists and is not a regular file: replace it by hand, init will not", ConfigRel)
+	case d.Config.Exists && !opts.Force && opts.BoardBranch:
+		return nil, refuse("--board-branch has no effect on the existing %s: add the [board] table to it (docs/team-board.md), "+
+			"or use --force to back the config up and replace it", ConfigRel)
 	case d.Config.Exists && !opts.Force && opts.Preset != "":
 		return nil, refuse("--preset has no effect on the existing %s: `kanbanzai workflow plan --preset %s` plans the "+
 			"change to this project's flow for review, or use --force to back the config up and replace it", ConfigRel, opts.Preset)
@@ -210,6 +213,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 				settings.Types = append([]string{}, StarterTypes...)
 			}
 		}
+		if opts.BoardBranch {
+			text = strings.TrimRight(text, "\n") + "\n\n" + BoardText
+		}
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
 		if err != nil {
 			return nil, fmt.Errorf("init built a config the loader rejects (a bug): %w", err)
@@ -271,13 +277,15 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		plan.Actions = append(plan.Actions, createOrKeep(root, rel+"/.gitkeep", WhatGitkeep, ""))
 		return nil
 	}
-	for _, name := range project.Folders {
-		if err := folder(filepath.Join(project.Work, name), WhatFolder); err != nil {
+	if !project.BoardOnBranch() { // a board branch keeps its own folders: `kanbanzai sync --attach` makes them there
+		for _, name := range project.Folders {
+			if err := folder(filepath.Join(project.Work, name), WhatFolder); err != nil {
+				return nil, err
+			}
+		}
+		if err := folder(project.Batches, WhatBatches); err != nil {
 			return nil, err
 		}
-	}
-	if err := folder(project.Batches, WhatBatches); err != nil {
-		return nil, err
 	}
 
 	ignores, warnings, err := ignoreActions(d, project)
@@ -474,8 +482,13 @@ func ignoreActions(d *Detected, project *config.Project) ([]Action, []string, er
 	root := d.Root
 	var warnings []string
 	chosen := []string{}
-	for _, entry := range []struct{ key, path string }{{"project.state", project.State},
-		{"project.claims", project.Claims}, {"project.numbers", project.Numbers}} {
+	ignored := []struct{ key, path string }{{"project.state", project.State},
+		{"project.claims", project.Claims}, {"project.numbers", project.Numbers}}
+	if project.BoardOnBranch() {
+		// the claims and the ledger are committed on the board branch; the whole work folder is its worktree, never main's
+		ignored = []struct{ key, path string }{{"project.state", project.State}, {"project.work", project.Work}}
+	}
+	for _, entry := range ignored {
 		if _, err := insideRoot(root, entry.path, entry.key); err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s is outside the main checkout (%s): nothing to ignore",
 				entry.key, entry.path))
@@ -553,6 +566,14 @@ func within(dir, path string) bool {
 }
 
 func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x00") == string(data) }
+
+// BoardText is the [board] table `init --board-branch` appends to the config it writes.
+const BoardText = `# The board lives on its own branch, not on the protected main branch (docs/team-board.md).
+# ` + "`kanbanzai sync --attach`" + ` makes its worktree at project.work; ` + "`kanbanzai sync`" + ` publishes it.
+[board]
+home = "branch"
+publish = "ask"      # "auto" lets the board commands fetch and push the board branch (only that branch) without asking each time
+`
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
 // template are written only when they differ from the defaults; context only when asked for. With no --prefix the

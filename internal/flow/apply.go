@@ -71,6 +71,18 @@ type ApplyOptions struct {
 type Result struct {
 	Changed []string `json:"changed"`
 	Unused  []string `json:"unused_folders"`
+	// Notes say what to do next when the change is not on the main branch: merge it there. Never a reason to refuse.
+	Notes []string `json:"notes"`
+}
+
+// branchNotes is the instruction that goes with a board change made off the main branch.
+func branchNotes(p *config.Project) []string {
+	branch, err := gitutil.Git(p.Root, "symbolic-ref", "--quiet", "--short", "HEAD")
+	if err != nil || branch == "" || p.MainBranch == "" || branch == p.MainBranch {
+		return []string{}
+	}
+	return []string{fmt.Sprintf("the board change is on branch %q, not on %q: push %q and merge it into %s through your review "+
+		"before other clones see it", branch, p.MainBranch, branch, p.MainBranch)}
 }
 
 // Failed is an apply that went wrong after it began writing.
@@ -135,9 +147,6 @@ func Preflight(p *config.Project, plan *Plan) error {
 	_, journalFile, _ := dirs(p)
 	if journal, err := readJournal(journalFile); err == nil && journal.Status == StatusApplying {
 		return refuse("an earlier apply did not finish: run `kanbanzai workflow apply --rollback` first")
-	}
-	if branch, err := gitutil.Git(p.Root, "symbolic-ref", "--quiet", "--short", "HEAD"); err != nil || branch != p.MainBranch {
-		return refuse("the main checkout must be on %s to change the board (it is on %q)", p.MainBranch, branch)
 	}
 	configPath := abs(p, plan.Config.Path)
 	if text, ok := readText(configPath); ok != plan.Config.Existed || (ok && Digest(text) != plan.Config.ExpectSHA256) {
@@ -310,7 +319,7 @@ func Apply(p *config.Project, plan *Plan, options ApplyOptions) (*Result, error)
 	if err := writeJournal(journalFile, journal); err != nil {
 		return nil, err
 	}
-	result := &Result{Changed: []string{}, Unused: plan.Unused}
+	result := &Result{Changed: []string{}, Unused: plan.Unused, Notes: branchNotes(p)}
 	for _, step := range journal.Steps {
 		if step.Kind == StepMkdir && !step.Created {
 			continue
@@ -446,7 +455,7 @@ func Rollback(p *config.Project) (*Result, error) {
 	if err := writeJournal(journalFile, journal); err != nil {
 		return nil, err
 	}
-	result := &Result{Changed: []string{}, Unused: []string{}}
+	result := &Result{Changed: []string{}, Unused: []string{}, Notes: branchNotes(p)}
 	for _, step := range journal.Steps {
 		if step.Kind != StepMkdir || step.Created {
 			result.Changed = append(result.Changed, "restored "+step.Path)

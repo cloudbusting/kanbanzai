@@ -136,7 +136,8 @@ the workspace clean, merged and safe to remove; once the card is Done and not an
 workspace that passes those proofs without asking again, and keeps and reports any that does not.
 
 At every stop make the brief true: current Next action, progress, hold if blocked or waiting, and a handover Comment
-only if needed. Commit only this session's files by path when project rules and authorization permit; never stage
+only if needed. Commit only this session's files by path when project rules and authorization permit (a board kept on a board branch is
+published with `kanbanzai sync`, not committed by hand, and never on the main branch); never stage
 another session's work. Renew then release the claim when stopping, including at a turn limit, after preserving the
 work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. A stop on an
 audit finding must not leave a second blocker: record that finding as the Held line and the Next action, preserve the

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -180,6 +181,7 @@ func record(project *config.Project, opts Options, out, errOut io.Writer) int {
 			fmt.Fprintf(errOut, "gate: %v\n", err)
 			return 1
 		}
+		boardbranch.Saved(project, item.id+": gate "+map[bool]string{true: "passed", false: "failed"}[opts.Action == "pass"], item.path)
 		_, fields := brief.Header(item.text)
 		entry := map[string]any{"at": timeutil.ToISO(now), "card": item.id, "column": item.column,
 			"action": opts.Action, "owner": owner, "record": fields["Gate"]}

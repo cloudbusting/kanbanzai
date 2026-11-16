@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -308,6 +309,11 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 			return "", err
 		}
 	}
+	saved := []string{destinationPath}
+	if destinationPath != source {
+		saved = append(saved, source)
+	}
+	boardbranch.Saved(project, cardID+": "+movedWords(column.Label, goal.Label, destination == key), saved...)
 	forced := len(problems) > 0
 	entry := map[string]any{
 		"at": timeutil.ToISO(*now), "card": cardID, "from": key, "to": destination, "owner": owner,
@@ -331,6 +337,14 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		message += " (forced)"
 	}
 	return message, nil
+}
+
+// movedWords is the commit message of a move on a board branch, after the card id.
+func movedWords(from, to string, same bool) string {
+	if same {
+		return "updated in " + from
+	}
+	return "moved " + from + " -> " + to
 }
 
 // Resolve is a column key from its key, its label or one of its Stage words, case-insensitively.

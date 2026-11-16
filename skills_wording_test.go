@@ -1040,3 +1040,25 @@ func TestCleanupFollowsTheRemoteIntegrationRemoveSteps(t *testing.T) {
 		}
 	}
 }
+
+// CHANGE-77: a team whose main branch is protected cannot commit the board there; the workflow skill knows the board
+// branch, recommends it, and reads the hooks that would stand in its way before it does.
+func TestWorkflowSkillRecommendsTheBoardBranchAndChecksTheHooks(t *testing.T) {
+	text := workflowSkillText(t)
+	lower := strings.ToLower(text)
+	for _, want := range []string{
+		"[board]", "home = \"branch\"", "team-pr", "integration = \"remote\"", "protected",
+		"kanbanzai doctor --board --json", "board.hooks.git", "board.hooks.agent", "git hooks", "agent hooks",
+		"kanbanzai sync --attach", "init --board-branch", "publish = \"auto\"", "owner's decision",
+		"recommends it and never applies it", "branch protection", "ask the administrator",
+	} {
+		if !strings.Contains(lower, strings.ToLower(want)) {
+			t.Errorf("skills/workflow lacks %q in its board branch guidance", want)
+		}
+	}
+	firstBefore(t, lower, "kanbanzai doctor --board --json", "kanbanzai sync --attach")
+	// the control plane still writes no config of its own: the [board] lines are the owner's to add
+	if !strings.Contains(lower, "does not write `[board]`") {
+		t.Error("skills/workflow must say workflow apply does not write [board]")
+	}
+}

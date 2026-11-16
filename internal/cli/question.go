@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -130,6 +131,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 			fmt.Fprintln(errOut, err)
 			return 1
 		}
+		boardbranch.Saved(project, cardID+": waiting for an answer", path, store.Path(cardID))
 		fmt.Fprintf(out, "%s: question recorded; claim released\n", cardID)
 		return 0
 	}
@@ -180,6 +182,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
+	boardbranch.Saved(project, cardID+": answer recorded", path)
 	// A refused return is intentional: retain the recorded answer and leave an interrupted card.
 	position := 0
 	for i, col := range project.Columns {

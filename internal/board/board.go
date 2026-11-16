@@ -165,8 +165,8 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 	work := project.Work
 	if entries, err := os.ReadDir(work); err == nil {
 		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
+			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+				continue // hidden folders are the board's own state (a board branch's claims and ledger)
 			}
 			path := filepath.Join(work, entry.Name())
 			if contains(project.Folders, entry.Name()) || filepath.Clean(path) == filepath.Clean(project.Batches) {
