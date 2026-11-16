@@ -37,7 +37,7 @@ func startsWithExample(captured string) bool {
 }
 
 var privateRules = []privateRule{
-	{"home path", regexp.MustCompile(`(?i)` + valueBoundary + `(?:/home/|/users/)([^/\s"'\x60]+)/` + valueEnd), startsWithExample},
+	{"home path", regexp.MustCompile(`(?i)` + valueBoundary + `(?:/` + `home/|/` + `users/)([^/\s"'\x60]+)/` + valueEnd), startsWithExample},
 	{"home path", regexp.MustCompile(`(?i)` + valueBoundary + `[a-z]:\\{1,2}users\\{1,2}([^\\\s"'\x60]+)\\{1,2}` + valueEnd), startsWithExample},
 	{"OpenCode session id", regexp.MustCompile(`(?i)` + valueBoundary + `ses_([a-z0-9]{10,})`), startsWithExample},
 	{"Claude Code session id", regexp.MustCompile(`(?i)claude:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`),
