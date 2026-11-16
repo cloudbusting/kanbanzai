@@ -64,6 +64,7 @@ commands:
   workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
   template [TYPE|ID] [--where|--example NAME]  the brief template a new card of that type starts from
   workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
+  plugins link [DIR]             give a worktree the bundled OpenCode plugin's pointer file (a worktree has no copy; git does not carry it)
   resolve ID|NUMBER              the canonical card id for an id or a bare number (07 and 123 name the card with that number)
 ` + initUsage + `  install [--dry-run|--refresh|--where|--no-link]  copy this command to the per-user folder and link it as ~/.local/bin/kanbanzai (works outside a project)
 
@@ -293,6 +294,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		return runTemplate(project, args, out, errOut)
 	case "workspace":
 		return runWorkspace(project, args, out, errOut)
+	case "plugins":
+		return runPlugins(project, args, out, errOut)
 	case "resolve":
 		positionals, _, _, err := parse(args, nil, nil)
 		if err != nil || len(positionals) != 1 {

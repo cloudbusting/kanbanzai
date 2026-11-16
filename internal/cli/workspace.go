@@ -50,6 +50,9 @@ func workspaceText(project *config.Project, info workspace.Info) string {
 	} else {
 		b.WriteString("make (a new card):\n  " + info.Make[0] + "\nmake (its branch exists):\n  " + info.Make[1] + "\n")
 	}
+	if info.Link != "" {
+		fmt.Fprintf(&b, "link: %s   (the OpenCode plugin's pointer file; git does not carry it, and `move ... start` runs it too)\n", info.Link)
+	}
 	fmt.Fprintf(&b, "then: %s\n", info.Then)
 	fmt.Fprintf(&b, "work in: %s\n", info.WorkIn)
 	if len(info.Remove) == 0 {

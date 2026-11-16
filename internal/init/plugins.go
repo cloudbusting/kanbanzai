@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/install"
+	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 )
 
 // W-17: `init --plugins` puts the project's Claude Code and OpenCode plugin settings in the plan. Each is a `merge`
@@ -28,8 +29,8 @@ const (
 	openCodeSettingsRel    = ".opencode/opencode.json"
 
 	pluginKey          = "kanbanzai@kanbanzai"
-	pluginReferenceRel = ".kanbanzai/state/kanbanzai-opencode-path"
-	pluginReference    = "{file:../.kanbanzai/state/kanbanzai-opencode-path}"
+	pluginReferenceRel = pluginlink.ReferenceRel
+	pluginReference    = pluginlink.Reference
 )
 
 func bundledPluginSource() (string, error) {

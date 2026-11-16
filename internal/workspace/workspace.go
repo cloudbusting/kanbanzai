@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 )
 
 const (
@@ -274,6 +275,9 @@ type Info struct {
 	WorkIn          string   `json:"work_in"`
 	Remove          []string `json:"remove"`
 	Parallel        bool     `json:"parallel"`
+	// Link is the command that gives a new worktree the bundled OpenCode plugin's pointer file (BUG-79), or "" when
+	// the project does not need it.
+	Link string `json:"link"`
 }
 
 // Describe is the card's Info in the project's mode.
@@ -290,6 +294,7 @@ func Describe(p *config.Project, card string) Info {
 	if Needs(p) {
 		info.Then += fmt.Sprintf(" --where \"%s\"", info.Record)
 	}
+	info.Link = LinkStep(p, card)
 	switch Of(p) {
 	case Worktree:
 		info.WorkIn = p.WorktreePath(card)
@@ -299,4 +304,17 @@ func Describe(p *config.Project, card string) Info {
 		info.WorkIn = p.Root
 	}
 	return info
+}
+
+// LinkStep is the command that gives the card's new worktree the bundled OpenCode plugin's pointer file, which OpenCode
+// reads in the checkout it runs in and git does not carry (BUG-79). It is "" unless the project uses worktrees and its
+// main checkout holds that file; `move` runs the same link when a card's worktree is recorded.
+func LinkStep(p *config.Project, card string) string {
+	if Of(p) != Worktree {
+		return ""
+	}
+	if _, err := pluginlink.Read(p.Root); err != nil {
+		return ""
+	}
+	return "kanbanzai plugins link " + p.WorktreePath(card)
 }

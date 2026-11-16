@@ -9,11 +9,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 )
 
 // adapterCheck aggregates declarations, not effective harness discovery or runtime health.
 type adapterCheck struct {
 	errors, warnings, checked []string
+	// fix, when set, replaces the generic fix of an error: the one thing that repairs what the error names.
+	fix string
 }
 
 type unverified string
@@ -40,6 +44,9 @@ func (a *adapterCheck) finish(r *Report, name string) {
 	if len(a.errors) > 0 {
 		status = "error"
 		fix = "Correct the named repository-local adapter declarations or restore their local files."
+		if a.fix != "" {
+			fix = a.fix
+		}
 		parts = append(parts, a.errors...)
 	}
 	if len(parts) == 0 {
@@ -267,6 +274,12 @@ func (r *Report) opencode(bases []string) {
 					a.errors = append(a.errors, path+": plugin must name a package or local directory.")
 					continue
 				}
+				if spec == pluginlink.Reference && base != bases[0] && dir == filepath.Join(base, ".opencode") {
+					// BUG-79: in a linked worktree the bundled install's pointer file is that checkout's own, and absent
+					// until `plugins link` copies it; OpenCode then loads no plugin and says nothing useful.
+					a.pointer(base, path)
+					continue
+				}
 				if strings.Contains(spec, "{env:") || strings.Contains(spec, "{file:") || strings.HasPrefix(spec, "~") {
 					a.warnings = append(a.warnings, path+": plugin path substitution was not evaluated.")
 					continue
@@ -300,6 +313,28 @@ func (r *Report) opencode(bases []string) {
 		}
 	}
 	a.finish(r, "opencode")
+}
+
+// pointer evaluates the bundled OpenCode reference for the checkout at base: its pointer file must exist, name a
+// folder, and that folder must hold a readable plugin. Nothing in it is executed.
+func (a *adapterCheck) pointer(base, config string) {
+	plugin, err := pluginlink.Read(base)
+	if err != nil {
+		what := pluginlink.ReferenceRel + " is missing in this checkout"
+		if !os.IsNotExist(err) {
+			what = err.Error()
+		}
+		a.errors = append(a.errors, config+": the OpenCode plugin pointer is unusable: "+what+", so OpenCode loads no Kanbanzai plugin here.")
+		a.fix = "Run `kanbanzai plugins link` in this worktree: it copies the main checkout's pointer file."
+		return
+	}
+	if err := checkOpenCodePlugin(plugin); err != nil {
+		a.errors = append(a.errors, config+": the OpenCode plugin pointer names a plugin that cannot be loaded: "+err.Error()+".")
+		a.fix = "Run `kanbanzai install --refresh` to restore the plugin folder; if the main checkout's pointer names another folder, delete this worktree's " +
+			pluginlink.ReferenceRel + " and run `kanbanzai plugins link`."
+		return
+	}
+	a.checked = append(a.checked, "OpenCode plugin pointer in "+base+": "+plugin+" is readable (adapter code not executed).")
 }
 
 func runtimeWindowsDrive(path string) bool {

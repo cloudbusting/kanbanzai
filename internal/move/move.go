@@ -25,6 +25,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 	"github.com/cloudbusting/kanbanzai/internal/step"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/workspace"
@@ -336,7 +337,36 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 	if forced {
 		message += " (forced)"
 	}
+	if goal.Worktree && !earlyClose {
+		where := card.Where
+		if changes.Where != nil {
+			where = *changes.Where
+		}
+		if note := linkNote(project, where); note != "" {
+			message += "\n" + note
+		}
+	}
 	return message, nil
+}
+
+// linkNote gives the card's worktree the bundled OpenCode plugin's pointer file once the move has recorded it
+// (BUG-79): OpenCode reads that file in the checkout it runs in, and git does not carry it. It says what it did, or
+// why it could not; a failed link is a warning, never a refusal, because the move is already written.
+func linkNote(project *config.Project, where string) string {
+	if workspace.Of(project) != workspace.Worktree || !workspace.Exists(project, where) {
+		return ""
+	}
+	_, ref := workspace.Parse(where)
+	path := project.WorktreePath(ref)
+	result, err := pluginlink.Link(project.Root, path)
+	if err != nil {
+		return "warning: the OpenCode plugin pointer was not linked into " + path + ": " + err.Error() +
+			" (then run: kanbanzai plugins link " + path + ")"
+	}
+	if result.Op == pluginlink.OpCreated {
+		return "linked the OpenCode plugin pointer into " + path
+	}
+	return ""
 }
 
 // movedWords is the commit message of a move on a board branch, after the card id.
