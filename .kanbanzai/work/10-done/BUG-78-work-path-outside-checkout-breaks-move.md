@@ -1,11 +1,11 @@
 # BUG-78: A `work` folder outside the main checkout makes `move` (and three other commands) fail on a mangled path
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-16
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-17
+- **Done:** 2026-11-17 — v0.25.0, 33a5d73, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.25.0
 - **ADR:** none — the brief is the record
-- **Next action:** release: 0.24.0 after the owner approves (version, licence, publisher, public release); package artifacts at /tmp/kanbanzai-package-BUG-78-0.24.0 from main ad02119
-- **Where:** worktree BUG-78
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

@@ -1,11 +1,11 @@
 # BUG-79: The OpenCode plugin does not load in card worktrees: its reference reads the git-ignored `.kanbanzai/state/`
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-16
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-17
+- **Done:** 2026-11-17 — v0.25.0, 33a5d73, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.25.0
 - **ADR:** none — the brief is the record (design may raise one if it changes the plugin-reference contract)
-- **Next action:** release: version, licence and publisher need the owner's approval; package artifacts at /tmp/kanbanzai-package-BUG-79-0.24.0 from main b4153ac, rehearsed at the 0.24.0 metadata (the release bumps it); the owner's manual check: OpenCode in a linked worktree
-- **Where:** worktree BUG-79
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
