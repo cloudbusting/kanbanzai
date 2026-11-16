@@ -154,3 +154,21 @@ func TestTwoClonesThatEachStartedTheBranchStillMerge(t *testing.T) {
 		}
 	}
 }
+
+// A remote written as a relative path (git remote add origin ../remote.git) is relative to the main checkout. The push must
+// not run from inside the board's worktree, a folder deeper, where that path points somewhere else.
+func TestARelativeRemoteWorksFromTheBoardWorktree(t *testing.T) {
+	a, _, remote := pair(t, boardConfig, true)
+	rel, err := filepath.Rel(a.root, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Git(t, a.root, "remote", "set-url", "origin", rel)
+	res, err := a.board.Publish("TASK-01: a card", a.write("1-open/TASK-01-x.md", "# TASK-01: x\n"))
+	if err != nil || !res.Published {
+		t.Fatalf("%+v %v", res, err)
+	}
+	if !remoteHas(t, remote, "kanbanzai-board") {
+		t.Error("the board branch did not reach the remote")
+	}
+}

@@ -246,7 +246,9 @@ func (b *Board) Push() error {
 		return fmt.Errorf("the git remote %q is not configured: add it (git remote add %s <address>) or set board.remote", b.P.BoardRemote, b.P.BoardRemote)
 	}
 	spec := b.local() + ":" + b.local()
-	_, errOut, code, err := run(b.Dir(), "", true, "push", "--quiet", b.P.BoardRemote, spec)
+	// From the main checkout, not the board's worktree: a remote written as a relative path is relative to the checkout, and
+	// updating a branch's ref does not need the worktree it is checked out in.
+	_, errOut, code, err := run(b.P.Root, "", true, "push", "--quiet", b.P.BoardRemote, spec)
 	if err != nil {
 		return fmt.Errorf("git push: %v", err)
 	}
