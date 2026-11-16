@@ -1,10 +1,10 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** check it (/check); owner's editor focus check (last acceptance check) at QA
+- **Next action:** package it (/kanbanzai-package); the owner's editor focus check (last acceptance check) at QA
 - **Where:** worktree TASK-81
 
 ## Goal
@@ -66,6 +66,7 @@ package and release — `board-view/render.js` is a shipped artifact.
 - 2026-11-17: Triaged from the owner's report that BUG-76's fix did not hold.
 - 2026-11-17: Designed. The cause is BUG-76's gate: `WebviewPanel.active` stays true while the terminal or a side-bar prompt has the focus, so the page's load-time `focus()` still fires. The fix restores focus on the page's own `window` focus event instead.
 - 2026-11-17: built in worktree TASK-81 (4bb5575): the page restores the saved card focus on its window focus event, once, never over an existing focus; tests first (two red), board-view 393 of 393, opencode 13 of 13; the editor check stays manual
+- 2026-11-17: checked: go test, go vet, board-view 393 and opencode 13 pass, hooks and JS syntax, plugin validate, vsix dry run (the new listener is in render.js, no machine path); diff reviewed: only render.js, its test, docs/editor.md and CHANGELOG; the editor check stays manual
 
 ## Out of scope
 
