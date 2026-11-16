@@ -587,10 +587,16 @@ const WORKSPACE_SCRIPT = `
     const collapsed = state.collapsed[el.dataset.stateKey];
     if (typeof collapsed === 'boolean') el.classList.toggle('collapsed', collapsed);
   });
-  // BUG-76: the page is rebuilt on every board change, so it cannot know whether the user was in it. The host says so.
+  // BUG-76, TASK-81: the page is rebuilt on every board change, so it cannot know whether the user was in it. The host
+  // says the Board is the current editor (it stays so while the terminal or a side-bar prompt has the keyboard), and
+  // the editor hands the new frame the focus, and so fires this window's focus, only when the old frame had it. A
+  // focus() at load would take the keyboard from whatever the user is typing in, so the restore waits for that event.
   if (state.focus && root.dataset.keepFocus === 'true') {
-    const focused = [...document.querySelectorAll('[data-state-key]')].find((el) => el.dataset.stateKey === state.focus);
-    if (focused) focused.focus({ preventScroll: true });
+    window.addEventListener('focus', () => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      const focused = [...document.querySelectorAll('[data-state-key]')].find((el) => el.dataset.stateKey === state.focus);
+      if (focused) focused.focus({ preventScroll: true });
+    }, { once: true });
   }
   boards.forEach((el) => { el.scrollLeft = state.boards[el.dataset.project] || 0; });
   scrolls.forEach((el) => { el.scrollTop = state.cols[el.parentElement.dataset.stateKey] || 0; });
