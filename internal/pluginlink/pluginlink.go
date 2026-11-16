@@ -32,8 +32,14 @@ const (
 	OpNone    = "none"
 )
 
-// ErrEmpty is what Read reports for a pointer file that is empty or only blank: it names no plugin.
-var ErrEmpty = errors.New("the pointer file is empty")
+// ErrEmpty is what Read reports (errors.Is) for a pointer file that is empty or only blank: it names no plugin.
+var ErrEmpty = errors.New("empty pointer file")
+
+// emptyError is Read's error for an empty pointer: its text names the file, and it matches ErrEmpty.
+type emptyError struct{}
+
+func (emptyError) Error() string        { return ReferenceRel + " is empty" }
+func (emptyError) Is(target error) bool { return target == ErrEmpty }
 
 // Result is what Link did: OpCreated or OpKept at Path, or OpNone with the Reason nothing was needed.
 type Result struct {
@@ -59,7 +65,7 @@ func Read(checkout string) (string, error) {
 	}
 	value := strings.TrimSpace(string(data))
 	if value == "" {
-		return "", fmt.Errorf("%s is empty: %w", ReferenceRel, ErrEmpty)
+		return "", emptyError{}
 	}
 	return value, nil
 }

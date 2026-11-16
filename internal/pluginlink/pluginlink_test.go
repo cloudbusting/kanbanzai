@@ -201,5 +201,7 @@ func TestReadSaysWhyThePointerIsUnusable(t *testing.T) {
 		t.Fatalf("an empty pointer must be a different error: %v", err)
 	} else if !errors.Is(err, ErrEmpty) {
 		t.Fatalf("an empty pointer must satisfy ErrEmpty: %v", err)
+	} else if want := ReferenceRel + " is empty"; err.Error() != want {
+		t.Fatalf("the message is %q, want %q", err, want)
 	}
 }
