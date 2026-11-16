@@ -86,32 +86,30 @@ jobs:
   # never build one. A marketplace version cannot be replaced: if one of these fails, re-run only the failed job
   # (nothing was published), and fix a wrong published version with the next patch tag, never by moving this one.
   # @vscode/vsce and ovsx are pinned; raise them on purpose.
+  # Open VSX trusted publishing, the same idea: the namespace owner registered this repository and this workflow file
+  # as a trusted publisher, and ovsx swaps the job's OIDC token for a short-lived publishing token. There is no stored
+  # secret, and there must never be an OVSX_PAT: a token in the environment takes precedence and turns this off.
   open-vsx:
     name: Publish the .vsix to Open VSX
     needs: [build, publish]
+    if: github.repository == 'cloudbusting/kanbanzai'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      id-token: write
     steps:
-      - if: env.OVSX_PAT == ''
-        run: echo "::notice title=Open VSX::The repository secret OVSX_PAT is not set, so the .vsix was not published to Open VSX."
-      - if: env.OVSX_PAT != ''
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: binaries
           path: dist
-      - if: env.OVSX_PAT != ''
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - if: env.OVSX_PAT != ''
-        run: |
+      - run: |
           set -eu
           VSIX="$(ls dist/*.vsix)"
           test "$(printf '%s\n' "$VSIX" | wc -l)" -eq 1
-          npx --yes ovsx@1.4.0 publish "$VSIX" -p "$OVSX_PAT" --skip-duplicate
+          npx --yes ovsx@1.4.0 publish "$VSIX" --trusted-publishing --skip-duplicate
 
   # Visual Studio Marketplace trusted publishing: GitHub proves which repository and workflow this is with a
   # short-lived OIDC token, and the publisher's trusted-publishing policy accepts it. There is no stored secret.

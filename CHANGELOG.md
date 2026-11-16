@@ -5,6 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-74: the Release workflow publishes the editor extension to Open VSX by trusted publishing, as it already does
+  for the Visual Studio Marketplace, so the repository holds no marketplace token. The owner registers the trusted
+  publisher for this repository and `release.yml` on open-vsx.org; a failed publish job is fixed there and re-run
+  alone. The extension itself is unchanged.
+
 ## [0.23.0] — 2026-11-16
 
 - TASK-72: the editor extension is published to the Visual Studio Marketplace and to Open VSX (what VSCodium reads),

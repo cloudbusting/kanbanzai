@@ -457,20 +457,26 @@ func TestReleaseWorkflowPublishesTheVsixToBothMarketplaces(t *testing.T) {
 		t.Fatal("vs-marketplace is not limited to the cloudbusting/kanbanzai repository, so a fork's tag would try to publish")
 	}
 
-	// Open VSX: the token is a repository secret, and a missing one skips with a notice instead of failing.
+	// Open VSX: trusted publishing too (an OIDC token, no stored secret), and nothing broader.
 	ovsx := jobs["open-vsx"]
 	for _, part := range []string{
-		"OVSX_PAT: ${{ secrets.OVSX_PAT }}",
-		"if: env.OVSX_PAT == ''",
-		"::notice",
-		"if: env.OVSX_PAT != ''",
-		`publish "$VSIX" -p "$OVSX_PAT"`,
+		`publish "$VSIX" --trusted-publishing`,
 		"--skip-duplicate",
+		"id-token: write",
 		"contents: read",
 	} {
 		if !strings.Contains(ovsx, part) {
 			t.Fatalf("open-vsx does not contain %q", part)
 		}
+	}
+	// A token in the environment takes precedence over trusted publishing and silently turns it off.
+	for _, forbidden := range []string{"OVSX_PAT", "secrets.", "contents: write", "env:", " -p ", "--pat"} {
+		if strings.Contains(ovsx, forbidden) {
+			t.Fatalf("open-vsx contains %q; trusted publishing needs no stored token and no write permission", forbidden)
+		}
+	}
+	if !strings.Contains(ovsx, "github.repository == 'cloudbusting/kanbanzai'") {
+		t.Fatal("open-vsx is not limited to the cloudbusting/kanbanzai repository, so a fork's tag would try to publish")
 	}
 
 	// The workflow names secrets but holds none.
@@ -490,7 +496,7 @@ func TestReleaseSkillDescribesTheMarketplaceRoute(t *testing.T) {
 	flat := strings.Join(strings.Fields(string(data)), " ")
 	for _, part := range []string{
 		"The tag push publishes it",
-		"`OVSX_PAT`",
+		"`ovsx publish --trusted-publishing`",
 		"`vsce publish --oidc`",
 		"2026-12-01",
 		"never read a secret's value",
@@ -502,7 +508,7 @@ func TestReleaseSkillDescribesTheMarketplaceRoute(t *testing.T) {
 			t.Errorf("the release skill does not say %q", part)
 		}
 	}
-	for _, stale := range []string{`npx @vscode/vsce publish --packagePath "$OUT`, "and the owner's publishing token is in the environment"} {
+	for _, stale := range []string{`npx @vscode/vsce publish --packagePath "$OUT`, "and the owner's publishing token is in the environment", "OVSX_PAT"} {
 		if strings.Contains(flat, stale) {
 			t.Errorf("the release skill still has the by-hand route: %q", stale)
 		}
