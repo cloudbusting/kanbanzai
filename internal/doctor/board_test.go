@@ -165,7 +165,8 @@ func TestBoardBranchChecksWhenTheProjectKeepsItsBoardThere(t *testing.T) {
 		t.Setenv(key, value)
 	}
 	report, _, _ := diagnose(t, root)
-	for id, want := range map[string]string{"board.branch": "warning", "board.worktree": "warning", "board.remote": "warning", "board.ignore": "warning"} {
+	// init already ignores the work folder in the tracked .kanbanzai/.gitignore for a board-branch project
+	for id, want := range map[string]string{"board.branch": "warning", "board.worktree": "warning", "board.remote": "warning", "board.ignore": "pass"} {
 		if f, ok := find(report, id); !ok || f.Status != want {
 			t.Errorf("before attach, %s = %+v, want %s", id, f, want)
 		}
