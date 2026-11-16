@@ -523,6 +523,45 @@ func TestDoctorSaysWhenAWorktreesPointerIsEmptyOrNamesAMissingPlugin(t *testing.
 	}
 }
 
+// BUG-82: every unusable pointer gets a fix that works. Missing and empty ones are written by `plugins link`; a
+// pointer that is not a regular file is refused by it, so the fix says to remove it first.
+func TestDoctorsFixForAnUnusableOpenCodePointerIsOneThatWorks(t *testing.T) {
+	root, wt, plugin := bundledOpenCodeWorktree(t)
+	pointer := filepath.Join(wt, filepath.FromSlash(pluginlink.ReferenceRel))
+
+	testutil.Write(t, pointer, "")
+	report, _, _ := diagnose(t, wt)
+	f := finding(t, report, "adapter.opencode", "error")
+	if !strings.Contains(f.Fix, "kanbanzai plugins link") || strings.Contains(f.Fix, "Delete") {
+		t.Fatalf("an empty pointer is fixed by plugins link alone: %+v", f)
+	}
+	if _, err := pluginlink.Link(root, wt); err != nil {
+		t.Fatalf("the fix doctor printed for an empty pointer was refused: %v", err)
+	}
+	if data, _ := os.ReadFile(pointer); string(data) != plugin {
+		t.Fatalf("pointer after the fix: %q", data)
+	}
+	report, code, _ := diagnose(t, wt)
+	if code != 0 {
+		t.Fatalf("a worktree fixed as doctor said must pass: %+v", report)
+	}
+
+	if err := os.Remove(pointer); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(pointer, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	report, _, _ = diagnose(t, wt)
+	f = finding(t, report, "adapter.opencode", "error")
+	if !strings.Contains(f.Fix, "Delete") || !strings.Contains(f.Fix, "kanbanzai plugins link") {
+		t.Fatalf("a pointer that is not a file needs it removed first: %+v", f)
+	}
+	if _, err := pluginlink.Link(root, wt); err == nil {
+		t.Fatal("plugins link accepted a folder in place of the pointer")
+	}
+}
+
 func TestDoctorLeavesOtherFileReferencesUnevaluated(t *testing.T) {
 	_, wt, _ := bundledOpenCodeWorktree(t)
 	testutil.Write(t, filepath.Join(wt, ".opencode", "opencode.json"), `{"plugins":["{file:~/somewhere}","{env:PLUGIN}"]}`)

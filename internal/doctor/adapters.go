@@ -326,6 +326,10 @@ func (a *adapterCheck) pointer(base, config string) {
 		}
 		a.errors = append(a.errors, config+": the OpenCode plugin pointer is unusable: "+what+", so OpenCode loads no Kanbanzai plugin here.")
 		a.fix = "Run `kanbanzai plugins link` in this worktree: it copies the main checkout's pointer file."
+		if !os.IsNotExist(err) && !errors.Is(err, pluginlink.ErrEmpty) {
+			// `plugins link` refuses anything else that is already there (not a regular file, unreadable).
+			a.fix = "Delete " + pluginlink.ReferenceRel + " in this worktree, then run `kanbanzai plugins link`: it copies the main checkout's pointer file."
+		}
 		return
 	}
 	if err := checkOpenCodePlugin(plugin); err != nil {
