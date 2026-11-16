@@ -28,7 +28,9 @@ because a session has context: a related request or resumed card belongs in this
 ## Pick up or resume
 
 Read the brief, especially Comments, Next action, Held and Where. Run `kanbanzai claim status <ID>`,
-`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. For a resume with no live claim (an interrupted Doing
+`kanbanzai step --for <ID>` and `kanbanzai workspace <ID>`. When that prints a `link:` line, the project uses the
+bundled OpenCode plugin: `move ... start` runs it when it records the card's worktree, so run it yourself only for a
+worktree you made by hand or before OpenCode is started there. For a resume with no live claim (an interrupted Doing
 step, or a card stopped between steps with its work preserved in a column that needs a workspace) in worktree or
 branch isolation, when the brief records that card's worktree or branch, run
 `kanbanzai wip --audit --card <ID> --recovery`; otherwise run `kanbanzai wip --audit --card <ID>`. A design

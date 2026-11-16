@@ -100,6 +100,11 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
 - **A monorepo** gets one board, at the repository root. Several repositories in one editor workspace each keep their own board, which the Board tab can show together ([multi-project.md](multi-project.md)).
 - **A worktree:** setup run from a linked worktree works on the main checkout, where the board lives. A project that
   cannot give each card a worktree sets `[flow] isolation` afterwards (see [isolation.md](isolation.md)); setup does not ask.
+- **OpenCode in a card's worktree:** the bundled install keeps the plugin's location in `.kanbanzai/state/kanbanzai-opencode-path`,
+  which git ignores, so a worktree has none and OpenCode would load no plugin there. `kanbanzai move ID start` copies the
+  file into the card's worktree when it records it; for a worktree you made by hand, run `kanbanzai plugins link` inside it.
+  `kanbanzai doctor` in a worktree reports a missing or empty file as an error and names that command. Claude Code needs
+  nothing: it reads the main checkout's `.claude/settings.local.json` from a worktree.
 - **A main branch that is not `main`:** `origin/HEAD`, or the only `main`, `master` or `trunk`, is used and shown; if
   it cannot be told, setup asks and passes `--main-branch`.
 - **Issue types:** a fresh config starts typed (task, bug, change, spike, chore and epic; `default_type = "task"`), so

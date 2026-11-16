@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
 
@@ -454,4 +455,83 @@ func TestNoProjectAndNonExecutableOverride(t *testing.T) {
 	t.Setenv("KANBANZAI_BIN", "no-execute")
 	report, _, _ = diagnose(t, root)
 	finding(t, report, "binary.resolution", "error")
+}
+
+// BUG-79: the bundled OpenCode install's tracked config refers to a pointer file in the ignored state folder, which
+// a card's worktree does not have. In a linked worktree doctor evaluates it.
+func bundledOpenCodeWorktree(t *testing.T) (root, wt, plugin string) {
+	t.Helper()
+	root = initialized(t, "")
+	plugin = filepath.Join(t.TempDir(), "plugins", "current", "opencode")
+	testutil.Write(t, filepath.Join(plugin, "server.js"), "export default {}\n")
+	testutil.Write(t, filepath.Join(root, filepath.FromSlash(pluginlink.ReferenceRel)), plugin)
+	testutil.Write(t, filepath.Join(root, ".opencode", "opencode.json"), `{"plugins":["`+pluginlink.Reference+`"]}`)
+	testutil.Git(t, root, "add", ".opencode", ".kanbanzai/.gitignore")
+	testutil.Git(t, root, "commit", "-q", "-m", "opencode")
+	wt = filepath.Join(t.TempDir(), "TASK-01")
+	testutil.Git(t, root, "worktree", "add", "-q", wt, "-b", "TASK-01")
+	return root, wt, plugin
+}
+
+func TestDoctorFailsInAWorktreeWhoseOpenCodePointerIsMissingAndPassesOnceLinked(t *testing.T) {
+	root, wt, _ := bundledOpenCodeWorktree(t)
+
+	report, code, _ := diagnose(t, root)
+	if code != 0 {
+		t.Fatalf("the main checkout must be as before: %+v", report)
+	}
+	finding(t, report, "adapter.opencode", "warning")
+
+	report, code, _ = diagnose(t, wt)
+	if code == 0 {
+		t.Fatalf("a worktree with no pointer file must fail: %+v", report)
+	}
+	f := finding(t, report, "adapter.opencode", "error")
+	if !strings.Contains(f.Message, pluginlink.ReferenceRel) || !strings.Contains(f.Fix, "kanbanzai plugins link") {
+		t.Fatalf("the finding must name the file and the fix: %+v", f)
+	}
+
+	if _, err := pluginlink.Link(root, wt); err != nil {
+		t.Fatal(err)
+	}
+	report, code, _ = diagnose(t, wt)
+	if code != 0 {
+		t.Fatalf("a linked worktree must pass: %+v", report)
+	}
+	f = finding(t, report, "adapter.opencode", "warning")
+	if !strings.Contains(f.Message, "OpenCode plugin pointer") {
+		t.Fatalf("the finding should say the pointer was checked: %+v", f)
+	}
+}
+
+func TestDoctorSaysWhenAWorktreesPointerIsEmptyOrNamesAMissingPlugin(t *testing.T) {
+	_, wt, _ := bundledOpenCodeWorktree(t)
+	pointer := filepath.Join(wt, filepath.FromSlash(pluginlink.ReferenceRel))
+
+	testutil.Write(t, pointer, " \n")
+	report, _, _ := diagnose(t, wt)
+	f := finding(t, report, "adapter.opencode", "error")
+	if !strings.Contains(f.Message, "empty") || !strings.Contains(f.Fix, "kanbanzai plugins link") {
+		t.Fatalf("empty pointer: %+v", f)
+	}
+
+	testutil.Write(t, pointer, filepath.Join(t.TempDir(), "gone", "opencode"))
+	report, _, _ = diagnose(t, wt)
+	f = finding(t, report, "adapter.opencode", "error")
+	if !strings.Contains(f.Fix, "kanbanzai install --refresh") {
+		t.Fatalf("a pointer to a missing plugin: %+v", f)
+	}
+}
+
+func TestDoctorLeavesOtherFileReferencesUnevaluated(t *testing.T) {
+	_, wt, _ := bundledOpenCodeWorktree(t)
+	testutil.Write(t, filepath.Join(wt, ".opencode", "opencode.json"), `{"plugins":["{file:~/somewhere}","{env:PLUGIN}"]}`)
+	report, code, _ := diagnose(t, wt)
+	if code != 0 {
+		t.Fatalf("%+v", report)
+	}
+	f := finding(t, report, "adapter.opencode", "warning")
+	if !strings.Contains(f.Message, "not evaluated") {
+		t.Fatalf("%+v", f)
+	}
 }

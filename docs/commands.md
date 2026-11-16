@@ -29,6 +29,7 @@ kanbanzai doctor [--json] [--board]        local installation diagnostics (no re
 kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)
 kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
+kanbanzai plugins link [DIR]             give the worktree holding DIR (default: the current folder) the bundled OpenCode plugin's pointer file
 kanbanzai resolve ID|NUMBER              the canonical card id for an id or a bare number (07 and 123 name the card with that number)
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
@@ -39,6 +40,14 @@ kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME]
 kanbanzai install [--dry-run|--refresh|--where]    copy this command, and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
 ```
+
+**`plugins link`.** With the bundled OpenCode install, the plugin's location is kept in the ignored file
+`.kanbanzai/state/kanbanzai-opencode-path`, one per checkout, and OpenCode reads it in the checkout it runs in. `plugins link`
+copies the main checkout's file into a linked worktree (it prints `created`, `kept` or `nothing to link: <why>`; exit 0), and
+refuses with exit 1, changing nothing, when the worktree already holds a different file, git would not ignore the file there, or
+`DIR` is not a worktree of this project. `move` runs it when it records a card's worktree (a failure is a warning in its output,
+never a refusal), `workspace ID` prints the command as `link` (a `link` field in `--json`; empty when the project has no bundled
+OpenCode install), and `doctor` in a worktree fails when the file is missing, empty or names a plugin that is gone.
 
 **Naming a card.** Wherever a command takes a card id (`claim`, `move`, `ask`, `answer`, `gate`, `step --for`,
 `wip --title` and `--card`, `tree --merge`, `template`, `workspace`) it also takes the card's bare number: `kanbanzai move 123 finish`

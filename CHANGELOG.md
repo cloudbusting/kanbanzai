@@ -5,6 +5,14 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-79: the bundled OpenCode plugin now loads in a card's worktree. Its tracked config reads a pointer file in the git-ignored
+  `.kanbanzai/state/`, which a worktree does not have, so OpenCode there silently loaded no plugin (no skills, no claim label or
+  heartbeat). New `kanbanzai plugins link [DIR]` copies the main checkout's pointer file into a worktree; `move ... start` runs it
+  when it records the card's worktree; `workspace ID` prints it as a `link` step (a new `link` field in `--json`); and `kanbanzai
+  doctor` in a worktree now reports a missing, empty or stale pointer as an error with that fix, where it used to warn that the
+  reference was not evaluated. Claude Code was checked and needs nothing: it reads the main checkout's `settings.local.json`
+  from a worktree. Nothing already written changes: for a worktree made before the fix, run `kanbanzai plugins link` in it.
+
 ## [0.24.0] — 2026-11-16
 
 - CHANGE-77: a team whose main branch is protected can keep the board off it. `[board] home = "branch"` puts the cards, the
