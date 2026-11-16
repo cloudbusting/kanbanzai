@@ -1,10 +1,10 @@
 # BUG-79: The OpenCode plugin does not load in card worktrees: its reference reads the git-ignored `.kanbanzai/state/`
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none — the brief is the record (design may raise one if it changes the plugin-reference contract)
-- **Next action:** check: run the project's checks in order, then review the whole diff (BUG-79 branch, commit 60f3102)
+- **Next action:** package: kanbanzai-package builds the artifacts from main, then QA-approval by the owner, then kanbanzai-release
 - **Where:** worktree BUG-79
 
 ## Goal
@@ -79,10 +79,12 @@ Open question for later, not this card: a hand-made worktree stays unlinked unti
 
 - 2026-11-16: owner widened the scope to Claude Code; design then checked it (Claude Code docs, and a live `claude -p` probe in a scratch worktree): a worktree session reads the main checkout's `settings.local.json`, so Claude Code is not affected; the card is narrowed back to OpenCode and the owner told.
 - 2026-11-16: built in worktree BUG-79 (commit 60f3102): `internal/pluginlink` (Link, Read), `plugins link`, the link in `move` (Apply, so a claim's auto-start links too), `workspace` link step, `doctor` evaluation in a linked worktree, docs, `skills/do` and CHANGELOG; tests first (red: pluginlink 7 failing on a stub, CLI 8, doctor 2). `go test ./...`, `go vet`, Windows and macOS cross-builds, node 13 + 390, hook syntax and `claude plugin validate` pass; an end-to-end run with the built binary and a throwaway data folder: doctor in a worktree exit 1 before `plugins link`, exit 0 after, `git status` clean, the pointer resolves to a folder holding `server.js`. Not run: OpenCode itself in a worktree (the owner's manual check).
+- 2026-11-16: checked (kanbanzai-qa at 3ab1c67, plus my own review of the whole diff): pass, nothing to fix. Added a `docs/troubleshooting.md` row during review. Found outside the card: this repository's own `.opencode/opencode.json` (`"plugins": ["./opencode"]`) makes `kanbanzai doctor` report an `adapter.opencode` error (it resolves `./opencode` against `.opencode/`), and OpenCode may resolve it the same way; the 0.23.2 command reports it too, so it is not from this change.
 - 2026-11-16: claimed and moved to Designing; design started. The owner chose the route (link per worktree, doctor error); tasks and acceptance checks written; Designed.
 - 2026-11-16: reported as GitHub issue #1; code at the three cited sites confirmed against main (24db266); no existing card covers it (searched the board, the card folders and the decision records for `kanbanzai-opencode-path` and the OpenCode plugin); triaged.
 - 2026-11-16: design done: owner chose link-per-worktree plus a doctor error; Claude Code is not affected
 - 2026-11-16: build done: pluginlink, plugins link, link on move, workspace link step, doctor evaluation, docs; all suites green
+- 2026-11-16: check done: QA pass, review done; branch BUG-79 merged into main
 
 ## Out of scope
 
