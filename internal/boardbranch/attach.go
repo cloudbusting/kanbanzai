@@ -211,13 +211,32 @@ func (b *Board) Status() Status {
 		}
 	}
 	if s.Attached {
-		if out, _, code, err := run(b.Dir(), "", false, "status", "--porcelain=v1", "-z", "--untracked-files=all"); err == nil && code == 0 {
-			for _, entry := range strings.Split(out, "\x00") {
-				if len(entry) > 3 {
-					s.Uncommitted = append(s.Uncommitted, entry[3:])
-				}
+		s.Uncommitted = b.Uncommitted()
+	}
+	return s
+}
+
+// Uncommitted lists the files of the board's worktree that are not committed, as paths relative to it. A rename or copy
+// lists both its new and its old path (`git status -z` writes `R  new\0old`), so committing the list commits the move.
+func (b *Board) Uncommitted() []string {
+	out, _, code, err := run(b.Dir(), "", false, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	if err != nil || code != 0 {
+		return []string{}
+	}
+	found := []string{}
+	tokens := strings.Split(out, "\x00")
+	for i := 0; i < len(tokens); i++ {
+		token := tokens[i]
+		if len(token) < 4 {
+			continue
+		}
+		found = append(found, token[3:])
+		if token[0] == 'R' || token[0] == 'C' || token[1] == 'R' || token[1] == 'C' {
+			if i+1 < len(tokens) && tokens[i+1] != "" {
+				i++
+				found = append(found, tokens[i])
 			}
 		}
 	}
-	return s
+	return found
 }

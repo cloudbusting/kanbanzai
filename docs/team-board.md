@@ -70,6 +70,8 @@ over with `kanbanzai claim claim ID --takeover "<why>"`. A claim records the fol
 
 **A conflict.** Two people editing the same brief can conflict when merging. `kanbanzai sync` stops, aborts the merge, names the
 files, and keeps your commits. Resolve in the board worktree (`git -C .kanbanzai/work merge origin/kanbanzai-board`), then run it again.
+The likeliest conflict is the number ledger when two people took numbers offline (`publish = "ask"`): keep the union of both
+`issued` lists in `.ledger/_ledger.json`, commit, and `kanbanzai sync`; a card two people numbered alike needs one renumbered by hand.
 
 ## `publish = "auto"` is a decision for you
 

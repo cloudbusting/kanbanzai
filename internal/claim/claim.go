@@ -51,6 +51,16 @@ var parentProcess = visibleParentProcess
 // Store is one card per file, with the lock around every read-modify-write.
 type Store struct {
 	Directory string
+	// Local is where this clone's own files live: the lock and the event log. It is Directory, except on a board branch,
+	// where Directory is inside the board's worktree (shared, committed) and these stay out of it.
+	Local string
+}
+
+func (s *Store) local() string {
+	if s.Local != "" {
+		return s.Local
+	}
+	return s.Directory
 }
 
 // NewStore makes the claims folder and returns its store.
@@ -58,12 +68,19 @@ func NewStore(project *config.Project) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(project.Claims, "cards"), 0o700); err != nil {
 		return nil, err
 	}
-	return &Store{Directory: project.Claims}, nil
+	store := &Store{Directory: project.Claims}
+	if project.BoardOnBranch() {
+		store.Local = filepath.Join(project.State, "claims")
+		if err := os.MkdirAll(store.Local, 0o700); err != nil {
+			return nil, err
+		}
+	}
+	return store, nil
 }
 
 // Lock takes the store's advisory lock.
 func (s *Store) Lock() (*fsutil.Lock, error) {
-	return fsutil.OpenLock(filepath.Join(s.Directory, "lock"))
+	return fsutil.OpenLock(filepath.Join(s.local(), "lock"))
 }
 
 // Path is one card's claim file.
@@ -112,7 +129,7 @@ func (s *Store) Remove(card string) error {
 
 // History appends one event to the claim history.
 func (s *Store) History(record map[string]any) error {
-	return fsutil.AppendJSONLine(filepath.Join(s.Directory, "history.jsonl"), record)
+	return fsutil.AppendJSONLine(filepath.Join(s.local(), "history.jsonl"), record)
 }
 
 // ReadRecords reads every claim without creating anything.
@@ -454,8 +471,10 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 	}
 	var result outcome
 	event := "claimed"
+	var history []map[string]any // written once the claim stands, so a take that was repeated or lost leaves no event
 	take := func() error {
 		result = outcome{}
+		event, history = "claimed", nil
 		record, ok := store.Load(card)
 		if ok {
 			recordOwner := stringOf(record["owner"], "unknown")
@@ -473,10 +492,7 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 				if err := store.Save(record); err != nil {
 					return err
 				}
-				if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "renew",
-					"owner": me}); err != nil {
-					return err
-				}
+				history = append(history, map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "renew", "owner": me})
 				result = outcome{OK, func() {
 					fmt.Fprintf(out, "renewed %s for you until %s (%s)\n", card, When(record["expires_at"]), Remaining(record, now))
 					if !opts.NoMove {
@@ -494,10 +510,8 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 				return errAbort
 			}
 			event = "taken over"
-			if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "takeover",
-				"owner": me, "previous_owner": recordOwner, "reason": opts.Takeover}); err != nil {
-				return err
-			}
+			history = append(history, map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "takeover",
+				"owner": me, "previous_owner": recordOwner, "reason": opts.Takeover})
 		}
 		record = map[string]any{
 			"card":       card,
@@ -518,10 +532,7 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 		if err := store.Save(record); err != nil {
 			return err
 		}
-		if err := store.History(map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "claim",
-			"owner": me}); err != nil {
-			return err
-		}
+		history = append(history, map[string]any{"at": timeutil.ToISO(now), "card": card, "event": "claim", "owner": me})
 		result = outcome{OK, func() {
 			fmt.Fprintf(out, "claimed %s by %s until %s (%s)\n", card, me, When(record["expires_at"]), Remaining(record, now))
 			fmt.Fprintf(out, "owner: %s\n", me)
@@ -537,6 +548,13 @@ func Claim(project *config.Project, opts ClaimOptions) int {
 	}
 	if note != "" {
 		fmt.Fprintln(errOut, "claim: "+note)
+	}
+	if result.code == OK {
+		for _, entry := range history {
+			if err := store.History(entry); err != nil {
+				return printErr(errOut, err)
+			}
+		}
 	}
 	result.say()
 	return result.code
@@ -687,21 +705,31 @@ func Heartbeat(project *config.Project, opts HeartbeatOptions) int {
 	if len(due) == 0 {
 		return OK
 	}
-	lock, err := store.Lock()
-	if err != nil {
-		return OK
-	}
-	defer lock.Close()
-	for _, card := range due {
-		record, ok := store.Load(card)
-		if !ok || stringOf(record["owner"], "") != me {
-			continue
+	var renewed []string
+	func() {
+		lock, err := store.Lock()
+		if err != nil {
+			return
 		}
-		updateLease(record, now, minutes)
-		if store.Save(record) == nil {
-			// best effort, and quick: the hook that runs this has a short budget, and a hook never fails
-			boardbranch.NetworkLimit = 15 * time.Second
-			boardbranch.Saved(project, card+": claim renewed", store.Path(card))
+		defer lock.Close()
+		for _, card := range due {
+			record, ok := store.Load(card)
+			if !ok || stringOf(record["owner"], "") != me {
+				continue
+			}
+			updateLease(record, now, minutes)
+			if store.Save(record) == nil {
+				renewed = append(renewed, store.Path(card))
+			}
+		}
+	}()
+	// The claim-store lock is released before the network is touched: a hook has seconds, and a slow remote must not hold
+	// every other claim command up. One quick, quiet attempt, in one commit; what it cannot publish stays for the next
+	// command or `kanbanzai sync`.
+	if len(renewed) > 0 && project.BoardOnBranch() {
+		if board, err := boardbranch.New(project); err == nil && board.Attached() {
+			boardbranch.NetworkLimit = 8 * time.Second
+			board.PublishOnce("claims renewed", renewed...)
 		}
 	}
 	return OK
@@ -776,7 +804,7 @@ func readObject(data []byte) (map[string]any, bool) {
 }
 
 // errAbort is a take that found the card held: nothing was written, and the outcome says what to report.
-var errAbort = errors.New("claim not taken")
+var errAbort = fmt.Errorf("claim not taken: %w", boardbranch.ErrHeld)
 
 // whereLabel is where a claim says its session works. A claim on a shared board branch is read by the whole team, so
 // it names the folder, never a path on this machine.

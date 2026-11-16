@@ -43,6 +43,9 @@ var (
 	ErrConflict = errors.New("the remote board branch conflicts with local board commits")
 	// ErrNoRemoteBranch is a fetch of a branch the remote does not have yet: the first publish creates it.
 	ErrNoRemoteBranch = errors.New("the remote has no board branch yet")
+	// ErrHeld is what a take returns when it found nothing to take (the card is held by another session): it wrote
+	// nothing, so there is nothing to undo.
+	ErrHeld = errors.New("nothing to take")
 	// ErrContended is MaxAttempts rejected pushes in a row.
 	ErrContended = errors.New("the board branch changed under every attempt")
 )
@@ -83,6 +86,8 @@ func run(dir string, stdin string, network bool, args ...string) (stdout, stderr
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "LC_ALL=C")
+	// git is killed at the limit, but a child that holds its pipes (ssh, a hook) would keep Run waiting: stop waiting too
+	cmd.WaitDelay = 2 * time.Second
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
 	if stdin != "" {
@@ -203,7 +208,13 @@ func (b *Board) Integrate() error {
 		}
 		return nil
 	}
-	_, errOut, code, err := run(b.Dir(), "", false, "merge", "--no-edit", "--quiet", "-m", "board: merge "+b.P.BoardRemote+"/"+b.P.BoardBranch, b.tracking())
+	args := []string{"merge", "--no-edit", "--quiet", "-m", "board: merge " + b.P.BoardRemote + "/" + b.P.BoardBranch}
+	if _, _, code, err := run(b.Dir(), "", false, "merge-base", b.local(), b.tracking()); err == nil && code != 0 {
+		// Two clones that each made the branch's first commit before either pushed: the histories share nothing, and the
+		// files both made (the folders' .gitkeep, the .gitignore) are identical, so they merge without conflict.
+		args = append(args, "--allow-unrelated-histories")
+	}
+	_, errOut, code, err := run(b.Dir(), "", false, append(args, b.tracking())...)
 	if err != nil {
 		return err
 	}
@@ -225,6 +236,10 @@ func tail(errOut string) string {
 
 var fastForwardRefusal = regexp.MustCompile(`(?i)\[rejected\]|non-fast-forward|fetch first|stale info`)
 
+// raceRefusal is how a server says another push updated the ref a moment ago: it arrives as "[remote rejected]", but it is
+// the lost race the retry is for, not a policy decision.
+var raceRefusal = regexp.MustCompile(`(?i)cannot lock ref|failed to update ref|but expected|reference already exists|concurrent`)
+
 // Push pushes the board branch's own ref to the remote, never forced.
 func (b *Board) Push() error {
 	if !b.RemoteConfigured() {
@@ -240,13 +255,20 @@ func (b *Board) Push() error {
 		_, _, _, _ = run(b.P.Root, "", false, "update-ref", b.tracking(), b.local())
 		return nil
 	}
+	return classifyPush(b.P.BoardRemote, errOut)
+}
+
+// classifyPush says what a refused push was: a lost race (retry), a decision by the remote (never retried) or something
+// else (reported as it is).
+func classifyPush(remote, errOut string) error {
+	remoteRefusal := strings.Contains(errOut, "[remote rejected]")
 	switch {
-	case strings.Contains(errOut, "[remote rejected]") || strings.Contains(errOut, "remote:") && !fastForwardRefusal.MatchString(errOut):
-		return fmt.Errorf("%w: %s", ErrDeclined, strings.TrimSpace(errOut))
-	case fastForwardRefusal.MatchString(errOut):
+	case raceRefusal.MatchString(errOut) || fastForwardRefusal.MatchString(errOut) && !remoteRefusal:
 		return ErrRejected
+	case remoteRefusal || strings.Contains(errOut, "remote:"):
+		return fmt.Errorf("%w: %s", ErrDeclined, strings.TrimSpace(errOut))
 	}
-	return fmt.Errorf("git push %s: %s", b.P.BoardRemote, strings.TrimSpace(errOut))
+	return fmt.Errorf("git push %s: %s", remote, strings.TrimSpace(errOut))
 }
 
 // Head is the board branch's tip.
@@ -274,6 +296,11 @@ func (b *Board) known(rels []string) []string {
 		}
 		if tracked, _ := b.git(b.Dir(), "ls-files", "--", rel); tracked != "" {
 			out = append(out, rel)
+			continue
+		}
+		// a file moved away (`git mv`, or deleted and staged) is in the last commit though no longer in the index
+		if b.refExists(b.Dir(), "HEAD:"+rel) {
+			out = append(out, rel)
 		}
 	}
 	return out
@@ -294,8 +321,20 @@ func (b *Board) Commit(message string, paths ...string) (bool, error) {
 	if len(rels) == 0 {
 		return false, nil
 	}
-	if _, err := b.git(b.Dir(), append([]string{"add", "-A", "--"}, rels...)...); err != nil {
-		return false, err
+	// stage what exists on disk or in the index; a path that is only in the last commit (moved or deleted, already staged
+	// by git) has nothing to add and is committed by name below
+	var addable []string
+	for _, rel := range rels {
+		if _, err := os.Lstat(filepath.Join(b.Dir(), filepath.FromSlash(rel))); err == nil {
+			addable = append(addable, rel)
+		} else if tracked, _ := b.git(b.Dir(), "ls-files", "--", rel); tracked != "" {
+			addable = append(addable, rel)
+		}
+	}
+	if len(addable) > 0 {
+		if _, err := b.git(b.Dir(), append([]string{"add", "-A", "--"}, addable...)...); err != nil {
+			return false, err
+		}
 	}
 	if _, _, code, err := run(b.Dir(), "", false, append([]string{"diff", "--cached", "--quiet", "--"}, rels...)...); err == nil && code == 0 {
 		return false, nil
@@ -363,7 +402,36 @@ func (b *Board) Sync() (Result, error) {
 		return Result{}, err
 	}
 	defer lock.Close()
-	return b.publishLoop(Result{})
+	var res Result
+	// Files nobody committed (a brief edited by hand, a renewed lease) go in first. Under the lock, so no session's
+	// take is half done while they are read: a take runs to its commit or its undo inside the same lock.
+	if left := b.Uncommitted(); len(left) > 0 {
+		if res.Committed, err = b.Commit("board: save the board files", left...); err != nil {
+			return res, err
+		}
+	}
+	return b.publishLoop(res)
+}
+
+// PublishOnce is Publish for a caller with a few seconds to spare (the hook that renews a claim): it never waits for
+// the board lock, tries each network step once, and gives up quietly. What it could not publish stays committed or
+// uncommitted here, for the next command or `kanbanzai sync`.
+func (b *Board) PublishOnce(message string, paths ...string) {
+	lock, err := fsutil.TryLock(filepath.Join(b.P.State, "board.lock"))
+	if err != nil {
+		return
+	}
+	defer lock.Close()
+	if _, err := b.Commit(message, paths...); err != nil || b.P.BoardPublish != "auto" {
+		return
+	}
+	if err := b.Fetch(); err != nil && !errors.Is(err, ErrNoRemoteBranch) {
+		return
+	}
+	if b.Integrate() != nil {
+		return
+	}
+	_ = b.push()
 }
 
 func (b *Board) publishLoop(res Result) (Result, error) {
@@ -425,11 +493,23 @@ func (b *Board) Transact(message func() string, paths []string, take func() erro
 		if err != nil {
 			return res, err
 		}
+		// Whatever goes wrong after the take, this session's files and commit are undone: a command that failed must not
+		// leave a claim or a number behind to be published later (and found to collide with another clone's).
+		fail := func(cause error) (Result, error) {
+			res.Committed = false
+			if undoErr := b.revert(before, rels); undoErr != nil {
+				return res, fmt.Errorf("%v (and this session's change could not be undone: %v)", cause, undoErr)
+			}
+			return res, cause
+		}
 		if err := take(); err != nil {
-			return res, err
+			if errors.Is(err, ErrHeld) {
+				return res, err
+			}
+			return fail(err)
 		}
 		if res.Committed, err = b.Commit(message(), paths...); err != nil {
-			return res, err
+			return fail(err)
 		}
 		res.Attempts++
 		err = b.push()
@@ -437,13 +517,10 @@ func (b *Board) Transact(message func() string, paths []string, take func() erro
 			res.Published = true
 			return res, nil
 		}
-		if !errors.Is(err, ErrRejected) {
-			return res, err
+		undone, undoErr := fail(err)
+		if !errors.Is(err, ErrRejected) || undoErr != err {
+			return undone, undoErr // a push that was not a lost race, or an undo that failed
 		}
-		if err := b.revert(before, rels); err != nil {
-			return res, fmt.Errorf("the push was rejected and this session's commit could not be undone: %v", err)
-		}
-		res.Committed = false
 	}
 	return res, fmt.Errorf("%w: rejected %d times; nothing was taken", ErrContended, res.Attempts)
 }

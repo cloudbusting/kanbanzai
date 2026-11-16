@@ -49,12 +49,6 @@ func runSync(project *config.Project, args []string, out, errOut io.Writer) int 
 		fmt.Fprintf(errOut, "kanbanzai: sync: the board branch is not checked out at %s: run `kanbanzai sync --attach` first\n", project.Rel(board.Dir()))
 		return 1
 	}
-	if status := board.Status(); len(status.Uncommitted) > 0 {
-		if _, err := board.Commit("board: save the board files", status.Uncommitted...); err != nil {
-			fmt.Fprintf(errOut, "kanbanzai: sync: %v\n", err)
-			return 1
-		}
-	}
 	result, err := board.Sync()
 	if err != nil {
 		fmt.Fprintf(errOut, "kanbanzai: sync: %v\n", err)

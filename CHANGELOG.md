@@ -13,8 +13,9 @@ and the editor extension carry the same version.
   publish = "auto"` (default `ask`) lets the board commands fetch and push that one branch; nothing is pushed otherwise. The
   workflow skill recommends it for the `team-pr` preset and for `integration = "remote"`. Board commits read `<ID>: <what changed>`.
   Also: `tree`, `workflow apply` and `wip --audit` no longer insist on the main branch (a branch is a note that says to merge it
-  through your review; `tree --merge` off main is `deferred`), and `check` ignores dot-folders in the work folder. A board on
-  `main` is exactly as before.
+  through your review; `tree --merge` off main is `deferred`), and `check` ignores dot-folders in the work folder. For a board
+  on `main` those branch changes are the only difference: `tree` and `workflow apply` used to refuse off main, and the audit
+  used to fail on it.
 
 ## [0.23.2] — 2026-11-16
 

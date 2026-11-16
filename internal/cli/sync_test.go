@@ -125,3 +125,39 @@ func TestInitBoardBranchWithAPreset(t *testing.T) {
 		t.Fatalf("workflow show: %d %s %s", code, out, errOut)
 	}
 }
+
+// A claim or a number tried before the board branch is attached must fail without leaving files in the work folder:
+// they would make `sync --attach` refuse ("the work folder already holds files").
+func TestACommandBeforeAttachLeavesTheWorkFolderEmptyForTheAttach(t *testing.T) {
+	gitIdentity(t)
+	project := newProject(t, "[project]\nowner = \"Sam\"\n[board]\nhome = \"branch\"\n")
+	if code, _, errOut := runCLI(t, "claim", "claim", "TASK-01", "--no-move"); code == 0 || !strings.Contains(errOut, "sync --attach") {
+		t.Fatalf("claim before attach: %d %q", code, errOut)
+	}
+	if code, _, errOut := runCLI(t, "number", "--type", "TASK"); code == 0 || !strings.Contains(errOut, "sync --attach") {
+		t.Fatalf("number before attach: %d %q", code, errOut)
+	}
+	_ = runCLIQuiet(t, "claim", "heartbeat")
+	filepath.WalkDir(project.Work, func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			t.Errorf("a file was left in the work folder: %s", path)
+		}
+		return nil
+	})
+	if code, out, errOut := runCLI(t, "sync", "--attach"); code != 0 {
+		t.Fatalf("attach after a failed claim: %d %s %s", code, out, errOut)
+	}
+	// and the lock and event log are this clone's, outside the shared worktree
+	if code, _, errOut := runCLI(t, "claim", "claim", "TASK-01", "--no-move"); code != 0 {
+		t.Fatalf("claim after attach: %d %q", code, errOut)
+	}
+	if status := testutil.Git(t, filepath.Join(project.Root, ".kanbanzai", "work"), "status", "--porcelain"); strings.Contains(status, "lock") || strings.Contains(status, "history") {
+		t.Errorf("the lock and the event log must stay out of the board worktree: %q", status)
+	}
+}
+
+func runCLIQuiet(t *testing.T, args ...string) int {
+	t.Helper()
+	code, _, _ := runCLI(t, args...)
+	return code
+}

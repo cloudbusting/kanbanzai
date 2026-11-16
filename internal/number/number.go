@@ -68,6 +68,10 @@ func lock(project *config.Project) (*fsutil.Lock, error) {
 	if project.TypeSet != nil {
 		name = "_ledger.lock"
 	}
+	if project.BoardOnBranch() {
+		// the ledger is on the board branch; this clone's lock is not, and must not make the folder look used
+		dir = filepath.Join(project.State, "numbers")
+	}
 	return fsutil.OpenLock(filepath.Join(dir, name))
 }
 
