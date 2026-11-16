@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.23.1] — 2026-11-16
+
 - TASK-74: the Release workflow publishes the editor extension to Open VSX by trusted publishing, as it already does
   for the Visual Studio Marketplace, so the repository holds no marketplace token. The owner registers the trusted
   publisher for this repository and `release.yml` on open-vsx.org; a failed publish job is fixed there and re-run
