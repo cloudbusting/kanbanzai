@@ -1,10 +1,10 @@
 # BUG-82: `plugins link` refuses an empty pointer file, which `doctor` says to fix with `plugins link`
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** package it (`kanbanzai-package`): the QA step; the branch is merged into main
+- **Next action:** release: 0.25.1 after the owner approves (metadata still says 0.25.0: the release step bumps it, settles the semver and rebuilds from its tag); package artifacts at /tmp/kanbanzai-package-BUG-82-0.25.1 from main 412c474
 - **Where:** worktree BUG-82
 
 ## Goal
@@ -40,6 +40,7 @@ Confirmed against main (c30c7c9), the three sites the report cites:
 - 2026-11-17: Triaged from GitHub issue #2.
 - 2026-11-17: Built on branch BUG-82 (ddbbfda). Tests first: `pluginlink` gained the `ErrEmpty` sentinel (`Read` wraps it), then `TestLinkReplacesAnEmptyOrBlankPointer` and the `doctor` test failed on the old `Link` with the reported message. `Link` now writes over an empty or blank pointer; a different path or a folder is still refused. `doctor` keeps the plain `plugins link` fix for a missing or empty pointer and says to delete the file first for one that is not a readable file (`plugins link` refuses that). CHANGELOG `[Unreleased]` and `docs/commands.md` updated. `go test ./...`, `go vet ./...` and `gofmt` are clean.
 - 2026-11-17: Checked (kanbanzai-qa, then my own review of the whole diff): `go test ./...` (all packages), `go vet`, `gofmt`, `node --test` (406 pass), `node --check`, `bash -n hooks`, `claude plugin validate` (passed; one advisory about the README's marketplace install line, not from this change), config and the five steps resolve, card audit and `kanbanzai check` pass. The vsix dry run was skipped: `board-view/` and `tools/vsix` are unchanged. Nothing to fix; no new network use, dependency or machine path.
+- 2026-11-17: Package QA passed at 412c474, alone: artifacts /tmp/kanbanzai-package-BUG-82-0.25.1 (source bundle, 5 command archives, vsix with 5 commands), sha256 in /tmp/kanbanzai-package-BUG-82-0.25.1/SHA256SUMS (vsix 8b21fe2c…, linux_amd64 36b2fecb…). Fresh project init/check/board from the bundle, claude validate and throwaway-config install, node --check, and the card's own scenario on the packaged linux command (empty and blank pointer: doctor exit 1, plugins link created, doctor exit 0, worktree clean; a folder or a different path still refused; doctor's fix for the folder says to delete it first), machine-path scan of 7 unpacked artifacts: clean. Found and fixed here: the empty-pointer message read 'is empty: the pointer file is empty' (cc1111a, test added, merged); the first package build was discarded.
 
 ## Deploy
 
