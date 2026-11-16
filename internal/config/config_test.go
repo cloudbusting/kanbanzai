@@ -521,6 +521,18 @@ func TestExpansionAndNames(t *testing.T) {
 	if got := project.Rel(outside); got != outside {
 		t.Fatalf("rel outside = %q, want %q", got, outside)
 	}
+	// Abs undoes Rel for both shapes, so a card's recorded path always reads back to the file it names.
+	for _, path := range []string{filepath.Join(project.Root, "a", "b.md"), outside} {
+		if got := project.Abs(project.Rel(path)); got != path {
+			t.Fatalf("Abs(Rel(%q)) = %q", path, got)
+		}
+	}
+	if got := project.Abs("a/b.md"); got != filepath.Join(project.Root, "a", "b.md") {
+		t.Fatalf("Abs relative = %q", got)
+	}
+	if got := project.Abs(outside + "/../x"); got != outside {
+		t.Fatalf("Abs absolute = %q, want it cleaned to %q", got, outside)
+	}
 }
 
 func TestContextAndCustomTemplate(t *testing.T) {

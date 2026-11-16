@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
@@ -421,7 +420,7 @@ func Run(project *config.Project, opts Options) int {
 			return 0
 		}
 		briefText := ""
-		if data, err := os.ReadFile(filepath.Join(project.Root, filepath.FromSlash(card.Path))); err == nil {
+		if data, err := os.ReadFile(project.Abs(card.Path)); err == nil {
 			briefText = string(data)
 		}
 		skips := SkipPath(project, name, func(other string) bool { return SkippedFor(project, briefText, other) })

@@ -118,7 +118,7 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		value := "closed, no change: " + strings.TrimSpace(*changes.Reason)
 		changes.Done = &value
 	}
-	source := filepath.Join(project.Root, filepath.FromSlash(card.Path))
+	source := project.Abs(card.Path)
 	original, err := os.ReadFile(source)
 	if err != nil {
 		return "", err
@@ -608,7 +608,7 @@ func StartStep(project *config.Project, cardID, owner string) (string, error) {
 	if words.Start == "" {
 		return "", nil
 	}
-	data, err := os.ReadFile(filepath.Join(project.Root, filepath.FromSlash(card.Path)))
+	data, err := os.ReadFile(project.Abs(card.Path))
 	if err != nil {
 		return "", err
 	}

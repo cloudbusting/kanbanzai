@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
@@ -90,7 +89,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		fmt.Fprintf(errOut, "%s: no card %s\n", command, cardID)
 		return 2
 	}
-	path := filepath.Join(project.Root, filepath.FromSlash(card.Path))
+	path := project.Abs(card.Path)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		fmt.Fprintln(errOut, err)

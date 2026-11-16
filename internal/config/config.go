@@ -905,6 +905,15 @@ func (p *Project) Rel(path string) string {
 	return target
 }
 
+// Abs is the filesystem path of a path Rel produced: an absolute one comes back cleaned, a relative one (forward
+// slashes) is joined to the main checkout.
+func (p *Project) Abs(rel string) string {
+	if filepath.IsAbs(rel) {
+		return filepath.Clean(rel)
+	}
+	return filepath.Join(p.Root, filepath.FromSlash(rel))
+}
+
 // WorktreeHint is where a card's worktree goes, as the setting writes it.
 func (p *Project) WorktreeHint(card string) string {
 	hint, err := p.Expand(p.WorktreePattern, card)
