@@ -141,6 +141,17 @@ test('controller loads in a browser, uses capability-relative local GET only and
   assert.doesNotMatch(p.ids.content.innerHTML, /<script|<style/);
 });
 
+test('the browser theme defines the badge colours the lane names use, in the light and the dark palette', async () => {
+  const p = page([response(answer(board({ building: [card()] })))]);
+  await settle();
+  const css = p.ids['board-style'].textContent;
+  const [light, dark] = [css.slice(0, css.indexOf('prefers-color-scheme')), css.slice(css.indexOf('prefers-color-scheme'))];
+  for (const part of [light, dark]) {
+    assert.match(part, /--vscode-badge-background:\s*#[0-9a-f]{6}/i);
+    assert.match(part, /--vscode-badge-foreground:\s*#[0-9a-f]{6}/i);
+  }
+});
+
 test('polls every 3 seconds without overlap, pauses hidden and refreshes on return', async () => {
   let resolve;
   const p = page([() => new Promise((r) => { resolve = r; }), response(answer(board()))]);

@@ -13,6 +13,7 @@ const THEME = `
     --vscode-button-background: #1866b5; --vscode-button-foreground: #ffffff;
     --vscode-button-hoverBackground: #124f8d; --vscode-toolbar-hoverBackground: #dce3ed;
     --vscode-list-hoverBackground: #e8eef7; --vscode-testing-iconPassed: #187742;
+    --vscode-badge-background: #4a5568; --vscode-badge-foreground: #ffffff;
   }
   @media (prefers-color-scheme: dark) { :root {
     --vscode-foreground: #e3e7ee; --vscode-editor-background: #1c2028;
@@ -22,6 +23,7 @@ const THEME = `
     --vscode-editorWarning-foreground: #e6bc64; --vscode-focusBorder: #79b9ff;
     --vscode-toolbar-hoverBackground: #394354; --vscode-list-hoverBackground: #303b4c;
     --vscode-testing-iconPassed: #7bd69e;
+    --vscode-badge-background: #5b6b85; --vscode-badge-foreground: #ffffff;
   } }
   [hidden] { display: none !important; }
   #content { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
