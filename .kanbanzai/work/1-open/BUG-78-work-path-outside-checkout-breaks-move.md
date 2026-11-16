@@ -1,11 +1,11 @@
 # BUG-78: A `work` folder outside the main checkout makes `move` (and three other commands) fail on a mangled path
 
-- **Stage:** todo
+- **Stage:** built
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none — the brief is the record
-- **Next action:** settled: build a single helper that turns a card's recorded path back into a filesystem path, use it at the five read sites, and add the regression test
-- **Where:** —
+- **Next action:** check the card: run /check on the BUG-78 worktree
+- **Where:** worktree BUG-78
 
 ## Goal
 
@@ -25,10 +25,10 @@ Expected: the card moves. Actual: `move: open /tmp/<repo-parent>/<repo>/tmp/<rep
 
 ## Acceptance checks
 
-- [ ] A test with `work` outside the checkout fails today at `move TASK-01 finish` (and `start`) with the doubled path, and passes after.
-- [ ] The same test covers `question`, `step --for` (reading the brief) and `gate pass` with that layout.
-- [ ] With the default in-checkout `work`, the whole existing suite passes unchanged and `board --json` paths are unchanged (relative, forward slashes).
-- [ ] `grep -rn 'Root, filepath.FromSlash' internal` finds no join of the root to a card path outside the one helper.
+- [x] A test with `work` outside the checkout fails today at `move TASK-01 finish` (and `start`) with the doubled path, and passes after.
+- [x] The same test covers `question`, `step --for` (reading the brief) and `gate pass` with that layout.
+- [x] With the default in-checkout `work`, the whole existing suite passes unchanged and `board --json` paths are unchanged (relative, forward slashes).
+- [x] `grep -rn 'Root, filepath.FromSlash' internal` finds no join of the root to a card path outside the one helper.
 
 ## Deploy
 
@@ -36,7 +36,7 @@ Expected: the card moves. Actual: `move: open /tmp/<repo-parent>/<repo>/tmp/<rep
 
 ## Tasks
 
-- [ ] One helper, `Project.Abs(rel string) string`, in `internal/config/config.go` beside `Rel`: an absolute path is returned cleaned, a relative one is joined to `Root` — plus its unit test; use it at the five sites above and in `flow/plan.go` — the checks above.
+- [x] One helper, `Project.Abs(rel string) string`, in `internal/config/config.go` beside `Rel`: an absolute path is returned cleaned, a relative one is joined to `Root` — plus its unit test; use it at the five sites above and in `flow/plan.go` — the checks above.
 
 ## Docs
 
@@ -49,6 +49,7 @@ None open: the helper is the conventional fix and changes no public contract (`c
 ## Progress
 
 - 2026-11-16: found while designing CHANGE-77 in a scratch repository; reproduced there; triaged.
+- 2026-11-16: built: Project.Abs helper used at the move, ask, step and gate read sites and in flow; regression tests in internal/cli/work_outside_test.go (red on the doubled path, green after)
 
 ## Out of scope
 
