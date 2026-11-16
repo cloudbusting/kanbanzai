@@ -1,11 +1,11 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** design it: find what still takes the focus, then settle the fix with the owner
-- **Where:** —
+- **Next action:** task 1: write the failing page tests in board-view/board_view.test.mjs (fake window focus event), then render.js
+- **Where:** worktree TASK-81
 
 ## Goal
 
