@@ -9,6 +9,13 @@ and the editor extension carry the same version.
   for the Visual Studio Marketplace, so the repository holds no marketplace token. The owner registers the trusted
   publisher for this repository and `release.yml` on open-vsx.org; a failed publish job is fixed there and re-run
   alone. The extension itself is unchanged.
+- TASK-75: the editor extension's marketplace listing is rewritten for someone installing it: what it is and who it
+  is for, the install from the Extensions view, setup, the board's marks, its commands and settings, exactly what it
+  executes, reads and writes, and its requirements, with absolute links (the `.vsix` carries the page unchanged). The
+  full behaviour moves to a new guide, `docs/editor.md`, and the build and icon notes to `docs/contributing.md`. The
+  listing gains keywords, categories, an issues link and a homepage, and `tools/vsix` now writes them into the
+  package manifest (`<Tags>`, the links properties, GitHub-flavoured Markdown) so the Visual Studio Marketplace shows
+  them. The extension's behaviour is unchanged.
 
 ## [0.23.0] — 2026-11-16
 

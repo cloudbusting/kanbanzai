@@ -259,6 +259,19 @@ func metadataProblems(packageJSON []byte, pluginVersion string) []string {
 	}
 	if categories, _ := pkg["categories"].([]any); len(categories) == 0 {
 		problems = append(problems, "no categories")
+	} else if len(categories) == 1 && categories[0] == "Other" {
+		problems = append(problems, "only the Other category")
+	}
+	// TASK-75: the listing is found by its keywords and links its issues and guide.
+	if keywords, _ := pkg["keywords"].([]any); len(keywords) == 0 {
+		problems = append(problems, "no keywords")
+	}
+	bugs, _ := pkg["bugs"].(map[string]any)
+	if url, _ := bugs["url"].(string); url == "" {
+		problems = append(problems, "no bugs")
+	}
+	if text, _ := pkg["homepage"].(string); text == "" {
+		problems = append(problems, "no homepage")
 	}
 	if _, has := pkg["private"]; has {
 		problems = append(problems, "private is set")
@@ -308,6 +321,10 @@ func TestTheExtensionMetadataIsMarketplaceReady(t *testing.T) {
 		{"no icon", func(m map[string]any) { delete(m, "icon") }, "no icon"},
 		{"no categories", func(m map[string]any) { delete(m, "categories") }, "no categories"},
 		{"empty categories", func(m map[string]any) { m["categories"] = []any{} }, "no categories"},
+		{"only Other", func(m map[string]any) { m["categories"] = []any{"Other"} }, "only the Other category"},
+		{"no keywords", func(m map[string]any) { delete(m, "keywords") }, "no keywords"},
+		{"no bugs", func(m map[string]any) { delete(m, "bugs") }, "no bugs"},
+		{"no homepage", func(m map[string]any) { delete(m, "homepage") }, "no homepage"},
 		{"private", func(m map[string]any) { m["private"] = true }, "private is set"},
 		{"private false", func(m map[string]any) { m["private"] = false }, "private is set"},
 		{"version differs", func(m map[string]any) { m["version"] = "0.0.1" }, "differs"},
@@ -329,6 +346,52 @@ func TestTheExtensionMetadataIsMarketplaceReady(t *testing.T) {
 				t.Fatalf("problems = %q, want one containing %q", problems, test.want)
 			}
 		})
+	}
+}
+
+// TASK-75: the Visual Studio Marketplace reads the listing from extension.vsixmanifest, not package.json: the keywords
+// become its search tags, the repository, issues and homepage its sidebar links, and the README renders as GitHub
+// Markdown (its tables). Each value is XML-escaped; a package.json without them still makes a manifest.
+func TestTheManifestCarriesTheListingMetadata(t *testing.T) {
+	var pkg Package
+	if err := json.Unmarshal([]byte(`{"name":"n","version":"1.0.0","publisher":"p","description":"d",
+		"keywords":["kanban","claude code","a<b&c"],
+		"repository":{"type":"git","url":"https://example.test/r.git"},
+		"bugs":{"url":"https://example.test/r/issues"},
+		"homepage":"https://example.test/r#readme"}`), &pkg); err != nil {
+		t.Fatal(err)
+	}
+	got := manifest(pkg)
+	for _, want := range []string{
+		"<Tags>kanban,claude code,a&lt;b&amp;c</Tags>",
+		`<Property Id="Microsoft.VisualStudio.Services.Links.Source" Value="https://example.test/r.git" />`,
+		`<Property Id="Microsoft.VisualStudio.Services.Links.Getstarted" Value="https://example.test/r.git" />`,
+		`<Property Id="Microsoft.VisualStudio.Services.Links.Support" Value="https://example.test/r/issues" />`,
+		`<Property Id="Microsoft.VisualStudio.Services.Links.Learn" Value="https://example.test/r#readme" />`,
+		`<Property Id="Microsoft.VisualStudio.Services.GitHubFlavoredMarkdown" Value="true" />`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the manifest lacks %s\n%s", want, got)
+		}
+	}
+	if strings.Index(got, "<Description") > strings.Index(got, "<Tags>") || strings.Index(got, "<Tags>") > strings.Index(got, "<Categories>") {
+		t.Error("the manifest's Tags must sit between Description and Categories, where vsce writes them")
+	}
+
+	// A repository given as a plain string is a link too.
+	var short Package
+	if err := json.Unmarshal([]byte(`{"name":"n","version":"1","publisher":"p","repository":"https://example.test/s"}`), &short); err != nil {
+		t.Fatal(err)
+	}
+	if got := manifest(short); !strings.Contains(got, `Links.Source" Value="https://example.test/s"`) {
+		t.Errorf("a string repository is not linked:\n%s", got)
+	}
+
+	// Without them: an empty Tags, no links, and still GitHub Markdown.
+	bare := manifest(Package{Name: "n", Version: "1", Publisher: "p"})
+	if !strings.Contains(bare, "<Tags></Tags>") || strings.Contains(bare, "Services.Links.") ||
+		!strings.Contains(bare, "GitHubFlavoredMarkdown") {
+		t.Errorf("a package.json without listing metadata gives:\n%s", bare)
 	}
 }
 

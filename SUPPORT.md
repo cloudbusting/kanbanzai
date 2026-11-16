@@ -8,7 +8,8 @@ extension.
 - [README](README.md) — what it is, the five-minute install, the guides and the
   [compatibility table](README.md#compatibility).
 - [Troubleshooting](docs/troubleshooting.md) — `kanbanzai doctor`, and what each finding and failure means.
-- [board-view/README.md](board-view/README.md) — the editor tab, its install and its settings.
+- [board-view/README.md](board-view/README.md) — the editor extension's listing: its install, settings and what it runs;
+  [docs/editor.md](docs/editor.md) — the editor board in full.
 - `kanbanzai --version`, `kanbanzai doctor`, `kanbanzai check` and `kanbanzai config` — the version, the briefs' state and the resolved
   settings. Most setup problems show up in one of them.
 

@@ -109,6 +109,7 @@ explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
 | Start from a preset (software, docs, review, release train, team pull requests, …) | [docs/presets.md](docs/presets.md) |
 | Run several projects in one workspace | [docs/multi-project.md](docs/multi-project.md) |
 | Look at the board in a terminal, browser or editor | [docs/boards.md](docs/boards.md) |
+| Use the editor board: setup, marks, sessions, toasts and notifications | [docs/editor.md](docs/editor.md) |
 | Look up a command | [docs/commands.md](docs/commands.md) |
 | Upgrade the command, plugins and a project | [docs/upgrade.md](docs/upgrade.md), [docs/migrate.md](docs/migrate.md) |
 | Fix something that is red | [docs/troubleshooting.md](docs/troubleshooting.md) |

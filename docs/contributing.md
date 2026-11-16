@@ -75,3 +75,21 @@ packaged. Eligible cards may be free or carry the caller's live claim; the selec
 core and excludes expired or uncertain claims. The package step reclaims or renews each selected card before starting,
 so a selection does not override a competing claim. Releasing the packaged cards stays one card and one owner approval
 at a time.
+
+## The editor extension
+
+`board-view/` is plain JavaScript with no build step and no dependencies; `node --test board-view/*.test.mjs` runs its
+suites. Its `README.md` is the extension's public listing on the Visual Studio Marketplace and Open VSX: `tools/vsix`
+packs it unchanged, so it uses absolute `https://github.com/cloudbusting/kanbanzai/blob/main/…` links only (a docs test
+checks each resolves in the checkout), and the full behaviour goes in [editor.md](editor.md). The listing's metadata
+comes from `board-view/package.json`: `tools/vsix` writes its keywords as the manifest's tags and its repository,
+`bugs` and `homepage` as the listing's links.
+
+A `.vsix` built without the command (`go run ./tools/vsix -o /tmp/kanbanzai-board.vsix`, for development) runs the
+`kanbanzai.command` setting, the per-user copy or `kanbanzai` on `PATH` (the order in
+[editor.md](editor.md#which-command-it-runs), without the bundled command). A release's is built with
+`go run ./tools/release -bins bins ...` and `go run ./tools/vsix -bin bins -o ...`. The package contains no machine
+path.
+
+The mark is `icon/kanbanzai.svg` at the repository root; `go run ./tools/icon` regenerates `board-view/icon.png`,
+which the Extensions view and the Board tab show.

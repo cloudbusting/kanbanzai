@@ -33,6 +33,42 @@ type Package struct {
 	ExtensionKind []string          `json:"extensionKind"`
 	Engines       map[string]string `json:"engines"`
 	Icon          string            `json:"icon"`
+	Keywords      []string          `json:"keywords"`
+	Repository    json.RawMessage   `json:"repository"`
+	Bugs          json.RawMessage   `json:"bugs"`
+	Homepage      string            `json:"homepage"`
+}
+
+// urlOf reads a package.json field npm allows as a plain string or as an object with a url.
+func urlOf(field json.RawMessage) string {
+	var text string
+	if json.Unmarshal(field, &text) == nil {
+		return text
+	}
+	var object struct {
+		URL string `json:"url"`
+	}
+	if json.Unmarshal(field, &object) == nil {
+		return object.URL
+	}
+	return ""
+}
+
+// links gives the listing's sidebar links, as vsce writes them: the repository is the source and the getting
+// started link, the bugs url the support link and the homepage the learn link. A missing one writes no line.
+func links(pkg Package) string {
+	var out strings.Builder
+	add := func(id, value string) {
+		if value != "" {
+			out.WriteString(`      <Property Id="Microsoft.VisualStudio.Services.Links.` + id + `" Value="` + html.EscapeString(value) + `" />` + "\n")
+		}
+	}
+	repository := urlOf(pkg.Repository)
+	add("Source", repository)
+	add("Getstarted", repository)
+	add("Support", urlOf(pkg.Bugs))
+	add("Learn", pkg.Homepage)
+	return out.String()
 }
 
 const contentTypes = `<?xml version="1.0" encoding="utf-8"?>
@@ -186,6 +222,7 @@ func manifest(pkg Package) string {
 		`" Publisher="` + html.EscapeString(pkg.Publisher) + `" />
     <DisplayName>` + html.EscapeString(display) + `</DisplayName>
     <Description xml:space="preserve">` + html.EscapeString(pkg.Description) + `</Description>
+    <Tags>` + html.EscapeString(strings.Join(pkg.Keywords, ",")) + `</Tags>
     <Categories>` + html.EscapeString(strings.Join(categories, ",")) + `</Categories>
     <GalleryFlags>Public</GalleryFlags>
     <Properties>
@@ -196,6 +233,7 @@ func manifest(pkg Package) string {
       <Property Id="Microsoft.VisualStudio.Code.LocalizedLanguages" Value="" />
       <Property Id="Microsoft.VisualStudio.Code.EnabledApiProposals" Value="" />
       <Property Id="Microsoft.VisualStudio.Code.ExecutesCode" Value="true" />
+` + links(pkg) + `      <Property Id="Microsoft.VisualStudio.Services.GitHubFlavoredMarkdown" Value="true" />
     </Properties>
   </Metadata>
   <Installation>

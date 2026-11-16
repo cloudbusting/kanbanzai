@@ -24,7 +24,7 @@ confused. Project and type selections are remembered for the workspace.
 - **Setup targets one folder.** Init, Apply, Show Setup Plan and Cancel Setup act on the **first** workspace folder, and
   say so. Choosing a project on the board never approves another project's migration.
 
-[board-view/README.md](../board-view/README.md#several-projects) has the full behaviour.
+[editor.md](editor.md#several-projects) has the full behaviour.
 
 ## Elsewhere
 

@@ -4,11 +4,11 @@ Three read-only views of the same board. None of them edits a card; the editor t
 
 ## In the editor
 
-The **Kanbanzai Board** extension shows the board in a tab with each claimed card's session state; [board-view/README.md](../board-view/README.md) says what it executes, reads and writes. Several projects in one workspace: [multi-project.md](multi-project.md).
+The **Kanbanzai Board** extension shows the board in a tab with each claimed card's session state; [editor.md](editor.md) is the full guide, and its listing page says exactly what it executes, reads and writes ([board-view/README.md](../board-view/README.md#what-it-executes-reads-and-writes)). Several projects in one workspace: [multi-project.md](multi-project.md).
 
 While the editor window is not focused it can also raise an operating-system notification when a session asks you, or a card
 becomes blocked, waits on you or is interrupted; the `kanbanzai.notifications` setting (`all`, `asking` or `off`) controls it
-([board-view/README.md](../board-view/README.md#toasts)). The browser board and the terminal raise none.
+([editor.md](editor.md#operating-system-notifications)). The browser board and the terminal raise none.
 
 ## In your terminal
 
@@ -32,7 +32,9 @@ The binary includes the view: no Node, editor, extra files or dependencies are n
 `127.0.0.1`, choosing a random available port by default (`--port 0`). Keep its printed, per-run access URL private:
 it permits reading this project's board, session marks and briefs. A browser-opening failure prints a warning
 and leaves the server running so you can open the URL yourself. Ctrl-C stops it; closing the tab does not.
-There is no background service, LAN binding, account, telemetry, external asset or outbound network request.
+There is no background service, LAN binding, account, telemetry, external asset or outbound network request. This
+loopback server is the one exception to the otherwise no-network policy; the editor extension itself still makes no
+network request.
 
 The read-only board shares the editor's renderer, columns, lanes, marks and toast model, with a live poll every
 three seconds while visible. Click a card to read its literal Markdown in the browser; it does not open an editor

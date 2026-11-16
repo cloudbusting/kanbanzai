@@ -1,7 +1,7 @@
 {
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
-  "description": "The project's Kanbanzai board as a compact kanban in an editor tab. The board tab is read-only.",
+  "description": "Your Kanbanzai board in an editor tab: the cards your Claude Code and OpenCode sessions work on, which session holds each one and when one is waiting for you. The board tab is read-only.",
   "version": "0.23.0",
   "publisher": "cloudbusting",
   "license": "MIT",
@@ -10,11 +10,29 @@
     "type": "git",
     "url": "https://github.com/cloudbusting/kanbanzai.git"
   },
+  "bugs": {
+    "url": "https://github.com/cloudbusting/kanbanzai/issues"
+  },
+  "homepage": "https://github.com/cloudbusting/kanbanzai/blob/main/docs/editor.md",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
+    "AI",
+    "Visualization",
     "Other"
+  ],
+  "keywords": [
+    "kanban",
+    "board",
+    "kanbanzai",
+    "claude code",
+    "opencode",
+    "agents",
+    "ai agents",
+    "workflow",
+    "worktree",
+    "task board"
   ],
   "extensionKind": [
     "workspace"

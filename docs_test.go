@@ -1,6 +1,7 @@
 package kanbanzai
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -328,5 +329,160 @@ func TestTheMarketplaceGuidesSayWhatTheyMustSay(t *testing.T) {
 				t.Errorf("%s lacks %q", file, w)
 			}
 		}
+	}
+}
+
+// TASK-75: the extension's README is its public listing on the Visual Studio Marketplace and Open VSX. It is written
+// for someone deciding to install the extension: what it is, the install, setup, the board, the commands and settings
+// it really has, what it runs and writes; the full behaviour lives in docs/editor.md and the internals in the
+// contributor guide. The .vsix carries the file unchanged and the marketplaces resolve no relative link, so every
+// link is absolute, and each one into this repository must name a file and heading that exist.
+func TestTheExtensionListingIsWrittenForTheMarketplaceReader(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "board-view", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	flat := strings.Join(strings.Fields(text), " ")
+
+	last := -1
+	for _, heading := range []string{"\n# Kanbanzai Board\n", "\n## Install\n", "\n## Set up a project\n", "\n## Open the board\n",
+		"\n## What the board shows\n", "\n## Commands and settings\n", "\n## What it executes, reads and writes\n",
+		"\n## Requirements\n", "\n## More\n"} {
+		at := strings.Index("\n"+text, heading)
+		if at < 0 {
+			t.Errorf("board-view/README.md lacks the section %q", strings.TrimSpace(heading))
+			continue
+		}
+		if at <= last {
+			t.Errorf("board-view/README.md has %q out of order", strings.TrimSpace(heading))
+		}
+		last = at
+	}
+	for _, words := range []string{"Claude Code", "OpenCode", "VSCodium", "VS Code", "read-only", "Extensions view",
+		"Visual Studio Marketplace", "Open VSX", "nothing else"} {
+		if !strings.Contains(flat, words) {
+			t.Errorf("board-view/README.md lacks %q", words)
+		}
+	}
+
+	// The commands and settings it names are the ones package.json contributes, all of them and no others.
+	var manifest struct {
+		Contributes struct {
+			Commands []struct {
+				Title string `json:"title"`
+			} `json:"commands"`
+			Configuration struct {
+				Properties map[string]json.RawMessage `json:"properties"`
+			} `json:"configuration"`
+		} `json:"contributes"`
+	}
+	pkg, err := os.ReadFile(filepath.Join(root, "board-view", "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(pkg, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	titles := map[string]bool{}
+	for _, command := range manifest.Contributes.Commands {
+		titles[command.Title] = true
+		if !strings.Contains(flat, "**"+command.Title+"**") {
+			t.Errorf("board-view/README.md does not name the command **%s**", command.Title)
+		}
+	}
+	for key := range manifest.Contributes.Configuration.Properties {
+		if !strings.Contains(flat, "`"+key+"`") {
+			t.Errorf("board-view/README.md does not name the setting `%s`", key)
+		}
+	}
+	if len(titles) == 0 || len(manifest.Contributes.Configuration.Properties) == 0 {
+		t.Fatal("board-view/package.json contributes no commands or settings: the check lost its way")
+	}
+	for _, m := range regexp.MustCompile(`\*\*(Kanbanzai: [^*]+)\*\*`).FindAllStringSubmatch(flat, -1) {
+		if !titles[m[1]] {
+			t.Errorf("board-view/README.md names **%s**, which board-view/package.json does not contribute", m[1])
+		}
+	}
+	for _, m := range regexp.MustCompile("`(kanbanzai\\.[A-Za-z]+)`").FindAllStringSubmatch(flat, -1) {
+		if _, ok := manifest.Contributes.Configuration.Properties[m[1]]; !ok {
+			t.Errorf("board-view/README.md names the setting `%s`, which board-view/package.json does not contribute", m[1])
+		}
+	}
+
+	// Links: absolute, and the repository's own resolve in this checkout.
+	const repo = "https://github.com/cloudbusting/kanbanzai/"
+	unfenced := regexp.MustCompile("(?s)```.*?```").ReplaceAllString(text, "")
+	links := regexp.MustCompile(`\[[^\]]+\]\(([^)\s]+)(?:\s+"[^"]*")?\)`).FindAllStringSubmatch(unfenced, -1)
+	own := 0
+	for _, m := range links {
+		target := strings.Trim(m[1], "<>")
+		if strings.HasPrefix(target, "#") {
+			if !anchorsOf(text)[target[1:]] {
+				t.Errorf("board-view/README.md links to %q, but it has no such heading", target)
+			}
+			continue
+		}
+		if !strings.HasPrefix(target, "https://") && !strings.HasPrefix(target, "mailto:") {
+			t.Errorf("board-view/README.md has the relative link %q: the marketplaces do not resolve it", target)
+			continue
+		}
+		if !strings.HasPrefix(target, repo) {
+			continue
+		}
+		rest := strings.TrimPrefix(target, repo)
+		var path string
+		switch {
+		case strings.HasPrefix(rest, "blob/main/"):
+			path = strings.TrimPrefix(rest, "blob/main/")
+		case strings.HasPrefix(rest, "tree/main/"):
+			path = strings.TrimPrefix(rest, "tree/main/")
+		case rest == "" || rest == "issues" || rest == "releases" || strings.HasPrefix(rest, "#"):
+			continue
+		default:
+			t.Errorf("board-view/README.md links to %q: link a file as %sblob/main/<path>", target, repo)
+			continue
+		}
+		own++
+		file, anchor, _ := strings.Cut(path, "#")
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(file)))
+		if err != nil {
+			t.Errorf("board-view/README.md links to %q, but %s does not exist", target, file)
+			continue
+		}
+		if anchor == "" || info.IsDir() {
+			continue
+		}
+		linked, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !anchorsOf(string(linked))[anchor] {
+			t.Errorf("board-view/README.md links to %q, but %s has no such heading", target, file)
+		}
+	}
+	if own < 5 {
+		t.Errorf("board-view/README.md links only %d files of this repository: the full guide, setup, security, troubleshooting and support belong there", own)
+	}
+	if !strings.Contains(flat, repo+"blob/main/docs/editor.md") {
+		t.Error("board-view/README.md does not link the editor guide, docs/editor.md")
+	}
+
+	// The internals belong to the editor guide and the contributor guide.
+	for _, words := range []string{"node --test", "go run ./tools/", "render.js", "toasts.js", "output.js", "PROGRESS_MS",
+		"shared renderer", "## Tests", "## Without an editor"} {
+		if strings.Contains(text, words) {
+			t.Errorf("board-view/README.md carries %q: it belongs in docs/editor.md or docs/contributing.md", words)
+		}
+	}
+	if poll := regexp.MustCompile(`every \d+ ?(s|seconds)\b`).FindString(flat); poll != "" {
+		t.Errorf("board-view/README.md gives the poll interval %q: it belongs in docs/editor.md", poll)
+	}
+	if n := strings.Count(flat, "board --web"); n > 1 {
+		t.Errorf("board-view/README.md mentions board --web %d times: one line pointing to the boards guide is enough", n)
 	}
 }
