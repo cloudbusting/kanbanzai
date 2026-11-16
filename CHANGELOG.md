@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-81: a board update still took the keyboard from the terminal or a side-bar chat prompt you were typing in (BUG-76
+  was not enough). The editor keeps the Board tab "active" for as long as it is the current editor, even while the
+  terminal or a side-bar view has the keyboard, so the page still focused the last card you had clicked on every
+  redraw. It now does so only when the page itself has just been given the focus, so a redraw while you are typing
+  elsewhere leaves your cursor alone.
+
 ## [0.25.0] — 2026-11-17
 
 - BUG-78: a `[project] work` folder outside the main checkout (the config allows an absolute path) no longer breaks `move`,

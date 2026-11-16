@@ -823,8 +823,11 @@ function workspacePage(projects, saved = null, opts = {}) {
     '.toast[data-remaining]': toasts.filter((el) => !el.removed && el.dataset.remaining !== undefined),
   })[selector] || [];
   document.addEventListener = (type, fn) => { listeners[type] = fn; };
+  // TASK-81: the window of the page; the host fires `focus` on it only when the frame it swaps in takes the focus
+  const windowFocus = [];
+  const win = { addEventListener(type, fn, options) { if (type === 'focus') windowFocus.push({ fn, once: !!(options && options.once) }); } };
   runInNewContext(out.match(/<script[^>]*>(.*?)<\/script>/s)[1], {
-    document, acquireVsCodeApi: () => ({
+    document, window: win, acquireVsCodeApi: () => ({
       getState: () => state,
       setState(value) { state = JSON.parse(JSON.stringify(value)); },
       postMessage(message) { messages.push(JSON.parse(JSON.stringify(message))); },
@@ -834,6 +837,9 @@ function workspacePage(projects, saved = null, opts = {}) {
   return {
     out, boards, cols, cardScrolls, cards, toasts, root, projectSelect, typeSelect, messages, timers, document,
     get state() { return state; },
+    focusWindow() {
+      for (const l of windowFocus.splice(0)) { if (!l.once) windowFocus.push(l); l.fn({ target: win }); }
+    },
     click(target) { listeners.click({ target }); },
     key(target, key) { listeners.keydown({ target, key, preventDefault() {} }); },
     change(target) { listeners.change({ target }); },
@@ -862,11 +868,40 @@ test("BUG-76: a reload restores the saved focus only when the host says the Boar
   }
   const kept = workspacePage(workspaceProjects(), saved, { keepFocus: true });
   assert.equal(kept.root.dataset.keepFocus, 'true');
+  assert.equal(kept.document.activeElement, null, 'TASK-81: loading the page never takes the focus; only the window gaining it does');
+  kept.focusWindow();
   assert.equal(kept.document.activeElement.dataset.stateKey, focused.dataset.stateKey);
+  for (const opts of [{}, { keepFocus: false }]) {
+    const page = workspacePage(workspaceProjects(), saved, opts);
+    page.focusWindow();
+    assert.equal(page.document.activeElement, null, `no restore after the window focus for ${JSON.stringify(opts)}`);
+  }
   // Scroll and collapsed columns are restored either way.
   first.boards[0].scrollLeft = 30; first.boards[0].scroll();
   const away = workspacePage(workspaceProjects(), first.state, { keepFocus: false });
   assert.equal(away.boards[0].scrollLeft, 30);
+});
+
+test("TASK-81: the restore waits for the window focus, runs once and never overrides a focus the page already has", () => {
+  const first = workspacePage(workspaceProjects());
+  const [saved1, other] = first.cards.filter((c) => c.dataset.project === 'p:b').slice(0, 2);
+  first.focus(saved1);
+  const state = first.state;
+  // The user is typing in the terminal or the chat: the page loads, the window never gets the focus, nothing is taken.
+  const away = workspacePage(workspaceProjects(), state, { keepFocus: true });
+  assert.equal(away.document.activeElement, null);
+  // The user clicked another card before the window focus event was handled: that focus wins.
+  const clicked = workspacePage(workspaceProjects(), state, { keepFocus: true });
+  clicked.document.activeElement = other;
+  clicked.focusWindow();
+  assert.equal(clicked.document.activeElement, other);
+  // Once: a later window focus does not pull the focus back to the saved card.
+  const once = workspacePage(workspaceProjects(), state, { keepFocus: true });
+  once.focusWindow();
+  assert.equal(once.document.activeElement.dataset.stateKey, saved1.dataset.stateKey);
+  once.document.activeElement = other;
+  once.focusWindow();
+  assert.equal(once.document.activeElement, other);
 });
 
 test("workspace messages carry project and bare IDs for card/toast open, collapse and dismissals", () => {
@@ -913,6 +948,7 @@ test("workspace selectors post only selection messages and preserve state for hi
   page.focus(focused);
   const saved = page.state;
   const restored = workspacePage(workspaceProjects(), saved, { keepFocus: true });
+  restored.focusWindow();
   assert.deepEqual(restored.boards.map((b) => b.scrollLeft), [30, 90]);
   assert.deepEqual(restored.cardScrolls.map((c) => c.scrollTop), [15, 45, 0]);
   assert.equal(restored.root.scrollTop, 120);

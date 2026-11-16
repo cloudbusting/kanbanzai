@@ -103,8 +103,8 @@ The **Project** selector offers **All projects** and each configured project. Wi
 is the default: vertically stacked, labelled boards, each with its own columns, lanes and horizontal scrolling.
 Single-project selection uses the full tab. Every card, asking strip and notification identifies its project, so
 two `W-01` cards cannot be confused. Project/type selections and per-project collapsed columns are remembered for
-the workspace; scroll is retained across board refreshes, and so is the focused card, but only while the Board tab is the active one: a
-toast or a card change never moves the keyboard out of the editor or terminal you are typing in.
+the workspace; scroll is retained across board refreshes, and so is the focused card, but only when you are in the Board tab: a
+toast or a card change never moves the keyboard out of the editor, terminal or chat prompt you are typing in.
 
 Discovery asks `kanbanzai config --json` from each explicit workspace folder; it does not scan recursively. Add a
 nested project as its own workspace folder. A defaults-only answer with no config file is not a board, and neither is a folder the core answers
