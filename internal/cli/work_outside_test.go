@@ -19,7 +19,7 @@ func outsideProject(t *testing.T) (*config.Project, string) {
 			t.Fatal(err)
 		}
 	}
-	project := newProject(t, "[project]\nowner = \"Sam\"\nwork = \""+work+"\"\n[flow]\nisolation = \"shared\"\n")
+	project := newProject(t, "[project]\nowner = \"Sam\"\nwork = '"+work+"'\n[flow]\nisolation = \"shared\"\n")
 	if project.Work != work {
 		t.Fatalf("work = %q, want %q", project.Work, work)
 	}

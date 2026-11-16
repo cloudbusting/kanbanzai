@@ -24,7 +24,12 @@ func project(t *testing.T) (root, plugin string) {
 
 func worktree(t *testing.T, root string) string {
 	t.Helper()
-	dir := filepath.Join(t.TempDir(), "TASK-01")
+	// Link reports the resolved path (macOS temp folders sit behind a /var symlink), so the tests compare resolved paths.
+	temp, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(temp, "TASK-01")
 	testutil.Git(t, root, "worktree", "add", "-q", dir, "-b", "TASK-01")
 	return dir
 }
