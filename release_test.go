@@ -373,3 +373,138 @@ func TestTheSourceBundleListsEveryEmbeddedFolder(t *testing.T) {
 		}
 	}
 }
+
+// TASK-72: the tag that releases the editor extension also publishes the .vsix the workflow built, to the Visual
+// Studio Marketplace and to Open VSX, without a token in the repository and without building it again.
+
+// workflowJob returns the text of one top-level job of a workflow file: from its `  name:` line to the next job.
+func workflowJob(t *testing.T, workflow, name string) string {
+	t.Helper()
+	jobs := workflow[strings.Index(workflow, "\njobs:\n")+1:]
+	start := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(name) + `:\s*$`).FindStringIndex(jobs)
+	if start == nil {
+		t.Fatalf("release.yml has no %q job", name)
+	}
+	rest := jobs[start[1]:]
+	if next := regexp.MustCompile(`(?m)^  [A-Za-z0-9_-]+:\s*$`).FindStringIndex(rest); next != nil {
+		rest = rest[:next[0]]
+	}
+	return rest
+}
+
+func TestReleaseWorkflowPublishesTheVsixToBothMarketplaces(t *testing.T) {
+	root := releaseRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(data)
+
+	// The .vsix is unpacked and scanned in the build job, before the artifact that the publish jobs use is uploaded.
+	build := workflowJob(t, workflow, "build")
+	scan := strings.Index(build, `go run ./tools/release -scan "$RUNNER_TEMP/vsix`)
+	upload := strings.Index(build, "actions/upload-artifact")
+	if scan < 0 || !strings.Contains(build, "unzip") {
+		t.Fatal("the build job does not unpack the .vsix and run `go run ./tools/release -scan` on it")
+	}
+	if upload < 0 || scan > upload {
+		t.Fatal("the .vsix is scanned after the artifact is uploaded; scan it first")
+	}
+
+	jobs := map[string]string{
+		"open-vsx":       workflowJob(t, workflow, "open-vsx"),
+		"vs-marketplace": workflowJob(t, workflow, "vs-marketplace"),
+	}
+	for name, job := range jobs {
+		// They run after the build and after the GitHub release, so a marketplace failure never hides the release.
+		if !regexp.MustCompile(`needs:\s*\[[^\]]*\bbuild\b[^\]]*\bpublish\b[^\]]*\]`).MatchString(job) {
+			t.Fatalf("%s does not need the build and publish jobs", name)
+		}
+		// They upload the .vsix the build made; they never build one.
+		for _, forbidden := range []string{"vsce package", "tools/vsix", "go run", "npm run", "npm ci", "npm install"} {
+			if strings.Contains(job, forbidden) {
+				t.Fatalf("%s runs %q: it must publish the built .vsix, not build one", name, forbidden)
+			}
+		}
+		if !strings.Contains(job, "name: binaries") || !strings.Contains(job, "dist/*.vsix") {
+			t.Fatalf("%s does not take the .vsix from the build's artifact", name)
+		}
+	}
+
+	// The tools are pinned to an exact version, never latest.
+	if !regexp.MustCompile(`@vscode/vsce@[0-9]+\.[0-9]+\.[0-9]+\b`).MatchString(jobs["vs-marketplace"]) {
+		t.Fatal("vs-marketplace does not pin @vscode/vsce to an exact version")
+	}
+	if !regexp.MustCompile(`\bovsx@[0-9]+\.[0-9]+\.[0-9]+\b`).MatchString(jobs["open-vsx"]) {
+		t.Fatal("open-vsx does not pin ovsx to an exact version")
+	}
+	if strings.Contains(workflow, "@latest") {
+		t.Fatal("release.yml uses @latest; pin the version")
+	}
+
+	// Visual Studio Marketplace: trusted publishing (an OIDC token, no stored secret), and nothing broader.
+	vs := jobs["vs-marketplace"]
+	if !strings.Contains(vs, "publish --oidc") || !strings.Contains(vs, "--packagePath") {
+		t.Fatal("vs-marketplace does not run `vsce publish --oidc --packagePath`")
+	}
+	if !strings.Contains(vs, "id-token: write") || !strings.Contains(vs, "contents: read") {
+		t.Fatal("vs-marketplace does not ask for exactly `id-token: write` and `contents: read`")
+	}
+	if strings.Contains(vs, "contents: write") || strings.Contains(vs, "secrets.") || strings.Contains(vs, "VSCE_PAT") {
+		t.Fatal("vs-marketplace has a write permission or a stored token; trusted publishing needs neither")
+	}
+	if !strings.Contains(vs, "github.repository == 'cloudbusting/kanbanzai'") {
+		t.Fatal("vs-marketplace is not limited to the cloudbusting/kanbanzai repository, so a fork's tag would try to publish")
+	}
+
+	// Open VSX: the token is a repository secret, and a missing one skips with a notice instead of failing.
+	ovsx := jobs["open-vsx"]
+	for _, part := range []string{
+		"OVSX_PAT: ${{ secrets.OVSX_PAT }}",
+		"if: env.OVSX_PAT == ''",
+		"::notice",
+		"if: env.OVSX_PAT != ''",
+		`publish "$VSIX" -p "$OVSX_PAT"`,
+		"--skip-duplicate",
+		"contents: read",
+	} {
+		if !strings.Contains(ovsx, part) {
+			t.Fatalf("open-vsx does not contain %q", part)
+		}
+	}
+
+	// The workflow names secrets but holds none.
+	for _, line := range strings.Split(workflow, "\n") {
+		if regexp.MustCompile(`(?i)(pat|token|password|secret)\s*[:=]\s*["']?[A-Za-z0-9+/_-]{20,}`).MatchString(line) {
+			t.Fatalf("release.yml looks as if it holds a credential: %q", line)
+		}
+	}
+}
+
+func TestReleaseSkillDescribesTheMarketplaceRoute(t *testing.T) {
+	root := releaseRoot(t)
+	data, err := os.ReadFile(filepath.Join(root, ".claude", "skills", "kanbanzai-release", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(string(data)), " ")
+	for _, part := range []string{
+		"The tag push publishes it",
+		"`OVSX_PAT`",
+		"`vsce publish --oidc`",
+		"2026-12-01",
+		"never read a secret's value",
+		"re-run only the failed one",
+		"never move the tag",
+		"run `vsce` or `ovsx` by hand over a version the workflow publishes",
+	} {
+		if !strings.Contains(flat, part) {
+			t.Errorf("the release skill does not say %q", part)
+		}
+	}
+	for _, stale := range []string{`npx @vscode/vsce publish --packagePath "$OUT`, "and the owner's publishing token is in the environment"} {
+		if strings.Contains(flat, stale) {
+			t.Errorf("the release skill still has the by-hand route: %q", stale)
+		}
+	}
+}

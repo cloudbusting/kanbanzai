@@ -53,6 +53,12 @@ jobs:
       - run: go run ./tools/release -version "$GITHUB_REF_NAME" -out dist -bins bins
       - run: go run ./tools/vsix -bin bins -o "dist/kanbanzai-board-${GITHUB_REF_NAME#v}.vsix"
       - run: go run ./tools/release -scan bins
+      # The .vsix is what the marketplace jobs publish: scan the file itself, unpacked into a new empty folder.
+      - name: Scan the unpacked .vsix
+        run: |
+          mkdir "$RUNNER_TEMP/vsix-unpacked"
+          unzip -q "dist/kanbanzai-board-${GITHUB_REF_NAME#v}.vsix" -d "$RUNNER_TEMP/vsix-unpacked"
+          go run ./tools/release -scan "$RUNNER_TEMP/vsix-unpacked"
       - uses: actions/upload-artifact@v4
         with:
           name: binaries
@@ -74,3 +80,59 @@ jobs:
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
             gh release create "$GITHUB_REF_NAME" --title "Kanbanzai ${GITHUB_REF_NAME#v}" --generate-notes
           gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+
+  # The marketplace jobs run after the GitHub release, so a marketplace failure never hides it, and they are
+  # separate, so one failing does not stop the other. They publish the .vsix the build job made and scanned; they
+  # never build one. A marketplace version cannot be replaced: if one of these fails, re-run only the failed job
+  # (nothing was published), and fix a wrong published version with the next patch tag, never by moving this one.
+  # @vscode/vsce and ovsx are pinned; raise them on purpose.
+  open-vsx:
+    name: Publish the .vsix to Open VSX
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - if: env.OVSX_PAT == ''
+        run: echo "::notice title=Open VSX::The repository secret OVSX_PAT is not set, so the .vsix was not published to Open VSX."
+      - if: env.OVSX_PAT != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist
+      - if: env.OVSX_PAT != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: env.OVSX_PAT != ''
+        run: |
+          set -eu
+          VSIX="$(ls dist/*.vsix)"
+          test "$(printf '%s\n' "$VSIX" | wc -l)" -eq 1
+          npx --yes ovsx@1.4.0 publish "$VSIX" -p "$OVSX_PAT" --skip-duplicate
+
+  # Visual Studio Marketplace trusted publishing: GitHub proves which repository and workflow this is with a
+  # short-lived OIDC token, and the publisher's trusted-publishing policy accepts it. There is no stored secret.
+  vs-marketplace:
+    name: Publish the .vsix to the Visual Studio Marketplace
+    needs: [build, publish]
+    if: github.repository == 'cloudbusting/kanbanzai'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          set -eu
+          VSIX="$(ls dist/*.vsix)"
+          test "$(printf '%s\n' "$VSIX" | wc -l)" -eq 1
+          npx --yes @vscode/vsce@4.1.1 publish --oidc --packagePath "$VSIX"

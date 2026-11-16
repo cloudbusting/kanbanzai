@@ -156,8 +156,9 @@ git push origin "v<version>" "kanbanzai--v<version>"
 
 The `v<version>` tag starts `.github/workflows/release.yml`: it runs the Go tests on Ubuntu, macOS and Windows,
 validates the plugin, checks the manifests against the tag, builds the five archives and `SHA256SUMS`, builds the
-`.vsix` with the command for all five platforms, and attaches them to the `v<version>` release. The
-`kanbanzai--v<version>` tag is the marketplace tag and starts nothing. Never tag a different commit.
+`.vsix` with the command for all five platforms, scans the unpacked `.vsix`, attaches them to the `v<version>` release
+and then publishes that `.vsix` to Open VSX and to the Visual Studio Marketplace (see "The editor extension"). The
+`kanbanzai--v<version>` tag is the Claude Code marketplace tag and starts nothing. Never tag a different commit.
 
 Expect one Release run and one CI run, not four (W-29). The `ci.yml` workflow runs on a push of `main` and on pull
 requests, never on a tag; the `release.yml` workflow runs on a `v*` tag, never on `main`. A single
@@ -242,16 +243,29 @@ and `tools/`, and that no path points at this checkout. The `kanbanzai` command 
 The `.vsix` carries the `kanbanzai` command for five platforms and no machine path, so it is a portable artifact;
 the `kanbanzai.command` setting still overrides the bundled command. Say in the notes which platforms it covers.
 
-Publish to a marketplace only when `board-view/package.json` has a real publisher and licence and the owner's
-publishing token is in the environment. Publish the workflow's `.vsix` (the one with the command), never a build
-without `-bin`:
+**The tag push publishes it.** The Release workflow's `open-vsx` and `vs-marketplace` jobs run after the GitHub release
+is attached and publish **the `.vsix` the workflow built and scanned**, never one built again. Do not run `vsce` or
+`ovsx` by hand for a version the workflow publishes, and never publish a build without `-bin`.
 
-```bash
-npx @vscode/vsce publish --packagePath "$OUT/kanbanzai-board-<extension-version>.vsix"
-```
-
-Never put a token in the repository or a command that is logged. If there is no publisher or token, leave
-the workflow's `.vsix` on the GitHub release; step 8 installs it in the owner's editor. Do not describe an unpublished extension as available in a marketplace.
+- **Open VSX** (what VSCodium reads): `npx ovsx publish` with the repository secret `OVSX_PAT`. If the secret is not
+  set the job prints a notice and publishes nothing: that is a missing setup, not a pass; say so in the report.
+- **Visual Studio Marketplace**: `vsce publish --oidc`, Marketplace trusted publishing. GitHub gives the job a
+  short-lived OIDC token and the `cloudbusting` publisher's trusted-publishing policy (repository
+  `cloudbusting/kanbanzai`, workflow `release.yml`) accepts it; there is no stored secret. Azure DevOps personal access
+  tokens stop working on 2026-12-01, so do not use one. If the owner's policy is missing the job fails, and the
+  publish waits for the policy and a re-run of that one job.
+- Before pushing the tags, ask the owner whether the secret and the policy still exist (the first release that
+  publishes them is the proof; a change of account is not visible from here). Never put a token in the repository or a
+  command that is logged, and never read a secret's value.
+- The release is not a marketplace release until both jobs are green. Watch them with `gh run watch --exit-status`.
+  Say in the report which marketplace published which version, and which job was skipped or failed. Do not describe
+  the extension as available in a marketplace before its listing page shows the version (step 7); `README.md` names a
+  marketplace install only once it does.
+- **Recovery.** A marketplace version cannot be replaced. A job that failed before publishing is re-run on its own
+  (`gh run rerun --failed`, or the run's "Re-run failed jobs"); the tag is not moved and the other jobs are not re-run.
+  Open VSX is run with `--skip-duplicate`, so re-running it over a published version is harmless. If one marketplace
+  published and the other failed, re-run only the failed one. If a published version is wrong, publish the next patch
+  as a new release; never move the tag.
 
 ### OpenCode
 
@@ -277,8 +291,13 @@ GOBIN="$(mktemp -d)" go install github.com/cloudbusting/kanbanzai/cmd/kanbanzai@
 "$GOBIN/kanbanzai" --version
 ```
 
-For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, step 8 installs the
-released `.vsix` in the owner's editor; a look at a fixture board in a clean editor profile stays the owner's manual
+For the plugin, the throwaway `CLAUDE_CONFIG_DIR` install above is the proof. For the extension, check both listings
+once the marketplace jobs are green: `https://open-vsx.org/extension/cloudbusting/kanbanzai-board` and
+`https://marketplace.visualstudio.com/items?itemName=cloudbusting.kanbanzai-board` show the released version, and an
+install from each in a throwaway editor profile (`codium --user-data-dir "$(mktemp -d)" --extensions-dir "$(mktemp -d)"
+--install-extension cloudbusting.kanbanzai-board`, and the Visual Studio Marketplace's from a `code` profile when `code`
+is installed) lists the released version; say which listings you could not check. Step 8 installs the released
+`.vsix` in the owner's editor; a look at a fixture board in a clean editor profile stays the owner's manual
 check, so name it.
 
 ## 8. Install the released `.vsix` in the editor
@@ -344,12 +363,13 @@ If the release is broken:
   where it is;
 - after the GitHub release: mark it as a pre-release or edit its notes to say withdrawn, and keep the artifacts
   for diagnosis;
-- after a marketplace listing: publish the next patch; do not try to rewrite the old version;
+- after a marketplace listing: publish the next patch as a new release; do not try to rewrite the old version, and do
+  not re-run a job over a version that is already published;
 - keep the previous tag, commit and artifacts as the rollback reference.
 
 ## You never
 
 Publish without the package report and the owner's approval, tag a commit whose CI has not passed on Ubuntu,
 macOS and Windows, move a pushed tag, upload a command-less `.vsix`, tag from a dirty release worktree or while `kanbanzai tree` says `blocked`, push a different commit than the
-one that was packaged, put a token or private path in the repository, or describe an unpublished artifact as
-available.
+one that was packaged, put a token or private path in the repository, run `vsce` or `ovsx` by hand over a version the workflow publishes,
+or describe an unpublished artifact as available.
