@@ -107,7 +107,7 @@ func dirs(p *config.Project) (lockFile, journalFile, backupDir string) {
 	return filepath.Join(p.State, "workflow.lock"), filepath.Join(base, "journal.json"), filepath.Join(base, "backup")
 }
 
-func abs(p *config.Project, rel string) string { return filepath.Join(p.Root, filepath.FromSlash(rel)) }
+func abs(p *config.Project, rel string) string { return p.Abs(rel) }
 
 func readText(path string) (string, bool) {
 	data, err := os.ReadFile(path)

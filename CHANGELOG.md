@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-78: a `[project] work` folder outside the main checkout (the config allows an absolute path) no longer breaks `move`,
+  `ask`/`answer`, `step --for`, and `gate pass`: each prefixed the checkout onto the card's recorded absolute
+  path and failed with "no such file or directory". One helper, `Project.Abs`, now turns a recorded path back into a file path.
+  `board --json` paths are unchanged.
 - BUG-79: the bundled OpenCode plugin now loads in a card's worktree. Its tracked config reads a pointer file in the git-ignored
   `.kanbanzai/state/`, which a worktree does not have, so OpenCode there silently loaded no plugin (no skills, no claim label or
   heartbeat). New `kanbanzai plugins link [DIR]` copies the main checkout's pointer file into a worktree; `move ... start` runs it

@@ -162,7 +162,7 @@ func record(project *config.Project, opts Options, out, errOut io.Writer) int {
 			}
 			line = gate.FailedLine(owner, reason, now)
 		}
-		path := filepath.Join(project.Root, filepath.FromSlash(card.Path))
+		path := project.Abs(card.Path)
 		original, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(errOut, "gate: %v\n", err)

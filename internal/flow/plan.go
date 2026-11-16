@@ -251,11 +251,11 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 		}
 		newText := Migrate(text, change, p.BriefSectionOrder(change.ID))
 		change.AfterSHA256 = Digest(newText)
-		if _, err := os.Lstat(filepath.Join(p.Root, filepath.FromSlash(change.NewPath))); err == nil && change.NewPath != change.Path {
+		if _, err := os.Lstat(p.Abs(change.NewPath)); err == nil && change.NewPath != change.Path {
 			plan.Blockers = append(plan.Blockers, fmt.Sprintf("%s: %s already exists", card, change.NewPath))
 			continue
 		}
-		moves = append(moves, moving{old: briefPath, new: filepath.Join(p.Root, filepath.FromSlash(change.NewPath))})
+		moves = append(moves, moving{old: briefPath, new: p.Abs(change.NewPath)})
 		texts[briefPath] = text
 		plan.Cards = append(plan.Cards, change)
 	}
