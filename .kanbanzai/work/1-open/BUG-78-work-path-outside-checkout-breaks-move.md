@@ -1,10 +1,10 @@
 # BUG-78: A `work` folder outside the main checkout makes `move` (and three other commands) fail on a mangled path
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none — the brief is the record
-- **Next action:** package: run kanbanzai-package on BUG-78
+- **Next action:** release: 0.24.0 after the owner approves (version, licence, publisher, public release); package artifacts at /tmp/kanbanzai-package-BUG-78-0.24.0 from main ad02119
 - **Where:** worktree BUG-78
 
 ## Goal
@@ -51,6 +51,7 @@ None open: the helper is the conventional fix and changes no public contract (`c
 - 2026-11-16: found while designing CHANGE-77 in a scratch repository; reproduced there; triaged.
 - 2026-11-16: built: Project.Abs helper used at the move, ask, step and gate read sites and in flow; regression tests in internal/cli/work_outside_test.go (red on the doubled path, green after)
 - 2026-11-16: checked: kanbanzai-qa green (go all ok, vet, node 390+13, hooks, plugin validate, steps, audit, kanbanzai check); diff reviewed, no findings; red run seen first on the doubled path
+- 2026-11-16: Package QA passed at ad02119 alone: artifacts /tmp/kanbanzai-package-BUG-78-0.24.0 (source tarball sha256 291422d7…, vsix 7017173b…, five binary archives, SHA256SUMS); install-tested in a fresh project and a throwaway Claude config; machine-path scans clean
 
 ## Out of scope
 
