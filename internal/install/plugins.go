@@ -42,22 +42,18 @@ func pluginAssets() ([]string, error) {
 	return names, nil
 }
 
-// realParents rejects symlinks in existing components of an installation path.
+// realParents rejects a plugins folder that is a symlink or not a directory. Only that folder is checked: the
+// user's own home, data folder and kanbanzai folder may be reached through links (macOS's /var, a /home that is a
+// link, a dotfiles repository), and the install never writes through a link below them.
 func realParents(dir string) error {
-	for {
-		info, err := os.Lstat(dir)
-		if err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0) {
-			return fmt.Errorf("plugin path %s is not a real directory", dir)
-		}
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		next := filepath.Dir(dir)
-		if next == dir {
-			return nil
-		}
-		dir = next
+	info, err := os.Lstat(dir)
+	if err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0) {
+		return fmt.Errorf("plugin path %s is not a real directory", dir)
 	}
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // inspectPlugins refuses unknown or modified files, and reports whether this
@@ -256,7 +252,7 @@ func installPlugins(base string, dry, refresh bool, out io.Writer) error {
 		fmt.Fprintf(out, "would install plugins: %s\n", target)
 		return nil
 	}
-	if info, err := os.Lstat(base); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+	if info, err := os.Stat(base); err != nil || !info.IsDir() {
 		return fmt.Errorf("plugin parent %s is not a directory", base)
 	}
 	if err := os.Mkdir(parent, 0o755); err != nil && !os.IsExist(err) {

@@ -307,3 +307,36 @@ func TestPluginUpdatePrunesOlderBackupsOnly(t *testing.T) {
 		}
 	}
 }
+
+// The folders above the plugins folder belong to the user and may be links (macOS's /var and /tmp, a /home that
+// is a link, a dotfiles repository): the install goes through them. Only the plugins folder itself must be real.
+func TestInstallWorksThroughLinkedParentFolders(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks may require elevated privileges")
+	}
+	for name, link := range map[string]func(f *fixture) string{
+		"an ancestor":          func(f *fixture) string { return filepath.Dir(filepath.Dir(f.folder)) },
+		"the kanbanzai folder": func(f *fixture) string { return filepath.Dir(f.folder) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			path := link(f)
+			real := filepath.Join(t.TempDir(), "real")
+			if err := os.MkdirAll(real, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, path); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			if code := f.run(false, false); code != 0 {
+				t.Fatalf("install through a linked folder: %s", f.errOut)
+			}
+			if _, err := os.Stat(filepath.Join(filepath.Dir(f.folder), "plugins", "current", ".kanbanzai-plugin.json")); err != nil {
+				t.Fatalf("plugins not installed through the link: %v", err)
+			}
+		})
+	}
+}
