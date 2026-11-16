@@ -19,7 +19,8 @@ const (
 func workBranch(t *testing.T, project *config.Project, card string) string {
 	t.Helper()
 	commitAll(t, project)
-	path := filepath.Join(t.TempDir(), "proj-"+card)
+	// Git prints worktree paths with forward slashes on every system, and the tests compare against its output.
+	path := filepath.ToSlash(filepath.Join(t.TempDir(), "proj-"+card))
 	testutil.Git(t, project.Root, "worktree", "add", "-q", "-b", card, path)
 	testutil.Write(t, filepath.Join(path, card+".txt"), "the change\n")
 	testutil.Git(t, path, "add", "-A")
