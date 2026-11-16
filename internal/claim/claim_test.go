@@ -398,8 +398,8 @@ func TestOwnerLabel(t *testing.T) {
 		t.Fatalf("claude label = %q", got)
 	}
 	t.Setenv("CLAUDE_SESSION_ID", "")
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "193f0c70-5c58-4f5f-affa-4b4c839e72b5")
-	if got := OwnerLabel(project); got != "claude:193f0c70-5c58-4f5f-affa-4b4c839e72b5" {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "00000000-0000-4000-8000-000000000002")
+	if got := OwnerLabel(project); got != "claude:00000000-0000-4000-8000-000000000002" {
 		t.Fatalf("claude code label = %q", got)
 	}
 	if _, err := CheckOwner(OwnerLabel(project)); err != nil {

@@ -62,6 +62,9 @@ func Check(root, tag string) (string, error) {
 	if err := checkBoardRecords(root); err != nil {
 		return "", err
 	}
+	if err := checkPrivateTree(root); err != nil {
+		return "", err
+	}
 	return plugin, nil
 }
 

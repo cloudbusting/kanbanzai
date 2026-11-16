@@ -321,7 +321,7 @@ test("failed polls retain the last asking total as stale and recovery does not r
 });
 
 // ---- BUG-64: a session asking with no card ----
-const LOOSE = { "claude:c5e836e4": { state: "waiting", since: 1, name: "proj-b5" } };
+const LOOSE = { "claude:00000000": { state: "waiting", since: 1, name: "proj-b5" } };
 const looseAnswer = (loose) => ({ waiting: Object.keys(loose).length, claims: 0, cards: {}, unclaimed: loose });
 
 test("the status bar counts a session asking with no card, and the tooltip says so", () => run([board({})], async ({ item }) => {
@@ -345,13 +345,13 @@ test("no message for a session already asking at the first poll, or still asking
 
 test("the tab in front: a session asking with no card is a toast and a strip, and closing the toast keeps it closed", () => run([
   { ...board({}), unclaimed: {} },
-  { ...board({}), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
-  { ...board({ todo: [card("W-13")] }), unclaimed: { "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f": { state: "waiting", since: 1, name: "proj-b5" } } },
+  { ...board({}), unclaimed: { "claude:00000000-0000-4000-8000-000000000001": { state: "waiting", since: 1, name: "proj-b5" } } },
+  { ...board({ todo: [card("W-13")] }), unclaimed: { "claude:00000000-0000-4000-8000-000000000001": { state: "waiting", since: 1, name: "proj-b5" } } },
 ], async ({ panel, vscode, project }) => {
   vscode.run();
   await settle();
   panel.viewState({}); await settle();
-  const label = "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+  const label = "claude:00000000-0000-4000-8000-000000000001";
   const key = `ask-session:${label}`;
   assert.ok(toastsIn(panel).some((t) => t[1] === key), "the ask is shown");
   assert.match(panel.webview.html, /class="asking-sessions"/);

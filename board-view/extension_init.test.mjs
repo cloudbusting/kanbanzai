@@ -283,7 +283,7 @@ test("refresh: an existing per-user copy is refreshed from the bundled command o
   if (!EXT()) return;
   const { d, file } = extensionWithBundled();
   await withInstalledCopy(async () => {
-    const script = (cmd, args) => (args[0] === "install" ? { stdout: "refreshed /home/x/kanbanzai: v0.6.4 -> v0.8.1\n" } : undefined);
+    const script = (cmd, args) => (args[0] === "install" ? { stdout: "refreshed /home/example/kanbanzai: v0.6.4 -> v0.8.1\n" } : undefined);
     await run({ folders: folder(withBoard()), extensionPath: d, script }, async ({ calls, channel, vscode }) => {
       await settle();
       const found = refreshes(calls);

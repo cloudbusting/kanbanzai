@@ -275,22 +275,22 @@ test("wellKnownDir is the per-user folder on each OS", async () => {
   const { wellKnownDir } = await import(`${SERVER}?wellknown`);
   const join = path.join;
   // Linux: XDG_DATA_HOME when absolute, else HOME/.local/share.
-  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/data" }, "linux", "/home/a"), join("/data", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({}, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({ XDG_DATA_HOME: "" }, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({ XDG_DATA_HOME: "relative/data" }, "linux", "/home/a"), join("/home/a", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/data" }, "linux", "/home/example"), join("/data", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "linux", "/home/example"), join("/home/example", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "" }, "linux", "/home/example"), join("/home/example", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "relative/data" }, "linux", "/home/example"), join("/home/example", ".local", "share", "kanbanzai", "bin"));
   assert.equal(wellKnownDir({}, "linux", ""), null);
   assert.equal(wellKnownDir({}, "linux", undefined), null);
   // macOS follows the same rule as Linux.
-  assert.equal(wellKnownDir({}, "darwin", "/Users/a"), join("/Users/a", ".local", "share", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/x" }, "darwin", "/Users/a"), join("/x", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "darwin", "/Users/example"), join("/Users/example", ".local", "share", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ XDG_DATA_HOME: "/x" }, "darwin", "/Users/example"), join("/x", "kanbanzai", "bin"));
   // Windows: LOCALAPPDATA, else USERPROFILE\AppData\Local (the home argument is the user profile).
-  assert.equal(wellKnownDir({ LOCALAPPDATA: "C:\\Users\\a\\AppData\\Local" }, "win32", "C:\\Users\\a"),
-    path.win32.join("C:\\Users\\a\\AppData\\Local", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({}, "win32", "C:\\Users\\a"),
-    path.win32.join("C:\\Users\\a", "AppData", "Local", "kanbanzai", "bin"));
-  assert.equal(wellKnownDir({ USERPROFILE: "C:\\Users\\b" }, "win32", ""),
-    path.win32.join("C:\\Users\\b", "AppData", "Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ LOCALAPPDATA: "C:\\Users\\example\\AppData\\Local" }, "win32", "C:\\Users\\example"),
+    path.win32.join("C:\\Users\\example\\AppData\\Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({}, "win32", "C:\\Users\\example"),
+    path.win32.join("C:\\Users\\example", "AppData", "Local", "kanbanzai", "bin"));
+  assert.equal(wellKnownDir({ USERPROFILE: "C:\\Users\\example2" }, "win32", ""),
+    path.win32.join("C:\\Users\\example2", "AppData", "Local", "kanbanzai", "bin"));
   assert.equal(wellKnownDir({}, "win32", ""), null);
 });
 

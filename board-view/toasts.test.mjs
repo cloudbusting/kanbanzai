@@ -385,8 +385,8 @@ test("close all removes only the specified toast instances, preserving newer rep
 // BUG-64: a session asking the owner that holds no card (`board.unclaimed`) raises a sticky toast of its own.
 const withUnclaimed = (b, unclaimed) => ({ ...b, unclaimed });
 const loose = (name = "proj-b5", state = "waiting") => ({ state, since: 1000, started: 500, name });
-const LABEL = "claude:c5e836e4-0a21-42bf-92e3-11f8df804e3f";
-const LOOSE_KEY = "ask:sc-c5e836e4-0a21-42bf-92e3-11f8df804e3f";
+const LABEL = "claude:00000000-0000-4000-8000-000000000001";
+const LOOSE_KEY = "ask:sc-00000000-0000-4000-8000-000000000001";
 
 test("a session that starts asking with no card is one asking event with no card or brief to open", () => {
   const prev = withUnclaimed(board({ todo: [card("W-1")] }), {});
@@ -403,7 +403,7 @@ test("a session that starts asking with no card is one asking event with no card
 });
 
 test("a session with no name still asks, and an opencode session gets a key of its own", () => {
-  const ev = T.diffBoards(board({}), withUnclaimed(board({}), { [LABEL]: loose(""), "opencode:ses_e371d1356ffe8spvPHfytWCO00": loose("oc") }), "Sam");
+  const ev = T.diffBoards(board({}), withUnclaimed(board({}), { [LABEL]: loose(""), "opencode:ses_example00000000001": loose("oc") }), "Sam");
   assert.deepEqual(ev.map((e) => e.headline).sort(), ["a session asking", "oc asking"]);
   assert.equal(new Set(ev.map((e) => e.key)).size, 2);
   for (const e of ev) assert.match(e.key, /^ask:[A-Za-z0-9][A-Za-z0-9-]{0,40}$/);

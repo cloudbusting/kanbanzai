@@ -303,8 +303,8 @@ codium --list-extensions --show-versions | grep kanbanzai
 - Check the listing before installing: it must show the five bundled commands (`extension/bin/<os>-<arch>/kanbanzai`
   for linux and darwin on amd64 and arm64, and `windows-amd64/kanbanzai.exe`). Never install a command-less `.vsix`.
   Stop the install, not the release, if the checksum or the listing is wrong.
-- `codium` is the editor's own CLI. In this sandbox it is the VSCodium server's remote-cli, on PATH inside an editor
-  terminal; it installs into the host editor. If the CLI differs on this machine (`code`, `code-insiders`), use the
+- `codium` is the editor's own CLI. Where the editor runs in a remote or container session it is the editor server's
+  remote-cli, on PATH inside an editor terminal; it installs into the host editor. If the CLI differs on this machine (`code`, `code-insiders`), use the
   editor's own and say which. Read the installed version back with `--list-extensions --show-versions`; it must be the
   released `<extension-version>`.
 - No editor CLI on PATH, a failed checksum or listing, or a failed install: do not retry in a loop and do not stop

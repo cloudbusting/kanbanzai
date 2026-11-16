@@ -11,7 +11,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
 
-const askingSession = "c5e836e4-0a21-42bf-92e3-11f8df804e3f"
+const askingSession = "00000000-0000-4000-8000-000000000001"
 
 // BUG-64: a session asking the owner with no card shows on the board, so the owner sees it.
 func TestABoardListsAnAskingSessionThatHoldsNoCard(t *testing.T) {

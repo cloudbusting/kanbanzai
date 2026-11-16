@@ -217,6 +217,13 @@ install and a look at the Board tab is the owner's check; name the screen and th
 
 - `tar -tzf`, `unzip -l` and the five binary archives contain no `.git`, `.kanbanzai/state`, `.env`, key, token or
   local absolute path.
+- **Scan the unpacked artifacts for this machine.** Each in its own new, empty folder (the download rule: pass the path as an
+  argument, never run anything from inside it): unpack the source tarball, the `.vsix` (it is a zip) and one command
+  archive for each platform, then run
+  `go run ./tools/release -scan <folder>` on each. It reads text and binary bytes and fails, naming the file and the
+  byte offset, on a home path, a build path, an OpenCode `ses_…` id or a Claude Code `claude:<uuid>` label (a user
+  named `example`, the all-zero uuid and `ses_example…` are the allowed fictional forms), and on a settings file from
+  one machine. Any finding fails the package; put the folder names and "clean" in the report.
 - No network call was added to build the artifacts. The commands above use only local tools.
 - The artifacts were built from an export of the committed SHA, not from uncommitted work, and not from a working
   tree that other sessions are editing.

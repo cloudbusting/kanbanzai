@@ -1,6 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    "/home/dev/workspace/code/kanbanzai/main/opencode"
-  ]
+  "plugins": ["./opencode"]
 }

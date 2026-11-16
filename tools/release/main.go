@@ -204,8 +204,17 @@ func main() {
 	out := flag.String("out", "dist", "the directory for the archives and SHA256SUMS")
 	root := flag.String("root", "", "the repository root (default: found from the current directory)")
 	bins := flag.String("bins", "", "also leave the raw binaries in this directory as <os>-<arch>/kanbanzai[.exe], for tools/vsix -bin")
-	check := flag.Bool("check", false, "check that the manifests, CHANGELOG.md and -version agree, then exit")
+	check := flag.Bool("check", false, "check that the manifests, CHANGELOG.md and -version agree, and that no shipped file carries a machine-specific path, session id or settings file, then exit")
+	scan := flag.String("scan", "", "scan this unpacked folder (a source archive, a .vsix, a binary) for machine-specific paths and session ids, then exit")
 	flag.Parse()
+	if *scan != "" {
+		if err := scanArtifacts(*scan); err != nil {
+			fmt.Fprintf(os.Stderr, "release: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("%s: no machine-specific path, session id or settings file\n", *scan)
+		return
+	}
 	directory := *root
 	if directory == "" {
 		found, err := findRoot()

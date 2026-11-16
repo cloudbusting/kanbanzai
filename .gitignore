@@ -6,3 +6,7 @@ dist/
 
 # A developer's local Claude settings (the marketplace path is machine-specific).
 .claude/settings.local.json
+
+# An editor's or tool's backup of a settings file, and a session's scheduler lock: both are one machine's.
+*.openchamber.backup
+.claude/scheduled_tasks.lock

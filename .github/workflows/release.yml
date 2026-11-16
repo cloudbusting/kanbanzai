@@ -52,6 +52,7 @@ jobs:
       - run: go run ./tools/release -check -version "$GITHUB_REF_NAME"
       - run: go run ./tools/release -version "$GITHUB_REF_NAME" -out dist -bins bins
       - run: go run ./tools/vsix -bin bins -o "dist/kanbanzai-board-${GITHUB_REF_NAME#v}.vsix"
+      - run: go run ./tools/release -scan bins
       - uses: actions/upload-artifact@v4
         with:
           name: binaries

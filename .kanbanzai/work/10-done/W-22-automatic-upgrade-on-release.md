@@ -16,7 +16,7 @@ The owner asked: "new releases on extension marketplaces should automatically mi
 install should be pinned to a version and move with the extension" (2026-11-11); and, after a real failure,
 "We need the binary to always match the extension and plugins it should overwrite on an update" (2026-11-12).
 
-What was found (2026-11-12, moto-tours and this machine):
+What was found (2026-11-12, the host project and this machine):
 
 - The editor extension already runs the command bundled in its `.vsix` first (setting, bundled, per-user copy,
   PATH), so the editor itself matches its release.
@@ -28,7 +28,7 @@ What was found (2026-11-12, moto-tours and this machine):
 - `kanbanzai install` does replace a different per-user copy (the README sentence "It never overwrites a file" is
   wrong), but it runs only once, inside the extension's guided setup Apply. Nothing runs it when the extension
   updates, so the copy goes stale.
-- The first symptom (moto-tours board: "root key config_version is missing") was **not** a version mismatch: the
+- The first symptom (host-project board: "root key config_version is missing") was **not** a version mismatch: the
   v0.7.1 command was right and the project's config needed `config upgrade`. That is slice 2 (below).
 
 This slice fixes the copy and the order, and makes any remaining mismatch loud:
@@ -132,7 +132,7 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
 ## Out of scope
 
 - Slice 2: detecting and migrating a host's config, cards, folders, numbering, claims and worktrees on a release
-  (this is where the moto-tours `config upgrade` prompt belongs); it is W-34.
+  (this is where the host-project `config upgrade` prompt belongs); it is W-34.
 - A self-updating command or any download; a plugin-only host with no extension is warned, not repaired.
 - The release pipeline (W-01), the packaged core (W-02), the config schema and doctor (W-03), one host's hand-run
   migration (W-19), upgrade documentation beyond T6 (W-18).
@@ -151,5 +151,5 @@ adapters say the same thing; a plugin-only host cannot be fixed without a downlo
 
 ## Comments
 
-- 2026-11-12 — claude:61b188cb: the first version of this brief blamed the moto-tours failure on a stale binary; it
+- 2026-11-12 — claude:61b188cb: the first version of this brief blamed the host-project failure on a stale binary; it
   was a v0 config needing `config upgrade` (slice 2). The stale-copy and PATH-order problems are real but separate.

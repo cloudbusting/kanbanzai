@@ -16,7 +16,7 @@ The owner asked: "new releases on extension marketplaces should automatically mi
 (2026-11-11), and on 2026-11-12, after the command-matching half was split off as W-22, to triage the config
 migration separately.
 
-What was found (2026-11-12, moto-tours): after the extension updated to v0.7.1 the board showed "root key
+What was found (2026-11-12, the host project): after the extension updated to v0.7.1 the board showed "root key
 config_version is missing (version 0); run `kanbanzai config upgrade`, then `kanbanzai config upgrade --apply`". The
 command was right; the project's config was a version behind. The owner had to find a `kanbanzai` command, run the
 preview and the apply by hand, and the shell had no usable `kanbanzai` on PATH. `config upgrade` and
@@ -193,7 +193,7 @@ Engineer (mentioned, not asked):
 ## Progress
 
 - 2026-11-12: split from W-22 at the owner's request, which keeps the command matching the release. Evidence from the
-  moto-tours board error added.
+  host-project board error added.
 - 2026-11-14: designed with the owner: both surfaces, one approval per hash-pinned plan, framework plus config
   migration; six tasks with acceptance checks.
 - 2026-11-14: built T1-T6 test-first in worktree W-34 (commits 60c8dc5, 929dffe): `internal/migrate` (registry, preview,
@@ -244,5 +244,5 @@ and verified, and a failure restores the old bytes.
 - 2026-11-12 — claude:61b188cb: related cards: W-06 (rollback journal), W-19 (a hand-run host migration), W-22
   (binary matching, designed).
 - 2026-11-14 — claude:3c2ea2c9: designed. W-06's journal is the model for T2, so read `internal/flow/apply.go` first.
-  The moto-tours failure reproduces locally: in a v0 host `context` works but `board --json` and `doctor` fail, so
+  The host-project failure reproduces locally: in a v0 host `context` works but `board --json` and `doctor` fail, so
   `migrate` must detect from `config.Locate` alone.

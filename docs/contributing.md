@@ -49,10 +49,18 @@ The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the cod
 five archives from a tag, and `tools/vsix` builds the editor package. CI validates the plugin and marketplace with
 `claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
 `CHANGELOG.md` and the version agree; a tag runs the same version check before it builds. The release check also
-rejects apparent personal home paths and OpenCode session IDs in `.kanbanzai/work/` when that directory is present:
-marketplace installs can include repository records. The curated source bundle omits the board, so the check also
-works in an export without it. Explicit `/home/example/`, `/Users/example/` and `C:\Users\example\` paths are
-reserved for fictional examples; the guard is a targeted check, not a general secret scanner.
+rejects apparent personal home paths and session IDs (an OpenCode `ses_…` or a Claude Code `claude:<uuid>`) in
+`.kanbanzai/work/` when that directory is present, and in every other shipped text file (`.go`, `.mjs`, `.js`,
+`.json`, `.md`, `.toml`, `.yml`, `.sh`): marketplace installs include repository records, and the source bundle
+includes the tests. It also rejects a tracked settings file from one machine (`settings.local.json`,
+`scheduled_tasks.lock`, a `*.openchamber.backup`) and an absolute plugin path in `.opencode/opencode.json`. In a git
+checkout it reads the tracked files, so your own ignored files do not fail it; in an export with no `.git` it walks
+the tree. Fixtures use the fictional forms: a user called `example` (`/home/example/`, `/Users/example/`,
+`C:\Users\example\`, and `example2` when a test needs two), the all-zero Claude Code session id
+(`00000000-0000-4000-8000-000000000001`) and `ses_example…` for OpenCode. A test that must show a bad value builds
+it from parts, as `tools/release/privacy_check_test.go` does. `/tmp/kanbanzai-…` scratch paths are fine. The package
+step also runs `go run ./tools/release -scan <folder>` on each unpacked artifact, binaries included. The guard is a
+targeted check, not a general secret scanner.
 
 This repository's package skill (`.claude/skills/kanbanzai-package/`) packages every Checked card that is ready in
 one run: one claim per card, one build from the main commit, and a record on each card naming the cards packaged with

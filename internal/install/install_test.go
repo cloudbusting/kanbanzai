@@ -21,17 +21,17 @@ func TestFolderRule(t *testing.T) {
 		want string
 		fail bool
 	}{
-		{"linux xdg absolute", "linux", map[string]string{"XDG_DATA_HOME": "/x/data", "HOME": "/home/a"}, "/x/data/kanbanzai/bin", false},
-		{"linux xdg unset", "linux", map[string]string{"HOME": "/home/a"}, "/home/a/.local/share/kanbanzai/bin", false},
-		{"linux xdg relative", "linux", map[string]string{"XDG_DATA_HOME": "data", "HOME": "/home/a"}, "/home/a/.local/share/kanbanzai/bin", false},
-		{"linux xdg trailing slash", "linux", map[string]string{"XDG_DATA_HOME": "/x/data/", "HOME": "/home/a"}, "/x/data/kanbanzai/bin", false},
+		{"linux xdg absolute", "linux", map[string]string{"XDG_DATA_HOME": "/x/data", "HOME": "/home/example"}, "/x/data/kanbanzai/bin", false},
+		{"linux xdg unset", "linux", map[string]string{"HOME": "/home/example"}, "/home/example/.local/share/kanbanzai/bin", false},
+		{"linux xdg relative", "linux", map[string]string{"XDG_DATA_HOME": "data", "HOME": "/home/example"}, "/home/example/.local/share/kanbanzai/bin", false},
+		{"linux xdg trailing slash", "linux", map[string]string{"XDG_DATA_HOME": "/x/data/", "HOME": "/home/example"}, "/x/data/kanbanzai/bin", false},
 		{"linux no home", "linux", map[string]string{}, "", true},
-		{"darwin xdg set", "darwin", map[string]string{"XDG_DATA_HOME": "/x/data", "HOME": "/Users/a"}, "/x/data/kanbanzai/bin", false},
-		{"darwin xdg unset", "darwin", map[string]string{"HOME": "/Users/a"}, "/Users/a/.local/share/kanbanzai/bin", false},
+		{"darwin xdg set", "darwin", map[string]string{"XDG_DATA_HOME": "/x/data", "HOME": "/Users/example"}, "/x/data/kanbanzai/bin", false},
+		{"darwin xdg unset", "darwin", map[string]string{"HOME": "/Users/example"}, "/Users/example/.local/share/kanbanzai/bin", false},
 		{"darwin no home", "darwin", map[string]string{"XDG_DATA_HOME": "rel"}, "", true},
-		{"windows localappdata", "windows", map[string]string{"LOCALAPPDATA": `C:\Users\a\AppData\Local`, "USERPROFILE": `C:\Users\b`}, `C:\Users\a\AppData\Local\kanbanzai\bin`, false},
-		{"windows userprofile", "windows", map[string]string{"USERPROFILE": `C:\Users\b`}, `C:\Users\b\AppData\Local\kanbanzai\bin`, false},
-		{"windows ignores xdg", "windows", map[string]string{"XDG_DATA_HOME": `D:\x`, "USERPROFILE": `C:\Users\b`}, `C:\Users\b\AppData\Local\kanbanzai\bin`, false},
+		{"windows localappdata", "windows", map[string]string{"LOCALAPPDATA": `C:\Users\example\AppData\Local`, "USERPROFILE": `C:\Users\example2`}, `C:\Users\example\AppData\Local\kanbanzai\bin`, false},
+		{"windows userprofile", "windows", map[string]string{"USERPROFILE": `C:\Users\example2`}, `C:\Users\example2\AppData\Local\kanbanzai\bin`, false},
+		{"windows ignores xdg", "windows", map[string]string{"XDG_DATA_HOME": `D:\x`, "USERPROFILE": `C:\Users\example2`}, `C:\Users\example2\AppData\Local\kanbanzai\bin`, false},
 		{"windows nothing", "windows", map[string]string{"HOME": "/h"}, "", true},
 	}
 	for _, c := range cases {

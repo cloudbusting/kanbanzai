@@ -208,12 +208,12 @@ test("an error page escapes the message", () => {
 });
 
 test("safeBriefPath refuses anything outside the cards folder or not a brief", () => {
-  const root = "/home/dev/repo";
+  const root = "/home/example/repo";
   for (const bad of [
     "../etc/passwd.md",
     "../../x.md",
     "/etc/passwd",
-    "/home/dev/repo/docs/work/1-open/W-01-x.md",
+    "/home/example/repo/docs/work/1-open/W-01-x.md",
     "docs/workX/W-01-x.md",
     "docs/work/../CLAUDE.md",
     "docs/work/1-open/../../../CLAUDE.md",
@@ -229,9 +229,9 @@ test("safeBriefPath refuses anything outside the cards folder or not a brief", (
   ]) {
     assert.equal(safeBriefPath(root, bad, "docs/work"), null, String(bad));
   }
-  assert.equal(safeBriefPath(root, "docs/work/1-open/W-01-x.md", "docs/work"), "/home/dev/repo/docs/work/1-open/W-01-x.md");
+  assert.equal(safeBriefPath(root, "docs/work/1-open/W-01-x.md", "docs/work"), "/home/example/repo/docs/work/1-open/W-01-x.md");
   assert.equal(safeBriefPath(root, "docs/work/1-open/W-01-x.md"), null, "the default folder is .kanbanzai/work");
-  assert.equal(safeBriefPath(root, ".kanbanzai/work/1-open/W-01-x.md"), "/home/dev/repo/.kanbanzai/work/1-open/W-01-x.md");
+  assert.equal(safeBriefPath(root, ".kanbanzai/work/1-open/W-01-x.md"), "/home/example/repo/.kanbanzai/work/1-open/W-01-x.md");
 });
 
 test("package.json has no dependencies and the expected shape", () => {
@@ -602,7 +602,7 @@ test("typed cards and the additive schema field never change or break the view",
 });
 
 // ---- BUG-64: the strip of sessions asking with no card ----
-const ASKING_BOARD = { ...board, unclaimed: { "claude:c5e836e4": { state: "waiting", since: 1000, started: 500, name: "proj-<b>5" } } };
+const ASKING_BOARD = { ...board, unclaimed: { "claude:00000000": { state: "waiting", since: 1000, started: 500, name: "proj-<b>5" } } };
 
 test("a session asking with no card is listed above the columns, escaped, with its time and no brief to open", () => {
   const out = renderHtml(ASKING_BOARD, { nonce: NONCE, now: 181000 });

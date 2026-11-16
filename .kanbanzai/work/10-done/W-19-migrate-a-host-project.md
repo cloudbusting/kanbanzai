@@ -1,4 +1,4 @@
-# W-19: Migrate moto-tours to typed IDs, the new schema and the configurable flow
+# W-19: Migrate a host project to typed IDs, the new schema and the configurable flow
 
 - **Stage:** done
 - **Updated:** 2026-11-15
@@ -10,7 +10,7 @@
 
 ## Goal
 
-Prove the marketplace design on the real host. Migrate `../moto-tours` from its current `W-` board and hand-maintained config to the new schema: issue types with one global number (preserving every W and T number), the validated config version, the new setup/workflow output, isolation and delivery choices, and the host's own skills still plugged into the steps. The migration must be dry-run first, preserve links, branches, claims and ADR references, and leave the host's board and audit clean.
+Prove the marketplace design on the real host. Migrate a real host project from its current `W-` board and hand-maintained config to the new schema: issue types with one global number (preserving every W and T number), the validated config version, the new setup/workflow output, isolation and delivery choices, and the host's own skills still plugged into the steps. The migration must be dry-run first, preserve links, branches, claims and ADR references, and leave the host's board and audit clean.
 
 ## Acceptance checks
 

@@ -30,15 +30,15 @@ test("bundledPath: <ext>/bin/<os>-<arch>/kanbanzai[.exe], and nothing for a plat
 
 test("wellKnownDir: the per-user folder rule, per OS", () => {
   const table = [
-    ["linux", { XDG_DATA_HOME: "/xdg" }, "/home/u", "/xdg/kanbanzai/bin"],
-    ["linux", { XDG_DATA_HOME: "relative/dir" }, "/home/u", "/home/u/.local/share/kanbanzai/bin"],
-    ["linux", { XDG_DATA_HOME: "" }, "/home/u", "/home/u/.local/share/kanbanzai/bin"],
-    ["linux", {}, "/home/u", "/home/u/.local/share/kanbanzai/bin"],
-    ["darwin", {}, "/Users/u", "/Users/u/.local/share/kanbanzai/bin"],
-    ["darwin", { XDG_DATA_HOME: "/xdg" }, "/Users/u", "/xdg/kanbanzai/bin"],
-    ["win32", { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" }, "C:\\Users\\u", "C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin"],
-    ["win32", { USERPROFILE: "D:\\Profile" }, "C:\\Users\\u", "D:\\Profile\\AppData\\Local\\kanbanzai\\bin"],
-    ["win32", {}, "C:\\Users\\u", "C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin"],
+    ["linux", { XDG_DATA_HOME: "/xdg" }, "/home/example", "/xdg/kanbanzai/bin"],
+    ["linux", { XDG_DATA_HOME: "relative/dir" }, "/home/example", "/home/example/.local/share/kanbanzai/bin"],
+    ["linux", { XDG_DATA_HOME: "" }, "/home/example", "/home/example/.local/share/kanbanzai/bin"],
+    ["linux", {}, "/home/example", "/home/example/.local/share/kanbanzai/bin"],
+    ["darwin", {}, "/Users/example", "/Users/example/.local/share/kanbanzai/bin"],
+    ["darwin", { XDG_DATA_HOME: "/xdg" }, "/Users/example", "/xdg/kanbanzai/bin"],
+    ["win32", { LOCALAPPDATA: "C:\\Users\\example\\AppData\\Local" }, "C:\\Users\\example", "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin"],
+    ["win32", { USERPROFILE: "D:\\Profile" }, "C:\\Users\\example", "D:\\Profile\\AppData\\Local\\kanbanzai\\bin"],
+    ["win32", {}, "C:\\Users\\example", "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin"],
     ["linux", {}, "", null],
   ];
   for (const [platform, env, home, want] of table) {
@@ -47,13 +47,13 @@ test("wellKnownDir: the per-user folder rule, per OS", () => {
 });
 
 test("wellKnownFile: the folder and the command's name", () => {
-  assert.equal(init.wellKnownFile({}, "linux", "/home/u"), "/home/u/.local/share/kanbanzai/bin/kanbanzai");
+  assert.equal(init.wellKnownFile({}, "linux", "/home/example"), "/home/example/.local/share/kanbanzai/bin/kanbanzai");
   assert.equal(init.wellKnownFile({ LOCALAPPDATA: "C:\\L" }, "win32", "C:\\u"), "C:\\L\\kanbanzai\\bin\\kanbanzai.exe");
 });
 
-const base = { extensionPath: "/ext", platform: "linux", arch: "x64", env: {}, home: "/home/u" };
+const base = { extensionPath: "/ext", platform: "linux", arch: "x64", env: {}, home: "/home/example" };
 const BUNDLED = "/ext/bin/linux-amd64/kanbanzai";
-const KNOWN = "/home/u/.local/share/kanbanzai/bin/kanbanzai";
+const KNOWN = "/home/example/.local/share/kanbanzai/bin/kanbanzai";
 const having = (...files) => (f) => files.includes(f);
 
 test("resolveCommand: the setting wins, then bundled, then the well-known folder, then PATH", () => {
@@ -110,7 +110,7 @@ test("validBranch and validAgents: only what is safe as one argument", () => {
 
 // ---- the plan text ----
 
-const FOLDER = "/home/u/.local/share/kanbanzai/bin";
+const FOLDER = "/home/example/.local/share/kanbanzai/bin";
 
 test("planText discloses local Claude registration and cache writes", () => {
   const selected = { ...report, plan: { ...report.plan, bundled_plugins: ["claude", "opencode"] } };
@@ -192,10 +192,10 @@ test("planText names the link and the PATH warning on Linux and macOS, and the P
     assert.ok(text.includes("not on your PATH"), "the warning is said ahead of time");
     assert.doesNotMatch(text, /user PATH/);
   }
-  const win = init.planText(report, "C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin", "win32");
+  const win = init.planText(report, "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin", "win32");
   assert.doesNotMatch(win, /~\/\.local\/bin/);
   assert.ok(win.includes("no link is made on Windows"), win);
-  assert.ok(win.includes("add C:\\Users\\u\\AppData\\Local\\kanbanzai\\bin to your user PATH"), win);
+  assert.ok(win.includes("add C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin to your user PATH"), win);
   assert.ok(init.planText(report, FOLDER).includes("Also: copy the command to"), "no platform given: the running one");
 });
 
@@ -284,7 +284,7 @@ const flowDeps = (exec, root, ui, extra = {}) => ({
   root,
   command: "/ext/bin/linux-amd64/kanbanzai",
   commandSource: "bundled",
-  installedCommand: "/home/u/.local/share/kanbanzai/bin/kanbanzai",
+  installedCommand: "/home/example/.local/share/kanbanzai/bin/kanbanzai",
   folder: FOLDER,
   pluginSource: "",
   execFile: exec.execFile,
@@ -421,8 +421,8 @@ test("Init: an agent that is not claude or opencode never reaches the command li
 
 test("Init: a plugin source from the setting is passed as --plugin-source and one argument", async () => {
   const exec = fakeExec(happy);
-  await init.planSetup(flowDeps(exec, project(), fakeUi(), { pluginSource: "/home/u/code/kanbanzai" }));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/u/code/kanbanzai"]);
+  await init.planSetup(flowDeps(exec, project(), fakeUi(), { pluginSource: "/home/example/code/kanbanzai" }));
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/example/code/kanbanzai"]);
   const exec2 = fakeExec(happy);
   await init.planSetup(flowDeps(exec2, project(), fakeUi(), { pluginSource: "   " }));
   assert.deepEqual(exec2.calls[0].args.slice(-2), ["--plugin-source", "@bundled"], "blank uses the bundled source");
@@ -527,7 +527,7 @@ test("Apply registers the selected bundled Claude plugin locally", async () => {
     ["--version"],
     ["plugin", "marketplace", "list", "--json"],
     ["plugin", "list", "--json"],
-    ["plugin", "marketplace", "add", "/home/u/.local/share/kanbanzai/plugins/current", "--scope", "local", "--json"],
+    ["plugin", "marketplace", "add", "/home/example/.local/share/kanbanzai/plugins/current", "--scope", "local", "--json"],
     ["plugin", "install", "kanbanzai@kanbanzai", "--scope", "local", "--yes", "--json"],
   ]);
 });
@@ -640,7 +640,7 @@ test("Apply: validate the plan, install, then apply the same plan", async () => 
   assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
   assert.deepEqual(exec.calls[0].args, ["init", "--plan", pending(root), "--dry-run"]);
   assert.deepEqual(exec.calls[1].args, ["install"]);
-  assert.equal(exec.calls[2].cmd, "/home/u/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
+  assert.equal(exec.calls[2].cmd, "/home/example/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
   assert.deepEqual(exec.calls[2].args, ["init", "--plan", pending(root)]);
   for (const c of exec.calls) assert.equal(c.opts.cwd, root);
 });
@@ -887,7 +887,7 @@ const tooOld = (args) => (args.includes("--dry-run") ? { code: 2, stderr: OLD } 
 for (const [source, command, wants] of [
   ["setting", "/opt/old/kanbanzai", [/\/opt\/old\/kanbanzai/, /kanbanzai\.command setting/, /Clear/i, /bundled/i, /unknown flag --dry-run/]],
   ["bundled", "/ext/bin/linux-amd64/kanbanzai", [/bundled with this extension/, /Reinstall the extension/i, /unknown flag --dry-run/]],
-  ["well-known", "/home/u/.local/share/kanbanzai/bin/kanbanzai", [/per-user folder/, /\/home\/u\/\.local\/share\/kanbanzai\/bin\/kanbanzai/, /newer/i]],
+  ["well-known", "/home/example/.local/share/kanbanzai/bin/kanbanzai", [/per-user folder/, /\/home\/example\/\.local\/share\/kanbanzai\/bin\/kanbanzai/, /newer/i]],
   ["path", "kanbanzai", [/PATH/, /newer/i, /unknown flag --dry-run/]],
 ]) {
   test(`Init with a command that is too old (${source}): the message names it, where it came from and what to do`, async () => {
@@ -928,6 +928,6 @@ test("Apply with an installed command that is too old for init --plan names the 
   const ui = fakeUi();
   await init.applyPending(flowDeps(exec, root, ui));
   assert.match(ui.errors[0], /per-user folder/);
-  assert.match(ui.errors[0], /\/home\/u\/\.local\/share\/kanbanzai\/bin\/kanbanzai/);
+  assert.match(ui.errors[0], /\/home\/example\/\.local\/share\/kanbanzai\/bin\/kanbanzai/);
   assert.equal(init.hasPending(fs, root), true);
 });

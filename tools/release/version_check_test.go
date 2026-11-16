@@ -75,10 +75,10 @@ func TestTheVersionCheckRejectsAMissingManifest(t *testing.T) {
 
 func TestTheReleaseCheckRejectsMachineSpecificBoardRecords(t *testing.T) {
 	for _, record := range []string{
-		"worktree /home/alice/project/W-01",
-		"worktree /Users/alice/project/W-01",
-		`worktree C:\Users\alice\project\W-01`,
-		"owner opencode:ses_1234567890abcdef",
+		"worktree " + homeRoot + "alice/project/W-01",
+		"worktree " + usersRoot + "alice/project/W-01",
+		"worktree " + winRoot + `alice\project\W-01`,
+		"owner opencode:ses_" + "1234567890abcdef",
 	} {
 		t.Run(record, func(t *testing.T) {
 			root := writeVersionFixture(t, "0.6.0", "0.6.0", "0.6.0", "0.6.0", "0.6.0")
@@ -103,7 +103,7 @@ func TestTheReleaseCheckAllowsFictionalAndRelativeRecords(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	text := "worktree W-01\nhttps://example.org/home/alice/project\n/home/example/repo\n/Users/example/repo\nC:\\Users\\example\\repo\nses_example\n"
+	text := "worktree W-01\nhttps://example.org" + homeRoot + "alice/project\n/home/example/repo\n/Users/example/repo\nC:\\Users\\example\\repo\nses_example\n"
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		t.Fatal(err)
 	}
