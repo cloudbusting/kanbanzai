@@ -1,6 +1,6 @@
 # TASK-74: Trusted publishing on Open VSX, and retire the marketplace PATs for kanbanzai and teamclaude-status
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none
@@ -42,7 +42,7 @@ Design (2026-11-16): kanbanzai's half only. Task 3 waits for the owner to regist
   - `release_test.go` `TestReleaseWorkflow...` (the Open VSX block): it requires `publish "$VSIX" --trusted-publishing`, `--skip-duplicate`, exactly `id-token: write` and `contents: read` with no `contents: write`, the repository guard, and refuses `OVSX_PAT`, `secrets.` and `-p ` in the job. It fails on the current workflow first. The skill test drops the `OVSX_PAT` wording and requires the trusted-publishing wording instead.
   - Release skill: Open VSX is trusted publishing; the owner registers the trusted publisher (repository `cloudbusting/kanbanzai`, workflow `release.yml`) at open-vsx.org/user-settings/trusted-publishers and the Marketplace policy on the `cloudbusting` publisher page; before the tag the owner confirms both still exist; if the job fails, fix the registration and re-run only that job; never set an `OVSX_PAT` (a token in the environment takes precedence and disables trusted publishing).
   - `docs/contributing.md` and `CHANGELOG.md` (under Unreleased) say the same without naming `OVSX_PAT`.
-- [ ] 3. **Teamclaude-status workflow** (a different repository; waits for task 1's second half). `.github/workflows/publish.yml` in `/home/dev/workspace/code/teamclaude-status`: `permissions: contents: write, id-token: write`; `vsce publish --packagePath extension.vsix --oidc`; `ovsx publish extension.vsix --trusted-publishing`; no `VSCE_PAT` or `OVSX_PAT`; and its `getting-published.md` no longer tells CI to use them. Made there on a branch with the owner's word, after the registration.
+- [ ] 3. **Teamclaude-status workflow** (a different repository; waits for task 1's second half). `.github/workflows/publish.yml` in the local teamclaude-status checkout: `permissions: contents: write, id-token: write`; `vsce publish --packagePath extension.vsix --oidc`; `ovsx publish extension.vsix --trusted-publishing`; no `VSCE_PAT` or `OVSX_PAT`; and its `getting-published.md` no longer tells CI to use them. Made there on a branch with the owner's word, after the registration.
 - [ ] 4. **Retire the PATs.** After the first PAT-free release in each repository the owner deletes the `OVSX_PAT` (and teamclaude-status's `VSCE_PAT`) secrets and revokes the Open VSX tokens and the Azure DevOps PAT. Revoke last: it removes the fallback.
 
 ## Docs
@@ -54,7 +54,7 @@ Kanbanzai's release skill, `docs/contributing.md`, `CHANGELOG.md`; teamclaude-st
 2026-11-16, the owner:
 
 1. **Timing for kanbanzai.** Settled by events: v0.23.0 was already released with `OVSX_PAT` and the extension is listed on Open VSX at 0.23.0, so this ships in the next release. That also means the first-publish-needs-a-token worry does not apply. The owner has registered the trusted publisher for kanbanzai (workflow `release.yml`).
-2. **Teamclaude-status.** "Kanbanzai only for now": this card's build is kanbanzai's half; teamclaude-status is untouched until the owner has registered its publishers. Its checkout is `/home/dev/workspace/code/teamclaude-status` (listed on Open VSX already). Task 3 stays open on this card.
+2. **Teamclaude-status.** "Kanbanzai only for now": this card's build is kanbanzai's half; teamclaude-status is untouched until the owner has registered its publishers. Its checkout is the local teamclaude-status checkout (listed on Open VSX already). Task 3 stays open on this card.
 3. **Revocation.** The owner revokes the tokens after the first PAT-free release in each repository; no date is asked for (the Azure DevOps PAT stops on 2026-12-01 anyway).
 4. **Claude's call: the fork guard.** The `open-vsx` job gets `if: github.repository == 'cloudbusting/kanbanzai'`, as `vs-marketplace` has, because a trusted publisher is bound to one repository and a PAT-less fork would otherwise fail on every tag.
 5. **Version of the release that proves it** is the owner's at the ship gate (a patch, 0.23.1, is the likely one: nothing else is waiting).
