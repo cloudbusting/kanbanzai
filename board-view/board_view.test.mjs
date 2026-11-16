@@ -298,6 +298,17 @@ test("consecutive columns sharing a lane are one lane block under the lane name"
   assert.equal((laneOut.match(/class="lane-name"/g) || []).length, 2);
 });
 
+test("the lane name is prominent: heavier than a column header, on a theme-coloured background", () => {
+  const css = laneOut.match(/<style[^>]*>(.*?)<\/style>/s)[1];
+  const rule = (sel) => css.match(new RegExp(sel.replace(/\./g, "\\.") + "\\s*\\{([^}]*)\\}", "s"))[1];
+  const laneName = rule(".lane-name");
+  const weight = (r) => Number(r.match(/font-weight:\s*(\d+)/)[1]);
+  assert.ok(weight(laneName) > weight(rule(".col header")), "a heavier weight than the column headers' 600");
+  assert.match(laneName, /background:\s*var\(--vscode-badge-background\)/);
+  assert.match(laneName, /color:\s*var\(--vscode-badge-foreground\)/, "a foreground paired with that background");
+  assert.doesNotMatch(laneName, /descriptionForeground/, "no longer the muted description colour");
+});
+
 test("columns with no lane (Todo, Paused, Done) are single columns outside any lane", () => {
   const all = [...laneOut.matchAll(/<section class="col col-([a-z-]+)/g)].map((m) => m[1]);
   assert.deepEqual(all, ["todo", "designing", "designed", "building", "built", "paused", "done"]);
