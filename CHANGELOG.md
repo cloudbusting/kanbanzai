@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-11-17
+
 - BUG-78: a `[project] work` folder outside the main checkout (the config allows an absolute path) no longer breaks `move`,
   `ask`/`answer`, `step --for`, and `gate pass`: each prefixed the checkout onto the card's recorded absolute
   path and failed with "no such file or directory". One helper, `Project.Abs`, now turns a recorded path back into a file path.
