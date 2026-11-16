@@ -5,10 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.23.2] — 2026-11-16
+
 - BUG-76: a board toast or a card change no longer takes the keyboard focus from the editor or terminal you are typing
   in. The Board tab rebuilt its page on every change and focused the last card you had clicked, whether or not you were
   in the tab; it now does so only while the tab is the active one. Scroll and collapsed columns are kept as before.
-
 - TASK-75: the editor extension's marketplace listing is rewritten for someone installing it: what it is and who it
   is for, the install from the Extensions view, setup, the board's marks, its commands and settings, exactly what it
   executes, reads and writes, and its requirements, with absolute links (the `.vsix` carries the page unchanged). The
