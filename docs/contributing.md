@@ -47,9 +47,11 @@ KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/vsix -run TestHostsLoadTheBundledPlugin
 
 The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the
 five archives from a tag, and `tools/vsix` builds the editor package. After the GitHub release is attached, the same
-tag push publishes that package, scanned, to Open VSX (repository secret `OVSX_PAT`) and to the Visual Studio
-Marketplace (trusted publishing: no stored secret, a policy on the `cloudbusting` publisher); a marketplace version
-cannot be replaced, so a failed job is re-run alone and a wrong version is fixed with the next patch. CI validates the plugin and marketplace with
+tag push publishes that package, scanned, to Open VSX (a trusted publisher the namespace owner registers at
+open-vsx.org/user-settings/trusted-publishers for this repository and `release.yml`) and to the Visual Studio
+Marketplace (a trusted-publishing policy on the `cloudbusting` publisher page): both use GitHub's OIDC token, so
+neither has a stored secret. A marketplace version cannot be replaced, so a failed job is re-run alone once its
+registration is fixed and a wrong version is fixed with the next patch. CI validates the plugin and marketplace with
 `claude plugin validate --strict`, installs a packaged copy into a throwaway project, and checks that the manifests,
 `CHANGELOG.md` and the version agree; a tag runs the same version check before it builds. The release check also
 rejects apparent personal home paths and session IDs (an OpenCode `ses_…` or a Claude Code `claude:<uuid>`) in

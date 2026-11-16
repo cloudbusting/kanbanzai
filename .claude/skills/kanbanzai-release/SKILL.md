@@ -247,15 +247,19 @@ the `kanbanzai.command` setting still overrides the bundled command. Say in the 
 is attached and publish **the `.vsix` the workflow built and scanned**, never one built again. Do not run `vsce` or
 `ovsx` by hand for a version the workflow publishes, and never publish a build without `-bin`.
 
-- **Open VSX** (what VSCodium reads): `npx ovsx publish` with the repository secret `OVSX_PAT`. If the secret is not
-  set the job prints a notice and publishes nothing: that is a missing setup, not a pass; say so in the report.
+- **Open VSX** (what VSCodium reads): `ovsx publish --trusted-publishing`, Open VSX trusted publishing. GitHub gives
+  the job a short-lived OIDC token and ovsx exchanges it for a publishing token; the trusted publisher the namespace
+  owner registered at open-vsx.org/user-settings/trusted-publishers (repository `cloudbusting/kanbanzai`, workflow
+  `release.yml`) accepts it. There is no stored secret, and none may be added: a token in the job's environment takes
+  precedence and silently turns trusted publishing off. If the registration is missing or names the wrong repository or
+  workflow the job fails, and the publish waits for the registration and a re-run of that one job.
 - **Visual Studio Marketplace**: `vsce publish --oidc`, Marketplace trusted publishing. GitHub gives the job a
   short-lived OIDC token and the `cloudbusting` publisher's trusted-publishing policy (repository
   `cloudbusting/kanbanzai`, workflow `release.yml`) accepts it; there is no stored secret. Azure DevOps personal access
   tokens stop working on 2026-12-01, so do not use one. If the owner's policy is missing the job fails, and the
   publish waits for the policy and a re-run of that one job.
-- Before pushing the tags, ask the owner whether the secret and the policy still exist (the first release that
-  publishes them is the proof; a change of account is not visible from here). Never put a token in the repository or a
+- Before pushing the tags, ask the owner whether the Open VSX trusted publisher and the Marketplace policy still exist
+  (the first release that publishes them is the proof; a change of account is not visible from here). Never put a token in the repository or a
   command that is logged, and never read a secret's value.
 - The release is not a marketplace release until both jobs are green. Watch them with `gh run watch --exit-status`.
   Say in the report which marketplace published which version, and which job was skipped or failed. Do not describe
