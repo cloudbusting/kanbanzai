@@ -1,10 +1,10 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** package it (/kanbanzai-package); the owner's editor focus check (last acceptance check) at QA
+- **Next action:** release: after the owner approves; first the editor focus check (click a card, then type in the terminal and the chat prompt while a card moves); package artifacts at /tmp/kanbanzai-package-TASK-81-0.25.0 from main ef454fa
 - **Where:** worktree TASK-81
 
 ## Goal
@@ -67,6 +67,7 @@ package and release — `board-view/render.js` is a shipped artifact.
 - 2026-11-17: Designed. The cause is BUG-76's gate: `WebviewPanel.active` stays true while the terminal or a side-bar prompt has the focus, so the page's load-time `focus()` still fires. The fix restores focus on the page's own `window` focus event instead.
 - 2026-11-17: built in worktree TASK-81 (4bb5575): the page restores the saved card focus on its window focus event, once, never over an existing focus; tests first (two red), board-view 393 of 393, opencode 13 of 13; the editor check stays manual
 - 2026-11-17: checked: go test, go vet, board-view 393 and opencode 13 pass, hooks and JS syntax, plugin validate, vsix dry run (the new listener is in render.js, no machine path); diff reviewed: only render.js, its test, docs/editor.md and CHANGELOG; the editor check stays manual
+- 2026-11-17: Package QA passed at ef454fa alone (TASK-80 is already QA-approved and is in the same build): artifacts /tmp/kanbanzai-package-TASK-81-0.25.0; source bundle sha256 c2102304c6cb439a591ca622e1cdd9b525d1899ec6d532617e0c1fcb23adeb69, vsix sha256 16c86b162fd7123356e181f619448069e6249326861d6481a22f0b6617854a76; fresh-project init, board, plugin validate and install proved; scan clean on seven artifacts; version metadata still 0.25.0
 
 ## Out of scope
 
