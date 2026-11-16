@@ -186,13 +186,21 @@ func MakeSteps(p *config.Project, card string) []string {
 }
 
 // RemoveSteps are the commands that take a finished card's workspace away, once its work is merged.
+//
+// When the host merges the work (`[flow] integration = "remote"`), the branch is not merged into the main branch here
+// and a squash merge leaves its commits out of it altogether, so `git branch -d` would refuse. The step is `-D`
+// then, and is safe only because /cleanup runs it for a workspace `wip --audit` listed as landed.
 func RemoveSteps(p *config.Project, card string) []string {
 	branch := p.Branch(card, false)
+	force := "-d"
+	if p.Integration == "remote" {
+		force = "-D"
+	}
 	switch Of(p) {
 	case Worktree:
-		return []string{fmt.Sprintf("git worktree remove %s", p.WorktreeHint(card)), fmt.Sprintf("git branch -d %s", branch)}
+		return []string{fmt.Sprintf("git worktree remove %s", p.WorktreeHint(card)), fmt.Sprintf("git branch %s %s", force, branch)}
 	case Branch:
-		return []string{fmt.Sprintf("git switch %s", p.MainBranch), fmt.Sprintf("git branch -d %s", branch)}
+		return []string{fmt.Sprintf("git switch %s", p.MainBranch), fmt.Sprintf("git branch %s %s", force, branch)}
 	}
 	return nil
 }

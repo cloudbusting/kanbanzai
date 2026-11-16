@@ -1019,3 +1019,24 @@ func TestSkillsThatTakeACardAcceptItsNumber(t *testing.T) {
 		t.Error("skills/next takes a count, so a bare number there is not a card")
 	}
 }
+
+// TASK-73: when the host merges the pull requests (`[flow] integration = "remote"`), a squash merge never makes the
+// branch an ancestor of main, so the printed remove step is `git branch -D`. The skill follows the printed steps and
+// says why `-D` is allowed there and nowhere else. Both harnesses load the same skills folder.
+func TestCleanupFollowsTheRemoteIntegrationRemoveSteps(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "cleanup", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(strings.Fields(string(data)), " ")
+	for _, want := range []string{`integration = "remote"`, "`git branch -D`", "only when `kanbanzai workspace <ID>` prints it",
+		"never for a branch the Cleanup list did not name", "squash", "`git branch -d`, never `-D`"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("skills/cleanup/SKILL.md lacks %q", want)
+		}
+	}
+}

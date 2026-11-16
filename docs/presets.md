@@ -29,11 +29,36 @@ and skills, and how to write a local one.
 | `docs-only` | docs | A docs site or handbook, published by merging | todo, writing, written, checking, done | none | shared checkout | page (with `Audience`), fix; own templates and schemas | Build, test or deploy |
 | `pr-review` | review | A queue of changes to review for someone else | queued, reviewing, reviewed, deciding, done | the author's response before the decision | worktree on `review/<id>` | review (`Change under review`, `Verdict`) | Writing the change itself |
 | `release-train` | train | Scheduled or batched releases | todo, building, approved, shipping, done | the train, before ship | worktree and branch per card | task, bug, change; the project template | Shipping each card alone |
+| `team-pr` | team | A team whose branches are pushed, reviewed and merged to main on the remote through pull requests | todo, design, build, check, in review, done | external `merged` on In review | worktree and branch per card; integration `remote` | task, bug, change, spike, chore (brief has a `Pull request` line); epic | A local merge or release from the board, QA, or reviewing someone else's change |
 | `marketing` | campaign | Campaigns and assets the owner signs off | todo, drafting, drafted, reviewing, approved, publishing, done | owner approval before publishing | shared checkout | campaign, asset (`Audience`, `Channel`, `Publish on`) | Builds or test runs |
 | `homework` | study | Coursework: a few things at once, each with a due date | todo, working, ready, self-check, handed in | none | shared checkout, WIP cap of 3 | assignment, reading (`Due`, `Course`) | Group work, reviews or branches |
 
 Each preset is proved in CI: `internal/cli/presets_test.go` sets it up in an empty repository, checks its golden
 config and fixture board, and drives a card through every column, gate and close with the real commands.
+
+## The team-pr preset
+
+`team-pr` is for a team that never merges its own work locally: each card gets a worktree and a branch, the author
+designs, builds and checks it (`check` is the author's own review), pushes the branch when the owner agrees, opens a
+pull request, and the card waits in **In review** until the host has merged it. Review comments send it back with
+`kanbanzai move ID building` (a back move is never gated).
+
+```bash
+kanbanzai init --preset team-pr
+# ... check finishes into In review; push the branch and open the pull request; write its link on the card's
+#     `Pull request` line; the team reviews and the host merges it ...
+kanbanzai gate pass ID --note "PR #123 merged, 1a2b3c4"
+kanbanzai move ID done --done "2026-11-16 — merged https://host.example/acme/app/pull/123, 1a2b3c4"
+```
+
+Kanbanzai makes no network request, so it cannot see the merge: a person (or the project's own script) records it with
+`gate pass`, and a card whose pull request merged but whose gate was never passed stays in In review. In review is not
+a started column, so a card waiting for reviewers does not use a slot of the work-in-progress limit.
+
+The preset sets `[flow] integration = "remote"`: `kanbanzai tree --merge ID` has nothing to merge, and `wip --audit`
+and `/cleanup` count a branch as landed when its commits are on the main branch, on a remote-tracking branch, or
+already in the main branch's content (a squash merge). See [isolation.md](isolation.md#integration-local-or-remote).
+Release and QA are outside this board; add them with `workflow plan` when the team wants them on it.
 
 ## What init writes
 
@@ -85,8 +110,8 @@ same three parts as a shipped preset, and nothing else:
 | `config.toml` | `[preset]` with `name`, `delivery_style`, `version` (a positive integer), `summary`, `best_for`, `not_for`; the `[project]` keys `default_type`, `worktree`, `branch`, `batch_branch` and `template` only; `[[types]]`; `[schemas.<name>]` |
 | `templates/<file>.md` | the brief template a type names as `template = ".kanbanzai/templates/<file>.md"`; every file must be named by a type |
 
-Owner approval, a review lane, a train, a deploy-free flow and the isolation mode all live in `flow.toml` (a `gate` on
-a column, a skip rule on a step, `[flow] isolation`). Write the flow as a project first, run `kanbanzai workflow export`,
+Owner approval, a review lane, a train, a deploy-free flow, the isolation mode and where cards are merged all live in
+`flow.toml` (a `gate` on a column, a skip rule on a step, `[flow] isolation`, `[flow] integration`). Write the flow as a project first, run `kanbanzai workflow export`,
 and keep that text. Loading checks the flow (`workflow validate`'s rules), the config fragment, that every template
 exists and fits its schema, and that the flow file is canonical; the message names what is wrong. `internal/preset/testdata/localpreset`
 is a small example.

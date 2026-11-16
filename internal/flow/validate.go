@@ -78,6 +78,7 @@ func Validate(p *config.Project, doc *Doc, oldConfigText string) *Report {
 	checkSkips(r, steps)
 	checkPull(r, columns, pull)
 	checkGraph(r, columns, steps)
+	checkIntegration(r, doc.Raw)
 	checkSkills(r, p.Root, steps)
 	if r.Errors() == 0 {
 		if _, err := Resolve(p, doc, oldConfigText); err != nil {
@@ -512,6 +513,19 @@ func checkGates(r *Report, columns []col) {
 		if _, err := config.ParseGate(c.raw, c.key, c.kind, c.doing, keys); err != nil {
 			r.add(Error, "column.gate", "%v", err)
 		}
+	}
+}
+
+// checkIntegration warns when the flow says a remote host merges the cards but its isolation mode has no merge here to
+// skip: `shared` and `external` never merge a card branch locally, so the setting changes nothing.
+func checkIntegration(r *Report, raw map[string]any) {
+	flow, _ := raw["flow"].(map[string]any)
+	if str(flow, "integration") != "remote" {
+		return
+	}
+	if mode := str(flow, "isolation"); mode == "shared" || mode == "external" {
+		r.add(Warning, "flow.integration-moot", "flow.integration is \"remote\", but isolation \"%s\" never merges a card's branch "+
+			"here, so the setting changes nothing", mode)
 	}
 }
 

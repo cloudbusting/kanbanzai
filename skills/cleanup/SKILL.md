@@ -17,7 +17,8 @@ kanbanzai claim status
 ```
 
 The **Cleanup** list is the worktrees (or, under `isolation = "branch"`, card branches) of **finished cards** (in a
-Done column, not early-closed) that are clean and have no commits the main branch doesn't already have. An open
+Done column, not early-closed) that are clean and have no commits the main branch doesn't already have (under `integration = "remote"`, no commit that
+exists nowhere else: see step 2). An open
 card's workspace is never listed. The **Keep** list is work that still lives only there. The whole-board audit reports
 a finished card's clean, merged worktree as a warning, not a hard finding, so it never stops a batch; this skill is
 what clears it. Under `shared` and
@@ -43,7 +44,14 @@ Run the `remove` steps it prints, in order, on the exact path the Cleanup list n
 branch the worktree was actually on, if it is not the card's own branch (a release worktree sits on `release/<ID>`; the
 printed steps name only `<ID>`), and the card's branch if it still exists and is merged: `git branch -d`, never `-D`.
 `git branch -d` and the worktree removal refuse an unmerged branch or a dirty tree; that refusal is the rule working,
-so stop and report it. A detached worktree has no branch to delete. Never remove the main checkout, a path outside
+so stop and report it.
+
+Under `[flow] integration = "remote"` (a project whose pull requests the host merges, such as the `team-pr` preset) the
+printed steps use `git branch -D`: a squash merge never makes the card's branch an ancestor of the main branch, so
+`-d` would refuse a branch whose work has landed. Follow the steps as printed, and use `-D` only when `kanbanzai
+workspace <ID>` prints it, never for a branch the Cleanup list did not name. The Cleanup list is the proof: under
+`remote` it names a workspace only when the card is finished, the tree is clean, and every commit is on the main
+branch, on a remote-tracking branch, or already in the main branch's content. The worktree removal still refuses a dirty tree. A detached worktree has no branch to delete. Never remove the main checkout, a path outside
 the configured worktrees folder, or a workspace that fails any proof; keep it and ask the owner through the question
 tool only if removal is still wanted.
 

@@ -27,6 +27,11 @@ func Preflight(p *config.Project, card string) (Report, error) {
 		merge.Plan = "not-applicable"
 		return r, nil
 	}
+	if p.Integration == "remote" {
+		// The host merges the card (a reviewed pull request); there is nothing to merge in this checkout.
+		merge.Plan = "not-applicable"
+		return r, nil
+	}
 	merge.Branch = p.Branch(canon, false)
 	if strings.HasPrefix(merge.Branch, "-") || strings.ContainsAny(merge.Branch, " \t\n") {
 		return Report{}, fmt.Errorf("the branch pattern gives %q for %s, which is not a usable branch name", merge.Branch, canon)

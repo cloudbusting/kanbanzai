@@ -58,6 +58,25 @@ one-line reference such as a runner id or URL, and the audit trusts that record:
 The main checkout is still the board's home, so it must be on the main branch and hold nothing but board changes (see
 [the main checkout while others work](#the-main-checkout-while-others-work)).
 
+## Integration: local or remote
+
+`[flow] integration` is the other half of isolation: where a finished card's branch is merged into the main branch.
+
+| | `local` (the default) | `remote` |
+|---|---|---|
+| The merge | you run it here: `kanbanzai tree --merge ID` prints it | the host does it, through a reviewed pull request |
+| `tree --merge ID` | `fast-forward`, `merge` or `up-to-date`, with the command | `not-applicable`: there is nothing to merge here |
+| A branch counts as done with when | its commits are on the main branch | every commit is on the main branch, on a remote-tracking branch, or already in the main branch's content |
+| `workspace ID` removes the branch with | `git branch -d` (refuses an unmerged branch) | `git branch -D`, because a squash merge never makes the branch an ancestor of main |
+
+Under `remote`, `wip --audit` counts only the commits that exist nowhere else against a worktree, so a card waiting in
+review with its branch pushed holds no "unclaimed work", and a Done card whose pull request was squash-merged is a
+clean workspace that `/cleanup` lists and removes. The last check, whether merging the branch into main would change
+nothing, uses `git merge-tree --write-tree` (git 2.38 or later); without it, or when later work on main conflicts with
+the branch, a squash-merged branch stays on the Keep list for the owner. A dirty worktree, and commits that were never
+pushed and are not in main, are never listed. The setting has no effect under `shared` or `external` isolation (they
+never merge a branch here) and `workflow validate` warns about that. The `team-pr` preset sets it ([presets.md](presets.md)).
+
 ## The main checkout while others work
 
 In every mode the main checkout is where the board lives, so sessions keep editing card briefs in it while one of them

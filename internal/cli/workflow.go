@@ -414,6 +414,10 @@ func showText(m *flow.Model) string {
 		fmt.Fprintf(&b, "Isolation\n  %s: a worktree %s on branch %s (batches %s) from %s, required in: %s\n", m.Isolation.Mode,
 			m.Isolation.WorktreePattern, m.Isolation.BranchPattern, m.Isolation.BatchBranch, m.Isolation.MainBranch, columns)
 	}
+	if m.Isolation.Integration == "remote" {
+		fmt.Fprintf(&b, "Integration\n  remote: a card's branch is merged on the host (a pull request), not here; "+
+			"`tree --merge` has nothing to merge and a Done card's workspace goes once its branch has landed\n")
+	}
 	fmt.Fprintf(&b, "Pull order\n  %s\n", strings.Join(m.PullOrder, " > "))
 	if m.Preset.Name != "" {
 		line := fmt.Sprintf("Preset\n  %s", m.Preset.Name)

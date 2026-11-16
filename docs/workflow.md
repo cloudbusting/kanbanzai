@@ -114,7 +114,7 @@ key or label, or rename it. `step --for ID` reports this option separately from 
 
 A flow file carries the delivery rules too: `gate`, `gate_name`, `gate_after` and `gate_until` on a column, and
 `skip_field` and `skip_values` on a step. `workflow show` lists each gate and the steps a card can skip, `validate`
-reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`. `export` and `plan --file` carry `[flow] isolation` too: an
+reports a bad gate or a half skip rule in one message, and `export` writes the shipped owner gate as `gate = "owner"`. `export` and `plan --file` carry `[flow] isolation` (and `[flow] integration`, when it is `remote`) too: an
 earlier release dropped it, so applying an exported flow reset a `shared` or `branch` project to worktrees.
 [docs/delivery.md](delivery.md) says what each does.
 

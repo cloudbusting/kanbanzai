@@ -175,6 +175,11 @@ func branchFindings(project *config.Project, checkout *Worktree, liveWork []stri
 		if count, err := gitutil.Git(project.Root, "rev-list", "--count", project.MainBranch+".."+name); err == nil {
 			ahead, _ = strconv.Atoi(count)
 		}
+		if project.Integration == "remote" {
+			if unlanded, err := gitutil.Unlanded(project.Root, project.MainBranch, name); err == nil {
+				ahead = unlanded
+			}
+		}
 		dirty := 0
 		if checkout != nil && name == head {
 			dirty = checkout.Dirty

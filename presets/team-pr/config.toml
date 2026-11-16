@@ -1,0 +1,54 @@
+# The team-pr preset (team).
+
+[preset]
+name = "team-pr"
+delivery_style = "team"
+version = 1
+summary = "Design, build and check each card in its own git worktree, open a pull request, wait for review and a merge on the host, then close."
+best_for = "A team or company whose branches are pushed, reviewed and merged to main on the remote, never merged by the author in a local checkout."
+not_for = "A solo developer who merges locally (use software or simple), reviewing someone else's change (use pr-review), or a project that releases from the board (use software)."
+
+[project]
+default_type = "task"
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+template = ".kanbanzai/templates/pull-request.md"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = ".kanbanzai/templates/pull-request.md"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "A change to something that exists"
+
+[[types]]
+key = "spike"
+label = "Spike"
+prefix = "SPIKE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "An investigation with a time box"
+
+[[types]]
+key = "chore"
+label = "Chore"
+prefix = "CHORE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "Maintenance with no behaviour change"
+
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+description = "A requirement and its linked work items"
+schema = "epic"

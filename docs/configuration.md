@@ -29,6 +29,13 @@ workspace record) or `external` (a workspace the host owns, recorded as `Where: 
 applies the mode's rules. [isolation.md](isolation.md) has the trade-offs: `branch` and `shared` give up the
 safety that lets sessions work in parallel.
 
+**Integration.** `[flow] integration` says where a finished card's branch is merged into the main branch: `local` (the
+default: here, by `kanbanzai tree --merge ID`) or `remote` (on the host, through a reviewed pull request, as the
+`team-pr` preset does). A config with no `integration` key behaves as `local`. With `remote`, `tree --merge` has nothing
+to merge, and `wip --audit` and `/cleanup` treat a Done card's clean workspace as removable once its branch has
+landed: reachable from the main branch or a remote-tracking branch, or its remote branch is gone. It has no effect with
+`shared` or `external` isolation, and `workflow validate` says so. [isolation.md](isolation.md) has the detail.
+
 `.kanbanzai/config.toml` overrides [defaults/config.toml](../defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
 The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate
@@ -117,7 +124,7 @@ that overrides the detected session label (`KANBANZAI_OWNER` is always read).
 **`[flow]`**: `wip_limit` caps started cards; `stale_days` is how long an unclaimed started card can go without news;
 `move_grace_minutes` is how long a live claim may sit on an unstarted card before it is flagged `claimed, not started`;
 `pull_order` lists the columns furthest-along first; `isolation` is `worktree`, `branch`, `shared` or `external`
-([isolation.md](isolation.md)).
+([isolation.md](isolation.md)); `integration` is `local` or `remote`.
 
 **`[[columns]]`**
 

@@ -106,7 +106,7 @@ explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
 | Choose or write issue types and numbering | [docs/types.md](docs/types.md) |
 | Decide how a change is kept apart: worktree, branch, shared, external | [docs/isolation.md](docs/isolation.md) |
 | Add gates, skip rules and a delivery process | [docs/delivery.md](docs/delivery.md) |
-| Start from a preset (software, docs, review, release train, …) | [docs/presets.md](docs/presets.md) |
+| Start from a preset (software, docs, review, release train, team pull requests, …) | [docs/presets.md](docs/presets.md) |
 | Run several projects in one workspace | [docs/multi-project.md](docs/multi-project.md) |
 | Look at the board in a terminal, browser or editor | [docs/boards.md](docs/boards.md) |
 | Look up a command | [docs/commands.md](docs/commands.md) |

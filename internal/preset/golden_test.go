@@ -17,8 +17,8 @@ func TestEveryShippedPresetHasAFixtureRepositoryAndAGoldenConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 7 {
-		t.Fatalf("the first set of presets is seven, found %v", names)
+	if len(names) != 8 {
+		t.Fatalf("the shipped presets are eight, found %v", names)
 	}
 	for _, name := range names {
 		dir := filepath.Join("testdata", name)

@@ -1,0 +1,213 @@
+# Kanbanzai config for this project, written by `kanbanzai init --preset team-pr` (Design, build and check each card in its own git worktree, open a pull request, wait for review and a merge on the host, then close.).
+# Every column, step, gate and path the preset chose is written out below: edit what you need, and
+# `kanbanzai workflow show` says whether the flow still matches the shipped preset.
+
+config_version = 1
+
+[project]
+owner = "Sam"      # the person the skills address and whose decisions they ask for
+prefix = ""      # no legacy card id prefix; typed ids are the default
+default_type = "task"
+
+[preset]
+name = "team-pr"
+delivery_style = "team"
+version = 1
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+template = ".kanbanzai/templates/pull-request.md"
+description = "A piece of work"
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = ".kanbanzai/templates/pull-request.md"
+description = "Unexpected behaviour"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "A change to something that exists"
+
+[[types]]
+key = "spike"
+label = "Spike"
+prefix = "SPIKE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "An investigation with a time box"
+
+[[types]]
+key = "chore"
+label = "Chore"
+prefix = "CHORE"
+template = ".kanbanzai/templates/pull-request.md"
+description = "Maintenance with no behaviour change"
+
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+schema = "epic"
+description = "A requirement and its linked work items"
+
+# The flow of the team-pr preset.
+[flow]
+wip_limit = 5
+stale_days = 7
+move_grace_minutes = 10.0
+pull_order = ["built", "designed", "todo"]
+isolation = "worktree"
+integration = "remote"
+
+[[columns]]
+key = "todo"
+label = "Todo"
+words = ["todo"]
+folder = "1-open"
+kind = "open"
+started = "claimed"
+next = "design"
+settled_next = "build"
+title = "DESIGNING"
+settled_title = "BUILDING"
+
+[[columns]]
+key = "designing"
+label = "Designing"
+words = ["designing"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "DESIGNING"
+lane = "Design"
+doing = "design"
+
+[[columns]]
+key = "designed"
+label = "Designed"
+words = ["designed"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "build"
+title = "BUILDING"
+worktree = true
+lane = "Design"
+
+[[columns]]
+key = "building"
+label = "Building"
+words = ["building"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "BUILDING"
+worktree = true
+lane = "Build"
+doing = "build"
+
+[[columns]]
+key = "built"
+label = "Built"
+words = ["built"]
+folder = "1-open"
+kind = "open"
+started = true
+next = "check"
+title = "CHECKING"
+worktree = true
+lane = "Build"
+
+[[columns]]
+key = "checking"
+label = "Checking"
+words = ["checking"]
+folder = "1-open"
+kind = "open"
+started = true
+title = "CHECKING"
+worktree = true
+lane = "Check"
+doing = "check"
+
+[[columns]]
+key = "in-review"
+label = "In review"
+words = ["in-review"]
+folder = "1-open"
+kind = "open"
+started = false
+next = "ship"
+title = "IN REVIEW"
+worktree = true
+lane = "Review"
+gate = "external"
+gate_name = "merged"
+
+[[columns]]
+key = "paused"
+label = "Paused"
+words = ["paused"]
+folder = "x-paused"
+kind = "parked"
+started = false
+title = "PAUSED"
+
+[[columns]]
+key = "done"
+label = "Done"
+words = ["done"]
+folder = "10-done"
+kind = "done"
+started = false
+title = "DONE"
+
+[steps.build]
+into = "built"
+during = "building"
+skill = "kanbanzai:build"
+extend = []
+context = []
+checks = []
+
+[steps.check]
+into = "in-review"
+during = "checking"
+skill = "kanbanzai:check"
+extend = []
+context = []
+checks = []
+
+[steps.deploy-qa]
+into = "qa-approved"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]
+
+[steps.design]
+into = "designed"
+during = "designing"
+skill = "kanbanzai:design"
+extend = []
+context = []
+checks = []
+
+[steps.ship]
+into = "done"
+during = ""
+skill = ""
+extend = []
+context = []
+checks = []
+skip_field = "Deploy"
+skip_values = ["None"]

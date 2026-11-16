@@ -273,6 +273,12 @@ func Worktrees(project *config.Project) []Worktree {
 			worktree.Behind = behind
 			worktree.Ahead = ahead
 		}
+		if project.Integration == "remote" {
+			// The host merges the pull request, so "ahead" is the work that exists nowhere but here.
+			if unlanded, err := gitutil.Unlanded(worktree.Path, project.MainBranch, "HEAD"); err == nil {
+				worktree.Ahead = unlanded
+			}
+		}
 	}
 	for index := range out {
 		out[index].Card = CardOf(project, out[index], spaces)

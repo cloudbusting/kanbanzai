@@ -91,6 +91,9 @@ type Isolation struct {
 	BranchPattern   string   `json:"branch_pattern"`
 	BatchBranch     string   `json:"batch_branch_pattern"`
 	MainBranch      string   `json:"main_branch"`
+	// Integration is `[flow] integration`: "local" when a finished card's branch is merged here, "remote" when the
+	// host merges it (a pull request) and this checkout only sees the result.
+	Integration string `json:"integration"`
 }
 
 // Preset is the [preset] record of the config: which delivery preset the project was set up from. Flow says whether
@@ -146,7 +149,8 @@ func Build(p *config.Project) *Model {
 		Claimed: []string{}}
 	m.Isolation = Isolation{Mode: workspace.ModeName(p), Setting: workspace.Of(p),
 		WhereVocabulary: workspace.Vocabulary(p), WorktreeColumns: []string{}, WorktreePattern: p.WorktreePattern,
-		BranchPattern: p.BranchPattern, BatchBranch: p.BatchBranchPattern, MainBranch: p.MainBranch}
+		BranchPattern: p.BranchPattern, BatchBranch: p.BatchBranchPattern, MainBranch: p.MainBranch,
+		Integration: p.Integration}
 	for _, c := range p.Columns {
 		if c.Gate.Set() {
 			kind := c.Gate.Type

@@ -120,6 +120,11 @@ pull_order = ["checked", "built", "designed", "todo"]   # furthest along first; 
 #   shared    the one checkout, whatever branch it is on; no workspace record; parallel sessions share one tree
 #   external  a workspace the host owns; a card records it as `Where: external <ref>`, which the audit trusts
 isolation = "worktree"
+# Where a finished card's branch is merged into the main branch (only meaningful for worktree and branch isolation):
+#   local   here: `kanbanzai tree --merge <ID>` prints the merge, and /cleanup removes a branch once it is merged into main
+#   remote  on the host, through a reviewed pull request: no local merge is offered, and /cleanup removes a Done card's
+#           clean workspace once its branch has landed (on main, on a remote, or its remote branch is gone)
+integration = "local"
 
 # The columns, in the board's order. Keys:
 #   key      the column's id, and the Stage word that puts a card in it (unless `words` says more)

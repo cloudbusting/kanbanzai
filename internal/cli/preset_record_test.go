@@ -92,7 +92,7 @@ func TestWorkflowPresetsListsAndExplainsWithoutABoard(t *testing.T) {
 	if err := json.Unmarshal([]byte(ok(t, "workflow", "presets", "--json")), &listed); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"docs-only", "homework", "marketing", "pr-review", "release-train", "simple", "software"}
+	want := []string{"docs-only", "homework", "marketing", "pr-review", "release-train", "simple", "software", "team-pr"}
 	var got []string
 	for _, item := range listed.Presets {
 		got = append(got, item.Name)

@@ -214,6 +214,9 @@ func sortedKeys(m map[string]any) []string {
 func FromProject(p *config.Project) *Doc {
 	flow := map[string]any{"wip_limit": int64(p.WIPLimit), "stale_days": int64(p.StaleDays),
 		"move_grace_minutes": p.MoveGraceMinutes, "pull_order": strs(p.PullOrder), "isolation": p.Isolation}
+	if p.Integration == "remote" {
+		flow["integration"] = p.Integration // written only when it is set, so a local project's flow file is unchanged
+	}
 	columns := []any{}
 	for _, c := range p.Columns {
 		entry := map[string]any{"key": c.Key, "label": c.Label, "words": strs(c.Words), "folder": c.Folder,
@@ -305,7 +308,7 @@ func jsonValue(v any) any {
 }
 
 var (
-	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order", "isolation"}
+	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order", "isolation", "integration"}
 	columnKeys = []string{"key", "label", "words", "folder", "kind", "started", "next", "settled_next", "title",
 		"settled_title", "worktree", "waits_for_owner", "lane", "doing", "gate", "gate_name", "gate_after", "gate_until"}
 	stepKeys = []string{"into", "during", "skill", "extend", "context", "checks", "skip_field", "skip_values"}

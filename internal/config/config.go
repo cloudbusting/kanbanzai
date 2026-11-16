@@ -130,6 +130,7 @@ type Project struct {
 	MainBranch         string
 	Preset             PresetRecord // the delivery preset the config was written from; empty for a hand-made config
 	Isolation          string       // worktree, branch, shared or external: how a card's change is kept apart
+	Integration        string       // local or remote: whether a finished card's branch is merged here or on the remote
 	WorktreePattern    string
 	BranchPattern      string
 	BatchBranchPattern string
@@ -450,6 +451,7 @@ func (p *Project) build() error {
 		p.OwnerEnv = "KANBANZAI_OWNER"
 	}
 	p.Isolation = asString(flow["isolation"], "worktree")
+	p.Integration = asString(flow["integration"], "local")
 	preset, err := p.section("preset")
 	if err != nil {
 		return err
@@ -1150,7 +1152,8 @@ func (p *Project) AsDict() map[string]any {
 		"project":     project,
 		"claims":      map[string]any{"lease_minutes": p.LeaseMinutes, "owner_env": p.OwnerEnv},
 		"flow": map[string]any{"wip_limit": p.WIPLimit, "stale_days": p.StaleDays,
-			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder, "isolation": p.Isolation},
+			"move_grace_minutes": p.MoveGraceMinutes, "pull_order": p.PullOrder, "isolation": p.Isolation,
+			"integration": p.Integration},
 		"preset": map[string]any{"name": p.Preset.Name, "delivery_style": p.Preset.DeliveryStyle,
 			"version": p.Preset.Version},
 		"columns": columns,
