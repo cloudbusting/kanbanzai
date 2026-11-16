@@ -5,12 +5,15 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.25.1] — 2026-11-17
+
 - BUG-82: `kanbanzai plugins link` now fills in an empty OpenCode pointer file. In a worktree whose
   `.kanbanzai/state/kanbanzai-opencode-path` was empty, `doctor` said to run `plugins link`, which refused ("already
   contains a different plugin path") and left the worktree broken until the file was deleted by hand. An empty or blank
   file names no plugin, so `plugins link` writes the main checkout's pointer over it. A file naming a different path
   is still refused, and for a pointer that is not a readable file (a folder, say) `doctor` now says to delete it first.
-
+- TASK-80: the board's lane names (Design, Build, Check, QA, Ship) stand out above the columns they group: bold on the
+  theme's badge colours, in the editor's Board tab and in the browser board, light and dark.
 - TASK-81: a board update still took the keyboard from the terminal or a side-bar chat prompt you were typing in (BUG-76
   was not enough). The editor keeps the Board tab "active" for as long as it is the current editor, even while the
   terminal or a side-bar view has the keyboard, so the page still focused the last card you had clicked on every
