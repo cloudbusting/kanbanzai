@@ -1,10 +1,10 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** task 1: write the failing page tests in board-view/board_view.test.mjs (fake window focus event), then render.js
+- **Next action:** check it (/check); owner's editor focus check (last acceptance check) at QA
 - **Where:** worktree TASK-81
 
 ## Goal
@@ -37,10 +37,10 @@ Engineer's choice, no contract changed: `board --json`, `config --json`, `sessio
 
 ## Acceptance checks
 
-- [ ] A test written first fails on the current code: load the workspace page with a saved `state.focus` and `keepFocus` true; `document.activeElement` must not become the saved element at load (no `focus()` call), and it becomes the saved element only after the page's `window` receives a `focus` event, once.
-- [ ] A load with `keepFocus` false or missing never focuses the saved element, even after the window `focus` event (BUG-76's guarantee stays).
-- [ ] A page that already has a focused element (a click landed first) is not overridden by the restore; a second `focus` event does not run it again.
-- [ ] Scroll, collapsed columns, selectors and the toast stack behave as before; the BUG-76 render and extension tests are updated to the new timing and pass; `node --test board-view/*.test.mjs opencode/*.test.mjs` passes.
+- [x] A test written first fails on the current code: load the workspace page with a saved `state.focus` and `keepFocus` true; `document.activeElement` must not become the saved element at load (no `focus()` call), and it becomes the saved element only after the page's `window` receives a `focus` event, once.
+- [x] A load with `keepFocus` false or missing never focuses the saved element, even after the window `focus` event (BUG-76's guarantee stays).
+- [x] A page that already has a focused element (a click landed first) is not overridden by the restore; a second `focus` event does not run it again.
+- [x] Scroll, collapsed columns, selectors and the toast stack behave as before; the BUG-76 render and extension tests are updated to the new timing and pass; `node --test board-view/*.test.mjs opencode/*.test.mjs` passes.
 - [ ] Owner's editor check after packaging (manual): open the Board tab, click a card once, leave the Board as the current editor, then click into the terminal and into the chat prompt in the side bar and type; from another terminal run `kanbanzai move` on a card, claim another, and let a toast expire. The cursor stays where you typed throughout. Then click a card in the board, move a card from a terminal, and check the board keeps that card's focus ring.
 
 ## Deploy
@@ -49,9 +49,9 @@ package and release — `board-view/render.js` is a shipped artifact.
 
 ## Tasks
 
-1. [ ] Tests first — `board-view/board_view.test.mjs` (the `workspacePage` harness gains a fake `window` with `addEventListener` and a way to fire `focus`; update the BUG-76 test at line 851 and the restore test at line 915 to the new timing) — the first three acceptance checks fail on the current code.
-2. [ ] `board-view/render.js`: the focus restore moves into a one-time `window` `focus` listener, still gated on `keepFocus` and on nothing already focused — the render and page tests pass. Depends on 1.
-3. [ ] `docs/editor.md` (line 106: "but only while the Board tab is the active one" becomes "only when you are in the Board tab") and the `[Unreleased]` entry in `CHANGELOG.md` — the full Node suite passes and `kanbanzai check` is ok. Task 3 shares no files with 2 and can run beside it.
+1. [x] Tests first — `board-view/board_view.test.mjs` (the `workspacePage` harness gains a fake `window` with `addEventListener` and a way to fire `focus`; update the BUG-76 test at line 851 and the restore test at line 915 to the new timing) — the first three acceptance checks fail on the current code.
+2. [x] `board-view/render.js`: the focus restore moves into a one-time `window` `focus` listener, still gated on `keepFocus` and on nothing already focused — the render and page tests pass. Depends on 1.
+3. [x] `docs/editor.md` (line 106: "but only while the Board tab is the active one" becomes "only when you are in the Board tab") and the `[Unreleased]` entry in `CHANGELOG.md` — the full Node suite passes and `kanbanzai check` is ok. Task 3 shares no files with 2 and can run beside it.
 
 ## Docs
 
@@ -65,6 +65,7 @@ package and release — `board-view/render.js` is a shipped artifact.
 
 - 2026-11-17: Triaged from the owner's report that BUG-76's fix did not hold.
 - 2026-11-17: Designed. The cause is BUG-76's gate: `WebviewPanel.active` stays true while the terminal or a side-bar prompt has the focus, so the page's load-time `focus()` still fires. The fix restores focus on the page's own `window` focus event instead.
+- 2026-11-17: built in worktree TASK-81 (4bb5575): the page restores the saved card focus on its window focus event, once, never over an existing focus; tests first (two red), board-view 393 of 393, opencode 13 of 13; the editor check stays manual
 
 ## Out of scope
 
