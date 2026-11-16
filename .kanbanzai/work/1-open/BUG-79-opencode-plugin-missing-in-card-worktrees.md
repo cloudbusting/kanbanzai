@@ -1,10 +1,10 @@
 # BUG-79: The OpenCode plugin does not load in card worktrees: its reference reads the git-ignored `.kanbanzai/state/`
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none — the brief is the record (design may raise one if it changes the plugin-reference contract)
-- **Next action:** build task 1: internal/pluginlink and the 'plugins link' command, tests first (a scratch repository with a bundled OpenCode install and a linked worktree)
+- **Next action:** check: run the project's checks in order, then review the whole diff (BUG-79 branch, commit 60f3102)
 - **Where:** worktree BUG-79
 
 ## Goal
@@ -37,15 +37,15 @@ Claude Code (checked in design, 2026-11-16: **not affected**): with the bundled 
 
 Route chosen by the owner (2026-11-16): link the pointer file into each worktree, and make `doctor` fail when it is missing. In a project whose main checkout holds `.kanbanzai/state/kanbanzai-opencode-path` (the bundled OpenCode install):
 
-- [ ] `kanbanzai plugins link` run in a linked worktree writes the same content to the worktree's `.kanbanzai/state/kanbanzai-opencode-path`, and prints what it did (`created`, or `kept` when the file is already identical). `git status --porcelain` in the worktree stays empty (the file is ignored). Without the change the command does not exist and the worktree has no file.
-- [ ] `kanbanzai plugins link DIR` does the same for the worktree at `DIR` (for a worktree made by hand, run from anywhere in the project).
-- [ ] The command refuses, changing nothing, when: the worktree already holds a file with a different content (as `init` does for the main checkout); the pointer path would not be ignored by git in that worktree (`git check-ignore`); the target is the main checkout or not a worktree of this repository (`kanbanzai plugins link` in the main checkout says there is nothing to link, exit 0). It is a no-op, exit 0, when the main checkout has no pointer file (a project without the bundled OpenCode install).
-- [ ] `kanbanzai move ID start --where "worktree ID"` (any move that now passes the `workspace.Exists` check into a workspace column) links the card's worktree as a side effect when the main checkout has the pointer file; a failure to link is a warning on stderr, never a refusal of the move. A move for a project without the pointer file writes nothing.
-- [ ] `kanbanzai workspace ID` (text and `--json`) names the link step for a worktree-mode project that has the pointer file (a new `link` field in the JSON, empty otherwise), so a skill or a person making a worktree by hand sees it.
-- [ ] `kanbanzai doctor` run in a linked worktree whose `.opencode/opencode.json` holds the bundled reference `{file:../.kanbanzai/state/kanbanzai-opencode-path}` evaluates it: a missing, unreadable or empty file is an **error** (not the "not evaluated" warning) with Fix `kanbanzai plugins link`; a file whose path no longer holds `opencode/server.js` is an error with Fix `kanbanzai install --refresh` then `kanbanzai init --plugins opencode --plugin-source @bundled`. In the main checkout, and for any other `{file:`, `{env:` or `~` entry, the existing "not evaluated" warning is unchanged.
-- [ ] Reproduction first: a Go test builds a scratch repository with the bundled OpenCode install, a linked worktree, and asserts the doctor error before `plugins link` and a pass after; it fails on the current code.
-- [ ] Claude Code is unchanged: no new file in a worktree and no new `doctor` finding about it. `init --plugins opencode` in the main checkout, and on an existing project, writes exactly what it writes today.
-- [ ] `go test ./...`, `go vet ./...` and the OpenCode plugin's tests pass; `kanbanzai doctor` in this repository's own worktrees (which use `./opencode`, a tracked path) is unchanged.
+- [x] `kanbanzai plugins link` run in a linked worktree writes the same content to the worktree's `.kanbanzai/state/kanbanzai-opencode-path`, and prints what it did (`created`, or `kept` when the file is already identical). `git status --porcelain` in the worktree stays empty (the file is ignored). Without the change the command does not exist and the worktree has no file.
+- [x] `kanbanzai plugins link DIR` does the same for the worktree at `DIR` (for a worktree made by hand, run from anywhere in the project).
+- [x] The command refuses, changing nothing, when: the worktree already holds a file with a different content (as `init` does for the main checkout); the pointer path would not be ignored by git in that worktree (`git check-ignore`); the target is the main checkout or not a worktree of this repository (`kanbanzai plugins link` in the main checkout says there is nothing to link, exit 0). It is a no-op, exit 0, when the main checkout has no pointer file (a project without the bundled OpenCode install).
+- [x] `kanbanzai move ID start --where "worktree ID"` (any move that now passes the `workspace.Exists` check into a workspace column) links the card's worktree as a side effect when the main checkout has the pointer file; a failure to link is a warning line in the move's output, never a refusal of the move. A move for a project without the pointer file writes nothing.
+- [x] `kanbanzai workspace ID` (text and `--json`) names the link step for a worktree-mode project that has the pointer file (a new `link` field in the JSON, empty otherwise), so a skill or a person making a worktree by hand sees it.
+- [x] `kanbanzai doctor` run in a linked worktree whose `.opencode/opencode.json` holds the bundled reference `{file:../.kanbanzai/state/kanbanzai-opencode-path}` evaluates it: a missing, unreadable or empty file is an **error** (not the "not evaluated" warning) with Fix `kanbanzai plugins link`; a pointer naming a plugin folder that cannot be loaded is an error with Fix `kanbanzai install --refresh` (and, if the main checkout's pointer names another folder, delete the worktree's file and run `plugins link`). In the main checkout, and for any other `{file:`, `{env:` or `~` entry, the existing "not evaluated" warning is unchanged.
+- [x] Reproduction first: a Go test builds a scratch repository with the bundled OpenCode install, a linked worktree, and asserts the doctor error before `plugins link` and a pass after; it fails on the current code.
+- [x] Claude Code is unchanged: no new file in a worktree and no new `doctor` finding about it. `init --plugins opencode` in the main checkout, and on an existing project, writes exactly what it writes today.
+- [x] `go test ./...`, `go vet ./...` and the OpenCode plugin's tests pass; `kanbanzai doctor` in this repository's own worktrees (which use `./opencode`, a tracked path) is unchanged.
 
 ## Deploy
 
@@ -55,11 +55,11 @@ Route chosen by the owner (2026-11-16): link the pointer file into each worktree
 
 Design decisions (the engineer's, 2026-11-16): the link is a copy of the pointer file's content, not a symlink (a symlink needs privileges on Windows and `init` already refuses a non-regular file); one function owns the reference constants, the link and the doctor evaluation, so `init`, `move`, the new command and `doctor` cannot drift; the command is `kanbanzai plugins link [DIR]` (a verb group, leaving room for `plugins status`), read from the main checkout's pointer, never from `init`'s options.
 
-1. [ ] **The shared piece and the command** — new `internal/pluginlink/` (the reference constants moved from `internal/init/plugins.go:31-32`, which then imports them; `Link(project, dir) (Result, error)`, `Check(project, dir) error`), `internal/cli/cli.go` (the `plugins link` verb, usage text, exit codes: 0 done or nothing to do, 1 refused) — the first four checks above. Tests first: the scratch repository with a worktree, each refusal, the no-op, and the idempotent second run.
-2. [ ] **Link on move** — `internal/move/move.go` near the `workspace.Exists` check (line ~240), after the move is written: call `pluginlink.Link` for the card's worktree path and print a one-line warning on failure — the move check. Parallel with 1 only after `pluginlink` exists (it imports it).
-3. [ ] **`workspace` says the step** — `internal/workspace/workspace.go` (`Info.Link`, set only in worktree mode and only when the pointer file exists; `Describe` stays pure, so the caller passes whether the pointer exists) and its text output in `internal/cli` — the workspace check. Parallel with 2 (different files) once 1 is in.
-4. [ ] **Doctor evaluates the bundled reference** — `internal/doctor/adapters.go` (the `{file:` branch at line ~271 calls `pluginlink.Check` for exactly the bundled reference string) and `internal/doctor/` tests — the doctor checks. Parallel with 2 and 3.
-5. [ ] **Skills and docs** — `skills/do/SKILL.md` (after `git worktree add`, run `kanbanzai workspace ID`'s link line), `skills/setup/SKILL.md` if it describes the OpenCode install, `docs/setup.md` (line ~34 and ~101: the pointer file is per checkout and linked into worktrees), `docs/commands.md` (the new verb, in its usage block), `CHANGELOG.md`; the skill wording test and the OpenCode fake harness fixtures that quote the usage or skill text — the docs are true and the wording test passes. After 1.
+1. [x] **The shared piece and the command** — new `internal/pluginlink/` (the reference constants moved from `internal/init/plugins.go:31-32`, which then imports them; `Link(project, dir) (Result, error)`, `Check(project, dir) error`), `internal/cli/cli.go` (the `plugins link` verb, usage text, exit codes: 0 done or nothing to do, 1 refused) — the first four checks above. Tests first: the scratch repository with a worktree, each refusal, the no-op, and the idempotent second run.
+2. [x] **Link on move** — `internal/move/move.go` near the `workspace.Exists` check (line ~240), after the move is written: call `pluginlink.Link` for the card's worktree path and print a one-line warning on failure — the move check. Parallel with 1 only after `pluginlink` exists (it imports it).
+3. [x] **`workspace` says the step** — `internal/workspace/workspace.go` (`Info.Link`, set only in worktree mode and only when the pointer file exists; `Describe` stays pure, so the caller passes whether the pointer exists) and its text output in `internal/cli` — the workspace check. Parallel with 2 (different files) once 1 is in.
+4. [x] **Doctor evaluates the bundled reference** — `internal/doctor/adapters.go` (the `{file:` branch at line ~271 calls `pluginlink.Check` for exactly the bundled reference string) and `internal/doctor/` tests — the doctor checks. Parallel with 2 and 3.
+5. [x] **Skills and docs** — `skills/do/SKILL.md` (after `git worktree add`, run `kanbanzai workspace ID`'s link line), `skills/setup/SKILL.md` if it describes the OpenCode install, `docs/setup.md` (line ~34 and ~101: the pointer file is per checkout and linked into worktrees), `docs/commands.md` (the new verb, in its usage block), `CHANGELOG.md`; the skill wording test and the OpenCode fake harness fixtures that quote the usage or skill text — the docs are true and the wording test passes. After 1.
 
 Manual check for the owner (the build cannot start OpenCode in a worktree): in a project set up with `--plugins opencode --plugin-source @bundled`, make a card worktree with `git worktree add`, run `kanbanzai plugins link` there, start OpenCode in it and see the Kanbanzai skills and no "Plugin entrypoint not found" warning.
 
@@ -78,9 +78,11 @@ Open question for later, not this card: a hand-made worktree stays unlinked unti
 ## Progress
 
 - 2026-11-16: owner widened the scope to Claude Code; design then checked it (Claude Code docs, and a live `claude -p` probe in a scratch worktree): a worktree session reads the main checkout's `settings.local.json`, so Claude Code is not affected; the card is narrowed back to OpenCode and the owner told.
+- 2026-11-16: built in worktree BUG-79 (commit 60f3102): `internal/pluginlink` (Link, Read), `plugins link`, the link in `move` (Apply, so a claim's auto-start links too), `workspace` link step, `doctor` evaluation in a linked worktree, docs, `skills/do` and CHANGELOG; tests first (red: pluginlink 7 failing on a stub, CLI 8, doctor 2). `go test ./...`, `go vet`, Windows and macOS cross-builds, node 13 + 390, hook syntax and `claude plugin validate` pass; an end-to-end run with the built binary and a throwaway data folder: doctor in a worktree exit 1 before `plugins link`, exit 0 after, `git status` clean, the pointer resolves to a folder holding `server.js`. Not run: OpenCode itself in a worktree (the owner's manual check).
 - 2026-11-16: claimed and moved to Designing; design started. The owner chose the route (link per worktree, doctor error); tasks and acceptance checks written; Designed.
 - 2026-11-16: reported as GitHub issue #1; code at the three cited sites confirmed against main (24db266); no existing card covers it (searched the board, the card folders and the decision records for `kanbanzai-opencode-path` and the OpenCode plugin); triaged.
 - 2026-11-16: design done: owner chose link-per-worktree plus a doctor error; Claude Code is not affected
+- 2026-11-16: build done: pluginlink, plugins link, link on move, workspace link step, doctor evaluation, docs; all suites green
 
 ## Out of scope
 
