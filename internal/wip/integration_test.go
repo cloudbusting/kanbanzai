@@ -2,6 +2,7 @@ package wip
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -19,9 +20,16 @@ const (
 func workBranch(t *testing.T, project *config.Project, card string) string {
 	t.Helper()
 	commitAll(t, project)
-	// Git prints worktree paths with forward slashes on every system, and the tests compare against its output.
-	path := filepath.ToSlash(filepath.Join(t.TempDir(), "proj-"+card))
+	path := filepath.Join(t.TempDir(), "proj-"+card)
 	testutil.Git(t, project.Root, "worktree", "add", "-q", "-b", card, path)
+	if runtime.GOOS == "windows" {
+		// The tests compare the path with git's output. On Windows git prints it with forward slashes and with
+		// short 8.3 folder names (RUNNER~1) spelled out, so give the tests the path in that form.
+		if resolved, err := filepath.EvalSymlinks(path); err == nil {
+			path = resolved
+		}
+		path = filepath.ToSlash(path)
+	}
 	testutil.Write(t, filepath.Join(path, card+".txt"), "the change\n")
 	testutil.Git(t, path, "add", "-A")
 	testutil.Git(t, path, "commit", "-q", "-m", card+": the change")
