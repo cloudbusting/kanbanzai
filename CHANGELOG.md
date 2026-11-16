@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-11-16
+
 - CHANGE-77: a team whose main branch is protected can keep the board off it. `[board] home = "branch"` puts the cards, the
   number ledger and the claims on a branch of their own, checked out as a worktree at the work folder and shared through git:
   a number or a claim is taken by committing and pushing, and a rejected push means another clone won, so two clones never take
