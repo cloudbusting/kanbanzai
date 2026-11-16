@@ -1,10 +1,10 @@
 # TASK-80: Board lane headers (the column group names) should be prominent
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** check it (`/check`); the owner looks at the lane names in a dark and a light theme (check 4) when QA'd
+- **Next action:** package it (`/kanbanzai-package`); the owner looks at the lane names in a dark and a light theme (check 4) at QA
 - **Where:** worktree TASK-80
 
 ## Goal
@@ -27,6 +27,7 @@ package and release — `board-view/render.js` is shipped in the extension and t
 ## Progress
 
 - 2026-11-17: built in worktree TASK-80 (f355451): `.lane-name` is weight 700 on `--vscode-badge-background` with `--vscode-badge-foreground`, 2px more padding, rounded; the hairline underline is gone. A new test in `board-view/board_view.test.mjs` failed first (weight equal to the column headers' 600) and passes; the board-view suite is 391 of 391. Check 4 (looking at it in a dark and a light theme) is not run: it needs a real editor theme.
+- 2026-11-17: checked. `kanbanzai-qa`: go test ./... and go vet green; board-view 392 of 392 and opencode 13 of 13; hooks and JS syntax ok; `claude plugin validate .` passes; the five steps and the config resolve; the .vsix dry run lists package.json, README and render.js with no machine path; board check and card audit pass. Review found one real gap: the browser board has its own theme palette with no badge colours, so the lane names would have had no background there. Fixed in 7b8ae82 (`board-view/browser.js` defines the badge pair in the light and dark palettes; test in `browser.test.mjs`, red first). That file was not named in the brief; it is the same Goal. Check 4 is still manual: a dark and a light theme, in the editor and in the browser board.
 
 ## Out of scope
 
