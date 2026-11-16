@@ -290,9 +290,9 @@ const STYLE = `
   .board { flex: 1; min-height: 0; display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
   .lane { flex: none; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
   .lane-name {
-    flex: none; padding: 0 6px; font-weight: 600; text-transform: uppercase; font-size: 0.85em;
-    color: var(--vscode-descriptionForeground);
-    border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+    flex: none; padding: 2px 6px; font-weight: 700; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.04em;
+    background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+    border-radius: 3px;
   }
   .lane-cols { flex: 1; min-height: 0; display: flex; gap: 6px; align-items: stretch; }
   .col {
