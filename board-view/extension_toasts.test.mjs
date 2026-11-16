@@ -119,6 +119,24 @@ test("no toast on the first draw; a move on the next read raises one; a blocked 
   assert.match(panel.webview.html, /data-close=/);
 }));
 
+test("BUG-76: the page is told to keep the focus only while the Board tab is the active one", () => run([
+  board({ building: [card("W-1"), card("W-2")] }),
+  board({ built: [card("W-1")], building: [card("W-2")] }),
+  board({ built: [card("W-1"), card("W-2")] }),
+], async ({ panel, vscode }) => {
+  vscode.run();
+  await settle();
+  assert.match(panel.webview.html, /data-keep-focus="false"/, "a panel with no active flag never takes the focus");
+  panel.active = false; // the user is typing in a text editor
+  panel.viewState({}); await settle(); // a move raises a toast: the page is rebuilt
+  assert.equal(toastsIn(panel).length, 1);
+  assert.match(panel.webview.html, /data-keep-focus="false"/);
+  panel.active = true; // the user clicked back into the board
+  panel.viewState({}); await settle();
+  assert.equal(toastsIn(panel).length, 2);
+  assert.match(panel.webview.html, /data-keep-focus="true"/);
+}));
+
 test("a toast closed in the page stays closed through later rerenders, and a later change keeps the others", () => run([
   board({ building: [card("W-2")], todo: [card("W-5")] }),
   board({ building: [card("W-2", { mark: "blocked" })], todo: [card("W-5", { mark: "blocked" })] }),

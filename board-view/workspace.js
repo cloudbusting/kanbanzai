@@ -194,6 +194,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     lastHtml = signature;
     panel.webview.html = render.renderWorkspaceHtml(envelopes, {
       ...scope, nonce: crypto.randomBytes(16).toString('hex'),
+      keepFocus: panel.active === true, // BUG-76: only a tab the user is in may take the focus back
     });
   }
 

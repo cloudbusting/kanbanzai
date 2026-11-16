@@ -587,7 +587,8 @@ const WORKSPACE_SCRIPT = `
     const collapsed = state.collapsed[el.dataset.stateKey];
     if (typeof collapsed === 'boolean') el.classList.toggle('collapsed', collapsed);
   });
-  if (state.focus) {
+  // BUG-76: the page is rebuilt on every board change, so it cannot know whether the user was in it. The host says so.
+  if (state.focus && root.dataset.keepFocus === 'true') {
     const focused = [...document.querySelectorAll('[data-state-key]')].find((el) => el.dataset.stateKey === state.focus);
     if (focused) focused.focus({ preventScroll: true });
   }
@@ -728,7 +729,7 @@ function renderWorkspaceHtml(projects, opts) {
     + `<label for="workspace-project">Project <select id="workspace-project" data-state-key="project-select" aria-describedby="workspace-filter-hint">${option('all', 'All projects', selected)}${list.map((p) => option(p.key, p.label, selected)).join('')}</select></label>`
     + `<label for="workspace-type">Type <select id="workspace-type" data-state-key="type-select" aria-describedby="workspace-filter-hint">${option('all', 'All types', type)}${types.map((t) => option(t.value, t.label, type)).join('')}${option('untyped', 'Untyped/legacy', type)}</select></label>`
     + `<span class="workspace-hint" id="workspace-filter-hint">${hint}</span></div>\n`;
-  inner += `<main class="workspace-projects ${selected === 'all' ? 'workspace-grouped' : 'workspace-single'}" data-project="${esc(selected)}" data-project-count="${list.length}">`;
+  inner += `<main class="workspace-projects ${selected === 'all' ? 'workspace-grouped' : 'workspace-single'}" data-project="${esc(selected)}" data-project-count="${list.length}" data-keep-focus="${o.keepFocus === true}">`;
   const now = typeof o.now === 'number' ? o.now : Date.now();
   if (!scope.length) inner += '<p class="no-matches" role="status">No configured projects in this workspace.</p>';
   for (const p of scope) {

@@ -837,6 +837,27 @@ function workspacePage(projects, saved = null, opts = {}) {
   };
 }
 
+test("BUG-76: a reload restores the saved focus only when the host says the Board tab has the focus", () => {
+  const first = workspacePage(workspaceProjects());
+  const focused = first.cards.find((c) => c.dataset.project === 'p:b' && c.dataset.card === 'W-01');
+  first.focus(focused);
+  const saved = first.state;
+  assert.ok(saved.focus, 'the focus is still saved on every focusin');
+  for (const opts of [{}, { keepFocus: false }, { keepFocus: 'true' }, { keepFocus: 1 }]) {
+    const page = workspacePage(workspaceProjects(), saved, opts);
+    assert.match(page.out, /data-keep-focus="false"/);
+    assert.equal(page.root.dataset.keepFocus, 'false');
+    assert.equal(page.document.activeElement, null, `no focus() call for ${JSON.stringify(opts)}`);
+  }
+  const kept = workspacePage(workspaceProjects(), saved, { keepFocus: true });
+  assert.equal(kept.root.dataset.keepFocus, 'true');
+  assert.equal(kept.document.activeElement.dataset.stateKey, focused.dataset.stateKey);
+  // Scroll and collapsed columns are restored either way.
+  first.boards[0].scrollLeft = 30; first.boards[0].scroll();
+  const away = workspacePage(workspaceProjects(), first.state, { keepFocus: false });
+  assert.equal(away.boards[0].scrollLeft, 30);
+});
+
 test("workspace messages carry project and bare IDs for card/toast open, collapse and dismissals", () => {
   assert.equal(typeof renderWorkspaceHtml, 'function');
   const projects = workspaceProjects();
@@ -880,7 +901,7 @@ test("workspace selectors post only selection messages and preserve state for hi
   const focused = page.cards.find((c) => c.dataset.project === 'p:b' && c.dataset.card === 'W-01');
   page.focus(focused);
   const saved = page.state;
-  const restored = workspacePage(workspaceProjects(), saved);
+  const restored = workspacePage(workspaceProjects(), saved, { keepFocus: true });
   assert.deepEqual(restored.boards.map((b) => b.scrollLeft), [30, 90]);
   assert.deepEqual(restored.cardScrolls.map((c) => c.scrollTop), [15, 45, 0]);
   assert.equal(restored.root.scrollTop, 120);
