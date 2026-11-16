@@ -73,7 +73,7 @@ type Settings struct {
 }
 
 // StarterTypes are the issue types a fresh project starts with.
-var StarterTypes = []string{"task", "bug", "change", "spike", "chore"}
+var StarterTypes = []string{"task", "bug", "change", "spike", "chore", "epic"}
 
 // Plan is everything init will do. Building it writes nothing.
 type Plan struct {
@@ -556,7 +556,7 @@ func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x0
 
 // ConfigText is the short config a new project starts from; the shipped defaults fill the rest. main_branch and
 // template are written only when they differ from the defaults; context only when asked for. With no --prefix the
-// project starts typed (task, bug, change, spike, chore); --prefix writes the legacy single-prefix shape.
+// project starts typed (task, bug, change, spike, chore, epic); --prefix writes the legacy single-prefix shape.
 func ConfigText(owner, mainBranch, template, prefix string, context []string) string {
 	var b strings.Builder
 	b.WriteString(`# Kanbanzai config for this project. Only what differs from Kanbanzai's shipped defaults belongs here:
@@ -607,8 +607,8 @@ config_version = 1
 	return b.String()
 }
 
-// starterTypesText is the typed starting point a fresh project gets. Every type uses the project or embedded brief
-// template until the project gives it its own (W-11).
+// starterTypesText is the typed starting point a fresh project gets. Epic uses its shipped template/schema;
+// other types use the project or embedded brief template until the project gives them their own.
 const starterTypesText = `
 # Issue types. Every type takes its id from ONE global number sequence: BUG-07 is the seventh item overall, not the
 # seventh bug. Add a type with another [[types]] table; see docs/types.md.
@@ -642,6 +642,13 @@ key = "chore"
 label = "Chore"
 prefix = "CHORE"
 description = "Maintenance with no behaviour change"
+
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+description = "A requirement and its linked work items"
+schema = "epic"
 `
 
 func tomlString(text string) string {

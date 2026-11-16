@@ -4,6 +4,9 @@ From nothing to a board. There are two ways in: the editor extension, which inst
 the command line, for a machine that does not use the editor. The bundled route runs locally after the initial download;
 the separate Claude Code marketplace route may fetch the plugin.
 
+Already have a board? Use `/kanbanzai:workflow` to inspect or change its flow with a reviewed plan rather than
+reinitialising it. See [Changing the workflow](workflow.md).
+
 ## In VS Code or VSCodium (one install)
 
 1. Install the **Kanbanzai Board** extension from its `.vsix` (**Extensions: Install from VSIX…**) and reload the
@@ -94,12 +97,12 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
 
 ## Special cases
 
-- **A monorepo** gets one board, at the repository root. Several boards in one workspace are not supported yet.
+- **A monorepo** gets one board, at the repository root. Several repositories in one editor workspace each keep their own board, which the Board tab can show together ([multi-project.md](multi-project.md)).
 - **A worktree:** setup run from a linked worktree works on the main checkout, where the board lives. A project that
   cannot give each card a worktree sets `[flow] isolation` afterwards (see [isolation.md](isolation.md)); setup does not ask.
 - **A main branch that is not `main`:** `origin/HEAD`, or the only `main`, `master` or `trunk`, is used and shown; if
   it cannot be told, setup asks and passes `--main-branch`.
-- **Issue types:** a fresh config starts typed (task, bug, change, spike and chore; `default_type = "task"`), so
+- **Issue types:** a fresh config starts typed (task, bug, change, spike, chore and epic; `default_type = "task"`), so
   its cards are `TASK-01`, `BUG-02` and so on, and `prefix = ""` means no legacy alias. `init --prefix KEY` writes
   the older single-prefix shape (`types = []`) instead. An existing project can opt out the same way.
   [types.md](types.md) has the model, the global number sequence, the legacy prefix and the seed.

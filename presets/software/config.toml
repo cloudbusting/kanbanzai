@@ -41,3 +41,10 @@ key = "chore"
 label = "Chore"
 prefix = "CHORE"
 description = "Maintenance with no behaviour change"
+
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+description = "A requirement and its linked work items"
+schema = "epic"

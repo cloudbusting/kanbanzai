@@ -1,10 +1,10 @@
 # BUG-46: Typed cards missing from the board view
 
-- **Stage:** todo
-- **Updated:** 2026-11-13
+- **Stage:** done
+- **Updated:** 2026-11-14
+- **Done:** 2026-11-14 — closed, no change: False positive: the editor window needed a reload to load the new extension; no defect in the board
 - **ADR:** none identified
-- **Next action:** close as a false positive when the configured workflow supports closing from Todo; no investigation or code fix needed
-- **Held:** blocked: the configured workflow refuses to close a card directly from Todo
+- **Next action:** —
 - **Where:** —
 
 ## Goal

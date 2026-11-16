@@ -97,3 +97,36 @@ test("a session asking, a closed toast and a claim raise no log line", () => {
   assert.deepEqual(lines, []);
   assert.deepEqual(moveLines([]), []);
 });
+
+const ALPHA = { key: "project:a", label: "Alpha" };
+const BETA = { key: "project:b", label: "Beta" };
+
+test("scoped read failures and recoveries identify their project without coupling streaks", () => {
+  const a = streak(undefined, "boom", BOARD, ALPHA);
+  const b = streak(undefined, "boom", BOARD, BETA);
+  assert.equal(a.lines[0].text, "Alpha: the board read failed: boom");
+  assert.equal(b.lines[0].text, "Beta: the board read failed: boom");
+  assert.equal(a.lines[0].project, ALPHA.key);
+  assert.equal(a.lines[0].projectLabel, "Alpha");
+  assert.deepEqual(streak(a.state, "boom", BOARD, ALPHA).lines, []);
+  assert.equal(streak(a.state, null, BOARD, ALPHA).lines[0].text, "Alpha: the board read ok again after 1 failed read");
+  assert.equal(streak(a.state, "boom", BOARD, BETA).lines.length, 1, "a different project's baseline cannot suppress a failure");
+});
+
+test("scoped move logs use tagged event headlines once and retain their project metadata", () => {
+  const require = createRequire(import.meta.url);
+  const T = require("./toasts.js");
+  const prev = { columns: [{ key: "todo", cards: [{ id: "W-01", title: "Title" }] }] };
+  const next = { columns: [{ key: "done", cards: [{ id: "W-01", title: "Title" }] }] };
+  const events = [...T.diffBoards(prev, next, "Sam", ALPHA), ...T.diffBoards(prev, next, "Pat", BETA)];
+  const lines = moveLines(events, ALPHA);
+  assert.deepEqual(lines.map((l) => [l.text, l.project, l.projectLabel]), [
+    ["Alpha: W-01 Done — Title", ALPHA.key, "Alpha"], ["Beta: W-01 Done — Title", BETA.key, "Beta"],
+  ]);
+});
+
+test("moveLines accepts optional project context for unscoped events", () => {
+  const lines = moveLines([{ kind: "blocked", headline: "W-01 blocked", held: "blocked: vendor" }], ALPHA);
+  assert.equal(lines[0].text, "Alpha: W-01 blocked — blocked: vendor");
+  assert.equal(lines[0].project, ALPHA.key);
+});

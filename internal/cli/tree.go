@@ -16,8 +16,12 @@ func runTree(project *config.Project, args []string, out, errOut io.Writer) int 
 		return usageError(errOut, "tree", err)
 	}
 	report := tree.Classify(project)
-	if _, merging := flags["merge"]; merging {
-		if report, err = tree.Preflight(project, flags["merge"]); err != nil {
+	if value, merging := flags["merge"]; merging {
+		card, err := cardArg(project, value)
+		if err != nil {
+			return usageError(errOut, "tree", err)
+		}
+		if report, err = tree.Preflight(project, card); err != nil {
 			return usageError(errOut, "tree", err)
 		}
 	}

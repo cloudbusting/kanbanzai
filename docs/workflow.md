@@ -4,6 +4,20 @@ The columns, the steps and the pull order are three tables of `.kanbanzai/config
 `[steps.<name>]`. `kanbanzai workflow` edits them for you, tells you what it would do to every card first, and can undo
 it. It reads and writes files and git state on your machine only.
 
+## With an agent
+
+Use `/kanbanzai:workflow` (also `/workflow` in OpenCode) to inspect or reconfigure an existing board. “What is my
+workflow?” explains the current flow without applying anything; “replace the check skill” keeps unrelated settings.
+The skill compares the shipped presets against the current flow and delivery evidence. For instance, `docs-only`
+may fit a documentation project, but keeping a customised flow may be better; the recommendation explains why and
+what would change. A preset switch changes the flow and preset record, not existing issue types, schemas or paths.
+
+The agent exports or selects a complete candidate, validates it, and presents a saved plan with the configuration
+diff, all affected cards and folders. You approve that exact plan, request changes, or stop. A no-op is not applied;
+a refused or stale plan is not forced, and a replacement plan needs fresh approval. After application the skill
+reports check, audit and doctor results and leaves the changes for your review. Scratch plans contain project details
+and are kept outside the repository.
+
 ## The flow file
 
 A **flow file** is TOML (or JSON) that holds exactly those three tables. It **replaces** the project's own: whatever it

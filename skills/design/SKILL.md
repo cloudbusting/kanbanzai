@@ -1,13 +1,17 @@
 ---
 name: design
 description: Turn a card into an agreed design and a brief with tasks and acceptance checks. Use when the configured route calls for design or the owner asks how carded work should work.
-argument-hint: "<the card id, or the question>"
+argument-hint: "<the card id or number, or the question>"
 ---
 
 # Design
 
 Runs in the main session: it needs the conversation and the owner's answers. The owner is `project.owner` in
 `kanbanzai config`.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 This skill is step-scoped: run on its own it stops at the end of this step and reports; when `/do` runs this step, `/do` carries the card on to its next step.
 

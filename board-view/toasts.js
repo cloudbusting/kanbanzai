@@ -55,12 +55,13 @@ function sticky(level) {
   return level === 'blocked' || level === 'asking';
 }
 
-const askKey = (id) => `ask:${id}`;
+const askKey = (id, project) => project ? sessions.scopedKey(project, 'ask-card', id) : `ask:${id}`;
 
-// BUG-64: the toast key of a session asking with no card, from its owner label (`claude:<id>`, `opencode:<id>`): `ask:`,
+// BUG-64: the unscoped toast key of a session asking with no card, from its owner label (`claude:<id>`, `opencode:<id>`): `ask:`,
 // the harness's first letter after an `s`, and the id with anything but letters, digits and hyphens turned into a hyphen,
 // cut to the 41 characters the page's close message may carry. Never a card id, which starts with its prefix.
-function askSessionKey(label) {
+function askSessionKey(label, project) {
+  if (project) return sessions.scopedKey(project, 'ask-session', label);
   const [harness, ...rest] = String(label).split(':');
   const id = (rest.length ? rest.join(':') : harness).replace(/[^A-Za-z0-9-]/g, '-');
   return `ask:${`s${harness.charAt(0).toLowerCase() || 'x'}-${id}`.slice(0, 41)}`;
@@ -87,14 +88,16 @@ function causeText(cause, owner) {
 }
 
 // The events between two reads. Nothing without a previous read (the first draw, or one that failed).
-function diffBoards(prev, next, ownerName) {
+// Optional { key, label } context adds project/projectLabel and scoped keys, leaving card/path as supplied.
+function diffBoards(prev, next, ownerName, project) {
   const before = flatten(prev);
   const after = flatten(next);
   if (!before || !after) return [];
+  const scope = sessions.projectContext(project);
   const events = [];
   for (const [id, n] of after) {
     const p = before.get(id);
-    const base = { card: id, path: n.path, title: n.title };
+    const base = { card: id, path: n.path, title: n.title, ...(scope ? { key: sessions.scopedKey(scope, 'card', id) } : {}) };
     const cause = causeOf(n);
     const level = n.col === 'done' ? 'done' : 'progress';
     if (!p) {
@@ -122,12 +125,12 @@ function diffBoards(prev, next, ownerName) {
   for (const [id, n] of after) {
     const p = before.get(id);
     if (n.asking && !(p && p.asking)) {
-      events.push({ card: id, key: askKey(id), level: 'asking', kind: 'asking', headline: `${id} asking`, title: n.title, name: n.name, path: n.path });
+      events.push({ card: id, key: askKey(id, scope), level: 'asking', kind: 'asking', headline: `${id} asking`, title: n.title, name: n.name, path: n.path });
     }
   }
   for (const [id, p] of before) {
     const n = after.get(id);
-    if (p.asking && !(n && n.asking)) events.push({ card: id, closes: askKey(id) });
+    if (p.asking && !(n && n.asking)) events.push({ card: id, closes: askKey(id, scope) });
   }
   // BUG-64: a session that starts asking with no card raises a toast of its own (no brief to open); it closes when the
   // session stops asking, ends or takes a card (the card then raises its own, above).
@@ -135,12 +138,23 @@ function diffBoards(prev, next, ownerName) {
   const looseAfter = looseOf(next);
   for (const [label, n] of looseAfter) {
     if (looseBefore.has(label)) continue;
-    events.push({ card: '', key: askSessionKey(label), level: 'asking', kind: 'asking', headline: n.name ? `${n.name} asking` : 'a session asking', title: '', name: '', path: '' });
+    events.push({ card: '', key: askSessionKey(label, scope), level: 'asking', kind: 'asking', headline: n.name ? `${n.name} asking` : 'a session asking', title: '', name: '', path: '' });
   }
   for (const label of looseBefore.keys()) {
-    if (!looseAfter.has(label)) events.push({ card: '', closes: askSessionKey(label) });
+    if (!looseAfter.has(label)) events.push({ card: '', closes: askSessionKey(label, scope) });
   }
-  return events;
+  return scope ? events.map((e) => ({
+    ...e, ...sessions.projectFields(scope), ...(e.headline ? { headline: `${scope.label}: ${e.headline}` } : {}),
+  })) : events;
+}
+
+function eventProject(e) {
+  return sessions.projectContext({ key: e.project, label: e.projectLabel });
+}
+
+function cardIdentity(e) {
+  const scope = eventProject(e);
+  return scope ? sessions.scopedKey(scope, 'card', e.card) : e.card;
 }
 
 function expiryOf(level, now) {
@@ -155,27 +169,38 @@ function applyEvents(state, events, now) {
   let stack = arr(state && state.stack).slice();
   let seq = (state && state.seq) || 0;
 
-  // A cleared hold closes the card's blocked toast, even when its own toast is left out of a burst.
-  const cleared = new Set(list.filter((e) => e.clears).map((e) => e.card));
-  stack = stack.filter((t) => !(t.level === 'blocked' && cleared.has(t.card)));
-
   // More short events than BURST_OVER in one read: the first BURST_KEEP and a summary. Blocked ones are never summed up.
   const isShort = (e) => !e.closes && !sticky(e.level);
-  const burst = list.filter(isShort).length > BURST_OVER;
-  const raise = [];
-  let short = 0;
-  let overflow = 0;
-  for (const e of list) {
-    if (!isShort(e) || !burst || short < BURST_KEEP) {
-      if (isShort(e)) short += 1;
-      raise.push(e);
-    } else overflow += 1;
+  const groups = new Map();
+  const groupKey = (e) => e.project === undefined ? null : e.project;
+  for (const e of list.filter(isShort)) {
+    const key = groupKey(e);
+    if (!groups.has(key)) groups.set(key, { scope: eventProject(e), count: 0, short: 0, overflow: 0 });
+    groups.get(key).count += 1;
   }
-  if (overflow) {
-    raise.push({ card: '', key: BURST_KEY, level: 'progress', kind: 'burst', headline: `+${overflow} more cards moved`, title: '', path: '' });
+  const raise = [];
+  for (const e of list) {
+    const group = isShort(e) ? groups.get(groupKey(e)) : null;
+    const suppressed = !!group && group.count > BURST_OVER && group.short >= BURST_KEEP;
+    if (suppressed) group.overflow += 1;
+    else {
+      if (group) group.short += 1;
+    }
+    raise.push({ event: e, suppressed });
+  }
+  for (const { scope, overflow } of groups.values()) {
+    if (!overflow) continue;
+    raise.push({ event: {
+      card: '', key: scope ? sessions.scopedKey(scope, 'burst') : BURST_KEY,
+      ...sessions.projectFields(scope), level: 'progress', kind: 'burst',
+      headline: `${scope ? `${scope.label}: ` : ''}+${overflow} more cards moved`, title: '', path: '',
+    }, suppressed: false });
   }
 
-  for (const e of raise) {
+  for (const { event: e, suppressed } of raise) {
+    // Clear in queue order, even for a burst-suppressed event or a hold raised earlier in this hidden batch.
+    if (e.clears) stack = stack.filter((t) => !(t.level === 'blocked' && cardIdentity(t) === cardIdentity(e)));
+    if (suppressed) continue;
     if (e.closes) {
       stack = stack.filter((t) => t.key !== e.closes); // in order, so asked-then-answered leaves nothing
       continue;
@@ -188,6 +213,7 @@ function applyEvents(state, events, now) {
     stack.push({
       key, card: e.card, seq, level: e.level, kind: e.kind, headline: e.headline, title: e.title || '',
       held: e.held, moved: e.moved, name: e.name || '', path: e.path || '', expiresAt: expiryOf(e.level, now),
+      ...sessions.projectFields(eventProject(e)),
     });
   }
 
@@ -231,6 +257,7 @@ function toViews(state, now, seen) {
     remainingMs: t.expiresAt === null ? null : Math.max(0, t.expiresAt - now),
     closable: sticky(t.level),
     shown: shown.has(t.seq),
+    ...(eventProject(t) ? { ...sessions.projectFields(eventProject(t)), card: t.card } : {}),
   }));
 }
 

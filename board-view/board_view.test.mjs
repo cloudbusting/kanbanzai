@@ -9,7 +9,7 @@ import { runInNewContext } from "node:vm";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { renderHtml, renderError, safeBriefPath } = require("./render.js");
+const { renderHtml, renderError, safeBriefPath, renderWorkspaceHtml } = require("./render.js");
 const board = JSON.parse(readFileSync(path.join(here, "fixtures", "board.json"), "utf8"));
 const pkg = JSON.parse(readFileSync(path.join(here, "package.json"), "utf8"));
 
@@ -18,6 +18,35 @@ const html = renderHtml(board, { nonce: NONCE, cspSource: "vscode-webview://x", 
 
 const ORDER = ["todo", "designed", "built", "checked", "qa-approved", "paused", "done"];
 const COUNTS = [2, 2, 2, 1, 1, 1, 1];
+
+test("epic progress renders core counts only and ignores malformed optional data", () => {
+  const view = (epic) => renderHtml({ columns: [{ key: 'todo', cards: [{ id: 'EPIC-01', title: '<source>', epic }] }] }, { nonce: NONCE });
+  const output = view({ total: 3, delivered: 1, cancelled: 1, remaining: 2, complete: false });
+  assert.match(output, /1\/3 delivered/);
+  assert.match(output, /2 remaining/);
+  assert.match(output, /1 cancelled/);
+  assert.match(output, /&lt;source&gt;/);
+  for (const epic of [undefined, null, [], {}, { total: '<script>', delivered: 1 }, { total: 1, delivered: 2, cancelled: 0, remaining: 0 }, { total: 1, delivered: -1, cancelled: 0, remaining: 2 }]) {
+    const rendered = view(epic);
+    assert.doesNotMatch(rendered, /class="epic-progress"/);
+    assert.doesNotMatch(rendered, /<script>/);
+  }
+});
+
+test('valid core types named all or untyped remain distinct from filter controls', () => {
+  const projects = [{ key: 'p', label: 'P', board: { columns: [{ key: 'todo', cards: [
+    { id: 'W-01', title: 'Actual all type', type: { key: 'all' } },
+    { id: 'W-02', title: 'Actual untyped type', type: { key: 'untyped' } },
+    { id: 'W-03', title: 'Legacy card' },
+  ] }] } }];
+  const filtered = (type) => renderWorkspaceHtml(projects, { nonce: NONCE, project: 'p', type });
+  assert.match(filtered('type:all'), /Actual all type/);
+  assert.doesNotMatch(filtered('type:all'), /Actual untyped type|Legacy card/);
+  assert.match(filtered('type:untyped'), /Actual untyped type/);
+  assert.doesNotMatch(filtered('type:untyped'), /Actual all type|Legacy card/);
+  assert.match(filtered('untyped'), /Legacy card/);
+  assert.doesNotMatch(filtered('untyped'), /Actual all type|Actual untyped type/);
+});
 
 test("a recorded question marks the card and escapes tooltip fields", () => {
   const fixture = { columns: [{ key: 'building', name: 'Building', cards: [{ id: 'W-01', title: 'Work', path: 'x.md', question: { text: 'Which <store>?', options: ['SQLite', 'Memory'], recommendation: 'SQLite' } }] }] };
@@ -598,4 +627,317 @@ test("the strip is styled with theme variables and a session with no name reads 
   assert.match(out, /a session asking|session asking/);
   const css = out.match(/<style[^>]*>(.*?)<\/style>/s)[1];
   assert.match(css, /\.asking-sessions\s*\{[^}]*var\(--vscode-/s);
+});
+
+// W-16: the editor groups unlike boards; the browser keeps the original entry points.
+const workspaceProjects = () => [
+  { key: 'p:a', label: 'Alpha <one>', owner: 'Alice', collapsed: ['todo'], board: {
+    types: [{ key: 'bug', label: 'Bug' }, { key: 'task', label: 'Task' }],
+    problems: ['Alpha <problem>'],
+    unclaimed: { same: { state: 'waiting', since: 1000, name: 'same session' } },
+    columns: [
+      { key: 'todo', name: 'Alpha queue', cards: [
+        card('W-01', { title: 'Alpha legacy', mark: 'waiting-owner' }),
+        card('NOT-A-BUG-ID', { title: 'Alpha bug', type: { key: 'bug', label: 'Bug' } }),
+      ] },
+      { key: 'building', name: 'Building', lane: 'Build', cards: [] },
+      { key: 'built', name: 'Built', lane: 'Build', cards: [] },
+    ],
+  } },
+  { key: 'p:b', label: 'Beta', owner: 'Bob', error: 'Board <stale>', board: {
+    types: [{ key: 'bug', label: 'Defect' }],
+    unclaimed: { same: { state: 'waiting', since: 1000, name: 'same session' } },
+    columns: [
+      { key: 'review', name: 'Editorial review', lane: 'Editorial', cards: [
+        card('W-01', { title: 'Beta legacy', mark: 'waiting-owner' }),
+        card('BUG-99', { title: 'Not typed by ID', type: { key: 7 } }),
+        card('PAGE-02', { title: 'Observed page', type: { key: 'page', label: 'Page' } }),
+      ] },
+      { key: 'todo', name: 'Beta inbox', cards: [card('W-02')] },
+    ],
+  } },
+  { key: 'p:c', label: 'Gamma', error: 'No board yet' },
+];
+const bodyOnly = (out) => out.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<script[\s\S]*?<\/script>/g, '');
+
+test("single-board toast lists never acquire workspace context from array indexes", () => {
+  const out = bodyOnly(renderHtml(board, { toasts: toastViews }));
+  assert.doesNotMatch(out, /data-project=|data-state-key=|class="project-chip"/);
+  assert.equal((out.match(/data-path=/g) || []).length, 12, 'ten card paths and both individual toast paths remain unchanged');
+});
+
+test("workspace renderer is an additive export", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+});
+
+test("workspace sections preserve project, column and lane order, owners and scoped duplicate IDs", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const out = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: 'all', now: 181000 });
+  const body = bodyOnly(out);
+  assert.deepEqual([...body.matchAll(/class="project-section"[^>]*data-project="([^"]+)"/g)].map((m) => m[1]), ['p:a', 'p:b', 'p:c']);
+  assert.deepEqual([...body.matchAll(/<section class="col col-([a-z-]+)/g)].map((m) => m[1]), ['todo', 'building', 'built', 'review', 'todo']);
+  assert.deepEqual([...body.matchAll(/class="lane-name">([^<]+)/g)].map((m) => m[1]), ['Build', 'Editorial']);
+  assert.match(body, /Waiting on Alice/);
+  assert.match(body, /Waiting on Bob/);
+  assert.match(body, /Project: Alpha &lt;one&gt;/);
+  assert.match(body, /Project: Beta/);
+  assert.equal((body.match(/class="project-chip"/g) || []).length, 8, 'chips identify each of six cards and two loose-session strips');
+  assert.equal((body.match(/same session/g) || []).length, 4, 'each strip includes its own session text and clock label');
+  assert.match(body, /Alpha &lt;problem&gt;/);
+  assert.match(body, /Board &lt;stale&gt;/);
+  assert.match(body, /No board yet/);
+  assert.doesNotMatch(body, /data-path=/, 'the editor never accepts a webview path');
+  const ids = [...body.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, 'all DOM IDs are collision free');
+  const duplicateCards = [...body.matchAll(/<div class="card[^"]*"[^>]*data-card="W-01"[^>]*>/g)].map((m) => m[0]);
+  assert.equal(duplicateCards.length, 2);
+  assert.notEqual(duplicateCards[0].match(/data-state-key="([^"]+)"/)[1], duplicateCards[1].match(/data-state-key="([^"]+)"/)[1]);
+  assert.match(out, /\.workspace-projects[^}]*overflow-y:\s*auto/s);
+  assert.match(out, /\.workspace-grouped \.project-section \.board[^}]*height:\s*[^;]+;[^}]*flex:\s*none/s);
+});
+
+test("workspace type union uses metadata and observed keys, qualifies label conflicts and filters cards only", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const projects = workspaceProjects();
+  const out = bodyOnly(renderWorkspaceHtml(projects, { project: 'all', type: 'page' }));
+  assert.match(out, /<label[^>]*>Project/);
+  assert.match(out, /<label[^>]*>Type/);
+  assert.match(out, /<option value="all"[^>]*>All projects/);
+  assert.match(out, /<option value="untyped"[^>]*>Untyped\/legacy/);
+  assert.match(out, /<option value="bug"[^>]*>[^<]*Bug[^<]*Alpha &lt;one&gt;[^<]*Defect[^<]*Beta/);
+  assert.match(out, /<option value="task"/);
+  assert.match(out, /<option value="page" selected/);
+  assert.equal((out.match(/data-card="/g) || []).length, 1);
+  assert.match(out, /Observed page/);
+  assert.match(out, /No matching cards/);
+  assert.match(out, /Alpha &lt;problem&gt;/);
+  assert.match(out, /Board &lt;stale&gt;/);
+  assert.equal((out.match(/class="asking-sessions"/g) || []).length, 2, 'hidden types do not hide asks');
+  assert.match(out, /Type filters cards only/);
+  const untyped = bodyOnly(renderWorkspaceHtml(projects, { project: 'all', type: 'untyped' }));
+  assert.equal((untyped.match(/data-card="/g) || []).length, 4);
+  assert.match(untyped, /Not typed by ID/);
+  assert.doesNotMatch(untyped, /<div class="title">Alpha bug/);
+  assert.equal(projects[0].board.columns[0].cards.length, 2, 'rendering does not mutate the input');
+});
+
+test("selected scope has a full-height board and safe removed project/type fallbacks", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const projects = workspaceProjects();
+  const scoped = bodyOnly(renderWorkspaceHtml(projects, { project: 'p:a', type: 'page' }));
+  assert.match(scoped, /workspace-single/);
+  assert.equal((scoped.match(/class="project-section"/g) || []).length, 1);
+  assert.match(scoped, /<option value="all" selected>All types/);
+  assert.doesNotMatch(scoped, /<option value="page"/);
+  assert.match(scoped, /<option value="p:b">Beta/);
+  const removed = bodyOnly(renderWorkspaceHtml(projects, { project: 'removed' }));
+  assert.match(removed, /workspace-grouped/);
+  const sole = bodyOnly(renderWorkspaceHtml(projects.slice(0, 1), {}));
+  assert.match(sole, /<option value="p:a" selected/);
+  assert.match(sole, /workspace-single/);
+  assert.match(bodyOnly(renderWorkspaceHtml([], {})), /No configured projects/);
+  for (const odd of [null, 7, {}, [null, {}, { key: 7 }]]) assert.doesNotThrow(() => renderWorkspaceHtml(odd, {}));
+});
+
+test("workspace escapes all metadata, sanitizes the nonce and works in the shared browser export", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const projects = workspaceProjects();
+  projects[0].key = '"><script>bad</script>';
+  projects[0].toasts = [{ ...askingView, key: '"><b>', card: 'W-01', seq: 1 }];
+  const out = renderWorkspaceHtml(projects, { nonce: 'abc"><img src=x>', project: 'all' });
+  assert.deepEqual([...out.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]), ['<script nonce="abcimgsrc=x">']);
+  assert.doesNotMatch(out, /<img|<script>bad|<b>/);
+  assert.doesNotMatch(out, /\sstyle="/);
+  assert.match(out, /default-src 'none'/);
+  assert.doesNotThrow(() => new Function(out.match(/<script[^>]*>(.*?)<\/script>/s)[1]));
+  const context = { globalThis: {} };
+  runInNewContext(readFileSync(path.join(here, 'sessions.js'), 'utf8'), context);
+  runInNewContext(readFileSync(path.join(here, 'render.js'), 'utf8'), context);
+  assert.equal(typeof context.globalThis.KanbanzaiRender.renderWorkspaceHtml, 'function');
+  assert.equal(context.globalThis.KanbanzaiRender.renderHtml(board, { nonce: NONCE }), renderHtml(board, { nonce: NONCE }));
+});
+
+// A small DOM double exercises the shipped script, not an alternative event implementation.
+function workspacePage(projects, saved = null, opts = {}) {
+  const out = renderWorkspaceHtml(projects, { nonce: NONCE, project: 'all', ...opts });
+  const listeners = {}, messages = [], timers = [];
+  let state = saved;
+  const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const document = { activeElement: null };
+  function element(tag, parent = null) {
+    const attrs = Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map((m) => [m[1], unesc(m[2])]));
+    const classes = new Set((attrs.class || '').split(' '));
+    return {
+      dataset: Object.fromEntries(Object.entries(attrs).filter(([k]) => k.startsWith('data-')).map(([k, v]) => [k.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase()), v])),
+      parentElement: parent, scrollLeft: 0, scrollTop: 0, removed: false,
+      classList: { contains: (c) => classes.has(c), toggle(c, on) { if (on) classes.add(c); else classes.delete(c); } },
+      getAttribute: (k) => attrs[k] ?? null,
+      setAttribute(k, v) { attrs[k] = String(v); },
+      addEventListener(type, fn) { this[type] = fn; },
+      focus() { document.activeElement = this; },
+      remove() { this.removed = true; },
+      closest(selector) {
+        if (selector === '.col' && classes.has('col')) return this;
+        if (selector === '.toast' && classes.has('toast')) return this;
+        if (selector === '[data-state-key]' && this.dataset.stateKey) return this;
+        if (selector === '.card, .toast[data-card]' && (classes.has('card') || classes.has('toast') && this.dataset.card)) return this;
+        return parent ? parent.closest(selector) : null;
+      },
+      querySelectorAll() { return []; },
+    };
+  }
+  const root = element(out.match(/<main\b[^>]*>/)[0]);
+  const boards = [...out.matchAll(/<div class="board"[^>]*>/g)].map((m) => element(m[0]));
+  const cols = [], cardScrolls = [], cards = [];
+  for (const match of out.matchAll(/<section class="col [\s\S]*?<\/section>/g)) {
+    const col = element(match[0].match(/^<section[^>]*>/)[0]);
+    cols.push(col);
+    if (match[0].includes('class="cards"')) cardScrolls.push(element('<div class="cards">', col));
+    for (const card of match[0].matchAll(/<div class="card(?: [^"]*)?"[^>]*>/g)) cards.push(element(card[0], col));
+  }
+  const toasts = [...out.matchAll(/<div class="toast level-[^"]*"[^>]*>/g)].map((m) => element(m[0]));
+  const allButton = out.includes('class="toast-close-all"') ? element('<button class="toast-close-all">') : null;
+  const projectSelect = element('<select data-state-key="project-select">');
+  projectSelect.value = opts.project || 'all';
+  const typeSelect = element('<select data-state-key="type-select">');
+  typeSelect.value = opts.type || 'all';
+  document.querySelector = (selector) => ({
+    '.workspace-projects': root, '#workspace-project': projectSelect, '#workspace-type': typeSelect,
+    '.toast-close-all': allButton && !allButton.removed ? allButton : null,
+  })[selector] || null;
+  document.querySelectorAll = (selector) => ({
+    '.board[data-project]': boards, '.col[data-state-key]': cols, '.col .cards': cardScrolls,
+    '[data-state-key]': [...boards, ...cols, ...cards, ...toasts, projectSelect, typeSelect],
+    '.toast': toasts.filter((el) => !el.removed),
+    '.toast[data-remaining]': toasts.filter((el) => !el.removed && el.dataset.remaining !== undefined),
+  })[selector] || [];
+  document.addEventListener = (type, fn) => { listeners[type] = fn; };
+  runInNewContext(out.match(/<script[^>]*>(.*?)<\/script>/s)[1], {
+    document, acquireVsCodeApi: () => ({
+      getState: () => state,
+      setState(value) { state = JSON.parse(JSON.stringify(value)); },
+      postMessage(message) { messages.push(JSON.parse(JSON.stringify(message))); },
+    }),
+    setInterval() {}, setTimeout(fn) { timers.push(fn); },
+  });
+  return {
+    out, boards, cols, cardScrolls, cards, toasts, root, projectSelect, typeSelect, messages, timers, document,
+    get state() { return state; },
+    click(target) { listeners.click({ target }); },
+    key(target, key) { listeners.keydown({ target, key, preventDefault() {} }); },
+    change(target) { listeners.change({ target }); },
+    focus(target) { document.activeElement = target; listeners.focusin({ target }); },
+    closeAll() { listeners.click({ target: { closest: (s) => s === '.toast-close-all' ? allButton : null } }); },
+    collapse(col) {
+      listeners.click({ target: { closest: (s) => s === '[data-toggle]' ? { getAttribute: () => col.dataset.col, closest: () => col } : null } });
+    },
+    close(toast) {
+      listeners.click({ target: { closest: (s) => s === '[data-close]' ? { closest: () => toast } : null } });
+    },
+  };
+}
+
+test("workspace messages carry project and bare IDs for card/toast open, collapse and dismissals", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const projects = workspaceProjects();
+  for (const p of projects.slice(0, 2)) p.toasts = [{ ...askingView, key: 'ask:W-01', card: 'W-01', seq: 7 }];
+  const page = workspacePage(projects);
+  page.click(page.cards.find((c) => c.dataset.project === 'p:b' && c.dataset.card === 'W-01'));
+  page.key(page.toasts[0], 'Enter');
+  page.key(page.cards[0], ' ');
+  page.collapse(page.cols.find((c) => c.dataset.project === 'p:b' && c.dataset.col === 'todo'));
+  page.close(page.toasts[0]);
+  assert.deepEqual(page.messages, [
+    { type: 'open', project: 'p:b', id: 'W-01' },
+    { type: 'open', project: 'p:a', id: 'W-01' },
+    { type: 'open', project: 'p:a', id: 'W-01' },
+    { type: 'collapse', project: 'p:b', key: 'todo', collapsed: true },
+    { type: 'toast-close', project: 'p:a', key: 'ask:W-01' },
+  ]);
+  assert.equal(page.toasts[0].removed, true);
+  assert.equal(page.toasts[1].removed, false);
+  const all = workspacePage(projects);
+  all.closeAll();
+  assert.deepEqual(all.messages, [{ type: 'toast-close-all', instances: [
+    { project: 'p:a', key: 'ask:W-01', seq: 7 }, { project: 'p:b', key: 'ask:W-01', seq: 7 },
+  ] }]);
+  const oneScope = workspacePage(projects, null, { project: 'p:b', type: 'page' });
+  assert.equal(oneScope.toasts.length, 1, 'project filter scopes toasts, type filter does not');
+  const burst = workspacePage([{ ...projects[0], toasts: [{ ...toastViews[2], seq: 1 }] }]);
+  assert.doesNotMatch(bodyOnly(burst.out).match(/<div class="toast level-[^>]*>/)[0], /data-card|tabindex/);
+});
+
+test("workspace selectors post only selection messages and preserve state for hidden project identities", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const page = workspacePage(workspaceProjects());
+  page.boards[0].scrollLeft = 30;
+  page.boards[1].scrollLeft = 90;
+  page.cardScrolls[0].scrollTop = 15;
+  page.cardScrolls[1].scrollTop = 45;
+  page.root.scrollTop = 120;
+  page.boards[0].scroll();
+  page.collapse(page.cols.find((c) => c.dataset.project === 'p:b' && c.dataset.col === 'todo'));
+  const focused = page.cards.find((c) => c.dataset.project === 'p:b' && c.dataset.card === 'W-01');
+  page.focus(focused);
+  const saved = page.state;
+  const restored = workspacePage(workspaceProjects(), saved);
+  assert.deepEqual(restored.boards.map((b) => b.scrollLeft), [30, 90]);
+  assert.deepEqual(restored.cardScrolls.map((c) => c.scrollTop), [15, 45, 0]);
+  assert.equal(restored.root.scrollTop, 120);
+  assert.equal(restored.document.activeElement.dataset.stateKey, focused.dataset.stateKey);
+  assert.ok(restored.cols.find((c) => c.dataset.project === 'p:a' && c.dataset.col === 'todo').classList.contains('collapsed'));
+  assert.ok(restored.cols.find((c) => c.dataset.project === 'p:b' && c.dataset.col === 'todo').classList.contains('collapsed'));
+  const scoped = workspacePage(workspaceProjects(), saved, { project: 'p:b' });
+  scoped.typeSelect.value = 'page';
+  scoped.change(scoped.typeSelect);
+  scoped.projectSelect.value = 'all';
+  scoped.change(scoped.projectSelect);
+  assert.deepEqual(scoped.messages, [
+    { type: 'type-select', value: 'page' }, { type: 'project-select', project: 'all' },
+  ]);
+  const back = workspacePage(workspaceProjects(), scoped.state);
+  assert.equal(back.boards[0].scrollLeft, 30, 'saving another scope retains Alpha');
+  assert.equal(back.cardScrolls[0].scrollTop, 15);
+  assert.equal(scoped.state.types['p:b'], 'page');
+});
+
+test("legacy scroll state is imported only for an unambiguous sole project", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const saved = { left: 77, cols: { todo: 33 } };
+  const ambiguous = workspacePage(workspaceProjects(), saved);
+  assert.deepEqual(ambiguous.boards.map((b) => b.scrollLeft), [0, 0]);
+  assert.equal(ambiguous.cardScrolls[0].scrollTop, 0);
+  const sole = workspacePage(workspaceProjects().slice(0, 1), saved, { project: 'p:a' });
+  assert.equal(sole.boards[0].scrollLeft, 77);
+  assert.equal(sole.cardScrolls[0].scrollTop, 33);
+});
+
+test("workspace toast alerts have one role and close-all excludes expired instances in either project", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const projects = workspaceProjects();
+  projects[0].toasts = [
+    { ...toastViews[0], key: 'same', card: 'W-01', seq: 10 },
+    { ...askingView, key: 'ask:same', card: 'W-01', seq: 11 },
+  ];
+  projects[1].toasts = [{ ...askingView, key: 'same', card: 'W-01', seq: 12 }];
+  const page = workspacePage(projects);
+  for (const tag of page.out.matchAll(/<div class="toast level-[^>]*>/g)) {
+    assert.ok((tag[0].match(/\brole=/g) || []).length <= 1, 'one semantic role per toast');
+  }
+  page.timers[0]();
+  page.closeAll();
+  assert.deepEqual(page.messages, [{ type: 'toast-close-all', instances: [
+    { project: 'p:a', key: 'ask:same', seq: 11 }, { project: 'p:b', key: 'same', seq: 12 },
+  ] }]);
+});
+
+test("workspace filtering preserves scroll for columns temporarily without matching cards", () => {
+  assert.equal(typeof renderWorkspaceHtml, 'function');
+  const page = workspacePage(workspaceProjects());
+  page.cardScrolls[0].scrollTop = 123;
+  page.cardScrolls[0].scroll();
+  const filtered = workspacePage(workspaceProjects(), page.state, { type: 'page' });
+  filtered.boards[0].scroll();
+  const restored = workspacePage(workspaceProjects(), filtered.state);
+  assert.equal(restored.cardScrolls[0].scrollTop, 123);
 });

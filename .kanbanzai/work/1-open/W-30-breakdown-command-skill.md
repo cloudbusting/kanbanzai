@@ -1,11 +1,11 @@
 # W-30: Breakdown command and skill: turn a big requirement into triaged, sequenced cards by asking questions
 
-- **Stage:** todo
-- **Updated:** 2026-11-12
+- **Stage:** in-qa
+- **Updated:** 2026-11-15
 - **Done:** —
 - **ADR:** none
-- **Next action:** design: settle what `breakdown` is (a slash command plus a skill, or also a `kanbanzai` subcommand), how it sequences cards, and where the source text and the split live
-- **Where:** —
+- **Next action:** package: select W-30 from the merged Checked set and prove committed release artifacts; editor progress observation remains manual
+- **Where:** worktree W-30
 
 ## Goal
 
@@ -25,28 +25,117 @@ Related, not the same: W-25 (JIRA and GitHub as backing stores) reaches a remote
 of work is called; `breakdown` must work with whatever ids exist. W-07 (the workflow skill) is the other
 question-driven skill and the pattern to follow.
 
-## Decision to settle
+## Acceptance checks
 
-- **Shape:** a slash command plus a skill (`/kanbanzai:breakdown`, `skills/breakdown/SKILL.md`, with the OpenCode
-  command alike, as W-23 did), or also a `kanbanzai breakdown` subcommand for the mechanical part (reserving ids,
-  writing the cards, checking). The product rule is skills do the talking and the command does the writing.
-- **Sequence:** how order is recorded with the board as it is: a `Held: blocked: <card>` line on a piece that waits, a
-  numbered order in each **Next action**, a batch (`B-NN`) for the whole requirement, or a new field. A design that
-  needs a new board field must say so.
-- **The questions:** which it always asks, which only when the text leaves a gap, and how it avoids an interview
-  (batch the questions, propose a split first and let the owner correct it).
-- **Where the source lives:** quote it in each card's Goal, keep one copy in the batch, or link the external key. It
-  must not send the text anywhere.
-- **Hand-off to triage:** whether `breakdown` calls `/triage` per piece (so folding into existing cards, duplicates and
-  closing come for free) or writes the cards itself.
+- [x] Shared breakdown skill is discovered by both adapters; wording tests prove read-only preflight, propose-first
+  questions, exact split approval before allocation/writes, triage reuse, partial-write recovery, no remote fetch,
+  no claim/build, and dependency enforcement limits.
+- [x] Default config, fresh init and software preset expose epic/EPIC with schema epic and a built-in epic template.
+  `number --type epic`, `template epic`, `template --example epic` and `check` work in a fresh throwaway project.
+  Custom type lists and legacy-only boards remain unchanged; absent epic support stops breakdown without config edits.
+- [x] Core check rejects missing, malformed, duplicate, self and nested-EPIC Work items references and membership on
+  non-epics. Shared child membership is allowed. Needs remains a separate prerequisite contract.
+- [x] `board --json` adds optional `epic` on epic cards: total, delivered, cancelled, remaining, complete.
+  Counts are computed from configured columns; early-close is cancelled, not delivered; remaining includes cancelled
+  or invalid children; an empty epic is not complete. Reading never edits a card or auto-closes it.
+- [x] Shared editor/browser renderer shows core-provided progress defensively and escapes hostile values. Old JSON
+  without epic still renders. Terminal board reports the same counts without reimplementing membership rules.
+- [ ] Full Go/vet, board and OpenCode Node suites, hook/syntax checks, plugin validation and VSIX dry run pass.
+  Manual editor check: open an epic card and observe delivered/total while a linked child changes column.
 
-## Next action
+## Deploy
 
-design: put the decisions above to the owner, then write the tasks, the skill wording tests and the acceptance checks.
+package and release
+
+## Tasks
+
+- [x] 1. Tests first, then default epic type/schema/template and core relationships/roll-up — assets.go,
+  defaults/config.toml, templates/epic.md, internal/config, internal/init/plan.go, internal/cli/template.go,
+  internal/check, internal/board, a small internal/epic helper if needed, presets/software, and affected fixture tests.
+  Prove with Go tests including fresh init, custom prefixes/project keys, legacy children and early-close.
+- [x] 2. Shared breakdown skill and its wording tests — skills/breakdown/SKILL.md, breakdown_skill_test.go,
+  opencode/server.test.mjs. Follow triage for each approved piece, without starting work. Independent of task 1's
+  implementation once the public contract below is fixed.
+- [x] 3. Read-only roll-up display — board-view/render.js and its renderer tests, board-view/README.md.
+  Render only core counters; Node tests prove absent/malformed/hostile JSON and progress.
+- [x] 4. Document the surface and compatibility — README.md, docs/types.md, CHANGELOG.md. Run all configured checks,
+  review the whole diff and integrate only through the tree preflight.
+
+## Design
+
+- Skill plus slash command only; no `kanbanzai breakdown` CLI. Both harnesses load one shipped skill. It uses
+  existing allocation/template/check commands and the established triage file-writing pattern after exact approval.
+- Propose symbolic pieces before IDs. Search existing cards, ask only gaps in scope/outcomes/size/dependencies, and
+  show new/fold/park/drop dispositions, types, prerequisites and the epic source text before approval. Recheck
+  affected cards before applying; changed scope or concurrent edits need renewed approval. Preserve partial results,
+  report their IDs and resume without duplicate allocations. No source text is executed or fetched.
+- Default type key epic, prefix EPIC, schema epic; built-in fallback template when no custom template is named.
+  Explicit type lists are never rewritten. Shipped software preset and init include epic; other specialised presets
+  need not. Existing generic schemas remain opt-in and unchanged.
+- Epic header `Work items` is the authoritative comma-separated ID list; `—` means no members. Source and Work items
+  sections are required by the epic schema; the latter contains readable ID links and split/disposition notes.
+  The full approved source lives once in Source; children reference the epic in Goal, not a new Parent field.
+  Core recognises the configured type key, not a hardcoded prefix. Children may be legacy or typed, but not epics.
+- Core validates references and computes optional board JSON `epic: {total, delivered, cancelled, remaining, complete}`.
+  Delivered means a configured done column and not the existing early-close/cancellation outcome. Remaining is
+  total minus delivered, including cancelled work that still needs a scope decision. Empty epics are incomplete.
+  Invalid references are check errors and cannot produce complete progress.
+- Membership is not `Needs`: real prerequisites between children use Needs. Explain host gates; never silently
+  install gates or pretend Needs enforces sequencing without them. No hold merely for advisory ordering.
+- Roll-up is read-only. Breakdown leaves the tracking epic held waiting for work-item delivery/review; later
+  clearing that hold and completion follow the configured route. No auto-close, auto-reopen, approval bypass,
+  progress edits on child moves, nested epics, relationship writes in adapters, or mutable view.
+- Contracts: additive board JSON epic object, new default type/schema and Work items brief field. Consumers:
+  core checker/board, shared renderer (editor/browser), terminal board, shared skill, init/software fixtures and docs.
+  No config-version bump or host migration: custom lists and old cards still load; no network or dependencies.
+
+## Docs
+
+README.md, docs/types.md, board-view/README.md, CHANGELOG.md.
+After W-18 moved the reference out of README, also update docs/setup.md, docs/presets.md and docs/contributing.md
+to keep default-type and skill inventories accurate.
+
+## Decisions
+
+- 2026-11-15 — owner chose skill-only command and Needs prerequisites; then requested "Introduce an EPIC type with
+  a schema that links all work items in the breakdown".
+- 2026-11-15 — owner chose EPIC as a default type and automatic parent roll-up, then clarified "Computed progress":
+  explicit closure through configured checks/gates, no automatic Stage changes.
+- 2026-11-15 — owner approved the Work items head-field contract, required Source/Work items sections, shared
+  existing children, and rejection of missing/self/nested epic references.
+- 2026-11-15 — engineer: reuse existing early-close evidence for cancelled counts, built-in type-specific template,
+  no new state files, and additive JSON with defensive consumers.
+- 2026-11-15 — owner approved reconciling three overlaps with current main while preserving both features, then
+  rerunning full checks. Merge committed as 67f9986; no other card was hand-edited.
+- 2026-11-15 — owner approved reconciling W-18's newly landed README/changelog reorganization. Keep its concise
+  install-first README and guides; W-30 documentation fitted into them in ecb39d1.
+
+## Progress
+
+- 2026-11-15: Design agreed with the owner; scope expanded to default EPIC/schema and core-computed membership
+  progress. Audit passed; isolated workspace created.
+- 2026-11-15: Design agreed: skill-only breakdown, default EPIC, Work items membership, Needs prerequisites and read-only computed progress; closure stays explicit.
+- 2026-11-15: Built breakdown skill and default EPIC schema/template, core membership validation/read-only roll-up and board display. Go and 351 Node tests pass after owner-approved reconciliation with main; live interview/editor check remains manual.
+- 2026-11-15: Check passed: full Go, vet, 341 board + 10 OpenCode tests, hooks/JS syntax, plugin validation, config/routes, audit/check and VSIX dry run. Full diff reviewed; no outstanding code findings. Owner-approved docs reconciliation ecb39d1 passed the full Go/docs suite.
 
 ## Out of scope
 
 Not fetching tickets from JIRA or GitHub (W-25); not estimating; not designing or building any piece; not choosing the
 owner's scope decisions for them; not rewriting the board's columns or flow (W-06, W-07).
 
+## Risk
+
+Persisted source can contain confidential text: show exactly what will be kept and do not fetch, execute or send
+it anywhere. Partial multi-card writes are not transactional; preserve and enumerate them rather than deleting
+user work. A cancelled child is not delivery. Keep all membership policy in Go, not either adapter or renderer.
+
 ## Comments
+
+- 2026-11-15 — OpenCode build session: initial red proved absent epic allocation/relationship checks/progress,
+  missing shared skill and missing renderer output. Implementation 012fd1d; source merge 67f9986 resolves the
+  inherited W-16 record guard failure via completed main work. Full Go and 351 Node tests now pass. Wording/fake
+  harness tests are not a live-model interview evaluation; editor progress check remains manual.
+- 2026-11-15 — OpenCode review session: configured QA passed in order: full Go, vet, board 341 and OpenCode 10
+  Node tests, hook/JS syntax, Claude plugin validation, resolved steps, card audit and brief check. VSIX dry run
+  contained all 15 expected runtime/metadata files, no bin.json or host path; not a release artifact. Reviewed the
+  full feature diff after owner-approved source/docs reconciliation. Live editor observation remains for owner QA.

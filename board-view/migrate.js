@@ -66,6 +66,7 @@ function createMigrations(deps) {
   let busy = false;
   let last = -Infinity;
   let noted;
+  const valid = () => typeof deps.valid !== 'function' || deps.valid();
 
   const note = (line) => {
     if (noted === line) return;
@@ -99,6 +100,7 @@ function createMigrations(deps) {
 
   // Looks at the project. With `force` it offers again even a plan the owner already saw. Resolves the plan or null.
   async function check(force) {
+    if (!valid()) return null;
     if (busy) return plan;
     if (!force && now() - last < gap) return plan;
     const root = folder();
@@ -116,6 +118,7 @@ function createMigrations(deps) {
     } finally {
       busy = false;
     }
+    if (!valid()) return null;
     const before = keyOf(plan);
     plan = found && (found.pending || found.recovery === 'rollback-needed') ? found : null;
     const key = keyOf(plan);
@@ -131,6 +134,7 @@ function createMigrations(deps) {
 
   async function offer(root, offered) {
     try {
+      if (!valid()) return;
       if (offered.recovery === 'rollback-needed') {
         void deps.ui.notify(message(offered), []);
         return;
@@ -138,6 +142,7 @@ function createMigrations(deps) {
       let choice = await deps.ui.notify(message(offered), [PREVIEW, APPLY, NOT_NOW]);
       if (choice === PREVIEW) {
         const text = await run(root, ['migrate']);
+        if (!valid()) return;
         if (!text.ok) {
           deps.ui.error(`Kanbanzai: cannot preview the migration: ${short(text.stderr || text.message, 300)}`);
           return;
@@ -153,8 +158,9 @@ function createMigrations(deps) {
 
   // Runs the apply with the hash the command printed, and nothing else from the project.
   async function apply(root, approved) {
-    if (!approved || !approved.pending || !SHA.test(approved.sha)) return;
+    if (!valid() || !approved || !approved.pending || !SHA.test(approved.sha)) return;
     const result = await run(root, ['migrate', '--apply', '--plan', approved.sha]);
+    if (!valid()) return;
     if (!result.ok) {
       const why = short(result.stderr || result.message || 'failed', 400);
       try { deps.log.error(`migrate --apply failed: ${why}`); } catch (e) { /* the message below still shows */ }

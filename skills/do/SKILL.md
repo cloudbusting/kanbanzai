@@ -1,7 +1,7 @@
 ---
 name: do
 description: Take a request or card through its configured workflow, stopping for decisions, gates or failures. Use when the owner asks to do work or resume a card.
-argument-hint: "[request or card id]"
+argument-hint: "[request, card id or card number]"
 ---
 
 # Do
@@ -15,6 +15,10 @@ choice /do makes itself: it never holds back a card the owner named. A card ahea
 along the pipeline, is not a reason to stop, hand the owner a different card or ask whether to go on; run the named
 card. Respect the configured cap before starting a card; a held card, a closed gate, another session's live claim and
 a hard audit finding still stop it.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 Before picking up a new card, if the prior conversation is unrelated to that card, ask the owner through the question
 tool whether to continue in this context and recommend a new clean session; wait for their answer before claiming or
@@ -137,7 +141,14 @@ another session's work. Renew then release the claim when stopping, including at
 work. Run `kanbanzai wip --audit --card <ID>` and report any remaining finding rather than hiding it. A stop on an
 audit finding must not leave a second blocker: record that finding as the Held line and the Next action, preserve the
 work, and release the claim; once the blocker has gone and the hold is cleared, the next `/do` resumes it through the
-recovery audit, whose warning about that card's own unclaimed work is not a new stop. If unfinished
+recovery audit, whose warning about that card's own unclaimed work is not a new stop. The exception is that one
+finding: a released card's own preserved work always shows as a hard finding in the ordinary audit, and only a claim
+resolves it, which a hold would bar. If the only hard finding is the card's own unclaimed workspace work, run
+`kanbanzai wip --audit --card <ID> --recovery`; when that passes, record no Held line, name the preserved work in
+Next, and say the next `/do` resumes through the recovery audit. Every other hard finding still becomes the Held line,
+and a card the recovery audit does not cover (no workspace, another isolation mode) keeps the ordinary rule. A Held
+line that records only this finding is the owner's to clear: do not clear it and do not claim around it; end the
+stop block with `Yours: clear the Held line (it records only this card's own preserved work)`. If unfinished
 work cannot safely be committed or a workspace removed, preserve it and say so. Do not delete another session's work.
 
 Every stop ends with the same block, last, in plain language. The stage word is the card's actual column

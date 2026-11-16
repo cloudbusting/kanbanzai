@@ -1,7 +1,7 @@
 ---
 name: audit
 description: Check that the board is true — every card's column, brief, Where and worktree, the batches and unpushed work — and report the drift. Use before opening a batch, before a batch ships, weekly, or when the owner asks what is really in flight. It fixes only bookkeeping, never code.
-argument-hint: "[a card, a batch, or an area]"
+argument-hint: "[a card (id or number), a batch, or an area]"
 ---
 
 # Audit
@@ -10,6 +10,10 @@ The board says what is in flight and where. This checks that claim against the f
 reports; the only things it changes are the board's own records. The owner is `project.owner` in `kanbanzai config`.
 Read `kanbanzai context` and `kanbanzai workflow show`; for a card use `kanbanzai step --for <ID>` and
 `kanbanzai workspace <ID>` to interpret its route and workspace instead of assuming a layout.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 ## 1. Run the checks
 
@@ -47,6 +51,9 @@ It warns about that card's matching unclaimed workspace work instead of treating
 findings still block. It supports worktree and branch isolation, not shared or external. It does not claim or modify
 work. After claiming, run both the ordinary card audit and the recovery audit again to detect competing branch claims;
 the ordinary and whole-board audit contracts are unchanged.
+A card's own preserved work always shows as a hard finding in the ordinary audit once its claim is released, and only a claim
+resolves it, so a hold written for it could never be cleared by work. A stop records no `Held:` line for that finding when the
+recovery audit passes; a hold already written for only that finding is the owner's to clear.
 
 Anything else the project keeps that can drift (a deploy queue, leases): its context files (`project.context`) say
 how to check it. Run those checks too.

@@ -1,11 +1,11 @@
 # W-14: Workflow presets and a fixture matrix for different delivery styles
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-14
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-15
+- **Done:** 2026-11-15 — v0.18.0, 81f218f, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.18.0
 - **ADR:** none
-- **Next action:** release: 0.17.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-W-14-0.17.0 from main 538dc65
-- **Where:** worktree W-14
+- **Next action:** —
+- **Where:** main
 - **Needs:** W-06, W-11, W-12, W-13
 
 ## Goal
@@ -131,6 +131,7 @@ A config carrying `[preset]` is refused by older commands (unknown key); the CHA
 - 2026-11-14: built: seven presets, internal/preset loader, init and workflow wiring, matrix tests, docs; all checks green
 - 2026-11-14: checked: all suites green, review fixed one defect (538dc65)
 - 2026-11-14: Package QA passed at 538dc65 alone: artifacts /tmp/kanbanzai-package-W-14-0.17.0, vsix sha256 8a2bf735…, source 861e0fce…
+- 2026-11-15: Shipped in v0.18.0 (81f218f), released together with W-07, W-14, W-16, BUG-59, BUG-64, BUG-67 and CHANGE-66
 
 ## Comments
 

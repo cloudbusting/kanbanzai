@@ -2,7 +2,7 @@
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
   "description": "The project's Kanbanzai board as a compact kanban in an editor tab. The board tab is read-only.",
-  "version": "0.17.0",
+  "version": "0.20.0",
   "publisher": "cloudbusting",
   "license": "MIT",
   "icon": "icon.png",
@@ -58,6 +58,18 @@
           "type": "string",
           "default": "",
           "description": "The kanbanzai command to run: an absolute path, or empty for the command bundled in this extension, else the copy in the per-user folder, else kanbanzai on PATH.",
+          "scope": "machine"
+        },
+        "kanbanzai.notifications": {
+          "type": "string",
+          "enum": ["all", "asking", "off"],
+          "enumDescriptions": [
+            "An operating-system notification when a session asks you, or a card becomes blocked, waits on you or is interrupted, while this window is not focused.",
+            "Only when a session asks you.",
+            "No operating-system notifications. The Board tab's toasts and the in-window message are not affected."
+          ],
+          "default": "all",
+          "description": "Raise an operating-system notification (notify-send on Linux, osascript on macOS, a PowerShell toast on Windows) only while this window is not focused. In a remote window, or when the notifier is missing, only the in-window message appears.",
           "scope": "machine"
         },
         "kanbanzai.pluginSource": {

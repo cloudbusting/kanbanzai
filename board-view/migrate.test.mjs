@@ -181,3 +181,38 @@ test("the hash that reaches the command line is checked, so nothing else can", a
   assert.equal(t.calls.some((c) => c.args.includes("--apply")), false);
   assert.deepEqual(t.ui.notices, []);
 });
+
+test("an offered plan remains bound to its root after selection changes", async () => {
+  const t = rig({ answers: (args) => ({ stdout: args[1] === '--apply' ? 'Migrated\n' : PENDING }) });
+  let approve;
+  t.deps.ui.notify = () => new Promise((resolve) => { approve = resolve; });
+  await t.m.check();
+  t.deps.root = () => '/another-project';
+  approve(migrate.APPLY);
+  await settle();
+  const applied = t.calls.find((c) => c.args.includes('--apply'));
+  assert.equal(applied.opts.cwd, '/project');
+  assert.equal(applied.args.at(-1), SHA);
+});
+
+test("removing a project while its approval prompt is open prevents writes", async () => {
+  const t = rig({ answers: () => ({ stdout: PENDING }) });
+  let approve, available = true;
+  t.deps.valid = () => available;
+  t.deps.ui.notify = () => new Promise((resolve) => { approve = resolve; });
+  await t.m.check();
+  available = false;
+  approve(migrate.APPLY);
+  await settle();
+  assert.equal(t.calls.filter((c) => c.args.includes('--apply')).length, 0);
+});
+
+test("two project controllers announce identical plan hashes independently", async () => {
+  const a = rig({ answers: () => ({ stdout: PENDING }), choices: [migrate.NOT_NOW] });
+  const b = rig({ answers: () => ({ stdout: PENDING }), choices: [migrate.NOT_NOW] });
+  b.deps.root = () => '/second-project';
+  await Promise.all([a.m.check(), b.m.check()]);
+  await settle();
+  assert.equal(a.ui.notices.length, 1);
+  assert.equal(b.ui.notices.length, 1);
+});

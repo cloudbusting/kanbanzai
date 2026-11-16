@@ -592,6 +592,7 @@ func TestNoLinkMakesTheCopyOnly(t *testing.T) {
 }
 
 func TestNoHomeIsNotedNotAFailure(t *testing.T) {
+	skipWithoutSymlinks(t)
 	f := newFixture(t)
 	code := f.runWith(func(o *Options) {
 		o.Getenv = func(name string) string {

@@ -11,11 +11,64 @@ and the editor extension carry the same version.
   asks Claude Code to update its record of the plugin version when a refreshed bundle is newer. OpenCode's adapter
   tolerates unknown event shapes, bounds its context and no longer caches it. Tested live against Claude Code 2.1.312
   and OpenCode 2.3.0; OpenCode 2.2.6 is not yet tested.
+
+## [0.20.0] — 2026-11-16
+
+- TASK-70: the editor extension raises an operating-system notification when a session asks you (a card, or a session
+  with no card) and, while its window is not focused, when a card becomes blocked, waits on you or is interrupted.
+  It runs the platform's own notifier (`notify-send` on Linux, `osascript` on macOS, a PowerShell toast on Windows)
+  with fixed arguments and the text as data, never through a shell; there is no new dependency. The in-window message
+  and the toasts are unchanged and remain the fallback when the notifier is missing or the window is remote
+  (Remote-SSH spawns nothing). On by default; the machine-scope setting `kanbanzai.notifications` is `all`, `asking`
+  or `off`. With the Board tab closed and the window unfocused the extension reads the board once a minute and when a
+  card file changes (none while focused). The browser board and the terminal are unchanged. No change to the command,
+  the config or the JSON.
+
+## [0.19.0] — 2026-11-15
+
+- CHANGE-69: a card can be named by its number alone. Every command that takes a card id (`claim`, `move`, `ask`,
+  `answer`, `gate`, `step --for`, `wip --title` and `--card`, `tree --merge`, `template`, `workspace`) also takes
+  `123` for the one card whose brief carries that number, in any worktree and folder; a number with no card, or with
+  two, exits 2 naming it and writes nothing. New `kanbanzai resolve ID|NUMBER` prints the canonical id, and the
+  `do`, `answer`, `audit`, `check`, `design` and `triage` skills use it for a bare number (`next` keeps its count).
+  `step --for` and `wip` now also take a full id in any case or padding. No config, state or JSON change.
+- BUG-68: the editor board no longer shows a red error box for a workspace folder that is not a project. `config --json`
+  answers `"no_project": true` (exit 0) in a folder that is not a git checkout, and discovery skips that folder;
+  a folder with a genuinely broken config or checkout still shows its labelled error.
+- W-30: shared `/kanbanzai:breakdown` (also `/breakdown` in OpenCode) proposes an approved split of pasted text into
+  triaged cards with Needs prerequisites, without fetching tickets or starting work. Default types, fresh init and
+  the software preset add EPIC with a built-in template/schema, Source and Work items membership. Core validation
+  rejects invalid/nested membership and `board --json` adds optional read-only `epic` progress counters, displayed
+  by terminal/editor/browser boards. Cancellation is not delivery; closure remains explicit through the workflow.
+- W-18: the documentation is install-first. The README opens with what Kanbanzai is, who it is for, the supported
+  agents, editors and platforms and a five-minute install; its reference material moved into guides under `docs/`
+  (`commands`, `configuration`, `concepts`, `boards`, `contributing`). New guides: `host-integration` (the minimal
+  changes a host project makes, and that its own rules and skills stay in the host), `multi-project`, `upgrade`,
+  `troubleshooting` (each `doctor` finding mapped to its fix) and `security` (what runs, reads, writes and sends).
+  Docs tests now fail on a broken link or heading, a configuration example with a key the command does not accept, a
+  configuration key no guide names, a command the command does not have, and a `doctor` finding with no fix. Docs only:
+  no command or setting changed.
+
+## [0.18.0] — 2026-11-15
+
+- BUG-64: the board shows `❓ asking`, the glow and the toast for a Claude Code session that has the question tool open, instead of showing the card as blocked.
+- BUG-59: the package step accepts a Checked card that `/do` carries in a live claim, so a `/do` run can package it; cards held by another session, with an expired claim or not merged stay out.
+- BUG-67: `/do` no longer deadlocks on a card's own preserved work. A released card's work always shows as a hard
+  finding in the ordinary audit and only a claim resolves it, yet the stop rule recorded that finding as a Held line,
+  which bars both the recovery audit and the claim. A stop now records no Held line for that one finding when
+  `wip --audit --card ID --recovery` passes; every other hard finding still holds the card, and a Held line already
+  written for only this finding is the owner's to clear. Skill wording only: the audit commands are unchanged.
+- W-16: the editor board discovers configured workspace projects, deduplicates worktree aliases, and offers
+  grouped All projects / single-project boards and a type filter. Project-scoped cards, notifications and opening
+  prevent duplicate-ID collisions; independent reads retain last-good boards and explicitly mark stale counts.
+  Setup keeps its first-folder target, migration approvals remain project-bound, and browser/TUI scope is unchanged.
 - CHANGE-66: `kanbanzai install`, and so the editor's Kanbanzai: Apply, links the command as `~/.local/bin/kanbanzai`
   on Linux and macOS (making the folder if it is missing, never replacing anything already there) and warns when
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user
   `PATH`. It still edits no `PATH` or profile. New flag `install --no-link`; `--refresh` makes no link. The setup plan
   names the link and Apply shows what `install` noted.
+- W-07: `/kanbanzai:workflow` inspects and conversationally reconfigures an existing flow, recommends presets,
+  and applies only an explicitly approved migration plan.
 - W-14: delivery presets. `kanbanzai init --preset NAME` sets a project up for a kind of work (`software`, `simple`,
   `docs-only`, `pr-review`, `release-train`, `marketing`, `homework`, or a folder of your own) with its flow, issue
   types, brief templates and schemas, written out in full; `--type`, `--step-skill` and `--step-extend` compose it.

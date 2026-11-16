@@ -89,6 +89,15 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       .filter((name) => existsSync(path.join(ROOT, "skills", name, "SKILL.md")))
       .sort();
     assert.deepEqual(added.map((skill) => skill.id).sort(), expected);
+    const breakdown = added.find((skill) => skill.id === "breakdown");
+    assert.ok(breakdown, "the shared breakdown skill was not registered");
+    for (const name of ["breakdown", "kanbanzai:breakdown"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      await command.execute({ sessionID: "ses_test1", prompt: { text: "split this requirement" }, delivery: "steer" });
+      assert.match(prompts.at(-1).text, /# Breakdown/);
+      assert.match(prompts.at(-1).text, /split this requirement/);
+    }
     assert.ok(added.some((skill) => skill.id === "answer"), "the answer skill was not registered");
     assert.ok(commands.some((entry) => entry.name === "answer"), "the /answer command was not registered");
     const prefixed = expected.map((name) => `kanbanzai:${name}`);
@@ -101,15 +110,28 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       assert.ok(command, `the /${name} command was not registered`);
       assert.equal(command.description, setupSkill.description);
     }
+    const workflowSkill = added.find((skill) => skill.id === "workflow");
+    assert.ok(workflowSkill, "the workflow skill was not registered");
+    assert.match(workflowSkill.description, /inspect/i);
+    assert.match(workflowSkill.description, /change/i);
+    for (const name of ["workflow", "kanbanzai:workflow"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      assert.equal(command.description, workflowSkill.description);
+      await command.execute({ sessionID: "ses_test1", prompt: { text: "inspect my flow" }, delivery: "steer" });
+      assert.match(prompts.at(-1).text, /kanbanzai workflow show/);
+      assert.match(prompts.at(-1).text, /inspect my flow/);
+    }
     const build = commands.find((entry) => entry.name === "build");
     assert.ok(build, "the build command was not registered");
     await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" });
-    assert.match(prompts[0].text, /# Build/);
-    assert.match(prompts[0].text, /do the thing/);
+    assert.match(prompts.at(-1).text, /# Build/);
+    assert.match(prompts.at(-1).text, /do the thing/);
 
     for (const [name, patterns] of [
       ["do", [/ask the owner directly through the question tool/, /continue the configured route/, /do not call `kanbanzai ask`/, /do not require `\/answer`/,
-        /after `kanbanzai tree --merge <ID>`/]],
+        /after `kanbanzai tree --merge <ID>`/,
+        /when that passes, record no Held line/, /A Held line that records only this finding is the owner's to clear/]],
       ["next", [/batch handoff/, /kanbanzai ask <ID>/, /releases that card's claim/, /`\/answer`/, /`kanbanzai tree --json`/]],
       ["audit", [/`kanbanzai tree --json`/, /`board-only`/]],
       ["check", [/### The integration merge/, /`kanbanzai tree --merge <ID>`/, /Exit 1 \(`blocked`\)/, /Never stash, stage, commit, reset, discard/]],

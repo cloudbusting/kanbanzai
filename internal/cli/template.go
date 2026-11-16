@@ -7,6 +7,7 @@ import (
 
 	kanbanzai "github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/number"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
 
@@ -14,6 +15,7 @@ import (
 var examples = map[string]string{
 	"task": "templates/task.md", "bug": "templates/bug.md", "change": "templates/change.md",
 	"schemas": "templates/schemas.example.toml",
+	"epic":    "templates/epic.md",
 }
 
 // runTemplate prints the brief template for a type, a card id or the project, or one embedded example. The ID
@@ -26,7 +28,7 @@ func runTemplate(project *config.Project, args []string, out, errOut io.Writer) 
 	if name, ok := flags["example"]; ok {
 		file, known := examples[name]
 		if !known || len(positionals) != 0 || set["where"] {
-			fmt.Fprintf(errOut, "kanbanzai: template: --example takes one of task, bug, change, schemas, and nothing else\n")
+			fmt.Fprintf(errOut, "kanbanzai: template: --example takes one of task, bug, change, epic, schemas, and nothing else\n")
 			return 2
 		}
 		data, err := kanbanzai.Files.ReadFile(file)
@@ -39,6 +41,13 @@ func runTemplate(project *config.Project, args []string, out, errOut io.Writer) 
 	}
 	var item typeid.Type
 	if len(positionals) == 1 {
+		if _, bare := number.BareNumber(positionals[0]); bare {
+			card, err := cardArg(project, positionals[0])
+			if err != nil {
+				return usageError(errOut, "template", err)
+			}
+			positionals[0] = card
+		}
 		found, ok := templateType(project, positionals[0])
 		if !ok {
 			fmt.Fprintf(errOut, "kanbanzai: template: %q is not a type key, a type prefix or a card id of this project (types: %s)\n",

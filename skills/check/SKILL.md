@@ -1,7 +1,7 @@
 ---
 name: check
 description: Check a card when its configured route calls for review — run the project's checks in order, stop on red, then review the whole diff. Use when the owner asks whether carded work is ready.
-argument-hint: "<the card id>"
+argument-hint: "<the card id or number>"
 ---
 
 # Check
@@ -9,6 +9,10 @@ argument-hint: "<the card id>"
 Runs in the main session, with this session's claim on the card. The checks are the project's;
 this skill runs them in order and then reviews the diff. Subagents may run an individual check when the project's
 check skill hands it to one, but the review and the completion move are the main session's.
+
+A card can be named by its number alone. When the argument is only digits (`123`, `07`), run
+`kanbanzai resolve <number>` first and use the id it prints in every command, path, branch and commit message. If it
+refuses (no card has that number, or two do), stop and report its message; never guess a card.
 
 This skill is step-scoped: run on its own it stops at the end of this step and reports; when `/do` runs this step, `/do` carries the card on to its next step.
 

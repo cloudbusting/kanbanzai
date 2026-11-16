@@ -1,12 +1,11 @@
 # TASK-56: Browser board for terminal users
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-14
-- **Done:** —
+- **Done:** 2026-11-14, dadc2ef (v0.17.0), shipped in the combined v0.17.0 release
 - **ADR:** Decisions in this brief (accepted 2026-11-14)
-- **Next action:** Wait for the owner to lift the publication hold and approve a release version; proven package at /tmp/kanbanzai-package-TASK-56-corrected-vrkgvtu_/out from 40b932e
-- **Where:** worktree TASK-56
-- **Held:** waiting: owner selected “Hold publication”; do not push, tag or publish until explicitly approved
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -50,6 +49,7 @@ README command/use section; board-view README browser host; SECURITY loopback th
 
 ## Decisions
 
+- 2026-11-14: Owner selected “Approve v0.17.0 (Recommended)”, lifting the publication hold and approving a combined v0.17.0 release of the ten QA-approved cards, subject to green CI and the normal gates.
 - 2026-11-14 — Owner selected “Approve (Recommended)” for the narrow exception: explicitly started read-only HTTP on 127.0.0.1, per-run token, strict Host/Origin checks, no outbound requests/assets or LAN binding. All other no-network/no-hosted-service rules remain.
 - 2026-11-14 — Owner selected “Use this (Recommended)” for `kanbanzai board --web`, foreground until Ctrl-C, automatic browser open, `--no-open`, `--port N`, and literal brief display. Existing text/JSON modes remain.
 - 2026-11-14 — After inspecting the running server the owner said “approved”, then selected “Package and release” when asked for scope. Continue packaging and release; version and remaining manual checks still require confirmation before publication.

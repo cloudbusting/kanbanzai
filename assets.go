@@ -9,9 +9,9 @@ package kanbanzai
 import "embed"
 
 // Files holds defaults/config.toml, templates/card.md and the opt-in per-type examples: templates/task.md, bug.md,
-// change.md and schemas.example.toml. The examples are never applied to a project unless it copies and names them.
+// change.md and schemas.example.toml. Epic has its own shipped template/schema; other examples are opt-in.
 //
-//go:embed defaults/config.toml presets templates/card.md templates/task.md templates/bug.md templates/change.md templates/schemas.example.toml
+//go:embed defaults/config.toml presets templates/card.md templates/task.md templates/bug.md templates/change.md templates/epic.md templates/schemas.example.toml
 //go:embed README.md .claude-plugin/plugin.json .claude-plugin/marketplace.json .claude-plugin/icon.png hooks/hooks.json hooks/heartbeat.sh hooks/session-start.sh opencode/server.js skills/*/SKILL.md
 var Files embed.FS
 

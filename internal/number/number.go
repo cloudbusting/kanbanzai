@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -98,29 +97,8 @@ func Roots(project *config.Project) []string {
 // RepoTaken is every number already recorded in any worktree: only a brief's file name counts.
 func RepoTaken(project *config.Project) map[int]bool {
 	found := map[int]bool{}
-	inside, err := filepath.Rel(project.Root, project.Work)
-	external := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
-	for _, root := range Roots(project) {
-		briefs := project.Work
-		if !external {
-			briefs = filepath.Join(root, inside)
-		}
-		if info, err := os.Stat(briefs); err != nil || !info.IsDir() {
-			continue
-		}
-		_ = filepath.WalkDir(briefs, func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil || entry.IsDir() {
-				return nil
-			}
-			match := project.CardFileRe.FindStringSubmatch(entry.Name())
-			if match == nil {
-				return nil
-			}
-			if value, ok := project.CardNumber(match[1]); ok {
-				found[value] = true
-			}
-			return nil
-		})
+	for number := range Cards(project) {
+		found[number] = true
 	}
 	return found
 }
@@ -277,6 +255,9 @@ func NextNumber(taken map[int]bool, issued []int, reserved []map[string]any) int
 
 // ParseItem is a card id as a number, or an error naming what it was for. A typed id and a legacy prefix both count.
 func ParseItem(project *config.Project, item, what string) (int, error) {
+	if number, ok := BareNumber(item); ok {
+		return number, nil
+	}
 	if number, ok := project.CardNumber(item); ok {
 		return number, nil
 	}
@@ -381,6 +362,7 @@ func Release(project *config.Project, item string) (string, error) {
 		}
 		issued, reserved = nil, nil
 	}
+	label := numberLabel(reserved, value)
 	keptIssued := make([]int, 0, len(issued))
 	for _, number := range issued {
 		if number != value {
@@ -398,6 +380,9 @@ func Release(project *config.Project, item string) (string, error) {
 	}
 	if card, ok := project.CanonicalCardID(item); ok {
 		return card, nil
+	}
+	if _, bare := BareNumber(item); bare {
+		return label, nil
 	}
 	return project.FormatID(value), nil
 }
@@ -435,6 +420,9 @@ func Mark(project *config.Project, item string) (string, error) {
 	}
 	if card, ok := project.CanonicalCardID(item); ok {
 		return card, nil
+	}
+	if _, bare := BareNumber(item); bare {
+		return numberLabel(reserved, value), nil
 	}
 	return project.FormatID(value), nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/epic"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/workspace"
@@ -36,7 +37,13 @@ var (
 
 // Checks are the board's checks, in the order the command reports them.
 var Checks = []func(*config.Project) []string{
-	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Links, Questions, Comments, Template, BriefSchemas,
+	Folders, TypedFiles, Titles, Headers, Stages, Unique, Held, Gates, Epics, Links, Questions, Comments, Template, BriefSchemas,
+}
+
+// Epics checks membership, independently of the optional structural schema.
+func Epics(project *config.Project) []string {
+	_, problems := epic.Load(project, board.Briefs(project))
+	return problems
 }
 
 // Questions validates optional question records and the hold on an open question.
@@ -479,7 +486,12 @@ func Template(project *config.Project) []string {
 			continue
 		}
 		if schema, ok := project.BriefSchemas[item.Schema]; ok {
-			problems = append(problems, checkBriefSchema(name+" (type "+item.Key+")", text, schema, true)...)
+			typeText, source, err := project.TemplateTextFor(item)
+			if err != nil {
+				problems = append(problems, fmt.Sprintf("%s: template for type %s cannot be read: %v", source, item.Key, err))
+				continue
+			}
+			problems = append(problems, checkBriefSchema(source+" (type "+item.Key+")", typeText, schema, true)...)
 		}
 	}
 	_, fields := brief.Header(text)

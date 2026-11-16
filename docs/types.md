@@ -10,11 +10,12 @@ KANZ-TASK-07      with project_key = "KANZ"
 
 Every type shares **one global number sequence**. `BUG-07` is the seventh item overall, not the seventh bug. That is
 deliberate: a card's number is stable and unique across the board, and the type tells you what kind of work it is.
-Read `number --status` with that in mind.
+Read `number --status` with that in mind. Because a number names at most one card, the commands that take a card also
+take its number alone: `kanbanzai claim claim 7` is `claim claim BUG-07` (see `docs/commands.md`, "Naming a card").
 
 ## Configure it
 
-The shipped defaults configure task, bug, change, spike and chore and set `default_type = "task"`, so a project with
+The shipped defaults configure task, bug, change, spike, chore and epic and set `default_type = "task"`, so a project with
 no `[[types]]` of its own is already typed. A project's own config can add or replace types:
 
 ```toml
@@ -56,7 +57,7 @@ Rules, enforced before a command runs:
 - `prefix` is the **legacy** prefix, not a type. A project with `types = []` at the root of its config opts out of
   typed ids and uses `prefix` as its only card id (`W-01`, `W-02`) and its `<prefix>.json` ledger.
 
-`kanbanzai init` writes a typed config for a fresh project with task, bug, change, spike and chore, `default_type =
+`kanbanzai init` writes a typed config for a fresh project with task, bug, change, spike, chore and epic, `default_type =
 "task"` and `prefix = ""` (no legacy alias). `kanbanzai init --prefix W` writes a single-prefix config (`types = []`)
 instead.
 
@@ -68,7 +69,8 @@ adds a Type line: the id's prefix is still the only source of type.
 **Template.** `template = "templates/incident.md"` is resolved from the main project root, must exist and be readable,
 and is what `kanbanzai template <type|ID>` prints. If a named template is missing or unreadable that is an error
 (`check`, `init`, `workflow plan` and `template` all say so); no other template is used instead. A type with no
-`template` gets the project's `[project] template`, or the embedded `templates/card.md`.
+`template` gets the project's `[project] template`, or the embedded `templates/card.md`, except that the `epic`
+type uses the embedded `templates/epic.md`. A named custom epic template still takes precedence and must be readable.
 
 **Schema.** `schema = "incident"` names a `[schemas.incident]` table. Without it the legacy checker applies to the type's
 cards unchanged (the head fields and a final Comments, with any other field or section allowed), and legacy ids
@@ -103,6 +105,54 @@ kanbanzai template --example schemas                     # the [schemas.*] table
 Add the `[schemas.*]` tables to `config.toml` and the `template` and `schema` lines to your existing `task`, `bug` and
 `change` types; do not repeat a type, because a repeated key is refused. A bug's template adds Reproduction, Expected and Actual; a change's adds Before and After; a task's is the plain
 card. Each passes its own schema's check, and `kanbanzai check` validates the template against the schema as well.
+
+### Epics and breakdown
+
+`epic` is a default type with prefix `EPIC` and `schema = "epic"`. The schema requires the usual lifecycle fields,
+the `Work items` head field, Source and Work items sections, and the ordinary card sections ending in Comments.
+`kanbanzai template epic` prints its built-in template; `template --example epic` exports a copy for customisation.
+
+On a project with an explicit type list, retain every existing entry and add this one if wanted:
+
+```toml
+[[types]]
+key = "epic"
+label = "Epic"
+prefix = "EPIC"
+schema = "epic"
+```
+
+The schema is inherited from shipped defaults; inspect `defaults/config.toml` to customise it. A legacy-only board
+must deliberately opt into typed IDs first; breakdown does not change its configuration. Existing cards are not
+migrated. EPIC is recognised by configured **key**, so a different prefix or project key is supported.
+
+```markdown
+- **Work items:** TASK-02, BUG-03, W-04
+```
+
+This is an authoritative comma-separated membership list, not Markdown links or free text; `—` means empty.
+`check` rejects unknown/malformed/duplicate IDs, self-membership, nested epics and the field on a non-epic.
+An ordinary card, including a legacy ID, may be linked from several epics. Keep readable references and the
+approved split in the Work items section; use plain IDs when moving cards would break relative links.
+Keep the approved source once in Source (quoted as data; encode literal Markdown link brackets in the shown
+approval preview). Children reference the epic in Goal. Membership is unrelated to Needs prerequisite edges.
+
+The shared `/kanbanzai:breakdown` skill proposes before interviewing, reuses `/triage`, asks only unanswered
+questions and waits for approval of the exact source/split/dispositions before allocation or writes. Declining
+writes nothing. A partial write is reported and preserved; resuming inspects its recorded IDs before allocating
+more. It never fetches tickets, claims a card or starts work.
+
+Core `board --json` adds `epic` only on epic cards:
+
+```json
+{"total": 3, "delivered": 1, "cancelled": 1, "remaining": 2, "complete": false}
+```
+
+Delivered children are in configured done columns, excluding early-close/no-change cancellations. Remaining is
+total minus delivered (including cancelled work that still needs a scope decision). Complete is true only for a
+non-empty valid membership with every child delivered. Missing/broken references cannot produce completion.
+Roll-up only reads; it does not close/reopen an epic, clear its tracking hold, pass a gate or rewrite progress.
+The owner reviews outcomes and resolves cancellations before explicit closure through the configured route.
 
 ### A complete project-specific example
 
@@ -248,3 +298,47 @@ worktree. There is no implicit rename and no re-key command; a card whose file n
 
 Per-type flows, columns or gates are not part of the model: a type selects an identity, a template and an optional
 brief shape, not a workflow. A schema checks presence and order, never content, and is not a rules language. A remote backing store is a separate card.
+
+## A bug type with a template and a schema, in one block
+
+A type can have its own brief template and, separately, opt into a brief schema. Both are optional and per type; a
+project that sets neither behaves exactly as before: one template, and a checker that requires the head fields
+(Stage, Updated, Next action, Where) and a final `## Comments` section while allowing any other field or section.
+
+```toml
+[project]
+default_type = "bug"            # [[types]] replace the shipped list: list every type you use
+
+[[types]]
+key = "bug"
+label = "Bug"
+prefix = "BUG"
+template = "templates/bug.md"   # relative to the main project root; must exist and be readable (no fallback)
+schema = "bug"                  # opt in: names [schemas.bug]; without it the legacy checker applies
+
+[schemas.bug]
+required_fields = ["Stage", "Updated", "Next action", "Where"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
+optional_sections = ["Design", "Questions"]
+repeatable_sections = []
+section_order = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Design", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Questions", "Comments"]
+final_section = "Comments"
+```
+
+A schema constrains presence and order only: required head fields, declared fields, required and declared `##`
+sections in `section_order`, sections that may repeat, and one final section. `kanbanzai check` names the brief, the
+field or section and what is wrong (missing, undeclared, out of order, duplicated, not last). It cannot disable the
+command's own invariants: a schema must require Stage, Updated, Next action and Where, permit Done, Held, Gate and
+Needs, permit Progress and Questions, and end with a required Comments section, or the config is refused before any
+command uses it. `move`, `ask` and `answer` insert Progress and Questions where `section_order` puts them.
+
+The card's type comes from its id prefix; there is no Type line. `kanbanzai template <type|ID>` prints the template a
+new card of that type starts from (`--where` names its file and schema); a type with no `template` gets the project
+template or the embedded card template, and a named template that is missing or unreadable is an error, not a silent
+fallback (epic uses its own shipped template). `kanbanzai template --example task|bug|change|epic|schemas` prints the embedded templates
+and an opt-in schema example for them. `kanbanzai init` and `workflow plan` check every named type template (it must
+exist, stay inside the project and fit its schema) and never create, replace or overwrite one; a workflow plan that
+renames the first column rewrites each template's Stage word like the project template. `board --json` and
+`config --json` add an optional `schema` to a type; nothing else changed. The section above has a full
+example, the validation errors and the compatibility rules.
