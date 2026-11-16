@@ -1,10 +1,10 @@
 # BUG-79: The OpenCode plugin does not load in card worktrees: its reference reads the git-ignored `.kanbanzai/state/`
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-16
 - **Done:** —
 - **ADR:** none — the brief is the record (design may raise one if it changes the plugin-reference contract)
-- **Next action:** package: kanbanzai-package builds the artifacts from main, then QA-approval by the owner, then kanbanzai-release
+- **Next action:** release: version, licence and publisher need the owner's approval; package artifacts at /tmp/kanbanzai-package-BUG-79-0.24.0 from main b4153ac, rehearsed at the 0.24.0 metadata (the release bumps it); the owner's manual check: OpenCode in a linked worktree
 - **Where:** worktree BUG-79
 
 ## Goal
@@ -85,6 +85,7 @@ Open question for later, not this card: a hand-made worktree stays unlinked unti
 - 2026-11-16: design done: owner chose link-per-worktree plus a doctor error; Claude Code is not affected
 - 2026-11-16: build done: pluginlink, plugins link, link on move, workspace link step, doctor evaluation, docs; all suites green
 - 2026-11-16: check done: QA pass, review done; branch BUG-79 merged into main
+- 2026-11-16: Package QA passed at b4153ac, alone: artifacts /tmp/kanbanzai-package-BUG-79-0.24.0 (source bundle, 5 command archives, vsix with 5 commands), sha256 in /tmp/kanbanzai-package-BUG-79-0.24.0/SHA256SUMS (vsix 0460b00a…, linux_amd64 a9a75a30…); fresh project init/check/board, claude validate and throwaway-config install, node --check, the card's own scenario on the packaged linux command (doctor exit 1 before plugins link, 0 after) and the machine-path scan of 7 unpacked artifacts: clean
 
 ## Out of scope
 
