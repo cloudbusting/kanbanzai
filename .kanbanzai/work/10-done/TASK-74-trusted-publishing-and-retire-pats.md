@@ -1,11 +1,11 @@
 # TASK-74: Trusted publishing on Open VSX, and retire the marketplace PATs for kanbanzai and teamclaude-status
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-16
-- **Done:** —
+- **Done:** 2026-11-16 — v0.23.1, d68fba3, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.23.1 (kanbanzai half: Open VSX by trusted publishing; teamclaude-status and PAT retirement left for a follow-up)
 - **ADR:** none
-- **Next action:** release: the next version (owner's call; a patch is likely) after the owner approves; package artifacts at /tmp/kanbanzai-package-TASK-74-0.23.0 from main ab6b0dd. Teamclaude-status (task 3) waits for the owner to register its publishers
-- **Where:** worktree TASK-74
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -42,8 +42,8 @@ Design (2026-11-16): kanbanzai's half only. Task 3 waits for the owner to regist
   - `release_test.go` `TestReleaseWorkflow...` (the Open VSX block): it requires `publish "$VSIX" --trusted-publishing`, `--skip-duplicate`, exactly `id-token: write` and `contents: read` with no `contents: write`, the repository guard, and refuses `OVSX_PAT`, `secrets.` and `-p ` in the job. It fails on the current workflow first. The skill test drops the `OVSX_PAT` wording and requires the trusted-publishing wording instead.
   - Release skill: Open VSX is trusted publishing; the owner registers the trusted publisher (repository `cloudbusting/kanbanzai`, workflow `release.yml`) at open-vsx.org/user-settings/trusted-publishers and the Marketplace policy on the `cloudbusting` publisher page; before the tag the owner confirms both still exist; if the job fails, fix the registration and re-run only that job; never set an `OVSX_PAT` (a token in the environment takes precedence and disables trusted publishing).
   - `docs/contributing.md` and `CHANGELOG.md` (under Unreleased) say the same without naming `OVSX_PAT`.
-- [ ] 3. **Teamclaude-status workflow** (a different repository; waits for task 1's second half). `.github/workflows/publish.yml` in the local teamclaude-status checkout: `permissions: contents: write, id-token: write`; `vsce publish --packagePath extension.vsix --oidc`; `ovsx publish extension.vsix --trusted-publishing`; no `VSCE_PAT` or `OVSX_PAT`; and its `getting-published.md` no longer tells CI to use them. Made there on a branch with the owner's word, after the registration.
-- [ ] 4. **Retire the PATs.** After the first PAT-free release in each repository the owner deletes the `OVSX_PAT` (and teamclaude-status's `VSCE_PAT`) secrets and revokes the Open VSX tokens and the Azure DevOps PAT. Revoke last: it removes the fallback.
+- [ ] 3. **Teamclaude-status workflow** (NOT DONE; left for a follow-up card, as the owner chose kanbanzai only; a different repository; waits for task 1's second half). `.github/workflows/publish.yml` in the local teamclaude-status checkout: `permissions: contents: write, id-token: write`; `vsce publish --packagePath extension.vsix --oidc`; `ovsx publish extension.vsix --trusted-publishing`; no `VSCE_PAT` or `OVSX_PAT`; and its `getting-published.md` no longer tells CI to use them. Made there on a branch with the owner's word, after the registration.
+- [ ] 4. **Retire the PATs** (NOT DONE; the owner's, now due for kanbanzai's `OVSX_PAT`, and for teamclaude-status after its own release). After the first PAT-free release in each repository the owner deletes the `OVSX_PAT` (and teamclaude-status's `VSCE_PAT`) secrets and revokes the Open VSX tokens and the Azure DevOps PAT. Revoke last: it removes the fallback.
 
 ## Docs
 
@@ -68,6 +68,8 @@ Kanbanzai's release skill, `docs/contributing.md`, `CHANGELOG.md`; teamclaude-st
 - 2026-11-16: Build done: open-vsx job on trusted publishing, 15dd0d0
 - 2026-11-16: Check green: go test/vet, node 388+13, hooks, plugin validate, audit, kanbanzai check; diff reviewed, no findings
 - 2026-11-16: Package QA passed at ab6b0dd alone: artifacts /tmp/kanbanzai-package-TASK-74-0.23.0, sha256 .vsix cf8f0a7a04df7d8c68fce434302809b7d42015e28f1c793f11fde141d69103cf, source b678db8f1d66311d7cb8922ca8b7a6933ed5164d9538fed597914b280bf51a42; command, claude validate, opencode, extension listing and all seven scans clean
+- 2026-11-16: Released v0.23.1 at d68fba3 (owner approved 'Approve as 0.23.1'). The Release run's Open VSX job printed 'Trusted publishing token issued' and 'Published cloudbusting.kanbanzai-board v0.23.1' with no PAT, and the Marketplace job published by OIDC. Open VSX serves 0.23.1 at its versioned address; both listings' 'latest' still read 0.23.0 minutes later (caching). Released `.vsix` installed in the editor from the checksummed file. The card closes for kanbanzai's half; teamclaude-status (tasks 1b, 3) and PAT retirement (task 4) need a follow-up card.
+- 2026-11-16: Shipped v0.23.1
 
 ## Out of scope
 
