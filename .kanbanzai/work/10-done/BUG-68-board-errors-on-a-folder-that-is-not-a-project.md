@@ -1,11 +1,11 @@
 # BUG-68: The board shows a red box for a workspace folder that is not a project
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-15
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-16
+- **Done:** 2026-11-16 — shipped in v0.19.0 (2026-11-15), tip 4cba79a, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.19.0; closed on the owner's word after the fact
 - **ADR:** none
-- **Next action:** release: 0.18.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-BUG-68-0.18.0 from main fb4dc30; manual editor QA: multi-root workspace with a non-git, non-board folder shows no red box
-- **Where:** worktree BUG-68
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -84,6 +84,7 @@ Package and release: this changes the shipped editor extension.
 - 2026-11-15: built: core no_project answer, extension tests, docs; go test ./... and node tests green; commit fb4dc30 on branch BUG-68
 - 2026-11-15: checked: go test ./..., go vet, node 354 tests, plugin validate, vsix dry run, audit all green; diff reviewed, no findings
 - 2026-11-15: Package QA passed at fb4dc30 alone: artifacts /tmp/kanbanzai-package-BUG-68-0.18.0 (vsix sha256 16042bc7d4dc67b2cb6d69cfa7115f602ffdcc264c0715387c7430fde1ecddb4, source tar d0b4c9d88523e62eeb3a962a455c86d74b30ab9fbdd640e1601ce8a84c94afa4)
+- 2026-11-16: Closed as Done on the owner's word (2026-11-16): it shipped in v0.19.0 (CHANGELOG, 0.19.0) and the card was left at QA-approved. The manual editor QA step (a multi-root workspace with a non-git, non-board folder shows no red box) was never recorded as done; the owner closed it regardless.
 
 ## Out of scope
 

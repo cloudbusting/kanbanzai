@@ -1,11 +1,11 @@
 # W-30: Breakdown command and skill: turn a big requirement into triaged, sequenced cards by asking questions
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-15
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-16
+- **Done:** 2026-11-16 — shipped in v0.19.0 (2026-11-15), tip 9738872, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.19.0; closed on the owner's word after the fact
 - **ADR:** none
-- **Next action:** release: 0.18.0 after the owner approves; package artifacts at /tmp/kanbanzai-package-W-30-0.18.0 from main f38c89a; manual editor check of epic progress outstanding
-- **Where:** worktree W-30
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -118,6 +118,7 @@ to keep default-type and skill inventories accurate.
 - 2026-11-15: Built breakdown skill and default EPIC schema/template, core membership validation/read-only roll-up and board display. Go and 351 Node tests pass after owner-approved reconciliation with main; live interview/editor check remains manual.
 - 2026-11-15: Check passed: full Go, vet, 341 board + 10 OpenCode tests, hooks/JS syntax, plugin validation, config/routes, audit/check and VSIX dry run. Full diff reviewed; no outstanding code findings. Owner-approved docs reconciliation ecb39d1 passed the full Go/docs suite.
 - 2026-11-15: Package QA passed at f38c89a (alone; owner-forced takeover of the OpenCode lease): bundle sha256 88c18e39…, vsix 99cf1fda…, five binary archives; command, claude validate (one README-install-line warning), OpenCode syntax and extension listing pass. Editor epic progress check remains manual.
+- 2026-11-16: Closed as Done on the owner's word (2026-11-16): it shipped in v0.19.0 (CHANGELOG, 0.19.0) and the card was left at QA-approved. The manual editor check of epic progress on this card was never recorded as done; the owner closed it regardless.
 
 ## Out of scope
 
