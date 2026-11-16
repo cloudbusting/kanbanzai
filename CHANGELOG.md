@@ -5,6 +5,16 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-11-16
+
+- TASK-71: nothing the project ships carries one machine's paths, session ids or settings any more. The release check
+  (`go run ./tools/release -check`) now fails, naming the file and line, on a home path, an OpenCode or Claude Code
+  session id, a settings file from one machine (`settings.local.json`, `scheduled_tasks.lock`, an editor's backup) or an
+  absolute plugin path in `.opencode/opencode.json`, in any shipped file and not only in board records. A new
+  `go run ./tools/release -scan <folder>` does the same over an unpacked artifact, binaries included; the release
+  build runs it on the five commands. Test fixtures use fictional paths and ids, and closed briefs no longer name a
+  person or a host project. No change to the command's behaviour, the config or the JSON.
+
 ## [0.21.0] — 2026-11-16
 
 - W-15: the editor's command carries both agent plugins. Approved setup installs them locally, configures OpenCode
