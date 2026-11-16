@@ -112,6 +112,14 @@ test("validBranch and validAgents: only what is safe as one argument", () => {
 
 const FOLDER = "/home/u/.local/share/kanbanzai/bin";
 
+test("planText discloses local Claude registration and cache writes", () => {
+  const selected = { ...report, plan: { ...report.plan, bundled_plugins: ["claude", "opencode"] } };
+  const shown = init.planText(selected, FOLDER);
+  assert.match(shown, /claude plugin marketplace add/);
+  assert.match(shown, /claude plugin install kanbanzai@kanbanzai/);
+  assert.match(shown, /Claude.*cache/i);
+});
+
 test("planText shows the root, the settings and where they came from", () => {
   const text = init.planText(report, FOLDER);
   assert.match(text, /\/work\/project/);
@@ -173,6 +181,7 @@ test("planText prints the config text and each merge fragment, and the warnings"
 test("planText ends with the Also line naming the folder", () => {
   const text = init.planText(report, FOLDER);
   assert.ok(text.includes(`Also: copy the command to ${FOLDER} (kanbanzai install)`), text);
+  assert.ok(text.includes("plugins/current"), "the plan must disclose the bundled plugin installation");
   assert.ok(text.trimEnd().split("\n").slice(-8).join("\n").includes(`Also: copy the command to ${FOLDER}`), "the Also lines are just above the closing block");
 });
 
@@ -389,7 +398,7 @@ test("Init: an unwritable place is refused with nothing written (a link or a pla
 test("Init: the dry run asks for the picked agents as one argument and reads the plan from stdout", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["opencode", "claude"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude"]);
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude", "--plugin-source", "@bundled"]);
   assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
 });
 
@@ -403,7 +412,7 @@ test("Init: the dry run runs in the project folder", async () => {
 test("Init: an agent that is not claude or opencode never reaches the command line", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["claude", "--plan=/etc/passwd", "x y"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude"]);
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled"]);
   const exec2 = fakeExec(happy);
   const out = await init.planSetup(flowDeps(exec2, project(), fakeUi({ agents: ["--evil"] })));
   assert.equal(out.status, "cancelled", "nothing valid was picked");
@@ -416,7 +425,7 @@ test("Init: a plugin source from the setting is passed as --plugin-source and on
   assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/u/code/kanbanzai"]);
   const exec2 = fakeExec(happy);
   await init.planSetup(flowDeps(exec2, project(), fakeUi(), { pluginSource: "   " }));
-  assert.ok(!exec2.calls[0].args.includes("--plugin-source"), "blank is unset");
+  assert.deepEqual(exec2.calls[0].args.slice(-2), ["--plugin-source", "@bundled"], "blank uses the bundled source");
 });
 
 test("Init: a plugin source that looks like a flag is refused before any command runs", async () => {
@@ -435,7 +444,7 @@ test("Init: an unclear main branch (exit 2 naming --main-branch) opens the input
   const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "planned");
   assert.equal(exec.calls.length, 2);
-  assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--main-branch", "trunk"]);
+  assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--main-branch", "trunk"]);
   assert.deepEqual(ui.events, ["pick", "branch", "plan"]);
   assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
 });
@@ -506,17 +515,134 @@ test("Init: a UI that throws never throws out of the flow", async () => {
 
 // ---- applyPending (Kanbanzai: Apply) ----
 
-test("Apply: exactly install, then init --plan <the pending file>, in that order, and never a --dry-run", async () => {
+test("Apply registers the selected bundled Claude plugin locally", async () => {
+  const root = project();
+  const selected = { ...report, plan: { ...report.plan, bundled_plugins: ["claude", "opencode"] } };
+  plantPending(root, JSON.stringify(selected));
+  const exec = fakeExec((cmd, args) => cmd === "claude" && args.includes("list") ? { stdout: "[]" } : happy(cmd, args));
+  const out = await init.applyPending(flowDeps(exec, root, fakeUi()));
+  assert.equal(out.status, "applied");
+  const claude = exec.calls.filter((call) => call.cmd === "claude");
+  assert.deepEqual(claude.map((call) => call.args), [
+    ["--version"],
+    ["plugin", "marketplace", "list", "--json"],
+    ["plugin", "list", "--json"],
+    ["plugin", "marketplace", "add", "/home/u/.local/share/kanbanzai/plugins/current", "--scope", "local", "--json"],
+    ["plugin", "install", "kanbanzai@kanbanzai", "--scope", "local", "--yes", "--json"],
+  ]);
+});
+
+test("Apply refuses a conflicting Claude marketplace before writing", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args.includes("marketplace") && args.includes("list")) {
+      return { stdout: JSON.stringify([{ name: "kanbanzai", source: "github", repo: "other/market" }]) };
+    }
+    return happy(cmd, args);
+  });
+  const ui = fakeUi();
+  const out = await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(out.status, "failed");
+  assert.ok(exec.calls.every((call) => call.args[0] !== "install"), "must not install over another marketplace");
+  assert.match(ui.errors.join("\n"), /marketplace/i);
+});
+
+test("Apply does not re-enable a Claude plugin disabled in another scope", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args.includes("marketplace") && args.includes("list")) return { stdout: "[]" };
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "list") {
+      return { stdout: JSON.stringify([{ id: "kanbanzai@kanbanzai", enabled: false }]) };
+    }
+    return happy(cmd, args);
+  });
+  const out = await init.applyPending(flowDeps(exec, root, fakeUi()));
+  assert.equal(out.status, "failed");
+  assert.ok(exec.calls.every((call) => call.args[0] !== "install"));
+});
+
+test("Apply asks Claude Code to update its record when the folder moved to a newer release", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "marketplace" && args[2] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[1] === "install") return { stdout: JSON.stringify({ outcome: "ok", installedVersion: "0.17.1", availableVersion: "0.17.2" }) + "\n" };
+    return happy(cmd, args);
+  });
+  const ui = fakeUi();
+  const out = await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(out.status, "applied");
+  const last = exec.calls.filter((call) => call.cmd === "claude").pop();
+  assert.deepEqual(last.args, ["plugin", "update", "kanbanzai@kanbanzai", "--scope", "local", "--json"]);
+  assert.match(ui.infos.join(" "), /0\.17\.1 to 0\.17\.2/);
+});
+
+test("Apply does not update a plugin Claude Code already records at the folder's version", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[1] === "marketplace" && args[2] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[1] === "install") return { stdout: JSON.stringify({ installedVersion: "0.17.2", availableVersion: "0.17.2" }) };
+    return happy(cmd, args);
+  });
+  assert.equal((await init.applyPending(flowDeps(exec, root, fakeUi()))).status, "applied");
+  assert.ok(exec.calls.every((call) => call.args[1] !== "update"));
+});
+
+test("A failed Claude update is a note, not a failed setup: the files load in place", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[1] === "marketplace" && args[2] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[1] === "install") return { stdout: JSON.stringify({ installedVersion: "0.17.1", availableVersion: "0.17.2" }) };
+    if (cmd === "claude" && args[1] === "update") return { code: 1, stderr: "offline" };
+    return happy(cmd, args);
+  });
+  const ui = fakeUi();
+  assert.equal((await init.applyPending(flowDeps(exec, root, ui))).status, "applied");
+  assert.match(ui.infos.join(" "), /claude plugin update kanbanzai@kanbanzai/);
+});
+
+test("Apply ignores a plugin another project disabled in its own local scope", async () => {
+  const root = project();
+  plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, bundled_plugins: ["claude"] } }));
+  const exec = fakeExec((cmd, args) => {
+    if (cmd === "claude" && args[1] === "marketplace" && args[2] === "list") return { stdout: "[]" };
+    if (cmd === "claude" && args[0] === "plugin" && args[1] === "list") {
+      return { stdout: JSON.stringify([{ id: "kanbanzai@kanbanzai", enabled: false, scope: "local", projectPath: "/some/other/project" }]) };
+    }
+    return happy(cmd, args);
+  });
+  assert.equal((await init.applyPending(flowDeps(exec, root, fakeUi()))).status, "applied");
+});
+
+test("Apply refuses a stale plan before installing anything", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec((cmd, args) => args.includes("--dry-run")
+    ? { code: 2, stderr: "project changed; run init --dry-run again" }
+    : happy(cmd, args));
+  const out = await init.applyPending(flowDeps(exec, root, fakeUi()));
+  assert.equal(out.status, "failed");
+  assert.ok(exec.calls.every((call) => call.args[0] !== "install"), "must not install on a stale plan");
+});
+
+test("Apply: validate the plan, install, then apply the same plan", async () => {
   const root = project(); plantPending(root);
   const exec = fakeExec(happy); const ui = fakeUi(); const extra = {};
   const out = await init.applyPending(flowDeps(exec, root, ui, extra));
   assert.equal(out.status, "applied");
-  assert.equal(exec.calls.length, 2);
+  assert.equal(exec.calls.length, 3);
   assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
-  assert.deepEqual(exec.calls[0].args, ["install"]);
-  assert.equal(exec.calls[1].cmd, "/home/u/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
-  assert.deepEqual(exec.calls[1].args, ["init", "--plan", pending(root)]);
-  for (const c of exec.calls) { assert.equal(c.opts.cwd, root); assert.ok(!c.args.includes("--dry-run")); }
+  assert.deepEqual(exec.calls[0].args, ["init", "--plan", pending(root), "--dry-run"]);
+  assert.deepEqual(exec.calls[1].args, ["install"]);
+  assert.equal(exec.calls[2].cmd, "/home/u/.local/share/kanbanzai/bin/kanbanzai", "init runs the installed command");
+  assert.deepEqual(exec.calls[2].args, ["init", "--plan", pending(root)]);
+  for (const c of exec.calls) assert.equal(c.opts.cwd, root);
 });
 
 test("Apply: the plan file the command reads is the saved one, untouched until init has run", async () => {
@@ -568,13 +694,13 @@ test("Apply: a state folder that holds other files is kept", async () => {
   assert.equal(init.hasPending(fs, root), false);
 });
 
-test("Apply: an install failure shows install's stderr, runs no init --plan and keeps the plan", async () => {
+test("Apply: an install failure shows install's stderr, does not apply the plan and keeps it", async () => {
   const root = project(); plantPending(root);
-  const exec = fakeExec(() => ({ code: 2, stderr: "install: target is a symlink\n" }));
+  const exec = fakeExec((cmd, args) => args[0] === "install" ? { code: 2, stderr: "install: target is a symlink\n" } : happy(cmd, args));
   const ui = fakeUi(); const extra = {};
   const out = await init.applyPending(flowDeps(exec, root, ui, extra));
   assert.equal(out.status, "failed");
-  assert.deepEqual(exec.verbs(), ["install"]);
+  assert.deepEqual(exec.verbs(), ["init --plan", "install"]);
   assert.match(ui.errors.join("\n"), /target is a symlink/);
   assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
   assert.equal(ui.infos, undefined);
@@ -784,7 +910,7 @@ test("an ordinary init failure is not called 'too old'", async () => {
   assert.doesNotMatch(ui.errors[0], /older|too old/i);
 });
 
-test("Apply with an old command that does not know 'install': reported the same way, init --plan does not run, the plan stays", async () => {
+test("Apply with an old command that does not know 'install': the plan is not applied and stays", async () => {
   const root = project(); plantPending(root);
   const exec = fakeExec((cmd, args) => (args[0] === "install" ? { code: 2, stderr: "kanbanzai: unknown command 'install'" } : undefined));
   const ui = fakeUi();
@@ -792,13 +918,13 @@ test("Apply with an old command that does not know 'install': reported the same 
   assert.equal(out.status, "failed");
   assert.match(ui.errors[0], /kanbanzai\.command setting/);
   assert.match(ui.errors[0], /unknown command/);
-  assert.equal(exec.calls.filter((c) => c.args.includes("--plan")).length, 0);
+  assert.equal(exec.calls.filter((c) => c.args.includes("--plan") && !c.args.includes("--dry-run")).length, 0);
   assert.equal(init.hasPending(fs, root), true);
 });
 
 test("Apply with an installed command that is too old for init --plan names the per-user folder, and the plan stays", async () => {
   const root = project(); plantPending(root);
-  const exec = fakeExec((cmd, args) => (args[0] === "init" ? { code: 2, stderr: "kanbanzai: init: unknown flag --plan" } : undefined));
+  const exec = fakeExec((cmd, args) => (args[0] === "init" && !args.includes("--dry-run") ? { code: 2, stderr: "kanbanzai: init: unknown flag --plan" } : happy(cmd, args)));
   const ui = fakeUi();
   await init.applyPending(flowDeps(exec, root, ui));
   assert.match(ui.errors[0], /per-user folder/);

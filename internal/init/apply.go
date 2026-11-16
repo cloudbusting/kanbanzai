@@ -45,7 +45,18 @@ func fileDigest(path string) (string, bool) {
 // Preflight checks every action against the tree without writing. A plan that fails is stale (or hostile) and is
 // refused whole, so nothing is half applied for a reason known in advance.
 func Preflight(plan *Plan) error {
+	bundledClaude := false
+	for _, name := range plan.BundledPlugins {
+		if name == "claude" {
+			bundledClaude = true
+		}
+	}
 	for _, action := range plan.Actions {
+		if action.What == WhatPluginReference || bundledClaude && action.What == WhatPlugin && action.Path == claudeLocalSettingsRel {
+			if err := rejectTrackedLocalPath(plan.Root, action.Path); err != nil {
+				return stale("%v; run init --dry-run again", err)
+			}
+		}
 		path := abs(plan.Root, action.Path)
 		info, err := os.Lstat(path)
 		exists := err == nil

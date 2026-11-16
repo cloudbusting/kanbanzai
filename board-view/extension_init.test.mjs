@@ -381,7 +381,7 @@ test("kanbanzai.init is registered, asks which agents with both ticked, and plan
       assert.deepEqual(vscode.picks[0].items.map((i) => [i.label, i.picked]), [["Claude Code", true], ["OpenCode", true]]);
       const dry = calls.filter((c) => c.args.includes("--dry-run"));
       assert.equal(dry.length, 1);
-      assert.deepEqual(dry[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode"]);
+      assert.deepEqual(dry[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled"]);
       assert.equal(dry[0].opts.cwd, project);
     });
 });
@@ -469,12 +469,12 @@ test("a second Init replaces the pending plan", async () => {
   });
 });
 
-test("Apply: install, then init --plan on the pending file (which stays put), never a --dry-run; the item becomes the board", async () => {
+test("Apply: validate the pending plan, install, then apply it; the item becomes the board", async () => {
   const project = gitProject();
   let planFile; let content;
   const script = scripted({
     before: (cmd, args) => {
-      if (args.includes("--plan")) {
+      if (args.includes("--plan") && !args.includes("--dry-run")) {
         planFile = args[args.indexOf("--plan") + 1];
         content = fs.readFileSync(planFile, "utf8");
         fs.mkdirSync(path.join(project, ".kanbanzai"), { recursive: true });
@@ -490,10 +490,11 @@ test("Apply: install, then init --plan on the pending file (which stays put), ne
     await commands["kanbanzai.apply"]();
     await settle();
     const applying = calls.slice(before).filter((c) => c.args[0] !== "sessions");
-    assert.deepEqual(applying.map(verbOf), ["install", "plan"]);
-    assert.deepEqual(applying[0].args, ["install"]);
-    assert.deepEqual(applying[1].args, ["init", "--plan", pendingFile(project)]);
-    assert.equal(applying[1].opts.cwd, project);
+    assert.deepEqual(applying.map(verbOf), ["plan", "install", "plan"]);
+    assert.deepEqual(applying[0].args, ["init", "--plan", pendingFile(project), "--dry-run"]);
+    assert.deepEqual(applying[1].args, ["install"]);
+    assert.deepEqual(applying[2].args, ["init", "--plan", pendingFile(project)]);
+    assert.equal(applying[2].opts.cwd, project);
     assert.equal(planFile, pendingFile(project));
     assert.equal(content, REPORT, "the plan the owner read, verbatim");
     assert.equal(fs.existsSync(planFile), false, "the pending file is deleted");
@@ -515,7 +516,7 @@ test("Apply: an install failure shows install's stderr, runs no init --plan, kee
   await run({ folders: folder(project), trusted: true, extensionPath: dir(), script }, async ({ commands, calls, vscode, channel, item }) => {
     await commands["kanbanzai.init"]();
     await commands["kanbanzai.apply"]();
-    assert.equal(plans(calls).length, 0);
+    assert.equal(plans(calls).filter((c) => !c.args.includes("--dry-run")).length, 0);
     assert.match(vscode.errors.map((e) => e[0]).join("\n"), /refusing a symlink/);
     assert.ok(channel.lines.some(([l, t]) => l === "error" && /refusing a symlink/.test(t)));
     assert.equal(fs.existsSync(pendingFile(project)), true);

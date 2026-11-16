@@ -34,14 +34,15 @@ const (
 	OpReplace = "replace"
 	OpMerge   = "merge"
 
-	WhatFolder    = "folder"
-	WhatBatches   = "batches"
-	WhatGitkeep   = "gitkeep"
-	WhatGitignore = "gitignore"
-	WhatTemplate  = "template"
-	WhatConfig    = "config"
-	WhatBackup    = "backup"
-	WhatPlugin    = "plugin-settings"
+	WhatFolder          = "folder"
+	WhatBatches         = "batches"
+	WhatGitkeep         = "gitkeep"
+	WhatGitignore       = "gitignore"
+	WhatTemplate        = "template"
+	WhatConfig          = "config"
+	WhatBackup          = "backup"
+	WhatPlugin          = "plugin-settings"
+	WhatPluginReference = "plugin-reference"
 )
 
 // ConfigRel and TemplateRel are where init puts the config (the only place the loader reads) and a project
@@ -76,14 +77,15 @@ var StarterTypes = []string{"task", "bug", "change", "spike", "chore"}
 
 // Plan is everything init will do. Building it writes nothing.
 type Plan struct {
-	SchemaVersion int          `json:"schema_version"`
-	Kind          string       `json:"kind"`
-	Root          string       `json:"root"`
-	Detected      Detected     `json:"detected"`
-	Settings      *Settings    `json:"settings,omitempty"`
-	Preset        *preset.Info `json:"preset,omitempty"`
-	Actions       []Action     `json:"actions"`
-	Warnings      []string     `json:"warnings"`
+	SchemaVersion  int          `json:"schema_version"`
+	Kind           string       `json:"kind"`
+	Root           string       `json:"root"`
+	Detected       Detected     `json:"detected"`
+	Settings       *Settings    `json:"settings,omitempty"`
+	Preset         *preset.Info `json:"preset,omitempty"`
+	Actions        []Action     `json:"actions"`
+	Warnings       []string     `json:"warnings"`
+	BundledPlugins []string     `json:"bundled_plugins,omitempty"`
 }
 
 // Refusal is a plan init will not make; it exits 2 and says why.
@@ -372,7 +374,27 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		return nil, err
 	}
 	if len(agents) > 0 {
-		actions, warnings, err := pluginActions(root, agents, source)
+		bundled := opts.PluginSource == "@bundled"
+		if bundled && (filepath.Clean(project.Home) != filepath.Join(root, ".kanbanzai") ||
+			filepath.Clean(project.State) != filepath.Join(root, ".kanbanzai", "state")) {
+			return nil, refuse("bundled plugins require the default ignored .kanbanzai/state; use --plugin-source for a custom layout")
+		}
+		if bundled {
+			selected := make([]string, 0, len(agents))
+			for _, agent := range agents {
+				if agent == "claude" {
+					ok, reason := bundledClaudeEligible(root, source)
+					if !ok {
+						plan.Warnings = append(plan.Warnings, reason)
+						continue
+					}
+				}
+				selected = append(selected, agent)
+			}
+			agents = selected
+			plan.BundledPlugins = append([]string(nil), selected...)
+		}
+		actions, warnings, err := pluginActions(root, agents, source, bundled)
 		if err != nil {
 			return nil, err
 		}

@@ -211,6 +211,15 @@ function planText(report, folder, platform = process.platform) {
   } else {
     out.push('Also: link it as ~/.local/bin/kanbanzai (the folder is made if it is missing; you are warned if it is not on your PATH, and no profile is edited)');
   }
+  const pluginFolder = nonEmpty(folder) ? flavour(platform).join(flavour(platform).dirname(folder), 'plugins', 'current') : 'the per-user plugin folder';
+  out.push(`Also: install the bundled Claude Code and OpenCode plugin files at ${pluginFolder} (kanbanzai install; a newer release replaces them there, keeping the previous bundle until the next update)`);
+  if (Array.isArray(plan.bundled_plugins) && plan.bundled_plugins.includes('claude')) {
+    out.push('Also: run claude --version and list Claude plugins and marketplaces to check for conflicts, then after applying the plan:');
+    out.push(`  claude plugin marketplace add ${JSON.stringify(pluginFolder)} --scope local --json`);
+    out.push('  claude plugin install kanbanzai@kanbanzai --scope local --yes --json');
+    out.push('  claude plugin update kanbanzai@kanbanzai --scope local --json   (only when Claude Code still records an older version)');
+    out.push('  Claude Code writes its local plugin cache and registration, and local project settings.');
+  }
   out.push(`Also: copy the command to ${where} (kanbanzai install)`);
   out.push('', ...BLOCK);
   return out.join('\n') + '\n';
@@ -404,7 +413,7 @@ async function planSetup(deps) {
 
     const plan = async (branch) => {
       const args = ['init', '--dry-run', '--json', '--plugins', agents.join(',')];
-      if (source) args.push('--plugin-source', source);
+      args.push('--plugin-source', source || '@bundled');
       if (branch) args.push('--main-branch', branch);
       return runFile(execFile, command, args, { cwd: root });
     };
@@ -448,12 +457,54 @@ async function applyPending(deps) {
       return out;
     }
     const file = pendingPath(root);
-    const failure = (step, r, which) => {
+    const failure = (step, r, which, source = step === 'install' ? commandSource : 'well-known') => {
       if (r.missing && missingText) return fail(missingText);
-      if (!r.missing && TOO_OLD.test(r.stderr || '')) return fail(tooOldMessage(which, step === 'install' ? commandSource : 'well-known', r.stderr));
+      if (!r.missing && TOO_OLD.test(r.stderr || '')) return fail(tooOldMessage(which, source, r.stderr));
       return fail(`Kanbanzai: setup stopped at ${step}: ${r.stderr || r.message || `${step} failed`}`);
     };
 
+    const checked = await runFile(execFile, command, ['init', '--plan', file, '--dry-run'], { cwd: root });
+    if (!checked.ok) {
+      if (checked.code === 2 && (checked.stderr || '').includes('run init --dry-run again')) {
+        try { log.error(`the setup plan is stale: ${checked.stderr}`); } catch (e) { /* the owner still sees the message */ }
+        removePending(fs, root);
+        changed();
+        const out = fail(STALE_PLAN);
+        return { ...out, stale: true };
+      }
+      return failure('init', checked, command, commandSource);
+    }
+    const selected = parseReport(readPending(fs, root));
+    if (!selected) return fail('Kanbanzai: the pending setup plan cannot be read.');
+    const wantsClaude = Array.isArray(selected.plan.bundled_plugins) && selected.plan.bundled_plugins.includes('claude');
+    const pluginFolder = nonEmpty(deps.folder)
+      ? flavour(deps.platform || process.platform).join(flavour(deps.platform || process.platform).dirname(deps.folder), 'plugins', 'current')
+      : '';
+    if (wantsClaude) {
+      if (!pluginFolder) return fail('Kanbanzai: cannot determine the per-user plugin folder.');
+      const available = await runFile(execFile, 'claude', ['--version'], { cwd: root });
+      if (!available.ok) return fail('Kanbanzai: Claude Code is required for the selected local plugin; install its CLI or choose another setup.');
+      const markets = await runFile(execFile, 'claude', ['plugin', 'marketplace', 'list', '--json'], { cwd: root });
+      if (!markets.ok) return fail(`Kanbanzai: cannot inspect Claude marketplaces: ${markets.stderr || markets.message}`);
+      let marketList;
+      try { marketList = JSON.parse(markets.stdout); } catch (e) { return fail('Kanbanzai: cannot read the Claude marketplace list.'); }
+      if (!Array.isArray(marketList)) return fail('Kanbanzai: cannot read the Claude marketplace list.');
+      const p = flavour(deps.platform || process.platform);
+      const conflict = marketList.find((market) => market && market.name === 'kanbanzai' &&
+        (market.source !== 'directory' || typeof market.path !== 'string' || p.normalize(market.path) !== p.normalize(pluginFolder)));
+      if (conflict) return fail('Kanbanzai: a different Claude marketplace named kanbanzai is already registered; left unchanged.');
+      const plugins = await runFile(execFile, 'claude', ['plugin', 'list', '--json'], { cwd: root });
+      if (!plugins.ok) return fail(`Kanbanzai: cannot inspect Claude plugins: ${plugins.stderr || plugins.message}`);
+      let pluginList;
+      try { pluginList = JSON.parse(plugins.stdout); } catch (e) { return fail('Kanbanzai: cannot read the Claude plugin list.'); }
+      if (!Array.isArray(pluginList)) return fail('Kanbanzai: cannot read the Claude plugin list.');
+      // A local-scope entry belongs to the project it names: another project's choice is not this project's.
+      const here = (plugin) => plugin.scope !== 'local' || typeof plugin.projectPath !== 'string' || p.normalize(plugin.projectPath) === p.normalize(root);
+      if (pluginList.some((plugin) => plugin && plugin.id === 'kanbanzai@kanbanzai' && plugin.enabled === false && here(plugin))) {
+        return fail('Kanbanzai: the Claude plugin is disabled; left unchanged.');
+      }
+    }
+    let pluginNote = '';
     const installed = await runFile(execFile, command, ['install'], { cwd: root });
     if (!installed.ok) return failure('install', installed, command); // the plan stays: apply again once it is fixed
 
@@ -470,12 +521,29 @@ async function applyPending(deps) {
       return failure('init', applied, which); // exit 1 is resumable: the plan stays
     }
 
+    if (wantsClaude) {
+      const add = await runFile(execFile, 'claude', ['plugin', 'marketplace', 'add', pluginFolder, '--scope', 'local', '--json'], { cwd: root });
+      if (!add.ok) return fail(`Kanbanzai: board setup was applied, but adding the local Claude marketplace failed: ${add.stderr || add.message}. Run the Claude commands shown in the setup plan.`);
+      const plugin = await runFile(execFile, 'claude', ['plugin', 'install', 'kanbanzai@kanbanzai', '--scope', 'local', '--yes', '--json'], { cwd: root });
+      if (!plugin.ok) return fail(`Kanbanzai: board setup was applied, but installing the local Claude plugin failed: ${plugin.stderr || plugin.message}. Run the Claude install command shown in the setup plan.`);
+      // Claude Code loads the plugin in place from the folder, so a refreshed bundle is already what the next session
+      // reads; its record of the installed version is not refreshed until it is told to update.
+      let result = null;
+      try { result = JSON.parse(String(plugin.stdout || '').trim().split('\n').pop()); } catch (e) { /* no version report */ }
+      if (result && typeof result.installedVersion === 'string' && typeof result.availableVersion === 'string' &&
+          result.installedVersion !== result.availableVersion) {
+        const update = await runFile(execFile, 'claude', ['plugin', 'update', 'kanbanzai@kanbanzai', '--scope', 'local', '--json'], { cwd: root });
+        pluginNote = update.ok
+          ? `Claude Code's record of the plugin moved from ${result.installedVersion} to ${result.availableVersion}.`
+          : `Claude Code still records the plugin as ${result.installedVersion} (it loads the files in place); run: claude plugin update kanbanzai@kanbanzai --scope local.`;
+      }
+    }
     removePending(fs, root);
     changed();
     try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the board catches up on the next poll */ }
     const files = filesToCommit(applied.stdout);
     const list = files.length ? ` Files to commit: ${files.join(', ')}.` : '';
-    const said = installNotes(installed.stdout);
+    const said = [installNotes(installed.stdout), pluginNote].filter(Boolean).join(' ');
     ui.info(`Kanbanzai is set up.${list}${said ? ` ${said}` : ''} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
     return { status: 'applied', files };
   } catch (e) {

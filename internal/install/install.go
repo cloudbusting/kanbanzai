@@ -111,7 +111,16 @@ func Run(options Options) int {
 	if goos == "windows" && !options.DryRun {
 		os.Remove(target + ".old") // left by an earlier refresh, when the running command could not be replaced
 	}
-	err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
+	// A conflicting plugin must be discovered before replacing the command.
+	if !options.DryRun {
+		err = installPlugins(filepath.Dir(folder), true, options.Refresh, io.Discard)
+	}
+	if err == nil {
+		err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
+	}
+	if err == nil {
+		err = installPlugins(filepath.Dir(folder), options.DryRun, options.Refresh, out)
+	}
 	if err == nil && !options.Refresh && !options.NoLink {
 		err = onPath(options.DryRun, goos, getenv, folder, target, out)
 	}

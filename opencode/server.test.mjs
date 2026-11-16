@@ -130,6 +130,9 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
     assert.ok(shell.env.PATH.split(path.delimiter).includes(path.dirname(BIN)), shell.env.PATH);
     assert.equal(shell.env.KANBANZAI_OWNER, "opencode:ses_test1");
     assert.equal(other.env.KANBANZAI_OWNER, undefined, "a shell no tool call started gets no label");
+    const specified = { command, sessionID: "ses_test1", env: { PATH: "/usr/bin", KANBANZAI_OWNER: "manual-owner" } };
+    await hooks["shell.create.before"](specified);
+    assert.equal(specified.env.KANBANZAI_OWNER, "manual-owner", "the harness owner must be preserved");
 
     const card = run(["number"], project);
     run(["claim", "claim", card, "--minutes", "0.02"], project,
@@ -370,6 +373,78 @@ test("a command that does not know --adapter-version gets the plain context", as
     await hooks["session.context"](request);
     assert.equal(contextCalls(record), `context --adapter-version ${version}\ncontext\n`);
     assert.match(request.system.map((part) => part.text).join("\n"), /CONTEXT-LINE/);
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("context refreshes immediately after a config change and is bounded", async () => {
+  const project = newProject();
+  process.env.KANBANZAI_BIN = BIN;
+  const { ctx, hooks } = fakeContext(project);
+  const cleanup = await (await loadPlugin("?refresh-bound")).setup(ctx);
+  try {
+    const config = path.join(project, ".kanbanzai", "config.toml");
+    const original = readFileSync(config, "utf8");
+    const first = { system: [] };
+    await hooks["session.context"](first);
+    writeFileSync(config, original.replace(/owner\s*=\s*"[^"]*"/, 'owner = "ChangedOwner"'));
+    const second = { system: [] };
+    await hooks["session.context"](second);
+    assert.match(second.system.map((p) => p.text).join("\n"), /ChangedOwner/);
+    assert.notDeepEqual(second.system, first.system);
+    writeFileSync(config, original.replace(/owner\s*=\s*"[^"]*"/, `owner = "${"é".repeat(70000)}"`));
+    const large = { system: [] };
+    await hooks["session.context"](large);
+    const text = large.system.map((p) => p.text).join("\n");
+    assert.ok(text.length > 0);
+    assert.ok(Buffer.byteLength(text) <= 65536, `context is ${Buffer.byteLength(text)} bytes`);
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("shell association prefers a supplied session and rejects ambiguous fallback", async () => {
+  const project = newProject();
+  process.env.KANBANZAI_BIN = BIN;
+  const { ctx, hooks } = fakeContext(project);
+  const cleanup = await (await loadPlugin("?association")).setup(ctx);
+  try {
+    const before = hooks["tool.execute.before"];
+    const shell = hooks["shell.create.before"];
+    await before({ tool: "bash", sessionID: "ses_a", input: { command: "same" } });
+    await before({ tool: "bash", sessionID: "ses_b", input: { command: "same" } });
+    const direct = { command: "same", sessionID: "ses_a", env: {} };
+    await shell(direct);
+    assert.equal(direct.env.KANBANZAI_OWNER, "opencode:ses_a");
+    const ambiguous = { command: "same", env: {} };
+    await shell(ambiguous);
+    assert.equal(ambiguous.env.KANBANZAI_OWNER, undefined);
+    await before({ tool: "bash", sessionID: "ses_c", input: { command: "unique" } });
+    const unique = { command: "unique", env: {} };
+    await shell(unique);
+    assert.equal(unique.env.KANBANZAI_OWNER, "opencode:ses_c");
+  } finally {
+    cleanup();
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("malformed hook events and failed commands never escape into the harness", async () => {
+  const project = newProject();
+  process.env.KANBANZAI_BIN = project; // an existing directory is not an executable command
+  const { ctx, hooks, commands } = fakeContext(project);
+  const cleanup = await (await loadPlugin("?malformed")).setup(ctx);
+  try {
+    for (const event of [null, {}, { env: { PATH: 42 } }, { env: Object.freeze({}) }]) {
+      for (const name of ["tool.execute.before", "tool.execute.after", "shell.create.before", "session.context"]) {
+        await assert.doesNotReject(async () => hooks[name](event), `${name} rejected`);
+      }
+    }
+    await assert.doesNotReject(async () => commands[0].execute());
+    await assert.doesNotReject(async () => hooks["session.context"]({ system: Object.freeze([]) }));
   } finally {
     cleanup();
     rmSync(project, { recursive: true, force: true });

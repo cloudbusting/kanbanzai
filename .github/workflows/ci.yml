@@ -48,6 +48,9 @@ jobs:
     env:
       # The version the README's compatibility table names. Raise both together.
       CLAUDE_CODE_VERSION: "2.1.312"
+      # The OpenCode the hosts smoke test ran against when it was written; the supported range starts at 2.2.6, which
+      # is not yet tested here. Raise or add versions together with the README table.
+      OPENCODE_VERSION: "2.3.0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -58,6 +61,8 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - run: npm install --global "@opencode/cli@${OPENCODE_VERSION}"
       - run: claude plugin validate --strict .
       - run: go run ./tools/release -check
       - run: KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
+      - run: KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/vsix -run TestHostsLoadTheBundledPluginsFromTheVSIX -v

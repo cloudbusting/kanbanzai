@@ -8,11 +8,95 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/cloudbusting/kanbanzai/internal/testutil"
 )
+
+// vsixCommand builds the command from the source tree at root, packs it into a real .vsix and returns the copy
+// extracted from that artifact for this platform: what the editor runs after an install, with no checkout beside it.
+func vsixCommand(t *testing.T, root, base string) string {
+	t.Helper()
+	binary := filepath.Join(base, "built-command")
+	build := exec.Command("go", "build", "-trimpath", "-o", binary, "./cmd/kanbanzai")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build command: %v\n%s", err, out)
+	}
+	data, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bins := filepath.Join(base, "bins")
+	for _, target := range bundledTargets {
+		dir := filepath.Join(bins, target.dir)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, target.name), data, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	artifact := filepath.Join(base, "board.vsix")
+	if _, err := BuildVSIX(filepath.Join(root, "board-view"), artifact, bins); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := zip.OpenReader(artifact)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	name := "kanbanzai"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	entry := "extension/bin/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + name
+	extracted := filepath.Join(base, "extracted", name)
+	if err := os.MkdirAll(filepath.Dir(extracted), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(extracted, readZipFile(t, reader, entry), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return extracted
+}
+
+// isolatedHome is a user's home with nothing in it, for the command and the hosts to write to.
+func isolatedHome(t *testing.T) (home string, env []string) {
+	t.Helper()
+	home = filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "LOCALAPPDATA="+filepath.Join(home, "data"),
+		"XDG_DATA_HOME="+filepath.Join(home, "data"), "XDG_CONFIG_HOME="+filepath.Join(home, "config"),
+		"XDG_STATE_HOME="+filepath.Join(home, "state"), "XDG_CACHE_HOME="+filepath.Join(home, "cache"))
+	return home, env
+}
+
+func TestVSIXCommandInstallsBundledPluginsWithoutCheckout(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	extracted := vsixCommand(t, root, base)
+	home, env := isolatedHome(t)
+	install := exec.Command(extracted, "install", "--no-link")
+	install.Dir = home
+	install.Env = env
+	if out, err := install.CombinedOutput(); err != nil {
+		t.Fatalf("install from VSIX: %v\n%s", err, out)
+	}
+	bundle := filepath.Join(home, "data", "kanbanzai", "plugins", "current")
+	for _, name := range []string{"README.md", ".claude-plugin/plugin.json", "hooks/hooks.json", "opencode/server.js", "skills/do/SKILL.md"} {
+		if info, err := os.Stat(filepath.Join(bundle, filepath.FromSlash(name))); err != nil || !info.Mode().IsRegular() {
+			t.Errorf("VSIX install lacks %s: %v", name, err)
+		}
+	}
+}
 
 const loader = `
 const Module = require('module');

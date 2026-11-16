@@ -68,18 +68,18 @@ promise about versions that were not tested; raising a pin is a change to this t
 | Part | Supported | Tested |
 |---|---|---|
 | The `kanbanzai` command | Go 1.24 or later (the module's floor) | Go 1.24 on Linux, macOS and Windows in CI; Go 1.26.10 in development |
-| Claude Code plugin and marketplace | Claude Code 2.1.312 | `claude plugin validate --strict .` in CI, and an install from a packaged artifact into a throwaway project |
-| OpenCode plugin | OpenCode V2 (2.2.6 tested) | OpenCode 2.2.6 in development; the fake-harness test (`opencode/server.test.mjs`) proves registration, PATH, owner, heartbeat and context in CI, not a live OpenCode session |
+| Claude Code plugin and marketplace | Claude Code 2.1.312 and later in major version 2 | Claude Code 2.1.312: `claude plugin validate --strict .`, an install from a packaged artifact, and the hosts smoke test (the packed `.vsix`, the bundle installed into an isolated home, a local-scope marketplace and install, and a version update); later versions are not tested |
+| OpenCode plugin | OpenCode 2.2.6 and later in major version 2 | OpenCode 2.3.0: the hosts smoke test lists the bundle's skills and commands from a live server, before and after a refresh. OpenCode 2.2.6, the stated minimum, is not tested for this change. The fake-harness test (`opencode/server.test.mjs`) proves PATH, owner, heartbeat and context handling in CI, not a live model session |
 | Board extension | VS Code and VSCodium 1.85 or later (`engines.vscode` in `board-view/package.json`) | The extension's JavaScript with `node --test` in CI; the editor host is not run in CI, so check the tab by hand in your editor |
 
 ## Install in the editor, in one step
 
-The `.vsix` of the **Kanbanzai Board** extension carries the `kanbanzai` command for Linux and macOS (amd64, arm64)
-and Windows (amd64), so one install is enough on a machine that has nothing else. In a git project with no board
+The `.vsix` of the **Kanbanzai Board** extension carries the `kanbanzai` command and both agent plugins for Linux and
+macOS (amd64, arm64) and Windows (amd64), so one install is enough on a machine that has nothing else. In a git project with no board
 the status bar shows **Kanbanzai: Init**. It asks which agents to set up (Claude Code, OpenCode), shows the whole
 plan in a tab you can scroll, keeps it pending (the status bar then reads **Kanbanzai: Apply**) and does nothing
-until you click that; then it copies the command to a per-user folder, enables the
-plugins for the project and makes the board. [board-view/README.md](board-view/README.md) says exactly what it runs,
+until you click that; then it installs the command and plugins locally, enables the selected
+plugins for the project and makes the board without fetching a plugin. [board-view/README.md](board-view/README.md) says exactly what it runs,
 reads and writes; [docs/setup.md](docs/setup.md) walks through it, and through the same setup without the editor.
 
 ## Set up a project
@@ -110,19 +110,27 @@ template; `--prefix KEY` writes the older single-prefix card ids (`types = []`) 
 `--context FILE[,FILE]` the files every skill reads first (both only for a config
 `init` writes; an existing one is edited by hand, or replaced with `--force`); `--plugins claude,opencode` adds the project's plugin settings to the plan: `.claude/settings.json` gets the
 marketplace and `enabledPlugins` entries (a GitHub source, or with `--plugin-source <a Kanbanzai checkout>` a local
-directory in `.claude/settings.local.json`) and `.opencode/opencode.json` gets the plugin path (OpenCode needs
-`--plugin-source` until its package is published). Settings are merged, never overwritten: only what is missing is
+directory in `.claude/settings.local.json`). For the local bundle, use `--plugin-source @bundled`: Claude's local
+settings name the per-user bundle, and `.opencode/opencode.json` refers to an ignored machine-local path file. Run
+`kanbanzai install` before applying that plan; the editor also registers the Claude plugin with its local CLI after
+approval. When using `init` directly, register Claude with `claude plugin marketplace add "<per-user plugins/current path>" --scope local`
+and `claude plugin install kanbanzai@kanbanzai --scope local --yes` (the install command prints that path).
+A custom state location needs an
+explicit source instead. Without a source OpenCode is not configured. Settings are merged, never overwritten: only what is missing is
 added, a plugin you disabled stays disabled, and a settings file that is not plain JSON is left alone with the
 lines to add by hand. `kanbanzai install` copies the running command to `$XDG_DATA_HOME/kanbanzai/bin` (else
 `~/.local/share/kanbanzai/bin`; `%LOCALAPPDATA%\kanbanzai\bin` on Windows), where the hooks, the OpenCode adapter and
-the editor look after `PATH`. On Linux and macOS it also links `~/.local/bin/kanbanzai` to that copy (making
+the editor look after `PATH`. It also installs both agent plugins alongside that folder in `plugins/current`.
+For updates it verifies the ownership manifest, preserves the previous bundle in a `.previous-*` directory,
+and refuses to overwrite modified or unowned plugin files. A journal lets the next install recover an interrupted swap.
+On Linux and macOS it also links `~/.local/bin/kanbanzai` to that copy (making
 `~/.local/bin` if it is missing) so a terminal and an agent's shell find the command, and says so when that folder is
 not on your `PATH`; it never edits `PATH` or a shell profile, and it leaves anything already at that path alone with a
 note. `--no-link` copies only. On Windows there is no link: it says where the file is and how to add its folder to your
 user `PATH`. It replaces a copy of another release (written to a temporary file and renamed over it),
 so running it again from the same command is a no-op and an interrupted run is finished by the next. `install --refresh`
-only replaces a copy that is already there and never makes a copy or a link: the editor extension runs it from its bundled command
-every time it starts, so the per-user copy is always the extension's own release. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
+only replaces a copy or plugin bundle that is already there and never makes a copy or a link: the editor extension runs it from its bundled command
+every time it starts. A refused refresh is reported and does not silently overwrite edits. An existing config is replaced only with `--force`, after a `config.toml.bak-<UTC time>` copy. When it
 finishes it runs `check`, `wip --audit` and `doctor` and says what is still flagged and which files to commit; it
 never commits. Exit 0: done and `check` passes; 1: a write failed or `check` is red; 2: a refusal or bad
 arguments, with nothing written.
@@ -662,6 +670,7 @@ go run ./tools/packageset                  # which Checked cards one package run
 go run ./tools/release -check              # the manifests and CHANGELOG.md agree
 go run ./tools/release -version v0.0.0-test -out /tmp/kanbanzai-dist
 KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/release -run TestThePackagedPluginInstallsInAFreshProject -v
+KANBANZAI_PLUGIN_SMOKE=1 go test ./tools/vsix -run TestHostsLoadTheBundledPluginsFromTheVSIX -v   # needs claude and opencode
 ```
 
 The command is `cmd/kanbanzai` over `internal/`; the Go tests sit beside the code. The release workflow builds the

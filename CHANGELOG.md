@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- W-15: the editor's command carries both agent plugins. Approved setup installs them locally, configures OpenCode
+  using an ignored machine-local reference, and registers Claude Code's local plugin through its CLI. Plugin updates
+  check an ownership manifest and keep one previous bundle; setup refuses conflicting or disabled registrations, and
+  asks Claude Code to update its record of the plugin version when a refreshed bundle is newer. OpenCode's adapter
+  tolerates unknown event shapes, bounds its context and no longer caches it. Tested live against Claude Code 2.1.312
+  and OpenCode 2.3.0; OpenCode 2.2.6 is not yet tested.
 - CHANGE-66: `kanbanzai install`, and so the editor's Kanbanzai: Apply, links the command as `~/.local/bin/kanbanzai`
   on Linux and macOS (making the folder if it is missing, never replacing anything already there) and warns when
   `~/.local/bin` is not on your `PATH`; on Windows it says where the file is and how to add its folder to your user

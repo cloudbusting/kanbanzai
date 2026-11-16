@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
+	"github.com/cloudbusting/kanbanzai/internal/install"
 )
 
 // W-17: `init --plugins` puts the project's Claude Code and OpenCode plugin settings in the plan. Each is a `merge`
@@ -24,8 +27,70 @@ const (
 	claudeLocalSettingsRel = ".claude/settings.local.json"
 	openCodeSettingsRel    = ".opencode/opencode.json"
 
-	pluginKey = "kanbanzai@kanbanzai"
+	pluginKey          = "kanbanzai@kanbanzai"
+	pluginReferenceRel = ".kanbanzai/state/kanbanzai-opencode-path"
+	pluginReference    = "{file:../.kanbanzai/state/kanbanzai-opencode-path}"
 )
+
+func bundledPluginSource() (string, error) {
+	folder, err := install.Folder(runtime.GOOS, os.Getenv)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(folder), "plugins", "current"), nil
+}
+
+func rejectTrackedLocalPath(root, file string) error {
+	cmd := exec.Command("git", "-C", root, "ls-files", "--error-unmatch", "--", file)
+	if err := cmd.Run(); err == nil {
+		return refuse("%s is tracked by git and would expose a machine-local path; left unchanged", file)
+	} else if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 1 {
+		return nil
+	} else {
+		return fmt.Errorf("cannot check whether %s is tracked: %w", file, err)
+	}
+}
+
+// Do not turn a disabled plugin back on or use an existing marketplace with
+// the same name that belongs to a different source.
+func bundledClaudeEligible(root, source string) (bool, string) {
+	for _, file := range []string{claudeSettingsRel, claudeLocalSettingsRel} {
+		path := filepath.Join(root, filepath.FromSlash(file))
+		info, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil || !info.Mode().IsRegular() {
+			return false, file + " is not a regular settings file; Claude plugin left unchanged"
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return false, file + " cannot be read; Claude plugin left unchanged"
+		}
+		settings, err := parseObject(data)
+		if err != nil {
+			return false, file + " is not plain JSON; Claude plugin left unchanged"
+		}
+		if enabled, ok := settings["enabledPlugins"].(map[string]any); ok && enabled[pluginKey] == false {
+			return false, file + " disables the Claude plugin; left unchanged"
+		}
+		if markets, ok := settings["extraKnownMarketplaces"].(map[string]any); ok {
+			if existing, found := markets["kanbanzai"]; found {
+				market, ok := existing.(map[string]any)
+				if !ok {
+					return false, file + " names another Kanbanzai marketplace; left unchanged"
+				}
+				if raw, found := market["source"]; found {
+					value, ok := raw.(map[string]any)
+					if !ok || value["source"] != "directory" || value["path"] != source {
+						return false, file + " names another Kanbanzai marketplace; left unchanged"
+					}
+				}
+			}
+		}
+	}
+	return true, ""
+}
 
 // pluginFiles are the only paths a merge may write.
 var pluginFiles = map[string]bool{claudeSettingsRel: true, claudeLocalSettingsRel: true, openCodeSettingsRel: true}
@@ -50,6 +115,13 @@ func checkPlugins(opts Options) (agents []string, source string, err error) {
 	if len(agents) == 0 {
 		return nil, "", refuse("--plugin-source needs --plugins")
 	}
+	if opts.PluginSource == "@bundled" {
+		source, err := bundledPluginSource()
+		if err != nil {
+			return nil, "", refuse("cannot locate bundled plugins: %v", err)
+		}
+		return agents, source, nil
+	}
 	if !filepath.IsAbs(opts.PluginSource) {
 		return nil, "", refuse("--plugin-source '%s': give the absolute path of a Kanbanzai checkout", opts.PluginSource)
 	}
@@ -65,7 +137,7 @@ func checkPlugins(opts Options) (agents []string, source string, err error) {
 }
 
 // pluginActions makes the plan's plugin actions and the warnings that go with them.
-func pluginActions(root string, agents []string, source string) ([]Action, []string, error) {
+func pluginActions(root string, agents []string, source string, bundled bool) ([]Action, []string, error) {
 	var actions []Action
 	var warnings []string
 	add := func(rel string, want map[string]any, note string) error {
@@ -92,6 +164,13 @@ func pluginActions(root string, agents []string, source string) ([]Action, []str
 				rel, marketplace = claudeLocalSettingsRel, map[string]any{"source": "directory", "path": source}
 				note = claudeLocalSettingsRel + " holds a machine path (your Kanbanzai checkout): it is yours alone, do not commit it"
 			}
+			if bundled {
+				if err := rejectTrackedLocalPath(root, claudeLocalSettingsRel); err != nil {
+					return nil, nil, err
+				}
+				actions = append(actions, gitignoreAction(root, ".claude/.gitignore", "", []string{"settings.local.json"}))
+				note = claudeLocalSettingsRel + " holds the machine-local bundled plugin path and is ignored by git"
+			}
 			want := map[string]any{
 				"extraKnownMarketplaces": map[string]any{"kanbanzai": map[string]any{"source": marketplace}},
 				"enabledPlugins":         map[string]any{pluginKey: true},
@@ -105,8 +184,33 @@ func pluginActions(root string, agents []string, source string) ([]Action, []str
 					"<a Kanbanzai checkout> to add it to "+openCodeSettingsRel)
 				continue
 			}
-			want := map[string]any{"plugins": []any{filepath.Join(source, "opencode")}}
+			pluginPath := filepath.Join(source, "opencode")
+			if bundled {
+				if err := rejectTrackedLocalPath(root, pluginReferenceRel); err != nil {
+					return nil, nil, err
+				}
+				refPath := filepath.Join(root, filepath.FromSlash(pluginReferenceRel))
+				if info, err := os.Lstat(refPath); err == nil {
+					if !info.Mode().IsRegular() {
+						return nil, nil, refuse("%s is not a regular file", pluginReferenceRel)
+					}
+					current, err := os.ReadFile(refPath)
+					if err != nil || string(current) != pluginPath {
+						return nil, nil, refuse("%s already contains a different plugin path; left unchanged", pluginReferenceRel)
+					}
+					actions = append(actions, Action{Op: OpKeep, Path: pluginReferenceRel, What: WhatPluginReference, ExpectSHA256: digest(pluginPath)})
+				} else if os.IsNotExist(err) {
+					actions = append(actions, Action{Op: OpCreate, Path: pluginReferenceRel, What: WhatPluginReference, Content: pluginPath, SHA256: digest(pluginPath)})
+				} else {
+					return nil, nil, err
+				}
+				pluginPath = pluginReference
+			}
+			want := map[string]any{"plugins": []any{pluginPath}}
 			note := openCodeSettingsRel + " will hold a machine path (your Kanbanzai checkout): do not commit it as it is"
+			if bundled {
+				note = openCodeSettingsRel + " references an ignored machine-local plugin path; run setup on each machine"
+			}
 			if err := add(openCodeSettingsRel, want, note); err != nil {
 				return nil, nil, err
 			}
@@ -323,14 +427,91 @@ func validPluginAction(action Action) error {
 			return fmt.Errorf("a keep holds no content")
 		}
 	case OpMerge:
-		if _, err := parseObject([]byte(action.Content)); err != nil {
+		object, err := parseObject([]byte(action.Content))
+		if err != nil {
 			return fmt.Errorf("a merge carries a JSON object: %v", err)
+		}
+		if err := validatePluginFragment(action.Path, object); err != nil {
+			return err
 		}
 		if strings.TrimSpace(action.Content) == "" || action.SHA256 == "" {
 			return fmt.Errorf("a merge needs content")
 		}
 	default:
 		return fmt.Errorf("plugin settings are only ever merged")
+	}
+	return nil
+}
+
+// A plugin merge is a fragment of the settings init produces, never an
+// arbitrary settings object from an untrusted plan.
+func validatePluginFragment(file string, fragment map[string]any) error {
+	bad := func() error { return fmt.Errorf("plugin merge contains an unsupported setting") }
+	for key, value := range fragment {
+		if file == openCodeSettingsRel {
+			list, ok := value.([]any)
+			if key != "plugins" || !ok || len(list) != 1 {
+				return bad()
+			}
+			plugin, ok := list[0].(string)
+			if !ok || plugin != pluginReference && (!filepath.IsAbs(plugin) || filepath.Base(plugin) != "opencode") {
+				return bad()
+			}
+			continue
+		}
+		switch key {
+		case "enabledPlugins":
+			values, ok := value.(map[string]any)
+			if !ok {
+				return bad()
+			}
+			for name, enabled := range values {
+				if name != pluginKey || enabled != true {
+					return bad()
+				}
+			}
+		case "extraKnownMarketplaces":
+			markets, ok := value.(map[string]any)
+			if !ok {
+				return bad()
+			}
+			for name, market := range markets {
+				m, ok := market.(map[string]any)
+				if name != "kanbanzai" || !ok {
+					return bad()
+				}
+				for field, item := range m {
+					source, ok := item.(map[string]any)
+					if field != "source" || !ok {
+						return bad()
+					}
+					for part, item := range source {
+						text, ok := item.(string)
+						if !ok {
+							return bad()
+						}
+						switch part {
+						case "source":
+							if file == claudeSettingsRel && text != "github" || file == claudeLocalSettingsRel && text != "directory" {
+								return bad()
+							}
+						case "repo":
+							if file != claudeSettingsRel || text != PluginsGitHubRepo {
+								return bad()
+							}
+						case "path":
+							if file != claudeLocalSettingsRel || !filepath.IsAbs(text) {
+								return bad()
+							}
+						default:
+							return bad()
+						}
+					}
+				}
+			}
+		default:
+			return bad()
+		}
 	}
 	return nil
 }

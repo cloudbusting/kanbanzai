@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url"
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, "..")
 const DEV_BIN = path.join(ROOT, "bin", process.platform === "win32" ? "kanbanzai.exe" : "kanbanzai")
-const CONTEXT_TTL_MS = 10 * 60 * 1000
+const CONTEXT_MAX_BYTES = 64 * 1024
 const SHELL_TOOLS = new Set(["bash", "shell"])
 const MISSING = "Kanbanzai: the `kanbanzai` command is not installed. Install it from " +
   "https://github.com/cloudbusting/kanbanzai/releases and put it on PATH, or set KANBANZAI_BIN."
@@ -137,9 +137,11 @@ export function readSkills(dir = path.join(ROOT, "skills")) {
 
 function run(args, cwd, env) {
   return new Promise((resolve) => {
-    execFile(KANBANZAI, args, { cwd, env: { ...process.env, ...env }, timeout: 10_000 }, (err, stdout) =>
-      resolve(err ? "" : String(stdout || "")),
-    )
+    try {
+      execFile(KANBANZAI, args, { cwd, env: { ...process.env, ...env }, timeout: 10_000 }, (err, stdout) =>
+        resolve(err ? "" : String(stdout || "")),
+      )
+    } catch { resolve("") }
   })
 }
 
@@ -149,8 +151,10 @@ function standingContext(cwd) {
   const version = pluginVersion()
   if (!version) return run(["context"], cwd, {})
   return new Promise((resolve) => {
-    execFile(KANBANZAI, ["context", "--adapter-version", version], { cwd, env: process.env, timeout: 10_000 },
-      (err, stdout) => (err ? resolve(run(["context"], cwd, {})) : resolve(String(stdout || ""))))
+    try {
+      execFile(KANBANZAI, ["context", "--adapter-version", version], { cwd, env: process.env, timeout: 10_000 },
+        (err, stdout) => (err ? resolve(run(["context"], cwd, {})) : resolve(String(stdout || ""))))
+    } catch { resolve("") }
   })
 }
 
@@ -159,7 +163,7 @@ export const owner = (sessionID) => (sessionID ? `opencode:${sessionID}` : undef
 export default {
   id: "kanbanzai",
   async setup(ctx) {
-    const directory = (ctx.location && ctx.location.directory) || process.cwd()
+    const directory = (ctx && ctx.location && typeof ctx.location.directory === "string" && ctx.location.directory) || process.cwd()
 
     try {
       await ctx.skill.transform((editor) => {
@@ -183,8 +187,9 @@ export default {
               editor.add({
                 name,
                 description: skill.description,
-                execute: async ({ sessionID, prompt, delivery }) => {
+                execute: async (input) => {
                   try {
+                    const { sessionID, prompt, delivery } = input || {}
                     const text = [stripFrontmatter(skill.content), prompt && prompt.text].filter(Boolean).join("\n\n")
                     await ctx.session.prompt({ ...prompt, sessionID, text, delivery })
                   } catch (e) {
@@ -202,51 +207,67 @@ export default {
       })
     } catch {}
 
-    // A shell's create event does not say which session started it, but the tool call before it does, with
-    // the same command: remember the session by command, and label the shell when it is created.
+    // Older shell events omit the session: match only a single unambiguous pending tool call.
     const pending = new Map()
     try {
       await ctx.tool.hook("execute.before", (event) => {
-        const command = event && event.input && typeof event.input.command === "string" ? event.input.command : null
-        if (command && SHELL_TOOLS.has(event.tool) && event.sessionID) pending.set(command, event.sessionID)
+        try {
+          const command = event && event.input && typeof event.input.command === "string" ? event.input.command : null
+          if (command && SHELL_TOOLS.has(event.tool) && typeof event.sessionID === "string" && event.sessionID) {
+            const calls = pending.get(command) || []
+            calls.push(event.sessionID)
+            pending.set(command, calls)
+          }
+        } catch {}
       })
     } catch {}
     try {
       await ctx.shell.hook("create.before", (event) => {
-        if (!event || !event.env) return
-        const current = event.env.PATH || process.env.PATH || ""
-        if (COMMAND_DIR && !current.split(path.delimiter).includes(COMMAND_DIR)) {
-          event.env.PATH = COMMAND_DIR + path.delimiter + current
-        }
-        const sessionID = pending.get(event.command)
-        if (sessionID) {
-          pending.delete(event.command)
-          event.env.KANBANZAI_OWNER = owner(sessionID)
-        }
+        try {
+          if (!event || !event.env || typeof event.env !== "object") return
+          const current = typeof event.env.PATH === "string" ? event.env.PATH : process.env.PATH || ""
+          if (COMMAND_DIR && !current.split(path.delimiter).includes(COMMAND_DIR)) {
+            event.env.PATH = COMMAND_DIR + path.delimiter + current
+          }
+          const calls = pending.get(event.command) || []
+          const direct = typeof event.sessionID === "string" && event.sessionID ? event.sessionID : null
+          const sessionID = direct || (calls.length === 1 ? calls[0] : null)
+          if (sessionID) {
+            // Retain ambiguous calls until their execute.after events; consuming one would make the remainder look safe.
+            if (calls.length === 1) pending.delete(event.command)
+            if (event.env.KANBANZAI_OWNER === undefined) event.env.KANBANZAI_OWNER = owner(sessionID)
+          }
+        } catch {}
       })
     } catch {}
 
     try {
       await ctx.tool.hook("execute.after", (event) => {
-        if (event && event.input && typeof event.input.command === "string") pending.delete(event.input.command)
-        if (event && event.sessionID) {
-          run(["claim", "heartbeat"], directory, { KANBANZAI_OWNER: owner(event.sessionID) })
-        }
+        try {
+          if (event && event.input && typeof event.input.command === "string") {
+            const calls = pending.get(event.input.command)
+            if (calls) {
+              const index = calls.indexOf(event.sessionID)
+              if (index !== -1) calls.splice(index, 1)
+              if (!calls.length) pending.delete(event.input.command)
+            }
+          }
+          if (event && typeof event.sessionID === "string" && event.sessionID) {
+            void run(["claim", "heartbeat"], directory, { KANBANZAI_OWNER: owner(event.sessionID) })
+          }
+        } catch {}
       })
     } catch {}
 
-    let cached = { text: "", at: 0 }
-    const standing = async () => {
-      if (Date.now() - cached.at > CONTEXT_TTL_MS) cached = { text: (await standingContext(directory)).trim(), at: Date.now() }
-      return cached.text
-    }
     try {
       await ctx.session.hook("context", async (event) => {
-        const text = await standing()
-        if (text && event && Array.isArray(event.system)) event.system.push({ type: "text", text })
-        if (!COMMAND_FOUND && event && Array.isArray(event.system)) {
-          event.system.push({ type: "text", text: MISSING })
-        }
+        try {
+          if (!event || !Array.isArray(event.system)) return
+          const raw = Buffer.from((await standingContext(directory)).trim())
+          const text = new TextDecoder().decode(raw.subarray(0, CONTEXT_MAX_BYTES), { stream: true })
+          if (text) event.system.push({ type: "text", text })
+          if (!COMMAND_FOUND) event.system.push({ type: "text", text: MISSING })
+        } catch {}
       })
     } catch {}
 

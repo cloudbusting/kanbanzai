@@ -3,6 +3,7 @@ package initcmd
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -89,6 +90,153 @@ func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
 	source := settings["extraKnownMarketplaces"].(map[string]any)["kanbanzai"].(map[string]any)["source"].(map[string]any)
 	if source["source"] != "github" || source["repo"] != "cloudbusting/kanbanzai" {
 		t.Fatalf("source = %v", source)
+	}
+}
+
+func TestBundledPluginsArePlannedWithoutCheckout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
+	root := repo(t, "main")
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"})
+	serialized, _ := json.Marshal(plan)
+	var record map[string]any
+	if err := json.Unmarshal(serialized, &record); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(serialized), `"bundled_plugins":["claude","opencode"]`) {
+		t.Fatalf("plan does not identify selected bundled plugins: %s", serialized)
+	}
+	var claude, opencode, localReference bool
+	for _, action := range plan.Actions {
+		switch action.Path {
+		case ".claude/settings.local.json":
+			claude = strings.Contains(action.Content, `"directory"`)
+		case ".opencode/opencode.json":
+			opencode = strings.Contains(action.Content, "{file:../.kanbanzai/state/kanbanzai-opencode-path}")
+		case ".kanbanzai/state/kanbanzai-opencode-path":
+			localReference = strings.Contains(filepath.ToSlash(action.Content), "/kanbanzai/plugins/current/opencode")
+		}
+	}
+	if !claude || !opencode || !localReference {
+		t.Fatalf("bundled plan missing local settings: claude=%v opencode=%v reference=%v\n%+v", claude, opencode, localReference, plan.Actions)
+	}
+	detected, _, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, _ := json.Marshal(plan)
+	for i := range plan.Actions {
+		if plan.Actions[i].Path == claudeLocalSettingsRel && plan.Actions[i].Op == OpMerge {
+			var settings map[string]any
+			if err := json.Unmarshal([]byte(plan.Actions[i].Content), &settings); err != nil {
+				t.Fatal(err)
+			}
+			market := settings["extraKnownMarketplaces"].(map[string]any)["kanbanzai"].(map[string]any)
+			market["source"].(map[string]any)["path"] = filepath.Join(home, "attacker")
+			content, _ := json.Marshal(settings)
+			plan.Actions[i].Content = string(content)
+			plan.Actions[i].SHA256 = digest(string(content))
+			break
+		}
+	}
+	if err := ValidatePlan(plan, detected); err == nil {
+		t.Fatal("tampered bundled Claude source was accepted")
+	}
+	if err := json.Unmarshal(original, plan); err != nil {
+		t.Fatal(err)
+	}
+	for i := range plan.Actions {
+		if plan.Actions[i].What == WhatPluginReference {
+			plan.Actions[i].Content = filepath.Join(home, "attacker", "opencode")
+			plan.Actions[i].SHA256 = digest(plan.Actions[i].Content)
+			break
+		}
+	}
+	if err := ValidatePlan(plan, detected); err == nil {
+		t.Fatal("tampered bundled plugin reference was accepted")
+	}
+	opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"}
+	if code, out, errOut := initRun(root, opts); code != 0 {
+		t.Fatalf("init failed %d: %s %s", code, out, errOut)
+	}
+	for _, file := range []string{pluginReferenceRel, claudeLocalSettingsRel} {
+		cmd := exec.Command("git", "-C", root, "check-ignore", "-q", file)
+		if err := cmd.Run(); err != nil {
+			t.Errorf("machine-local file %s is not gitignored: %v", file, err)
+		}
+	}
+}
+
+func TestBundledPlanRefusesTrackedMachineLocalPaths(t *testing.T) {
+	for _, tracked := range []string{pluginReferenceRel, claudeLocalSettingsRel} {
+		t.Run(tracked, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+			t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+			t.Setenv("USERPROFILE", home)
+			root := repo(t, "main")
+			opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"}
+			if code, _, errOut := initRun(root, opts); code != 0 {
+				t.Fatalf("initial init %d: %s", code, errOut)
+			}
+			cmd := exec.Command("git", "-C", root, "add", "-f", "--", tracked)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("track local file: %v %s", err, out)
+			}
+			if code, _, _ := initRun(root, opts); code == 0 {
+				t.Fatal("accepted a tracked machine-local file")
+			}
+		})
+	}
+}
+
+func TestBundledPlanDoesNotInstallDisabledClaudePlugin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
+	root := repo(t, "main")
+	testutil.Write(t, filepath.Join(root, ".claude", "settings.json"), `{"enabledPlugins":{"kanbanzai@kanbanzai":false}}`)
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"})
+	data, _ := json.Marshal(plan)
+	if strings.Contains(string(data), `"bundled_plugins":["claude"`) {
+		t.Fatal("disabled Claude plugin was selected for installation")
+	}
+	for _, action := range plan.Actions {
+		if action.Path == claudeLocalSettingsRel && action.Op == OpMerge {
+			t.Fatal("plan would override a disabled Claude plugin")
+		}
+	}
+}
+
+func TestBundledPlanRefusesLocalPathTrackedAfterPreview(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
+	root := repo(t, "main")
+	opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"}
+	if code, _, errOut := initRun(root, opts); code != 0 {
+		t.Fatalf("initial init %d: %s", code, errOut)
+	}
+	plan := dryPlan(t, root, opts)
+	data, _ := json.Marshal(plan)
+	file := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "-C", root, "add", "-f", "--", pluginReferenceRel)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("track local file: %v %s", err, out)
+	}
+	if code, _, _ := initRun(root, Options{PlanFile: file}); code == 0 {
+		t.Fatal("applied a plan after its machine-local file became tracked")
 	}
 }
 
@@ -315,6 +463,18 @@ func TestAPlanFileMayOnlyMergeIntoTheKnownSettingsFiles(t *testing.T) {
 		"an array":        func(a *Action) { a.Content = "[1]"; a.SHA256 = digest(a.Content) },
 		"no content":      func(a *Action) { a.Content, a.SHA256 = "", "" },
 		"a bad digest":    func(a *Action) { a.SHA256 = digest("other") },
+		"unrelated executable settings": func(a *Action) {
+			a.Content = `{"hooks":{"SessionStart":[{"command":"malicious"}]}}`
+			a.SHA256 = digest(a.Content)
+		},
+		"another marketplace": func(a *Action) {
+			a.Content = `{"extraKnownMarketplaces":{"attacker":{"source":{"source":"github","repo":"evil/repo"}}}}`
+			a.SHA256 = digest(a.Content)
+		},
+		"another plugin": func(a *Action) {
+			a.Content = `{"enabledPlugins":{"attacker@elsewhere":true}}`
+			a.SHA256 = digest(a.Content)
+		},
 	} {
 		plan := clone()
 		edit(&plan.Actions[index(plan)])

@@ -26,7 +26,7 @@ the editor extension itself still makes no network request.
 ## Install
 
 Install the `.vsix` with the editor's own **Extensions: Install from VSIX…**, or with `codium --install-extension`, then
-run **Developer: Reload Window** once. A release's `.vsix` carries the `kanbanzai` command for Linux and macOS (amd64,
+run **Developer: Reload Window** once. A release's `.vsix` carries the `kanbanzai` command and both agent plugins for Linux and macOS (amd64,
 arm64) and Windows (amd64), so nothing else needs installing. The extension runs the first of these that exists:
 
 1. the `kanbanzai.command` setting (an absolute path);
@@ -35,7 +35,13 @@ arm64) and Windows (amd64), so nothing else needs installing. The extension runs
    `%LOCALAPPDATA%\kanbanzai\bin` on Windows), which **Kanbanzai: Init** puts there and the Claude Code hooks and the
    OpenCode adapter run first (before PATH). Each time the extension starts with its bundled command in use, it
    refreshes a copy that is already there to its own release (`install --refresh`), so an extension update brings the
-   hooks and OpenCode along; it never creates the copy, and a failure is logged in the Output channel and told once;
+   hooks and OpenCode along; it never creates the copy, and a failure is logged in the Output channel and told once.
+   The bundled plugins in the folder beside it (`plugins/current`) are refreshed the same way: a verified, complete
+   bundle replaces the previous one and the previous one is kept until the next update, while a modified or unowned
+   plugin folder is refused and left as it is. Claude Code and OpenCode load that folder in place, so a refreshed
+   bundle is what the next session reads; Claude Code keeps its own record of the installed version, which
+   **Kanbanzai: Apply** brings up to date with `claude plugin update`, or you do with
+   `claude plugin update kanbanzai@kanbanzai --scope local`;
 4. `kanbanzai` on `PATH`.
 
 The setting is machine-wide, so every profile shares it: a leftover `kanbanzai.command` pointing at an old build wins
@@ -57,16 +63,19 @@ In a trusted workspace whose first folder is a git checkout with no `.kanbanzai/
 clicks with as much time between them as you like:
 
 1. **Init.** It asks which agents to set up (Claude Code, OpenCode; both ticked), runs
-   `kanbanzai init --dry-run --json --plugins <agents>`, saves the plan in the project as
+   `kanbanzai init --dry-run --json --plugins <agents> --plugin-source @bundled`, saves the plan in the project as
    `.kanbanzai/state/setup-plan.json`, and opens it in an ordinary tab that you can scroll and search. The first and
    the last lines of the plan are a boxed reminder: *Click "Kanbanzai: Apply" in the status bar.* The status-bar item
    has become **Kanbanzai: Apply**. Nothing else has been written or run.
-2. **Apply.** Clicking it is the approval. It runs `kanbanzai install` (copies the command to the per-user folder and, on Linux and
-   macOS, links it as `~/.local/bin/kanbanzai`; on Windows it makes no link), then `kanbanzai init --plan` on the saved plan, exactly the plan you read, deletes the saved plan, and tells you
+2. **Apply.** Clicking it is the approval. It rechecks the saved plan, then runs `kanbanzai install` (copies the command and plugins to the per-user folder and, on Linux and
+   macOS, links it as `~/.local/bin/kanbanzai`; on Windows it makes no link), then `kanbanzai init --plan` on the saved plan.
+   If Claude Code was selected, it uses the local `claude` CLI to register the local marketplace and install the plugin
+   at local project scope. It then deletes the saved plan and tells you
    the files to commit, with anything `install` asked you to know: `~/.local/bin` is not on your `PATH` (and what to
    add), a `kanbanzai` of your own already at the link path (left alone), or on Windows the folder to add to your
    user `PATH`. The plan lists the link before you click. A failing step shows the command's own error; after a write failure the plan is kept, so
-   Apply can be clicked again (`init` finishes where it stopped).
+   If Claude registration fails after the board was made, the error names the failure and the plan remains; use the
+   Claude commands shown in the plan to finish registration.
 
 Until you apply, the plan stays pending: closing the tab, reloading the window or restarting the editor changes
 nothing, and the item stays **Apply**. **Kanbanzai: Show Setup Plan** opens it again; **Kanbanzai: Cancel Setup**
@@ -75,7 +84,7 @@ plan was made (a file the plan would create now exists, say), Apply refuses, rem
 run Init again.
 
 If the main branch cannot be told, a box asks for it and the plan is made again. The `kanbanzai.pluginSource` setting
-(a path to a Kanbanzai checkout) makes the plan use a local plugin instead of the GitHub marketplace source, for
+(a path to a Kanbanzai checkout) makes the plan use that checkout instead of the bundle, for
 testing before a release is public; those local-path settings go to `.claude/settings.local.json`, which is yours alone.
 For the longer interview (owner, card prefix, context files) run `/kanbanzai:setup` in Claude Code or OpenCode.
 If this editor plan is still pending, the skill shows it and offers the editor's Apply or Cancel flow before making
@@ -85,8 +94,11 @@ a replacement; do not run the two setup flows concurrently.
 
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
   `board --json`, `config --json` and `sessions --json` to draw the board, `install --refresh` at startup (only
-  when a per-user copy is already there), and after you click Apply, `install` and
-  `init --plan`; `init --dry-run --json` to make the plan you read. It also runs `migrate --json` (read-only) when it
+  when a per-user copy is already there), and after you click Apply, `init --plan --dry-run`, `install` and
+  `init --plan`; `init --dry-run --json` makes the plan you read. For bundled Claude setup it also runs `claude --version`,
+  lists Claude marketplaces and plugins, then uses `claude plugin marketplace add ... --scope local` and
+  `claude plugin install ... --scope local`, and `claude plugin update ... --scope local` only when Claude Code still
+  records an older version than the folder holds. It also runs `migrate --json` (read-only) when it
   starts and when the board cannot be read; if a release needs the project migrated it shows a notice, `migrate`
   to read the plan, and `migrate --apply --plan HASH` only when you click Apply on that notice, with the hash the
   command printed. It runs only in a trusted workspace.
@@ -94,15 +106,15 @@ a replacement; do not run the two setup flows concurrently.
   its own settings.
 - **Writes:** until you click Apply, only the pending plan, `.kanbanzai/state/setup-plan.json` (mode 0600; `state/` is
   the folder the project ignores; nothing is written through a symlink). Then, on Apply, through the command: the project's `.kanbanzai/`, its ignore
-  entries and the plugin settings (`.claude/settings.json` is committed with the project, so Claude Code offers the
-  plugin to everyone who opens it; `.claude/settings.local.json` and `.opencode/opencode.json` hold a path to your
-  Kanbanzai checkout when you use `kanbanzai.pluginSource`), and one copy of the command in the per-user folder
+  entries and the plugin settings (`.claude/settings.local.json` is ignored, and `.opencode/opencode.json` refers to
+  the ignored local path for the bundle; an explicit checkout source can still put a machine path in it), Claude Code's
+  local plugin cache and registration if selected, and one copy of the command and bundle in the per-user folder
   (replaced with the extension's own release whenever the extension starts, if you had set it up).
   The plan file is deleted after a successful Apply. A migration writes through the command, only when you click Apply
   (the project's config today, backed up under `.kanbanzai/state/migrate/`); the status item reads "Kanbanzai: Migrate"
   until then. The board tab itself never writes.
-- **Network, telemetry:** none. The extension makes no request and sends nothing. Claude Code (not this extension)
-  fetches a plugin from a GitHub marketplace source the next time it starts, and the plan names that source.
+- **Network, telemetry:** none. The extension makes no request and sends nothing. The bundled route loads plugins locally;
+  the separate GitHub marketplace source can be fetched by Claude Code.
 - **The command is not signed:** a binary taken from the `.vsix` may meet macOS Gatekeeper or Windows SmartScreen
   prompts. If the editor does not keep its executable bit, the extension sets it once and logs that to the Output
   channel.

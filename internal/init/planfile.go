@@ -62,6 +62,32 @@ func ValidatePlan(plan *Plan, d *Detected) error {
 	}
 	plan.Root = d.Root
 	sawConfig := false
+	bundled := len(plan.BundledPlugins) > 0
+	bundledActions := map[string]bool{}
+	for _, action := range plan.Actions {
+		if action.What == WhatPluginReference {
+			bundled = true
+		}
+		bundledActions[action.Path] = true
+	}
+	seenPlugins := map[string]bool{}
+	for _, name := range plan.BundledPlugins {
+		if seenPlugins[name] || name != "claude" && name != "opencode" {
+			return refuse("--plan: invalid bundled plugin selection")
+		}
+		seenPlugins[name] = true
+		if name == "claude" {
+			source, err := bundledPluginSource()
+			if err != nil || !bundledActions[".claude/.gitignore"] || !bundledActions[claudeLocalSettingsRel] {
+				return refuse("--plan: bundled Claude settings are missing")
+			}
+			if ok, reason := bundledClaudeEligible(d.Root, source); !ok {
+				return refuse("--plan: %s", reason)
+			}
+		} else if !bundledActions[pluginReferenceRel] || !bundledActions[openCodeSettingsRel] {
+			return refuse("--plan: bundled OpenCode settings are missing")
+		}
+	}
 	for index, action := range plan.Actions {
 		bad := func(format string, args ...any) error {
 			return refuse("--plan: action %d (%s %s): %s", index+1, action.Op, action.Path, fmt.Sprintf(format, args...))
@@ -111,6 +137,32 @@ func ValidatePlan(plan *Plan, d *Detected) error {
 		case WhatPlugin:
 			if err := validPluginAction(action); err != nil {
 				return bad("%v", err)
+			}
+			if bundled && action.Path == claudeLocalSettingsRel && action.Op == OpMerge {
+				fragment, _ := parseObject([]byte(action.Content))
+				if markets, ok := fragment["extraKnownMarketplaces"].(map[string]any); ok {
+					if market, ok := markets["kanbanzai"].(map[string]any); ok {
+						if local, ok := market["source"].(map[string]any); ok {
+							if path, ok := local["path"].(string); ok {
+								source, err := bundledPluginSource()
+								if err != nil || path != source {
+									return bad("bundled Claude source differs from this command's installed bundle")
+								}
+							}
+						}
+					}
+				}
+			}
+		case WhatPluginReference:
+			source, err := bundledPluginSource()
+			if err != nil || action.Path != pluginReferenceRel {
+				return bad("invalid bundled plugin reference")
+			}
+			expected := filepath.Join(source, "opencode")
+			if action.Op == OpCreate && action.Content != expected ||
+				action.Op == OpKeep && (action.Content != "" || action.ExpectSHA256 != digest(expected)) ||
+				action.Op != OpCreate && action.Op != OpKeep {
+				return bad("invalid bundled plugin reference content")
 			}
 		case WhatBackup:
 			if action.Op != OpBackup || !strings.HasPrefix(action.Path, ConfigRel+".bak-") {
