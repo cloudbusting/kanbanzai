@@ -43,8 +43,8 @@ kanbanzai --version                      the command's version
 
 **`plugins link`.** With the bundled OpenCode install, the plugin's location is kept in the ignored file
 `.kanbanzai/state/kanbanzai-opencode-path`, one per checkout, and OpenCode reads it in the checkout it runs in. `plugins link`
-copies the main checkout's file into a linked worktree (it prints `created`, `kept` or `nothing to link: <why>`; exit 0), and
-refuses with exit 1, changing nothing, when the worktree already holds a different file, git would not ignore the file there, or
+copies the main checkout's file into a linked worktree, writing over a file that is empty (it prints `created`, `kept` or `nothing to link: <why>`; exit 0), and
+refuses with exit 1, changing nothing, when the worktree already holds a different file or something that is not a readable file, git would not ignore the file there, or
 `DIR` is not a worktree of this project. `move` runs it when it records a card's worktree (a failure is a warning in its output,
 never a refusal), `workspace ID` prints the command as `link` (a `link` field in `--json`; empty when the project has no bundled
 OpenCode install), and `doctor` in a worktree fails when the file is missing, empty or names a plugin that is gone.

@@ -32,6 +32,9 @@ const (
 	OpNone    = "none"
 )
 
+// ErrEmpty is what Read reports for a pointer file that is empty or only blank: it names no plugin.
+var ErrEmpty = errors.New("the pointer file is empty")
+
 // Result is what Link did: OpCreated or OpKept at Path, or OpNone with the Reason nothing was needed.
 type Result struct {
 	Op     string
@@ -56,16 +59,17 @@ func Read(checkout string) (string, error) {
 	}
 	value := strings.TrimSpace(string(data))
 	if value == "" {
-		return "", fmt.Errorf("%s is empty", ReferenceRel)
+		return "", fmt.Errorf("%s is empty: %w", ReferenceRel, ErrEmpty)
 	}
 	return value, nil
 }
 
 // Link copies the main checkout's pointer file into the worktree that holds dir (any folder inside it). root is
 // the project's main checkout. It does nothing, and says why, when the main checkout has no pointer (the project
-// does not use the bundled OpenCode install) or dir is in the main checkout. It refuses, changing nothing, when dir
-// is not a checkout of this project, when git would not ignore the file there, when the worktree's state folder is
-// a link, or when the worktree already holds a different pointer.
+// does not use the bundled OpenCode install) or dir is in the main checkout. It writes over a pointer file that is
+// empty. It refuses, changing nothing, when dir is not a checkout of this project, when git would not ignore the
+// file there, when the worktree's state folder is a link, or when the worktree already holds a different pointer
+// or something that is not a readable file.
 func Link(root, dir string) (Result, error) {
 	want, err := Read(root)
 	if os.IsNotExist(err) {
@@ -104,10 +108,14 @@ func Link(root, dir string) (Result, error) {
 			return Result{}, fmt.Errorf("%s is not a regular file in %s", ReferenceRel, top)
 		}
 		have, err := Read(top)
-		if err != nil || have != want {
+		switch {
+		case errors.Is(err, ErrEmpty):
+			// An empty pointer names no plugin, so there is nothing to protect: write over it (BUG-82).
+		case err != nil || have != want:
 			return Result{}, fmt.Errorf("%s in %s already contains a different plugin path; left unchanged", ReferenceRel, top)
+		default:
+			return Result{Op: OpKept, Path: target}, nil
 		}
-		return Result{Op: OpKept, Path: target}, nil
 	} else if !os.IsNotExist(err) {
 		return Result{}, err
 	}

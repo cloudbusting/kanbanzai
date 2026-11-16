@@ -103,6 +103,46 @@ func TestLinkRefusesADifferentFileAndLeavesIt(t *testing.T) {
 	}
 }
 
+// BUG-82: an empty pointer file names no plugin, so there is nothing for Link to protect; doctor says to run Link for it.
+func TestLinkReplacesAnEmptyOrBlankPointer(t *testing.T) {
+	for name, content := range map[string]string{"empty": "", "blank": " \r\n\t\n"} {
+		t.Run(name, func(t *testing.T) {
+			root, plugin := project(t)
+			wt := worktree(t, root)
+			path := filepath.Join(wt, filepath.FromSlash(ReferenceRel))
+			testutil.Write(t, path, content)
+			result, err := Link(root, wt)
+			if err != nil || result.Op != OpCreated || result.Path != path {
+				t.Fatalf("%+v, %v", result, err)
+			}
+			if data, _ := os.ReadFile(path); string(data) != plugin {
+				t.Fatalf("pointer: %q (want %q)", data, plugin)
+			}
+			if got, err := Read(wt); err != nil || got != plugin {
+				t.Fatalf("Read after linking: %q, %v", got, err)
+			}
+			if status := testutil.Git(t, wt, "status", "--porcelain"); status != "" {
+				t.Fatalf("the worktree is dirty after linking:\n%s", status)
+			}
+		})
+	}
+}
+
+func TestLinkStillRefusesAPointerThatIsNotAFile(t *testing.T) {
+	root, _ := project(t)
+	wt := worktree(t, root)
+	path := filepath.Join(wt, filepath.FromSlash(ReferenceRel))
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Link(root, wt); err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("a folder in place of the pointer was accepted: %v", err)
+	}
+	if info, err := os.Lstat(path); err != nil || !info.IsDir() {
+		t.Fatalf("the folder was changed: %v", err)
+	}
+}
+
 func TestLinkRefusesWhenGitWouldNotIgnoreThePointer(t *testing.T) {
 	root, _ := project(t)
 	wt := worktree(t, root)
@@ -159,5 +199,7 @@ func TestReadSaysWhyThePointerIsUnusable(t *testing.T) {
 	testutil.Write(t, filepath.Join(wt, filepath.FromSlash(ReferenceRel)), " \n")
 	if _, err := Read(wt); err == nil || errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("an empty pointer must be a different error: %v", err)
+	} else if !errors.Is(err, ErrEmpty) {
+		t.Fatalf("an empty pointer must satisfy ErrEmpty: %v", err)
 	}
 }
