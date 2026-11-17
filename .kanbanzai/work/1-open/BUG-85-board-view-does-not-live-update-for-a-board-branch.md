@@ -1,10 +1,10 @@
 # BUG-85: The editor's board does not live-update when the board lives on a board branch
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record
-- **Next action:** build task 1: the core reports the board branch in sessions --json (worktree BUG-85)
+- **Next action:** check: run kanbanzai-qa on the BUG-85 worktree; the owner's manual check of the Board tab is the last acceptance line
 - **Where:** worktree BUG-85
 
 ## Goal
@@ -38,13 +38,13 @@ Rules check: no dependency (plain JavaScript, Go standard library); no new netwo
 
 Scratch repository with a bare local `origin` (no network); each fails without the change.
 
-- [ ] `sessions --json` in a `home = "branch"` project has `board.head` equal to `git -C <work> rev-parse HEAD`; after `kanbanzai move` it differs; in a `home = "main"` project the output has no `board` key and equals today's output byte for byte (an existing test, unchanged).
-- [ ] After a second clone pushes a board commit and this clone runs `git fetch` of the branch by hand, `board.behind` is 1; after `kanbanzai sync` it is 0. Running `sessions --json` makes no `git fetch` or `git push` (a wrapper on PATH proves it).
-- [ ] Extension, with the fake host: an answer whose `board.head` changes redraws the open tab with no file-watcher event; the poll rate is the fast one while the tab is visible and a board object is present, the slow one when hidden.
-- [ ] Extension, `publish: "auto"`, window focused: the fake host sees `sync --json` run on the interval, never two at once; unfocused or `publish: "ask"` it never runs; a failing `sync` is logged once per streak, shown as a warning, and the next run is not sooner than the interval.
-- [ ] Extension: the command `kanbanzai.syncBoard` is declared in `package.json`, runs `sync --json` for the chosen project under both settings, and reports the command's own message on failure.
-- [ ] A project with no `board` field behaves exactly as before: the existing extension tests pass unchanged and `board-view/fixtures` gains a board-branch fixture.
-- [ ] `docs_test.go` and `skills_wording_test.go` pass; `claude plugin validate` passes; the OpenCode fake-harness tests pass.
+- [x] `sessions --json` in a `home = "branch"` project has `board.head` equal to `git -C <work> rev-parse HEAD`; after `kanbanzai move` it differs; in a `home = "main"` project the output has no `board` key and equals today's output byte for byte (an existing test, unchanged).
+- [x] After a second clone pushes a board commit and this clone runs `git fetch` of the branch by hand, `board.behind` is 1; after `kanbanzai sync` it is 0. Running `sessions --json` makes no `git fetch` or `git push` (a wrapper on PATH proves it).
+- [x] Extension, with the fake host: an answer whose `board.head` changes redraws the open tab with no file-watcher event; the poll rate is the fast one while the tab is visible and a board object is present, the slow one when hidden.
+- [x] Extension, `publish: "auto"`, window focused: the fake host sees `sync --json` run on the interval, never two at once; unfocused or `publish: "ask"` it never runs; a failing `sync` is logged once per streak, shown as a warning, and the next run is not sooner than the interval.
+- [x] Extension: the command `kanbanzai.syncBoard` is declared in `package.json`, runs `sync --json` for the chosen project under both settings, and reports the command's own message on failure.
+- [x] A project with no `board` field behaves exactly as before: the existing extension tests pass unchanged and `board-view/fixtures` gains a board-branch fixture.
+- [x] `docs_test.go` and `skills_wording_test.go` pass; `claude plugin validate` passes; the OpenCode fake-harness tests pass.
 - [ ] Manual (the owner, in the editor, on the team-pr project): with the Board tab open, `kanbanzai move <ID> …` in a terminal redraws the tab within a few seconds with no reload; a teammate's move appears within about a minute under `publish = "auto"`.
 
 ## Deploy
@@ -55,11 +55,11 @@ Scratch repository with a bare local `origin` (no network); each fails without t
 
 Order: 2 and 3 depend on 1; 4 on 3; 5 and 6 last.
 
-- [ ] 1. **Core: the board object in `sessions --json`** — `internal/boardbranch/boardbranch.go` (a `Summary` returning branch, head, ahead, behind, uncommitted), `internal/cli/cli.go` (`runSessions`), tests in `internal/boardbranch/boardbranch_test.go` and `internal/cli/cli_test.go`, `docs/commands.md` — checks 1 and 2.
-- [ ] 2. **Extension: read and refresh on it** — `board-view/sessions.js` (`parseSessions`, `statusLabel`), `board-view/projects.js` (carry `board` from `config --json`), `board-view/workspace.js` (poll rate, refresh), `board-view/render.js` (project line), their tests and `board-view/fixtures/` — checks 3 and 6.
-- [ ] 3. **Extension: the Sync board command** — `board-view/extension.js`, `board-view/workspace.js`, `board-view/package.json` (`kanbanzai.syncBoard`), tests — check 5. Depends on 2.
-- [ ] 4. **Extension: auto sync under `publish = "auto"`** — `board-view/workspace.js`, tests — check 4. Depends on 3 (shares the sync runner).
-- [ ] 5. **Docs and changelog** — `docs/team-board.md` (how the board follows the branch, the two settings), `board-view/README.md`, `docs/security.md` (the extension may start `sync` under `auto`), `CHANGELOG.md` — check 7.
+- [x] 1. **Core: the board object in `sessions --json`** — `internal/boardbranch/boardbranch.go` (a `Summary` returning branch, head, ahead, behind, uncommitted), `internal/cli/cli.go` (`runSessions`), tests in `internal/boardbranch/boardbranch_test.go` and `internal/cli/cli_test.go`, `docs/commands.md` — checks 1 and 2.
+- [x] 2. **Extension: read and refresh on it** — `board-view/sessions.js` (`parseSessions`, `statusLabel`), `board-view/projects.js` (carry `board` from `config --json`), `board-view/workspace.js` (poll rate, refresh), `board-view/render.js` (project line), their tests and `board-view/fixtures/` — checks 3 and 6.
+- [x] 3. **Extension: the Sync board command** — `board-view/extension.js`, `board-view/workspace.js`, `board-view/package.json` (`kanbanzai.syncBoard`), tests — check 5. Depends on 2.
+- [x] 4. **Extension: auto sync under `publish = "auto"`** — `board-view/workspace.js`, tests — check 4. Depends on 3 (shares the sync runner).
+- [x] 5. **Docs and changelog** — `docs/team-board.md` (how the board follows the branch, the two settings), `board-view/README.md`, `docs/security.md` (the extension may start `sync` under `auto`), `CHANGELOG.md` — check 7.
 - [ ] 6. **Manual check** — the owner, the last acceptance line; the build says which card to move and which tab to look at.
 
 ## Docs
@@ -81,6 +81,7 @@ Engineer decisions (mentioned, not asked; the owner may veto): the poll, not a g
 - 2026-11-17: owner gave the setup (`team-pr`, `home = "branch"`, `publish = "auto"`) and expects the extension to watch the CLI's worktree branch; found the extension ignores `board` from `config --json`.
 - 2026-11-17: design: reproduced the layout in a scratch repository; decided the poll-based design above; owner chose automatic sync under `auto`, show-only under `ask`.
 - 2026-11-17: design done: poll-based board object in sessions --json, extension refresh, auto sync under publish=auto, Sync board command
+- 2026-11-17: build done: tasks 1-5 (core board object in sessions --json, extension refresh/status/project line, Sync board command, auto sync under publish=auto, docs); go vet, go test ./..., node 432, cross-builds, claude plugin validate green; red first for tasks 1-4 (the ask/main no-sync test passed before the code, a guard); manual check not run
 
 ## Out of scope
 
