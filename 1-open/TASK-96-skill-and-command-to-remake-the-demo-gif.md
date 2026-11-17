@@ -1,6 +1,6 @@
 # TASK-96: A skill and a command to remake the board demo GIF, so each new version of the tool can refresh the film
 
-- **Stage:** designed
+- **Stage:** building
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none
