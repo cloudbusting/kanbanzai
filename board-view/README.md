@@ -104,7 +104,8 @@ operating-system notification as well. The details:
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
   `board --json`, `config --json` and `sessions --json` to draw the board, `sync --json` for a project whose board is on a branch (when you run **Sync board**, and about once a minute, only while the window is focused, when that project sets `publish = "auto"`), `guide --json` (read-only, the first time
   you open Help, for the cheat sheet it shows), `install --refresh` at startup (only
-  when a per-user copy is already there), and after you click Apply, `init --plan --dry-run`, `install` and
+  when a per-user copy is already there, and only when the bundled command's `--version` is this extension's own, so a
+  test package never refreshes the shared copy; `--version` is run first), and after you click Apply, `init --plan --dry-run`, `install` and
   `init --plan`; `init --dry-run --json` makes the plan you read. For bundled Claude setup it also runs
   `claude --version`, lists Claude marketplaces and plugins, then uses `claude plugin marketplace add ... --scope local`
   and `claude plugin install ... --scope local`, and `claude plugin update ... --scope local` only when Claude Code

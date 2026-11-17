@@ -71,11 +71,27 @@ function resolveCommand({ setting, extensionPath, platform, arch, env, home, exi
 // updates it when the extension does, so on activation a bundled command refreshes a copy that is already there
 // (`install --refresh`: it never makes one; the guided setup's Apply is the only thing that does). Never throws; a
 // failure is logged and said once in plain words, and the board keeps working.
-async function refreshInstalled({ resolved, env, platform, home, exists, execFile, log, error } = {}) {
+//
+// BUG-93: the copy is shared by every editor profile, the hooks and the shell, so only a release writes it. A test
+// package from a card's branch bundles that branch's command, and the command says what it is: the refresh runs only
+// when `--version` is the extension's own version (a release build, stamped with the tag the manifests agree with).
+// Anything else, or an answer that cannot be read, is skipped and logged; `install --refresh` by hand or Apply still can.
+async function refreshInstalled({ resolved, env, platform, home, exists, execFile, log, error, version } = {}) {
   try {
     if (!resolved || resolved.source !== 'bundled' || !nonEmpty(resolved.command)) return { ran: false };
     const known = wellKnownFile(env, platform, home);
     if (!known || typeof exists !== 'function' || !exists(known)) return { ran: false };
+    const said = await runFile(execFile, resolved.command, ['--version'], { timeout: 10 * 1000 });
+    const release = said.ok ? releaseOf(said.stdout) : '';
+    const own = nonEmpty(version) ? version.trim().replace(/^v/, '') : '';
+    if (!release || !own || release !== own) {
+      if (log) {
+        log.info(`not refreshing ${known}: the bundled command is ${release ? `v${release}` : 'of an unknown release'} and this extension is ` +
+          `${own ? `v${own}` : 'of an unknown release'}, so it is not a release build. Run \`install --refresh\` with ` +
+          `${resolved.command} (or Kanbanzai: Apply) to replace it on purpose.`);
+      }
+      return { ran: false, skipped: true };
+    }
     const done = await runFile(execFile, resolved.command, ['install', '--refresh'], {});
     if (done.ok) {
       const said = done.stdout.trim();
@@ -93,6 +109,12 @@ async function refreshInstalled({ resolved, env, platform, home, exists, execFil
   } catch (e) {
     return { ran: false };
   }
+}
+
+// The release a `kanbanzai --version` answer names, without the name or a leading "v"; "" when it names none.
+function releaseOf(output) {
+  const match = (String(output || '').trim().split(/\r?\n/)[0] || '').match(/^kanbanzai\s+v?(\S+)\s*$/);
+  return match ? match[1] : '';
 }
 
 // A bundled file the editor's extraction left without the executable bit gets it once; every outcome is logged.

@@ -298,6 +298,18 @@ function localExecFile(file, args, options, callback) {
   return execFile(file, args, { ...options, env: projects.environment(options.env || process.env) }, callback);
 }
 
+// This extension's own version: the editor's manifest for it, else the package.json beside the code.
+function extensionVersion(context) {
+  try {
+    const fromEditor = context && context.extension && context.extension.packageJSON && context.extension.packageJSON.version;
+    if (typeof fromEditor === 'string' && fromEditor) return fromEditor;
+    const folder = context && (context.extensionPath || (context.extensionUri && context.extensionUri.fsPath));
+    if (!folder) return '';
+    const own = JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8')).version;
+    return typeof own === 'string' ? own : '';
+  } catch (e) { return ''; }
+}
+
 function activate(context, opts) {
   // W-104: the board's Output channel: its errors, warnings and key status, kept for the window's life and never
   // opened by itself (the owner chose that, 2026-11-11). VSCodium's own level picker decides what is shown; nothing is
@@ -338,7 +350,7 @@ function activate(context, opts) {
   // The per-user copy follows this extension's release; not awaited, and nothing it does reaches the editor as an error.
   try {
     setup.refreshInstalled({
-      resolved: commandInfo(), env: process.env, platform: process.platform, home: os.homedir(),
+      resolved: commandInfo(), version: extensionVersion(context), env: process.env, platform: process.platform, home: os.homedir(),
       exists: (file) => fs.existsSync(file), execFile, log, error: (message) => env.ui.error(message),
     }).catch(() => {});
   } catch (e) { /* the board does not depend on it */ }
