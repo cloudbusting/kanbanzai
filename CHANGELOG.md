@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- TASK-84: the extension's marketplace listing opens with a short animation of the board beside a Claude Code session on
+  a made-up project: Init and Apply, a request triaged into a card, a requirement broken down, a card worked to Done. The
+  recording and how to remake it are in `tools/demo-gif/`.
+
 ## [0.25.1] — 2026-11-17
 
 - BUG-82: `kanbanzai plugins link` now fills in an empty OpenCode pointer file. In a worktree whose

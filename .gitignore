@@ -10,3 +10,6 @@ dist/
 # An editor's or tool's backup of a settings file, and a session's scheduler lock: both are one machine's.
 *.openchamber.backup
 .claude/scheduled_tasks.lock
+
+# A browser tool session's screenshots and logs (the demo GIF is recorded with one).
+.playwright-mcp/
