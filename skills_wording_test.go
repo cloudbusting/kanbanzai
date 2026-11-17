@@ -1090,3 +1090,37 @@ func TestSetupAndWorkflowSkillsKnowTheBoardBranchIsTheDefault(t *testing.T) {
 		}
 	}
 }
+
+// TASK-96: the maintainers' skill that remakes the board demo GIF asks before it spends the owner's tokens, needs a
+// card, stops without its sandbox tools, shows the candidate before it replaces the committed GIF, and never pushes.
+func TestTheDemoGifSkillAsksFirstAndNeverReplacesOrPushesOnItsOwn(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, ".claude", "skills", "kanbanzai-demo-gif", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := string(data)
+	if !strings.HasPrefix(raw, "---\n") {
+		t.Fatal("the kanbanzai-demo-gif skill has no frontmatter")
+	}
+	for _, key := range []string{"name: kanbanzai-demo-gif", "description: ", "argument-hint: "} {
+		if !strings.Contains(strings.SplitN(raw, "\n---\n", 2)[0], key) {
+			t.Errorf("the kanbanzai-demo-gif frontmatter lacks %q", key)
+		}
+	}
+	text := strings.Join(strings.Fields(raw), " ")
+	for _, want := range []string{
+		"starts from a card", "asks the owner before it records", "spends tokens on the owner's login",
+		"stops and names what is missing", "browser_run_code_unsafe", "tools/demo-gif/demo.sh prepare",
+		"tools/demo-gif/demo.sh verify", "tools/demo-gif/demo.sh clean", "contact sheet",
+		"shows the candidate to the owner", "before it replaces `docs/media/board-demo.gif`",
+		"commits only in the card's worktree", "never pushes, tags or publishes",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the kanbanzai-demo-gif skill lacks %q", want)
+		}
+	}
+}

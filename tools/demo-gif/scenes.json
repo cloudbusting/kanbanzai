@@ -1,0 +1,45 @@
+{
+  "fps": 8,
+  "width": 960,
+  "hold": 1.0,
+  "scenes": [
+    {
+      "name": "init",
+      "caption": "Init, then Apply: set a project up from the status bar",
+      "seconds": 7
+    },
+    {
+      "name": "layout",
+      "caption": "Commit the setup, then start Claude Code in the terminal",
+      "seconds": 2
+    },
+    {
+      "name": "triage",
+      "caption": "/kanbanzai:triage turns a request into a card in Todo",
+      "seconds": 8,
+      "prompt": "/kanbanzai:triage People paste recipe names from emails, and find(\"tomato pasta \") returns nothing because of the trailing space."
+    },
+    {
+      "name": "breakdown",
+      "caption": "/kanbanzai:breakdown splits a big requirement into linked cards",
+      "seconds": 9,
+      "prompt": "/kanbanzai:breakdown the requirement in REQUIREMENT.md"
+    },
+    {
+      "name": "asking",
+      "caption": "A session waiting for your answer lights up the board",
+      "seconds": 3
+    },
+    {
+      "name": "do",
+      "caption": "/kanbanzai:do claims a card and works it; the board follows",
+      "seconds": 9,
+      "prompt": "/kanbanzai:do BUG-01"
+    },
+    {
+      "name": "brief",
+      "caption": "Every card is a Markdown brief: click one to open it",
+      "seconds": 4
+    }
+  ]
+}

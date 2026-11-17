@@ -85,6 +85,11 @@ checks each resolves in the checkout), and the full behaviour goes in [editor.md
 comes from `board-view/package.json`: `tools/vsix` writes its keywords as the manifest's tags and its repository,
 `bugs` and `homepage` as the listing's links.
 
+The listing opens with an animation, `docs/media/board-demo.gif`: a real Claude Code session on a made-up project. When a release
+changes how the board or the skills look, refresh it with this repository's `/kanbanzai-demo-gif` skill
+(`.claude/skills/kanbanzai-demo-gif/`) and its command, `tools/demo-gif/demo.sh`; the skill asks before it spends tokens,
+shows the owner the candidate and never pushes. `tools/demo-gif/README.md` has the method.
+
 A `.vsix` built without the command (`go run ./tools/vsix -o /tmp/kanbanzai-board.vsix`, for development) runs the
 `kanbanzai.command` setting, the per-user copy or `kanbanzai` on `PATH` (the order in
 [editor.md](editor.md#which-command-it-runs), without the bundled command). A release's is built with
