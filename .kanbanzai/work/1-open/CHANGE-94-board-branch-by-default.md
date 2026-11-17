@@ -1,10 +1,10 @@
 # CHANGE-94: The board branch becomes this project's board home and the default for new projects on the files store
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record (no decision-record folder in this repository)
-- **Next action:** Build task 1 (the preset's board_home key) in worktree CHANGE-94; task 6 (move this project's board) waits until BUG-92, BUG-93 and CHANGE-87 are released
+- **Next action:** check: run kanbanzai:check on worktree CHANGE-94 (commit 5078d24); task 6 (move this project's board to the branch) stays open until BUG-92, BUG-93 and CHANGE-87 are released and no claim is live
 - **Where:** worktree CHANGE-94
 
 ## Goal
