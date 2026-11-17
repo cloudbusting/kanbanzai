@@ -1,7 +1,7 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** todo
-- **Updated:** 2026-11-17
+- **Stage:** designing
+- **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** consider during design if the plugin contract from CHANGE-87 needs a decision record for this store
 - **Next action:** design: once CHANGE-87 is Designed, settle how GitHub issues back a card (ID to issue number, issue types, labels), its auth, and the GitHub filter fields and behaviour on the shared filter contract
