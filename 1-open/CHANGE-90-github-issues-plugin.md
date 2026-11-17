@@ -1,10 +1,10 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
-- **Next action:** package: deploy-qa (kanbanzai-package) merges CHANGE-90 into main, then builds and install-tests the archives; the owner's by-hand check on a throwaway repository comes after, before ship
+- **Next action:** owner: approve the release (QA-approved gate) after the by-hand check on a throwaway repository you name: gh auth login, [store] plugin github with prefix GH and settings repo, kanbanzai store trust, sync, see an issue on the board, number --title, move it and see the stage: label; then ship (kanbanzai-release) chooses the version
 - **Where:** worktree CHANGE-90
 - **Needs:** CHANGE-87
 
@@ -242,6 +242,15 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
   creation on a first `stage:` label, and that GitHub returns the written body unchanged (compared ignoring line endings and trailing space).
 - Not run: the owner's check by hand on a throwaway repository. Nothing in the build reached github.com; every test uses a fake `gh`.
 
+## Package
+
+- Built from main at 50e4ba2 (CHANGE-90 merged: branch commits 42dae1d, 0abd5b6; set of cards on this package: CHANGE-90 alone), version metadata 0.28.1 unchanged (the release step chooses the version).
+- Artifacts in /tmp/kanbanzai-package-CHANGE-90-0.28.1 (SHA256SUMS there):
+  - `kanbanzai-0.28.1.tar.gz` 4b75ccbb…; `kanbanzai-board-0.28.1.vsix` 62ba2035… (the command only, five platforms, no bin.json);
+  - `kanbanzai_0.28.1_{linux_amd64,linux_arm64,darwin_amd64,darwin_arm64}.tar.gz` and `…_windows_amd64.zip`, each holding `kanbanzai` and `kanbanzai-store-github` (`.exe` on Windows).
+- Proven: from the Linux archive, `kanbanzai-store-github --version` says v0.28.1 and a `hello` request answers protocol 1, name github; `kanbanzai install` into a throwaway home copies and links both programs; `init --board-main`, `check` and `board --json` work; the source bundle lists the new code and no `.git`, state or `.env`; `go run ./tools/release -scan` clean on the source bundle, the .vsix and all five archives; `claude plugin validate` passes and the bundle installs in a throwaway Claude config at 0.28.1; `go vet` and `go test ./...` green on main after the merge.
+- Not run: the owner's by-hand check (below), and anything on github.com.
+
 ## Progress
 
 - 2026-11-17: split out of W-25 under EPIC-86; Needs CHANGE-87.
@@ -250,6 +259,7 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
 - 2026-11-18: designed with the owner: issue body is the brief, stage label plus closed state, one repository per project, a second shipped program
 - 2026-11-18: built: backend, program, release and install, docs; all suites green, file board byte-identical; commit 42dae1d on branch CHANGE-90
 - 2026-11-18: checked: kanbanzai-qa green; independent review found 12 defects, all fixed with tests (0abd5b6); branch CHANGE-90 not yet merged into main (the package step does that)
+- 2026-11-18: packaged: artifacts in /tmp/kanbanzai-package-CHANGE-90-0.28.1; merged into main 50e4ba2 (not pushed); proofs and privacy scans clean
 
 ## Out of scope
 
