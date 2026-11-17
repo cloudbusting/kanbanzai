@@ -59,6 +59,7 @@ commands:
   config [--json]                the versioned, resolved settings
   config upgrade [--apply]       preview/apply a safe config schema upgrade
   migrate [--json | --apply --plan HASH | --rollback]  preview, apply (on the hash it printed) or roll back the migration this release needs
+  guide [--json]                 the cheat sheet of commands and common workflows (works outside a project)
   doctor [--json] [--board]      diagnose this installation without repairs; --board adds the board-branch checks (git and agent hooks)
   context [--adapter-version V] the standing context
   workflow <verb> ...            show, validate, plan, apply, export the flow; presets lists the delivery presets
@@ -100,6 +101,10 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		return 0
 	}
 	if hasHelp(rest) {
+		if command == "guide" {
+			fmt.Fprint(out, guideUsage)
+			return 0
+		}
 		if command == "board" {
 			fmt.Fprintln(out, "usage: kanbanzai board [--json | --tui | --web [--no-open] [--port N]]\n--web: foreground read-only loopback server; Ctrl-C stops it. --port defaults to 0 (random).")
 			return 0
@@ -133,6 +138,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			return usageError(errOut, command, err)
 		}
 		return doctor.Run("", doctor.Options{JSON: set["json"], Board: set["board"], Out: out, Err: errOut})
+	}
+	if command == "guide" {
+		return runGuide(rest, out, errOut)
 	}
 	if command == "install" {
 		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true, "no-link": true}, nil)

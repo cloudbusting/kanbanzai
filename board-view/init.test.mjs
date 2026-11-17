@@ -868,7 +868,9 @@ test("the only file the extension writes is the pending plan, in init.js: one te
 test("no source asks for a modal dialog", () => {
   for (const name of readdirSync(here).filter((n) => n.endsWith(".js"))) {
     const code = readFileSync(path.join(here, name), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
-    assert.doesNotMatch(code, /modal/i, name);
+    // The editor's modal option (`{ modal: true }`). TASK-83: the Help popup's `aria-modal="true"` marks an overlay inside
+    // the board's own page for screen readers; it is not a dialog the editor shows, so it is not what this forbids.
+    assert.doesNotMatch(code, /\bmodal\s*:/i, name);
   }
 });
 

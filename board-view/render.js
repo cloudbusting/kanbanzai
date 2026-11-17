@@ -535,6 +535,51 @@ function renderError(message, opts) {
   return shell(`<div class="error" role="alert">${esc(message)}</div>`, opts);
 }
 
+// TASK-83: the Help popup of the editor board. It shows the sheet `kanbanzai guide --json` prints, and nothing else: the
+// host fetches it, this only shows it. Every field is optional and escaped; a `code` span is the only markup made.
+function inlineCode(value) {
+  const text = typeof value === 'string' ? value : '';
+  const parts = text.split('`');
+  if (parts.length % 2 === 0) return esc(text);
+  return parts.map((part, i) => (i % 2 ? `<code>${esc(part)}</code>` : esc(part))).join('');
+}
+
+function helpSections(sheet) {
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  return arr(obj(sheet).sections).map(obj).map((section) => ({
+    title: str(section.title), text: str(section.text),
+    items: arr(section.items).map(obj).filter((item) => str(item.command)).map((item) => ({ command: str(item.command), text: str(item.text) })),
+  })).filter((section) => section.text || section.items.length);
+}
+
+function helpHtml(help) {
+  const h = obj(help);
+  if (h.open !== true) return '';
+  const sheet = obj(h.sheet);
+  const title = typeof sheet.title === 'string' && sheet.title.trim() ? sheet.title.trim() : 'Cheat sheet';
+  let body;
+  const problem = (message) => `<p class="help-problem" role="alert">${message}</p>`;
+  if (h.status === 'error') {
+    const reason = typeof h.error === 'string' && h.error.trim() ? ` (${esc(h.error.trim())})` : '';
+    body = problem(`The cheat sheet could not be read from the kanbanzai command${reason}. An older command has no <code>kanbanzai guide</code>: ` +
+      'update the Kanbanzai Board extension or the kanbanzai command, or ask your agent for /kanbanzai:help, which shows the same sheet.');
+  } else if (h.status === 'ready') {
+    const sections = helpSections(h.sheet);
+    body = sections.length ? sections.map((section) => `<section class="help-section">` +
+      (section.title ? `<h3>${esc(section.title)}</h3>` : '') +
+      (section.text ? `<p class="help-text">${inlineCode(section.text)}</p>` : '') +
+      (section.items.length ? `<ul class="help-items">${section.items.map((item) => `<li><code class="help-command">${esc(item.command)}</code>` +
+        (item.text ? ` <span class="help-item-text">${inlineCode(item.text)}</span>` : '') + '</li>').join('')}</ul>` : '') +
+      '</section>').join('') : problem('The kanbanzai command returned a cheat sheet with nothing in it.');
+  } else {
+    body = '<p class="help-note" role="status">Loading the cheat sheet…</p>';
+  }
+  return '<div class="help-backdrop">\n<div class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" tabindex="-1" data-state-key="help-dialog">' +
+    `<div class="help-head"><h2 id="help-title">${esc(title)}</h2>` +
+    '<button type="button" class="help-close" data-help="close" aria-label="Close help" title="Close (Esc)">✕</button></div>' +
+    `<div class="help-body" tabindex="0">${body}</div></div></div>\n`;
+}
+
 const WORKSPACE_STYLE = `
   .workspace-toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
   .workspace-toolbar label { display: flex; align-items: center; gap: 6px; }
@@ -559,6 +604,38 @@ const WORKSPACE_STYLE = `
   .asking .project-chip, .asking-sessions .project-chip { color: inherit; }
   .project-error, .no-matches { flex: none; margin: 0; }
   .toast[data-card] { cursor: pointer; }
+  .help-button {
+    margin-left: auto; font: inherit; padding: 3px 10px; cursor: pointer; border-radius: 3px;
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+    border: 1px solid var(--vscode-widget-border, var(--vscode-button-border, transparent));
+  }
+  .help-button:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground)); }
+  .help-button:focus-visible, .help-close:focus-visible, .help-body:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
+  .help-backdrop {
+    position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px;
+    box-sizing: border-box; background: rgba(0, 0, 0, 0.45);
+  }
+  .help-dialog {
+    width: min(720px, 100%); max-height: 100%; display: flex; flex-direction: column; box-sizing: border-box;
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-widget-border, var(--vscode-focusBorder)); border-radius: 6px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  }
+  .help-dialog:focus { outline: none; }
+  .help-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--vscode-widget-border, transparent); }
+  .help-head h2 { margin: 0; font-size: 1.15em; overflow-wrap: anywhere; }
+  .help-close { font: inherit; cursor: pointer; color: inherit; background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 2px 6px; }
+  .help-close:hover { background: var(--vscode-toolbar-hoverBackground); }
+  .help-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 12px 12px; }
+  .help-section h3 { margin: 14px 0 4px; font-size: 1em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--vscode-descriptionForeground); }
+  .help-text, .help-note, .help-problem { margin: 4px 0; line-height: 1.45; }
+  .help-problem { color: var(--vscode-errorForeground); }
+  .help-items { margin: 0; padding: 0; list-style: none; }
+  .help-items li { margin: 4px 0; line-height: 1.45; overflow-wrap: anywhere; }
+  .help-body code { font-family: var(--vscode-editor-font-family, monospace); color: var(--vscode-textPreformat-foreground); }
+  .help-command { font-weight: 600; }
 `;
 
 // Editor-only messages never carry a disk path. The host validates the opaque project and bare card ID.
@@ -569,6 +646,7 @@ const WORKSPACE_SCRIPT = `
   const root = document.querySelector('.workspace-projects');
   const projectSelect = document.querySelector('#workspace-project');
   const typeSelect = document.querySelector('#workspace-type');
+  const helpBody = document.querySelector('.help-body');
   const scope = root.dataset.project;
   const record = (v) => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
   const saved = record(vscode.getState());
@@ -601,6 +679,7 @@ const WORKSPACE_SCRIPT = `
   boards.forEach((el) => { el.scrollLeft = state.boards[el.dataset.project] || 0; });
   scrolls.forEach((el) => { el.scrollTop = state.cols[el.parentElement.dataset.stateKey] || 0; });
   root.scrollTop = state.tops[scope] || 0;
+  if (helpBody) helpBody.scrollTop = Number(state.helpTop) || 0;
   function saveState() {
     boards.forEach((el) => { state.boards[el.dataset.project] = el.scrollLeft; });
     scrolls.forEach((el) => { state.cols[el.parentElement.dataset.stateKey] = el.scrollTop; });
@@ -608,11 +687,13 @@ const WORKSPACE_SCRIPT = `
     const focused = document.activeElement && document.activeElement.closest('[data-state-key]');
     if (focused) state.focus = focused.dataset.stateKey;
     state.tops[scope] = root.scrollTop;
+    state.helpTop = helpBody ? helpBody.scrollTop : 0;
     state.project = projectSelect.value;
     state.types[scope] = typeSelect.value;
     vscode.setState(state);
   }
   root.addEventListener('scroll', saveState);
+  if (helpBody) helpBody.addEventListener('scroll', saveState);
   boards.forEach((el) => el.addEventListener('scroll', saveState));
   scrolls.forEach((el) => el.addEventListener('scroll', saveState));
   document.addEventListener('focusin', saveState);
@@ -642,8 +723,28 @@ const WORKSPACE_SCRIPT = `
       vscode.postMessage({ type: 'open', project: el.dataset.project, id: el.dataset.card });
     }
   }
+  // TASK-83: the Help popup. Opening asks the host (it fetches the sheet and keeps the popup open across board
+  // refreshes); closing is at once here and then told to the host. The focus goes to the dialog when it opens and back to
+  // the button when it closes, through the same saved focus the board uses.
+  function closeHelp() {
+    const backdrop = document.querySelector('.help-backdrop');
+    if (backdrop) backdrop.remove();
+    const button = document.querySelector('[data-help="open"]');
+    if (button) { button.focus(); saveState(); }
+    vscode.postMessage({ type: 'help-close' });
+  }
   document.addEventListener('click', (e) => {
     const closest = (selector) => e.target.closest ? e.target.closest(selector) : null;
+    const help = closest('[data-help]');
+    if (help) {
+      if (help.dataset.help === 'open') {
+        saveState(); state.focus = 'help-dialog'; vscode.setState(state);
+        vscode.postMessage({ type: 'help-open' });
+      } else closeHelp();
+      return;
+    }
+    const backdrop = closest('.help-backdrop');
+    if (backdrop && e.target === backdrop) { closeHelp(); return; }
     const all = closest('.toast-close-all');
     if (all) {
       const instances = [];
@@ -678,6 +779,16 @@ const WORKSPACE_SCRIPT = `
     if (el) open(el);
   });
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.querySelector('.help-backdrop')) { e.preventDefault(); closeHelp(); return; }
+    if (e.key === 'Tab' && document.querySelector('.help-backdrop')) {
+      const stops = [document.querySelector('.help-body'), document.querySelector('.help-close')].filter(Boolean);
+      if (stops.length) {
+        const at = stops.indexOf(document.activeElement);
+        const next = at < 0 ? (e.shiftKey ? stops.length - 1 : 0) : (at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length;
+        e.preventDefault(); stops[next].focus();
+      }
+      return;
+    }
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const el = e.target.closest ? e.target.closest('.card, .toast[data-card]') : null;
     if (el && e.target === el) { e.preventDefault(); open(el); }
@@ -734,7 +845,8 @@ function renderWorkspaceHtml(projects, opts) {
   let inner = '<div class="workspace-toolbar">'
     + `<label for="workspace-project">Project <select id="workspace-project" data-state-key="project-select" aria-describedby="workspace-filter-hint">${option('all', 'All projects', selected)}${list.map((p) => option(p.key, p.label, selected)).join('')}</select></label>`
     + `<label for="workspace-type">Type <select id="workspace-type" data-state-key="type-select" aria-describedby="workspace-filter-hint">${option('all', 'All types', type)}${types.map((t) => option(t.value, t.label, type)).join('')}${option('untyped', 'Untyped/legacy', type)}</select></label>`
-    + `<span class="workspace-hint" id="workspace-filter-hint">${hint}</span></div>\n`;
+    + `<span class="workspace-hint" id="workspace-filter-hint">${hint}</span>`
+    + '<button type="button" class="help-button" data-help="open" data-state-key="help-button" aria-haspopup="dialog" title="Cheat sheet and guide to the commands">? Help</button></div>\n';
   inner += `<main class="workspace-projects ${selected === 'all' ? 'workspace-grouped' : 'workspace-single'}" data-project="${esc(selected)}" data-project-count="${list.length}" data-keep-focus="${o.keepFocus === true}">`;
   const now = typeof o.now === 'number' ? o.now : Date.now();
   if (!scope.length) inner += '<p class="no-matches" role="status">No configured projects in this workspace.</p>';
@@ -757,6 +869,7 @@ function renderWorkspaceHtml(projects, opts) {
     inner += '</section>\n';
   }
   inner += '</main>';
+  inner += helpHtml(o.help);
   const toasts = scope.flatMap((p) => arr(p.toasts).map((view) => toastHtml(view, p)));
   if (toasts.length) {
     inner += `<div class="toasts" role="log" aria-live="polite" aria-label="Board updates">${toasts.join('')}</div>`;
