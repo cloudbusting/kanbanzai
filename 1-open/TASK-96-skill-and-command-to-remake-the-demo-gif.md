@@ -1,10 +1,10 @@
 # TASK-96: A skill and a command to remake the board demo GIF, so each new version of the tool can refresh the film
 
-- **Stage:** building
+- **Stage:** built
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none
-- **Next action:** build task 1: tools/demo-gif/editor.lock and demo.sh (prepare, stop, clean) with its checksum and seed tests
+- **Next action:** check (kanbanzai-qa), then close: Deploy is None
 - **Where:** worktree TASK-96
 
 ## Goal
@@ -28,12 +28,12 @@ Related but distinct: TASK-84 (made the GIF and its README, done), TASK-83 (the 
 
 ## Acceptance checks
 
-- [ ] `tools/demo-gif/demo.sh prepare` refuses an editor tarball whose sha256 does not match `editor.lock` (exit 2, naming both sums) and extracts nothing; a test feeds it a wrong file. With a matching file it installs the full .vsix and starts the editor on 127.0.0.1 only; `demo.sh stop` ends it and `demo.sh clean` removes every scratch folder it made, by literal path.
-- [ ] `seed.sh` run twice into two empty folders still gives the same commit (the TASK-84 check, kept as a Go test in `tools/demo-gif`).
-- [ ] `assemble.py` on a set of synthetic frames named `<ms>-<scene>.png` with a `scenes.json` writes, for each scene, about the scene's seconds at 8 frames a second plus its caption strip, masks a planted pink "Not logged in" row and leaves a frame without it untouched. The test skips, saying so, when python3 with Pillow and numpy is missing.
-- [ ] `demo.sh verify` fails, naming what is missing, on a demo project with no BUG card in Done, fewer than five cards under the epic, a missing scene in the frames, a GIF over 4 MiB, over 45 s or not 960 wide, or a transcript line with a home path, an email or a token (each is a case in the test); it passes on a good fixture.
-- [ ] `.claude/skills/kanbanzai-demo-gif/SKILL.md` has valid frontmatter (name matches its folder, a description that says when to use it, an argument hint), and a wording test pins that it starts from a card, asks the owner before recording, names the sandbox needs and stops without them, never pushes, shows the candidate before replacing the committed GIF and commits only in the card's worktree.
-- [ ] `go test ./...`, `go vet ./...`, the board-view and opencode suites and the hook and JavaScript syntax checks stay green; `claude plugin validate .` passes.
+- [x] `tools/demo-gif/demo.sh prepare` refuses an editor tarball whose sha256 does not match `editor.lock` (exit 2, naming both sums) and extracts nothing; a test feeds it a wrong file. With a matching file it installs the full .vsix and starts the editor on 127.0.0.1 only; `demo.sh stop` ends it and `demo.sh clean` removes every scratch folder it made, by literal path.
+- [x] `seed.sh` run twice into two empty folders still gives the same commit (the TASK-84 check, kept as a Go test in `tools/demo-gif`).
+- [x] `assemble.py` on a set of synthetic frames named `<ms>-<scene>.png` with a `scenes.json` writes, for each scene, about the scene's seconds at 8 frames a second plus its caption strip, masks a planted pink "Not logged in" row and leaves a frame without it untouched. The test skips, saying so, when python3 with Pillow and numpy is missing.
+- [x] `demo.sh verify` fails, naming what is missing, on a demo project with no BUG card in Done, fewer than five cards under the epic, a missing scene in the frames, a GIF over 4 MiB, over 45 s or not 960 wide, or a transcript line with a home path, an email or a token (each is a case in the test); it passes on a good fixture.
+- [x] `.claude/skills/kanbanzai-demo-gif/SKILL.md` has valid frontmatter (name matches its folder, a description that says when to use it, an argument hint), and a wording test pins that it starts from a card, asks the owner before recording, names the sandbox needs and stops without them, never pushes, shows the candidate before replacing the committed GIF and commits only in the card's worktree.
+- [x] `go test ./...`, `go vet ./...`, the board-view and opencode suites and the hook and JavaScript syntax checks stay green; `claude plugin validate .` passes.
 - [ ] Manual, the owner's: `/kanbanzai-demo-gif <card>` run once on a later release produces a candidate GIF in the sandbox; the owner looks at it before it replaces the committed one. Not run by the build: it spends tokens and needs the sandbox's login.
 
 ## Deploy
@@ -69,7 +69,10 @@ None — a project skill and development tooling under `tools/`; no shipped arti
 
 ## Progress
 
+- 2026-11-18: built in worktree TASK-96 (see its branch). `demo.sh` (prepare, stop, clean, assemble, verify, step), `editor.lock` (pinned openvscode-server v1.109.5, sha256 from GitHub's release digest), `scenes.json`, `playwright/*.js` step scripts, `step.py`, a scene-driven `assemble.py`, `verify.py`, and the project skill `.claude/skills/kanbanzai-demo-gif/`. Tests in `tools/demo-gif/demo_test.go` (seed twice, checksum refusal, clean, assemble masking — red without the mask, verify cases, step scripts valid and naming listed scenes) and a wording test in `skills_wording_test.go`; go test ./..., vet, board-view 425, opencode 13, hooks, `claude plugin validate .` all green. Smoke-tested `demo.sh prepare` for real (download checked, .vsix built from HEAD, editor up) and ran the open, capture, init-apply and layout steps in the browser: frames came out named by scene. Not run: triage, breakdown, do, brief steps (they spend the owner's tokens; check 7 stays manual). Findings from the smoke run folded into the skill: the browser tool's allowed root is the main checkout's `.playwright-mcp/`, and `open` must run before `capture`.
+
 - 2026-11-18: designed. The owner chose the pinned editor and the skill-plus-script shape of the command.
+- 2026-11-18: built; committed in worktree TASK-96
 
 ## Comments
 
