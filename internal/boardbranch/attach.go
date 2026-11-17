@@ -216,6 +216,32 @@ func (b *Board) Status() Status {
 	return s
 }
 
+// Summary is what an editor polls to know the board branch moved (BUG-85): the head, how far it is from the remote as last
+// fetched, and how many board files are not committed. It only reads local git state and never touches the network.
+type Summary struct {
+	Branch      string `json:"branch"`
+	Head        string `json:"head"`
+	Ahead       int    `json:"ahead"`
+	Behind      int    `json:"behind"`
+	Uncommitted int    `json:"uncommitted"`
+	Publish     string `json:"publish"`
+}
+
+// Summary reads the board branch's state for a poll; ok is false when the board worktree is not attached (there is
+// nothing to describe yet).
+func (b *Board) Summary() (Summary, bool) {
+	if !b.Attached() {
+		return Summary{}, false
+	}
+	head, err := b.Head()
+	if err != nil {
+		return Summary{}, false
+	}
+	status := b.Status()
+	return Summary{Branch: status.Branch, Head: head, Ahead: status.Ahead, Behind: status.Behind,
+		Uncommitted: len(status.Uncommitted), Publish: status.Publish}, true
+}
+
 // Uncommitted lists the files of the board's worktree that are not committed, as paths relative to it. A rename or copy
 // lists both its new and its old path (`git status -z` writes `R  new\0old`), so committing the list commits the move.
 func (b *Board) Uncommitted() []string {

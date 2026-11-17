@@ -213,6 +213,16 @@ clock.
 
 - **The status bar** reads `▦ Board ❓2` on the theme's warning background while two sessions are asking (cards and
   sessions with no card together), so a waiting session shows with the tab closed. With none it is `▦ Board`.
+- **A board kept on a branch** ([team-board.md](team-board.md)): `kanbanzai sessions --json` carries a `board` object
+  (the branch, its head, how far it is from origin as last fetched, and how many board files are not committed; no
+  network). The extension polls it every 3 seconds while the tab is open, and a new head, behind or unpublished count
+  refreshes the tab even when the editor's file watcher reported nothing (the board folder is a git-ignored worktree, and
+  with a card worktree open it lies outside the folder). A clone behind origin reads `▦ Board ⇣2` in the status bar and
+  `Board branch kanbanzai-board: 2 behind origin` above the project's columns. Under `publish = "ask"` the extension
+  never fetches or pushes: **Kanbanzai: Sync board** runs `kanbanzai sync` when you ask. Under `publish = "auto"`, which
+  is your standing approval for that branch, it runs `kanbanzai sync --json` about once a minute while the window is
+  focused, so a teammate's moves arrive by themselves; a failure or a conflict is logged once and shown on the project
+  line until a sync works.
 - **A session asking with no card:** a session of this project that is waiting for you and holds no live claim has no
   card to mark, so it is listed in a strip above the columns (`❓ session asking — proj-b5 3m`), counted in the status
   bar, and given a toast and a corner message (below). The core decides which sessions these are

@@ -161,3 +161,99 @@ func runCLIQuiet(t *testing.T, args ...string) int {
 	code, _, _ := runCLI(t, args...)
 	return code
 }
+
+// BUG-85: the editor polls `sessions --json`, so the answer says where the board branch stands: a new head, behind or
+// uncommitted count refreshes the tab without any file watcher.
+func TestSessionsJSONCarriesTheBoardBranchOnlyWhenTheBoardIsOnOne(t *testing.T) {
+	gitIdentity(t)
+	newProject(t, "[project]\nowner = \"Sam\"\n")
+	_, out, _ := runCLI(t, "sessions", "--json")
+	if strings.Contains(out, `"board"`) {
+		t.Fatalf("a board on main must not gain a board key: %q", out)
+	}
+
+	project := newProject(t, "[project]\nowner = \"Sam\"\n[board]\nhome = \"branch\"\npublish = \"auto\"\n")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.Git(t, filepath.Dir(remote), "init", "-q", "--bare", "-b", "main", remote)
+	testutil.Git(t, project.Root, "remote", "add", "origin", remote)
+	read := func() (board map[string]any) {
+		t.Helper()
+		code, out, errOut := runCLI(t, "sessions", "--json")
+		var answer map[string]any
+		if err := json.Unmarshal([]byte(out), &answer); err != nil || code != 0 {
+			t.Fatalf("sessions: %d %v %q %q", code, err, out, errOut)
+		}
+		board, _ = answer["board"].(map[string]any)
+		return board
+	}
+	if board := read(); board != nil {
+		t.Fatalf("before attach there is no board worktree to describe: %#v", board)
+	}
+	if code, _, errOut := runCLI(t, "sync", "--attach"); code != 0 {
+		t.Fatalf("attach: %d %q", code, errOut)
+	}
+	first := read()
+	head := testutil.Git(t, project.Work, "rev-parse", "HEAD")
+	if first["head"] != head || first["branch"] != "kanbanzai-board" || first["publish"] != "auto" ||
+		first["uncommitted"] != float64(0) || first["behind"] != float64(0) {
+		t.Fatalf("board = %#v, head want %q", first, head)
+	}
+	writeCard(t, project, "W-01", "first", "todo", "1-open")
+	if board := read(); board["uncommitted"] != float64(1) {
+		t.Fatalf("a hand-written card is one unpublished file: %#v", board)
+	}
+	if code, _, errOut := runCLI(t, "sync"); code != 0 {
+		t.Fatalf("sync: %d %q", code, errOut)
+	}
+	after := read()
+	if after["head"] == first["head"] || after["uncommitted"] != float64(0) || after["ahead"] != float64(0) {
+		t.Fatalf("a commit must change the head: before %#v after %#v", first, after)
+	}
+}
+
+func TestSessionsJSONBehindCountsOnlyWhatWasFetchedAndNeverFetches(t *testing.T) {
+	gitIdentity(t)
+	project := newProject(t, "[project]\nowner = \"Sam\"\n[board]\nhome = \"branch\"\n")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.Git(t, filepath.Dir(remote), "init", "-q", "--bare", "-b", "main", remote)
+	testutil.Git(t, project.Root, "remote", "add", "origin", remote)
+	for _, args := range [][]string{{"sync", "--attach"}, {"sync"}} {
+		if code, _, errOut := runCLI(t, args...); code != 0 {
+			t.Fatalf("%v: %d %q", args, code, errOut)
+		}
+	}
+	behind := func() float64 {
+		t.Helper()
+		_, out, _ := runCLI(t, "sessions", "--json")
+		var answer struct {
+			Board map[string]any `json:"board"`
+		}
+		if err := json.Unmarshal([]byte(out), &answer); err != nil || answer.Board == nil {
+			t.Fatalf("sessions: %v %q", err, out)
+		}
+		return answer.Board["behind"].(float64)
+	}
+	// a teammate's clone pushes a board commit
+	mate := filepath.Join(t.TempDir(), "mate")
+	testutil.Git(t, filepath.Dir(mate), "clone", "-q", "-b", "kanbanzai-board", remote, mate)
+	if err := os.WriteFile(filepath.Join(mate, "note.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Git(t, mate, "add", ".")
+	testutil.Git(t, mate, "commit", "-q", "-m", "W-09: a teammate's move")
+	testutil.Git(t, mate, "push", "-q", "origin", "kanbanzai-board")
+
+	if got := behind(); got != 0 {
+		t.Fatalf("sessions must not fetch: behind = %v before any fetch", got)
+	}
+	testutil.Git(t, project.Work, "fetch", "-q", "origin")
+	if got := behind(); got != 1 {
+		t.Fatalf("behind = %v after a fetch, want 1", got)
+	}
+	if code, _, errOut := runCLI(t, "sync"); code != 0 {
+		t.Fatalf("sync: %d %q", code, errOut)
+	}
+	if got := behind(); got != 0 {
+		t.Fatalf("behind = %v after sync, want 0", got)
+	}
+}

@@ -603,6 +603,7 @@ const WORKSPACE_STYLE = `
   }
   .asking .project-chip, .asking-sessions .project-chip { color: inherit; }
   .project-error, .no-matches { flex: none; margin: 0; }
+  .board-branch { flex: none; margin: 0; padding: 2px 12px; font-size: 12px; color: var(--vscode-editorWarning-foreground); }
   .toast[data-card] { cursor: pointer; }
   .help-button {
     margin-left: auto; font: inherit; padding: 3px 10px; cursor: pointer; border-radius: 3px;
@@ -853,6 +854,8 @@ function renderWorkspaceHtml(projects, opts) {
   for (const p of scope) {
     inner += `<section class="project-section" data-project="${esc(p.key)}" aria-labelledby="workspace-${esc(scopedKey(p.key, 'heading', ''))}">`;
     inner += `<h2 id="workspace-${esc(scopedKey(p.key, 'heading', ''))}">${esc(p.label)}</h2>`;
+    // BUG-85: where a board kept on a branch stands (behind origin, unpublished, a failed sync); nothing when in step.
+    if (typeof p.branch === 'string' && p.branch) inner += `<div class="board-branch" role="status">${esc(p.branch)}</div>`;
     if (p.error) inner += `<div class="problems project-error" role="alert">${esc(p.label)}: ${esc(p.error)}${p.board ? ' — showing the last good board; data may be stale.' : ''}</div>`;
     const b = obj(p.board);
     const problems = arr(b.problems);

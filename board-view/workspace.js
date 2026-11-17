@@ -153,12 +153,13 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       status.item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
       return;
     }
-    let waiting = 0;
+    let waiting = 0, behind = 0;
     const unclaimed = {};
     const stale = [], migrate = [];
     for (const p of scope) {
       if (p.answer) {
         waiting += p.answer.waiting;
+        behind += p.answer.board?.behind || 0;
         for (const [label, record] of Object.entries(p.answer.unclaimed)) {
           unclaimed[projects.identity(p.key, label)] = record;
         }
@@ -167,9 +168,10 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       if (p.migration?.pending) migrate.push(p.label);
     }
     status.item.command = 'kanbanzai.showBoard';
-    status.item.text = sessions.statusLabel({ waiting }) + (stale.length ? ' ⚠' : '');
+    status.item.text = sessions.statusLabel({ waiting, behind }) + (stale.length ? ' ⚠' : '');
     status.item.tooltip = sessions.askingTooltip({ waiting, unclaimed }) +
       `; scope: ${scope.map((p) => p.label).join(', ')}; type filter affects cards only` +
+      (behind ? `; board branch behind origin by ${behind} commit${behind === 1 ? '' : 's'}` : '') +
       (stale.length ? `; partial/stale: ${stale.join(', ')}` : '') +
       (migrate.length ? `; migration approval needed: ${migrate.join(', ')}` : '');
     status.item.backgroundColor = waiting || stale.length ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
@@ -189,10 +191,11 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       return {
         key: p.key, label: p.label, board: p.board, owner: p.owner,
         error: [p.configError, p.error].filter(Boolean).join('\n'),
+        branch: sessions.boardNote(p.answer?.board, p.syncError),
         collapsed: state.collapsed?.[p.key] || [], toasts: views,
       };
     });
-    const signature = JSON.stringify([envelopes.map((p) => [p.key, p.label, p.board, p.error, p.owner,
+    const signature = JSON.stringify([envelopes.map((p) => [p.key, p.label, p.board, p.error, p.owner, p.branch,
       p.collapsed, p.toasts.map((t) => [t.key, t.seq])]), scope, [helpState.open, helpState.status, helpState.error]]);
     if (signature === lastHtml) return;
     lastHtml = signature;
@@ -229,7 +232,14 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       if (p.again) { p.again = false; void refresh(p); }
     }
   }
+  // One poll chain per project: a poll asked for while one is in flight (a sync just ended, the project just became
+  // ready) is dropped, or each such ask would leave another timer chain running for the life of the window.
   async function poll(p) {
+    if (p.polling) return;
+    p.polling = true;
+    try { await pollOnce(p); } finally { p.polling = false; }
+  }
+  async function pollOnce(p) {
     if (stopped || p.stopped || !p.ready) return;
     const result = await command(p.cwd, ['sessions', '--json'], () => !p.stopped);
     if (stopped || p.stopped || entries.get(p.key) !== p) return;
@@ -253,10 +263,11 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       }
       p.answer = answer;
       if (changed && panel?.visible) void refresh(p);
+      if (changed) draw();
     } else if (p.migration) void p.migration.check().catch(() => {});
     updateStatus();
     if (!stopped && !p.stopped) p.pollTimer = setTimeout(() => void poll(p),
-      p.answer && (p.answer.claims || p.answer.waiting) ? fast : slow);
+      p.answer && (p.answer.claims || p.answer.waiting || (p.answer.board && tabVisible())) ? fast : slow);
   }
 
   function reconcile(refreshKey) {
@@ -449,6 +460,52 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     }
     if (scope.length && !scope[0].stopped) await scope[0].migration.offerNow();
   }
+  // BUG-85: `kanbanzai sync --json`, the board branch's own command, for a project that keeps its board there. The core
+  // does the git work and names only the board branch's ref. It runs through the project's command queue, one at a
+  // time; a failure is logged once per streak and shown on the project line until the next one works. The caller is
+  // the Sync board command (a person asked) or the timer below (only under `publish = "auto"`, the owner's standing
+  // approval, and never while the window is unfocused).
+  async function syncProject(p) {
+    if (stopped || p.stopped || p.syncing) return null;
+    p.syncing = true;
+    try {
+      const result = await command(p.cwd, ['sync', '--json'], () => !p.stopped);
+      if (stopped || p.stopped || entries.get(p.key) !== p) return result;
+      const reason = result.error?.reason || null;
+      p.syncState = lines(output.streak(p.syncState, reason, { what: description(p, 'the board sync'), noun: 'sync', level: 'warn' }));
+      p.syncError = reason ? (result.error.text || reason).replace(/^kanbanzai sync failed: /, '') : '';
+      // what a sync brought in reads as a changed head: ask now, not at the next poll
+      clearTimeout(p.pollTimer); void poll(p);
+      if (panel) void refresh(p);
+      draw();
+      return result;
+    } finally { p.syncing = false; }
+  }
+  const onBranch = (p) => p.ready && !p.stopped && !!p.answer?.board;
+  function syncTick() {
+    if (stopped || unfocused()) return;
+    for (const p of list()) if (onBranch(p) && p.answer.board.publish === 'auto') void syncProject(p);
+  }
+  async function syncBoard() {
+    let scope = list().filter(inScope).filter(onBranch);
+    if (!scope.length) scope = list().filter(onBranch);
+    if (!scope.length) { void Promise.resolve(vscode.window.showInformationMessage('Kanbanzai: no project here keeps its board on a branch.')).catch(() => {}); return; }
+    if (scope.length > 1) {
+      const picked = await vscode.window.showQuickPick(scope.map((p) => ({ label: p.label, key: p.key })),
+        { title: 'Kanbanzai: Sync board', placeHolder: 'Choose the project whose board branch to sync' });
+      scope = picked ? scope.filter((p) => p.key === picked.key) : [];
+    }
+    const p = scope[0];
+    if (!p) return;
+    const result = await syncProject(p);
+    if (!result) {
+      if (p.syncing) void Promise.resolve(vscode.window.showInformationMessage(`${p.label}: a board sync is already running.`)).catch(() => {});
+      return;
+    }
+    if (result.error) void Promise.resolve(vscode.window.showErrorMessage(`${p.label}: ${result.error.text || result.error.reason}`)).catch(() => {});
+    else void Promise.resolve(vscode.window.showInformationMessage(`${p.label}: board synced.`)).catch(() => {});
+  }
+  const syncTimer = setInterval(syncTick, opts.syncMs || 60000);
   if (vscode.window && typeof vscode.window.onDidChangeWindowState === 'function') {
     windowWatch = vscode.window.onDidChangeWindowState(() => syncNotices());
   }
@@ -457,7 +514,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   function dispose() {
     if (stopped) return;
     stopped = true; generation += 1;
-    clearTimeout(discoverTimer); clearInterval(refreshTimer); clearInterval(inventoryTimer);
+    clearTimeout(discoverTimer); clearInterval(refreshTimer); clearInterval(inventoryTimer); clearInterval(syncTimer);
     if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
     if (windowWatch && typeof windowWatch.dispose === 'function') windowWatch.dispose();
     for (const p of list()) stopProject(p);
@@ -467,7 +524,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   }
   void discover();
   syncNotices();
-  return { show, showHelp, discover, syncNotices, scheduleDiscovery, offerMigration, dispose,
+  return { show, showHelp, syncBoard, discover, syncNotices, scheduleDiscovery, offerMigration, dispose,
     get hasBoard() { return list().some((p) => p.ready || hasConfig(p.cwd)); },
   };
 }
