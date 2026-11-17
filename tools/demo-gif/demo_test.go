@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -300,6 +301,9 @@ func (k take) verify(t *testing.T) (string, int) {
 }
 
 func TestVerifyPassesAGoodTakeAndNamesEachProblem(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the take's fake kanbanzai is a shell script, which Python cannot start on Windows; the demo is made on Linux")
+	}
 	need(t, "python3", "git", "sh")
 	good := newTake(t)
 	if out, code := good.verify(t); code != 0 {
