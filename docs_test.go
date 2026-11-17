@@ -486,3 +486,52 @@ func TestTheExtensionListingIsWrittenForTheMarketplaceReader(t *testing.T) {
 		t.Errorf("board-view/README.md mentions board --web %d times: one line pointing to the boards guide is enough", n)
 	}
 }
+
+// TASK-84: the extension's listing shows a short GIF of the board beside a real Claude Code session. Neither
+// marketplace resolves a relative image path against the package, so the image is an https link into the public
+// repository; the file it points at is checked in here, is a GIF, and stays small. The extension itself still
+// makes no request: the marketplace page loads the image.
+func TestTheExtensionListingShowsTheDemoGif(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "board-view", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	flat := strings.Join(strings.Fields(text), " ")
+
+	const url = "https://raw.githubusercontent.com/cloudbusting/kanbanzai/main/docs/media/board-demo.gif"
+	image := regexp.MustCompile(`!\[([^\]]+)\]\(` + regexp.QuoteMeta(url) + `\)`).FindStringSubmatchIndex(text)
+	if image == nil {
+		t.Fatalf("board-view/README.md does not show the demo GIF as an image linked to %s", url)
+	}
+	if alt := text[image[2]:image[3]]; len(strings.Fields(alt)) < 12 {
+		t.Errorf("the demo GIF's alt text %q is too short to tell the story (triage, breakdown, work moving across the board)", alt)
+	}
+	if at, install := image[0], strings.Index(text, "\n## Install\n"); install < 0 || at > install {
+		t.Error("the demo GIF belongs near the top of the listing, before ## Install")
+	}
+	for _, words := range []string{"real Claude Code session", "cut and sped up", "open-source web build of VS Code",
+		"The extension makes no request; the marketplace page loads the image"} {
+		if !strings.Contains(flat, words) {
+			t.Errorf("board-view/README.md lacks %q beside the demo GIF", words)
+		}
+	}
+
+	gif, err := os.ReadFile(filepath.Join(root, "docs", "media", "board-demo.gif"))
+	if err != nil {
+		t.Fatalf("the demo GIF is not checked in: %v", err)
+	}
+	if len(gif) < 6 || string(gif[:6]) != "GIF89a" {
+		t.Error("docs/media/board-demo.gif is not a GIF89a file")
+	}
+	if len(gif) > 4<<20 {
+		t.Errorf("docs/media/board-demo.gif is %d bytes; the listing's budget is 4 MiB", len(gif))
+	}
+	if !strings.Contains(flat, "**Network, telemetry:** none") {
+		t.Error("board-view/README.md must keep saying **Network, telemetry:** none")
+	}
+}

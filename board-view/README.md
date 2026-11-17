@@ -8,6 +8,11 @@ that board as it happens: which card is where, which session holds it, and which
 It is for anyone who runs Claude Code or OpenCode with Kanbanzai and works in VS Code or VSCodium. It can also set a
 new project up for Kanbanzai, after showing you the plan.
 
+![The Kanbanzai board beside a Claude Code session: Init and Apply set a project up, a request is triaged into a card in Todo, a complex requirement is broken down into cards, and a card is claimed and worked while it moves across the board's columns, its brief open in a tab.](https://raw.githubusercontent.com/cloudbusting/kanbanzai/main/docs/media/board-demo.gif)
+
+*A real Claude Code session on a made-up project, cut and sped up, in the open-source web build of VS Code. The
+extension makes no request; the marketplace page loads the image.*
+
 The board tab is read-only: no drag and drop and no editing; the cards move when their briefs do. It shows the
 project's columns side by side, grouped into lanes such as Design (Designing, Designed) and Build (Building, Built).
 Each card has its id and title, plus a mark when it is blocked, waiting, paused, held at a gate, interrupted or claimed.
