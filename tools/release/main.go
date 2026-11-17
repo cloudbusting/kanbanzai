@@ -41,6 +41,9 @@ var targets = []target{
 	{"windows", "amd64"},
 }
 
+// programs are what each archive holds, command first: the command, and the store plugins a release ships beside it.
+var programs = []string{"kanbanzai", "kanbanzai-store-github"}
+
 // Build compiles every target and writes its archive and SHA256SUMS into out. When bins is not empty it also
 // leaves each raw binary at bins/<os>-<arch>/kanbanzai (kanbanzai.exe for windows), mode 0755, for tools/vsix.
 func Build(root, version, out, bins string) ([]string, error) {
@@ -53,39 +56,44 @@ func Build(root, version, out, bins string) ([]string, error) {
 	}
 	names := []string{}
 	for _, platform := range targets {
-		name := "kanbanzai"
-		if platform.OS == "windows" {
-			name += ".exe"
-		}
 		temporary, err := os.MkdirTemp("", "kanbanzai-release-*")
 		if err != nil {
 			return nil, err
 		}
-		binary := filepath.Join(temporary, name)
 		ldflags := "-s -w -X github.com/cloudbusting/kanbanzai/internal/version.Version=" + version
-		command := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", ldflags,
-			"-o", binary, "./cmd/kanbanzai")
-		command.Dir = root
-		command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+platform.OS, "GOARCH="+platform.Arch)
-		var stderr bytes.Buffer
-		command.Stderr = &stderr
-		if err := command.Run(); err != nil {
-			os.RemoveAll(temporary)
-			return nil, fmt.Errorf("%s/%s: %v: %s", platform.OS, platform.Arch, err, stderr.String())
-		}
-		if bins != "" {
-			if err := keepBinary(binary, filepath.Join(bins, platform.OS+"-"+platform.Arch, name)); err != nil {
-				os.RemoveAll(temporary)
-				return nil, err
+		var files []string
+		for _, program := range programs {
+			name := program
+			if platform.OS == "windows" {
+				name += ".exe"
 			}
+			binary := filepath.Join(temporary, name)
+			command := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", ldflags,
+				"-o", binary, "./cmd/"+program)
+			command.Dir = root
+			command.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS="+platform.OS, "GOARCH="+platform.Arch)
+			var stderr bytes.Buffer
+			command.Stderr = &stderr
+			if err := command.Run(); err != nil {
+				os.RemoveAll(temporary)
+				return nil, fmt.Errorf("%s/%s: %s: %v: %s", platform.OS, platform.Arch, program, err, stderr.String())
+			}
+			// The raw binaries are the editor's: only the command, never a store plugin.
+			if bins != "" && program == programs[0] {
+				if err := keepBinary(binary, filepath.Join(bins, platform.OS+"-"+platform.Arch, name)); err != nil {
+					os.RemoveAll(temporary)
+					return nil, err
+				}
+			}
+			files = append(files, binary)
 		}
 		archive := fmt.Sprintf("kanbanzai_%s_%s_%s", artifactVersion, platform.OS, platform.Arch)
 		if platform.OS == "windows" {
 			archive += ".zip"
-			err = writeZip(filepath.Join(out, archive), binary, name)
+			err = writeZip(filepath.Join(out, archive), files)
 		} else {
 			archive += ".tar.gz"
-			err = writeTarGz(filepath.Join(out, archive), binary, name)
+			err = writeTarGz(filepath.Join(out, archive), files)
 		}
 		os.RemoveAll(temporary)
 		if err != nil {
@@ -123,28 +131,31 @@ func keepBinary(binary, destination string) error {
 	return os.Chmod(destination, 0o755)
 }
 
-func writeTarGz(destination, binary, name string) error {
-	info, err := os.Stat(binary)
-	if err != nil {
-		return err
-	}
+func writeTarGz(destination string, files []string) error {
 	file, err := os.Create(destination)
 	if err != nil {
 		return err
 	}
 	gzipWriter := gzip.NewWriter(file)
 	tarWriter := tar.NewWriter(gzipWriter)
-	header := &tar.Header{Name: name, Mode: 0o755, Size: info.Size(), ModTime: time.Now()}
-	if err := tarWriter.WriteHeader(header); err != nil {
-		return err
-	}
-	source, err := os.Open(binary)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-	if _, err := io.Copy(tarWriter, source); err != nil {
-		return err
+	for _, binary := range files {
+		info, err := os.Stat(binary)
+		if err != nil {
+			return err
+		}
+		header := &tar.Header{Name: filepath.Base(binary), Mode: 0o755, Size: info.Size(), ModTime: time.Now()}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return err
+		}
+		source, err := os.Open(binary)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(tarWriter, source)
+		source.Close()
+		if err != nil {
+			return err
+		}
 	}
 	if err := tarWriter.Close(); err != nil {
 		return err
@@ -155,26 +166,29 @@ func writeTarGz(destination, binary, name string) error {
 	return file.Close()
 }
 
-func writeZip(destination, binary, name string) error {
+func writeZip(destination string, files []string) error {
 	file, err := os.Create(destination)
 	if err != nil {
 		return err
 	}
 	writer := zip.NewWriter(file)
-	header := &zip.FileHeader{Name: name, Method: zip.Deflate}
-	header.SetMode(0o755)
-	header.Modified = time.Now()
-	entry, err := writer.CreateHeader(header)
-	if err != nil {
-		return err
-	}
-	source, err := os.Open(binary)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-	if _, err := io.Copy(entry, source); err != nil {
-		return err
+	for _, binary := range files {
+		header := &zip.FileHeader{Name: filepath.Base(binary), Method: zip.Deflate}
+		header.SetMode(0o755)
+		header.Modified = time.Now()
+		entry, err := writer.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		source, err := os.Open(binary)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(entry, source)
+		source.Close()
+		if err != nil {
+			return err
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return err

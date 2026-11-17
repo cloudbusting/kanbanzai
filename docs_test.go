@@ -316,8 +316,11 @@ func TestTheMarketplaceGuidesSayWhatTheyMustSay(t *testing.T) {
 		"docs/multi-project.md":   {"All projects", "monorepo", "first** workspace folder", "board --tui", "no global registry"},
 		"docs/upgrade.md":         {"SHA256SUMS", "kanbanzai install", "config upgrade", "migrate --apply --plan", "config_version"},
 		"docs/troubleshooting.md": {"kanbanzai doctor", "Finding id", "KANBANZAI_BIN", "exits 3", "exits 4", "SUPPORT.md"},
-		"docs/security.md":        {"no outbound network request", "127.0.0.1", "not signed", "SHA256SUMS", "committed or pushed for you"},
-		"docs/contributing.md":    {"What the repository holds", "[types.md](types.md)"},
+		"docs/security.md": {"no outbound network request", "127.0.0.1", "not signed", "SHA256SUMS", "committed or pushed for you",
+			"kanbanzai-store-github", "runs your `gh` program and nothing else", "is public"},
+		"docs/store-plugins.md": {"## GitHub issues", "kanbanzai-store-github", "gh auth login", "Public means public", "one** GitHub repository",
+			"`stage:<column>` label", "closed issue is Done", "`repo:`, `org:` or `user:`", "at most 1,000 results", "no conditional write"},
+		"docs/contributing.md": {"What the repository holds", "[types.md](types.md)"},
 	} {
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
 		if err != nil {

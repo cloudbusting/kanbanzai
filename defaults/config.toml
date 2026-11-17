@@ -148,7 +148,8 @@ publish = "ask"
 # Which store keeps the cards. The default, `files`, is the project's own Markdown briefs in <work>: nothing else runs.
 # Keys:
 #   plugin   files (the default), or a store plugin's bare name: `x` runs `kanbanzai-store-x` from PATH, and
-#            `reference` is the built-in example plugin (`kanbanzai store serve`). Never a path, an argument or a
+#            `reference` is the built-in example plugin (`kanbanzai store serve`) and `github` keeps the cards as the
+#            issues of one repository (`[store.settings] repo = "owner/name"`, your own `gh` sign-in). Never a path, an argument or a
 #            shell command. A plugin runs only after this clone's owner trusts it (`kanbanzai store trust`).
 #   prefix   a plugin's id prefix: its cards are PREFIX-<number>, such as PROJ-123 for a JIRA key (required with a
 #            plugin; never a card type's prefix)

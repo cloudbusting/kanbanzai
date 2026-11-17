@@ -231,3 +231,29 @@ func TestTrustLivesOutsideTheRepositorySoACommittedRecordCountsForNothing(t *tes
 		t.Fatalf("trust in one clone counted for another: %v", err)
 	}
 }
+
+// The plugin is told the project's [store] prefix, so it needs no second copy of it in [store.settings]; a prefix the
+// user did put in the settings is theirs.
+func TestThePluginIsToldTheStorePrefix(t *testing.T) {
+	install(t, "serve")
+	tickets := t.TempDir()
+	t.Setenv("KANBANZAI_PROJECT", "")
+	user := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", user)
+	t.Setenv("LOCALAPPDATA", user)
+	config := strings.Replace(strings.Replace(fakeConfig, "%s", filepath.ToSlash(tickets), 1), `prefix = "REF"`, `prefix = "ZED"`, 1)
+	p, err := configFind(t, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := trusted(t, p)
+	id, _, err := client.Create("task", "Made", storetest.Brief(store.IDPlaceholder, "Made", "todo"))
+	if err != nil || id != "ZED-1" {
+		t.Fatalf("Create = %q, %v; want ZED-1, the project's own prefix", id, err)
+	}
+}
+
+func configFind(t *testing.T, text string) (*config.Project, error) {
+	t.Helper()
+	return config.Find(testutil.Repo(t, text))
+}

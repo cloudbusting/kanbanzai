@@ -113,7 +113,7 @@ explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
 | Set a project's keys: paths, owner, steps and skills | [docs/configuration.md](docs/configuration.md) |
 | Choose or write issue types and numbering | [docs/types.md](docs/types.md) |
 | Decide how a change is kept apart: worktree, branch, shared, external | [docs/isolation.md](docs/isolation.md) |
-| Keep the cards in JIRA, GitHub issues or another store, or write a store plugin | [docs/store-plugins.md](docs/store-plugins.md) |
+| Keep the cards in GitHub issues (shipped), JIRA or another store, or write a store plugin | [docs/store-plugins.md](docs/store-plugins.md) |
 | Add gates, skip rules and a delivery process | [docs/delivery.md](docs/delivery.md) |
 | Start from a preset (software, docs, review, release train, team pull requests, …) | [docs/presets.md](docs/presets.md) |
 | Run several projects in one workspace | [docs/multi-project.md](docs/multi-project.md) |

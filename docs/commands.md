@@ -41,7 +41,7 @@ kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME]
                                          [--with-template] [--board-branch|--board-main] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
                                          [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
                                          set a project up: detect, plan, apply, verify; never commits
-kanbanzai install [--dry-run|--refresh|--where]    copy this command, and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
+kanbanzai install [--dry-run|--refresh|--where]    copy this command, the `kanbanzai-store-github` store plugin when it sits beside it (a release archive), and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
 ```
 

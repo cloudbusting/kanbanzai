@@ -288,6 +288,7 @@ sha256sum -c SHA256SUMS
 unzip -l kanbanzai-board-<extension-version>.vsix | grep "extension/bin/"
 tar -xzf "kanbanzai_<version>_linux_amd64.tar.gz"
 ./kanbanzai --version
+./kanbanzai-store-github --version
 ./kanbanzai init
 ./kanbanzai check
 ./kanbanzai board --json | node -e 'JSON.parse(require("fs").readFileSync(0, "utf8"))'
