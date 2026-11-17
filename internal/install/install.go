@@ -116,6 +116,9 @@ func Run(options Options) int {
 		err = installPlugins(filepath.Dir(folder), true, options.Refresh, io.Discard)
 	}
 	if err == nil {
+		err = checkPrograms(goos, executable, folder, separator)
+	}
+	if err == nil {
 		err = install(options.DryRun, options.Refresh, goos == "windows", executable, folder, target, out, current, versionOf)
 	}
 	if err == nil {
@@ -462,6 +465,35 @@ func installPrograms(options Options, goos string, getenv func(string) string, e
 			if err := linkOnPath(options.DryRun, goos, getenv, folder, target, program, false, out); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// checkPrograms refuses, before anything is installed, a program's place that holds something install must not replace.
+func checkPrograms(goos string, executable func() (string, error), folder, separator string) error {
+	path, err := executable()
+	if err != nil {
+		return nil
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	for _, program := range Programs {
+		file := program
+		if goos == "windows" {
+			file += ".exe"
+		}
+		if info, err := os.Stat(filepath.Join(filepath.Dir(path), file)); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		target := folder + separator + file
+		switch info, err := os.Lstat(target); {
+		case err != nil:
+		case info.Mode()&os.ModeSymlink != 0:
+			return refusal{fmt.Sprintf("%s is a symlink; refusing to replace it", target)}
+		case !info.Mode().IsRegular():
+			return refusal{fmt.Sprintf("%s exists and is not a regular file", target)}
 		}
 	}
 	return nil

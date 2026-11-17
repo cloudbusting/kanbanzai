@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -18,7 +19,11 @@ import (
 // inProcess runs the fake gh in this process.
 type inProcess struct{ state *fakegh.State }
 
+var inProcessLock sync.Mutex // the backend reads concurrently; the fake is not safe for that
+
 func (r inProcess) Run(args []string, stdin []byte) ([]byte, error) {
+	inProcessLock.Lock()
+	defer inProcessLock.Unlock()
 	out, err := r.state.Run(args, stdin)
 	var failure *fakegh.Error
 	if errors.As(err, &failure) {
@@ -112,6 +117,24 @@ func TestAQueryThatNamesAnotherRepositoryIsRefused(t *testing.T) {
 	for _, query := range []string{"repo:other/thing", "org:acme label:x", "label:x user:sam", "-repo:acme/old", "ORG:acme"} {
 		if _, err := backend.List(query); !errors.Is(err, store.ErrRefused) || !strings.Contains(err.Error(), "one repository") {
 			t.Errorf("List(%q) = %v, want a refusal that says the board keeps one repository", query, err)
+		}
+	}
+}
+
+// OR and parentheses would let a query's own precedence reach past `repo:<repo> is:issue`, so they are refused; the
+// same words inside a quoted value are text.
+func TestAQueryThatCouldOutgrowTheRepositoryIsRefused(t *testing.T) {
+	state := newState()
+	state.Add("A", "x", "a (b)")
+	backend := open(t, state, nil)
+	for _, query := range []string{"label:a OR label:b", "(label:a)", "label:a  or  label:b", "NOT label:a OR repo:x/y"} {
+		if _, err := backend.List(query); !errors.Is(err, store.ErrRefused) {
+			t.Errorf("List(%q) = %v, want refused", query, err)
+		}
+	}
+	for _, query := range []string{`label:"a (b)"`, `label:"x OR y"`, `label:"repo:other/x"`, "label:ordinary -label:work"} {
+		if _, err := backend.List(query); err != nil {
+			t.Errorf("List(%q) = %v, want it allowed", query, err)
 		}
 	}
 }
@@ -423,5 +446,146 @@ func TestTheTypeReachesTheBriefsTypeLineAndRoundTrips(t *testing.T) {
 	}
 	if fmt.Sprint(state.Issue(1).Labels) != "[stage:todo]" {
 		t.Fatalf("labels = %v, want the type label gone", state.Issue(1).Labels)
+	}
+}
+
+// ---- from the independent review ----
+
+func briefIssue(state *fakegh.State, title, stage string, labels ...string) *fakegh.Issue {
+	return state.Add(title, storetest.Brief("GH-"+fmt.Sprint(len(state.Issues)+1), title, stage), labels...)
+}
+
+func put(t *testing.T, backend *Backend, id string, fields protocol.Fields, change func(string) string) (string, error) {
+	t.Helper()
+	got, err := backend.Get([]string{id})
+	if err != nil || len(got) != 1 {
+		t.Fatalf("Get %s = %v, %v", id, got, err)
+	}
+	return backend.Put(id, got[0].Rev, change(got[0].Text), fields)
+}
+
+func TestPutKeepsALabelItDoesNotManage(t *testing.T) {
+	state := newState()
+	briefIssue(state, "Mine", "todo", "type:bug", "type:docs", "Type: Bug", "stage:todo", "stage:odd")
+	backend := open(t, state, nil)
+	if _, err := put(t, backend, "GH-1", protocol.Fields{Stage: "building", Title: "Mine", Type: "task"}, func(s string) string { return s + "x" }); err != nil {
+		t.Fatal(err)
+	}
+	// Only the first type: label (the one read) and the stage: labels are replaced; a person's others stay.
+	if got := fmt.Sprint(state.Issue(1).Labels); got != "[type:docs Type: Bug stage:building type:task]" {
+		t.Fatalf("labels = %s", got)
+	}
+}
+
+func TestPutKeepsTheReasonAnIssueWasClosedWith(t *testing.T) {
+	state := newState()
+	issue := briefIssue(state, "Mine", "done")
+	issue.State, issue.StateReason = "closed", "not_planned"
+	if _, err := put(t, open(t, state, nil), "GH-1", protocol.Fields{Stage: "done", Title: "Mine"}, func(s string) string { return s + "x" }); err != nil {
+		t.Fatal(err)
+	}
+	if issue.State != "closed" || issue.StateReason != "not_planned" {
+		t.Fatalf("state %s (%s), want closed as not planned", issue.State, issue.StateReason)
+	}
+}
+
+func TestAPutWithNoStageLeavesTheStateAndLabelAlone(t *testing.T) {
+	state := newState()
+	issue := briefIssue(state, "Mine", "done")
+	issue.State = "closed"
+	open2 := briefIssue(state, "Other", "building", "stage:building")
+	backend := open(t, state, nil)
+	for _, id := range []string{"GH-1", "GH-2"} {
+		if _, err := put(t, backend, id, protocol.Fields{Title: state.Issue(map[string]int{"GH-1": 1, "GH-2": 2}[id]).Title}, func(s string) string { return s + "x" }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if issue.State != "closed" || open2.State != "open" || fmt.Sprint(open2.Labels) != "[stage:building]" {
+		t.Fatalf("an unmapped Stage changed the issues: %s %s %v", issue.State, open2.State, open2.Labels)
+	}
+}
+
+func TestATitleChangedOnGitHubReachesTheBriefsHeading(t *testing.T) {
+	state := newState()
+	briefIssue(state, "Old", "todo")
+	backend := open(t, state, nil)
+	state.Issue(1).Title = "Renamed on GitHub"
+	got, _ := backend.Get([]string{"GH-1"})
+	if !strings.HasPrefix(got[0].Text, "# GH-1: Renamed on GitHub\n") {
+		t.Fatalf("the heading is %q", strings.SplitN(got[0].Text, "\n", 2)[0])
+	}
+	// and so a later write does not put the old title back
+	if _, err := backend.Put("GH-1", got[0].Rev, got[0].Text+"x", protocol.Fields{Stage: "todo", Title: "Renamed on GitHub"}); err != nil {
+		t.Fatal(err)
+	}
+	if state.Issue(1).Title != "Renamed on GitHub" {
+		t.Fatalf("title = %q", state.Issue(1).Title)
+	}
+}
+
+func TestADeletedIssueIsLeftOutOfGet(t *testing.T) {
+	state := newState()
+	briefIssue(state, "Mine", "todo")
+	state.GoneAfter = 1
+	got, err := open(t, state, nil).Get([]string{"GH-1"})
+	if err != nil || len(got) != 0 {
+		t.Fatalf("Get of a deleted issue = %v, %v; want it left out", got, err)
+	}
+}
+
+func TestAnIncompleteSearchIsUnavailableNotRefused(t *testing.T) {
+	state := newState()
+	briefIssue(state, "Mine", "todo")
+	state.Incomplete = true
+	if _, err := open(t, state, nil).List(""); !errors.Is(err, store.ErrUnavailable) {
+		t.Fatalf("an incomplete search = %v, want unavailable", err)
+	}
+}
+
+func TestAWriteGitHubDidNotApplyIsNotReportedAsDone(t *testing.T) {
+	state := newState()
+	briefIssue(state, "Mine", "todo")
+	state.Ignore = true // a redirect that replays a PATCH as a GET: the reply is the issue as it was
+	if _, err := put(t, open(t, state, nil), "GH-1", protocol.Fields{Stage: "todo", Title: "Mine"}, func(s string) string { return s + "x" }); !errors.Is(err, store.ErrUnavailable) {
+		t.Fatalf("Put that changed nothing = %v, want unavailable", err)
+	}
+}
+
+func TestEveryIdOfAGetComesBackInOrder(t *testing.T) {
+	state := newState()
+	var ids []string
+	for i := 1; i <= 60; i++ {
+		state.Add(fmt.Sprintf("Issue %d", i), "x")
+		ids = append(ids, fmt.Sprintf("GH-%d", i))
+	}
+	got, err := open(t, state, nil).Get(ids)
+	if err != nil || len(got) != 60 {
+		t.Fatalf("Get = %d, %v", len(got), err)
+	}
+	for i, ticket := range got {
+		if ticket.ID != ids[i] {
+			t.Fatalf("ticket %d is %s, want %s", i, ticket.ID, ids[i])
+		}
+	}
+}
+
+func TestACreatedBriefThatIsTooLongOpensNoIssue(t *testing.T) {
+	state := newState()
+	_, _, err := open(t, state, nil).Create("task", "Huge", storetest.Brief(store.IDPlaceholder, "Huge", "todo")+strings.Repeat("x", 70000))
+	if !errors.Is(err, store.ErrRefused) || len(state.Issues) != 0 {
+		t.Fatalf("Create = %v with %d issues; want a refusal and no issue", err, len(state.Issues))
+	}
+}
+
+func TestTheFirstColumnIsASetting(t *testing.T) {
+	state := newState()
+	state.Add("Plain", "x")
+	tickets, err := open(t, state, map[string]string{"initial": "backlog"}).List("")
+	if err != nil || tickets[0].Stage != "backlog" {
+		t.Fatalf("List = %v, %v; want stage backlog", tickets, err)
+	}
+	got, _ := open(t, state, map[string]string{"initial": "backlog"}).Get([]string{"GH-1"})
+	if !strings.Contains(got[0].Text, "- **Stage:** backlog\n") {
+		t.Fatalf("the brief says %q", got[0].Text)
 	}
 }

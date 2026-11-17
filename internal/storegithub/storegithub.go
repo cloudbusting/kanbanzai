@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/store"
@@ -35,8 +36,8 @@ const (
 	bodyLimit = 65536
 	// searchLimit is how many results GitHub's search will ever return.
 	searchLimit = 1000
-	// initialStage is the stage of an open issue with no stage label: the shipped first column's key.
-	initialStage = "todo"
+	// defaultInitial is the stage of an open issue with no stage label: the shipped first column's key.
+	defaultInitial = "todo"
 )
 
 // Runner runs `gh` with these arguments and this standard input and returns its standard output. A failure is a
@@ -69,6 +70,7 @@ type Backend struct {
 	repo   string
 	prefix string
 	done   string
+	first  string // the stage of an open issue with no stage label
 	id     *regexp.Regexp
 }
 
@@ -77,11 +79,15 @@ var (
 	prefixRE = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 	// scopeRE finds a qualifier that widens the search beyond the repository: the board keeps one repository.
 	scopeRE = regexp.MustCompile(`(?i)(^|\s)-?(repo|org|user|owner):`)
+	// groupRE finds what could let the query's own precedence outgrow `repo:<repo> is:issue`: OR, and parentheses.
+	groupRE = regexp.MustCompile(`(^|\s)(OR|or)(\s|$)|[()]`)
+	quoted  = regexp.MustCompile(`"[^"]*"`)
 )
 
 // Open is the backend its settings name: repo ("owner/name", required), prefix (the ids' upper-case prefix,
-// required: the core sends the project's [store] prefix), host (github.com only) and done (the column key a closed
-// issue is in, default "done").
+// required: the core sends the project's [store] prefix), host (github.com only), done (the column key a closed
+// issue is in, default "done") and initial (the first column's key, the stage of an open issue with no stage label,
+// default "todo").
 func Open(settings map[string]string, run Runner) (*Backend, error) {
 	repo := strings.TrimSpace(settings["repo"])
 	if repo == "" {
@@ -103,7 +109,11 @@ func Open(settings map[string]string, run Runner) (*Backend, error) {
 	if done == "" {
 		done = "done"
 	}
-	return &Backend{run: run, repo: repo, prefix: prefix, done: done,
+	first := strings.ToLower(strings.TrimSpace(settings["initial"]))
+	if first == "" {
+		first = defaultInitial
+	}
+	return &Backend{run: run, repo: repo, prefix: prefix, done: done, first: first,
 		id: regexp.MustCompile(`^` + regexp.QuoteMeta(prefix) + `-([1-9]\d*)$`)}, nil
 }
 
@@ -157,7 +167,7 @@ func (b *Backend) stage(i issue) string {
 	if label := i.labelValue(stagePrefix); label != "" && label != b.done {
 		return label
 	}
-	return initialStage
+	return b.first
 }
 
 // kind is the card's type key: the issue's own type, else the type label, else none.
@@ -195,9 +205,14 @@ func (b *Backend) number(id string) int {
 
 // List is every issue the query matches in this repository, without text.
 func (b *Backend) List(query string) ([]protocol.Ticket, error) {
-	if scopeRE.MatchString(query) {
+	bare := quoted.ReplaceAllString(query, `""`) // a quoted value is text, whatever it says
+	if scopeRE.MatchString(bare) {
 		return nil, store.Refuse(store.CodeRefused, "the query names another repository, organisation or user, but the "+
 			"board keeps one repository (settings repo); take repo:, org: and user: out of it")
+	}
+	if groupRE.MatchString(bare) {
+		return nil, store.Refuse(store.CodeRefused, "the query uses OR or parentheses, which could reach past the "+
+			"repository; write it as plain qualifiers (label:x is:open -label:y)")
 	}
 	q := "repo:" + b.repo + " is:issue"
 	if strings.TrimSpace(query) != "" {
@@ -218,7 +233,10 @@ func (b *Backend) List(query string) ([]protocol.Ticket, error) {
 	}
 	tickets := []protocol.Ticket{}
 	for _, page := range pages {
-		if page.TotalCount > searchLimit || page.Incomplete {
+		if page.Incomplete {
+			return nil, store.Refuse(store.CodeUnavailable, "GitHub's search timed out and returned part of the answer; try again")
+		}
+		if page.TotalCount > searchLimit {
 			return nil, tooMany()
 		}
 		for _, i := range page.Items {
@@ -238,23 +256,57 @@ func tooMany() error {
 		"return; narrow the query (a label, a milestone, is:open) so the board is not left partial")
 }
 
-// Get is the tickets with these ids and their text; an id that is not an issue of this repository is left out.
+// getWorkers is how many issues Get reads at once: a first sync of a big board must finish inside the 60 seconds the
+// command gives a request.
+const getWorkers = 8
+
+// Get is the tickets with these ids and their text, in the order asked; an id that is not an issue of this repository,
+// or that is gone, is left out.
 func (b *Backend) Get(ids []string) ([]protocol.Ticket, error) {
+	type result struct {
+		ticket protocol.Ticket
+		found  bool
+		err    error
+	}
+	results := make([]result, len(ids))
+	work := make(chan int)
+	var wg sync.WaitGroup
+	for w := 0; w < getWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := range work {
+				id := ids[n]
+				number := b.number(id)
+				if number == 0 {
+					continue
+				}
+				i, err := b.fetch(number)
+				if errors.Is(err, store.ErrNotFound) {
+					continue
+				}
+				if err != nil {
+					results[n].err = err
+					continue
+				}
+				results[n] = result{found: true, ticket: protocol.Ticket{ID: id, Rev: rev(i), Title: i.Title, Type: kind(i),
+					Stage: b.stage(i), Text: b.text(id, i)}}
+			}
+		}()
+	}
+	for n := range ids {
+		work <- n
+	}
+	close(work)
+	wg.Wait()
 	tickets := []protocol.Ticket{}
-	for _, id := range ids {
-		number := b.number(id)
-		if number == 0 {
-			continue
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
 		}
-		i, err := b.fetch(number)
-		if errors.Is(err, store.ErrNotFound) {
-			continue
+		if r.found {
+			tickets = append(tickets, r.ticket)
 		}
-		if err != nil {
-			return nil, err
-		}
-		tickets = append(tickets, protocol.Ticket{ID: id, Rev: rev(i), Title: i.Title, Type: kind(i), Stage: b.stage(i),
-			Text: b.text(id, i)})
 	}
 	return tickets, nil
 }
@@ -289,7 +341,20 @@ func (b *Backend) text(id string, i issue) string {
 		return setType(fmt.Sprintf("# %s: %s\n\n- **Stage:** %s\n- **Updated:** %s\n- **Next action:** —\n- **Where:** —\n\n"+
 			"## Goal\n\n%s\n\n## Comments\n", id, i.Title, stage, date, strings.TrimRight(body, "\n")), kind(i))
 	}
-	return setType(setStage(body, stage), kind(i))
+	return setType(setStage(setTitle(body, id, i.Title), stage), kind(i))
+}
+
+// setTitle is text whose heading carries title, as the issue's title says; a title changed on GitHub reaches the brief.
+func setTitle(text, id, title string) string {
+	first, rest, found := strings.Cut(text, "\n")
+	heading := "# " + id + ": " + title
+	if strings.TrimSpace(first) == heading || strings.TrimSpace(title) == "" {
+		return text
+	}
+	if !found {
+		return heading
+	}
+	return heading + "\n" + rest
 }
 
 var typeLine = regexp.MustCompile(`^- \*\*Type:\*\*(.*)$`)
@@ -381,31 +446,55 @@ func (b *Backend) Put(id, baseRev, text string, fields protocol.Fields) (string,
 		title = current.Title
 	}
 	update := patch{Title: title, Body: text, State: "open", Labels: b.labels(current, fields)}
-	if strings.ToLower(fields.Stage) == b.done {
+	switch stage := strings.ToLower(strings.TrimSpace(fields.Stage)); {
+	case stage == "":
+		// A Stage word the board does not know says nothing: the issue's state and stage label stay as they are.
+		update.State, update.StateReason = current.State, current.StateReason
+	case stage == b.done:
 		update.State, update.StateReason = "closed", "completed"
-	} else if current.State == "closed" {
+		if current.State == "closed" {
+			update.StateReason = current.StateReason // already closed: keep how it was closed
+		}
+	case current.State == "closed":
 		update.StateReason = "reopened"
 	}
 	updated, err := b.send("PATCH", "repos/"+b.repo+"/issues/"+strconv.Itoa(number), update)
 	if err != nil {
 		return "", err
 	}
+	if !sameText(updated.body(), text) || updated.State != update.State {
+		return "", store.Refuse(store.CodeUnavailable, id+": GitHub answered without applying the write (a redirect, "+
+			"perhaps, if the repository was renamed or moved); check repo and try again")
+	}
 	return rev(updated), nil
+}
+
+// sameText compares two bodies as GitHub may have stored them: line endings and trailing space do not count.
+func sameText(a, b string) bool {
+	clean := func(s string) string { return strings.TrimRight(strings.ReplaceAll(s, "\r\n", "\n"), " \n\t") }
+	return clean(a) == clean(b)
 }
 
 // labels is the issue's labels with its stage: and type: ones replaced by the card's: a done card carries no stage
 // label, and a card with no type carries no type label.
 func (b *Backend) labels(current issue, fields protocol.Fields) []string {
 	labels := []string{}
+	typeTaken := false
+	stage := strings.ToLower(strings.TrimSpace(fields.Stage))
 	for _, label := range current.Labels {
 		lower := strings.ToLower(label.Name)
 		switch {
-		case strings.HasPrefix(lower, stagePrefix), strings.HasPrefix(lower, typePrefix):
+		case strings.HasPrefix(lower, stagePrefix):
+			if stage == "" { // no stage to write: the label stays
+				labels = append(labels, label.Name)
+			}
+		case strings.HasPrefix(lower, typePrefix) && !typeTaken:
+			typeTaken = true // the one type: label this plugin reads is the one it replaces; a person's others stay
 		default:
 			labels = append(labels, label.Name)
 		}
 	}
-	if stage := strings.ToLower(strings.TrimSpace(fields.Stage)); stage != "" && stage != b.done {
+	if stage != "" && stage != b.done {
 		labels = append(labels, stagePrefix+stage)
 	}
 	if cardType := strings.ToLower(strings.TrimSpace(fields.Type)); cardType != "" {
@@ -419,7 +508,11 @@ func (b *Backend) Create(cardType, title, text string) (string, string, error) {
 	_, fields := brief.Header(text)
 	stage := brief.StageWord(fields["Stage"])
 	if stage == "" {
-		stage = initialStage
+		stage = b.first
+	}
+	if len([]rune(text)) > bodyLimit {
+		return "", "", store.Refuse(store.CodeRefused, fmt.Sprintf("the new brief is %d characters; GitHub keeps at most "+
+			"65,536 in an issue body", len([]rune(text))))
 	}
 	made := patch{Title: title, Body: store.IDPlaceholder, Labels: b.labels(issue{}, protocol.Fields{Stage: stage, Type: cardType})}
 	created, err := b.send("POST", "repos/"+b.repo+"/issues", made)
@@ -478,13 +571,13 @@ func (b *Backend) refusal(err error) error {
 	switch {
 	case strings.Contains(lower, "first 1000 search results"):
 		return tooMany()
-	case strings.Contains(lower, "http 404"):
+	case strings.Contains(lower, "http 404"), strings.Contains(lower, "http 410"):
 		return store.Refuse(store.CodeNotFound, message)
 	case strings.Contains(lower, "http 401") || strings.Contains(lower, "gh auth login") || strings.Contains(lower, "bad credentials"):
 		return store.Refuse(store.CodeUnavailable, "not signed in to GitHub: run `gh auth login` ("+message+")")
 	case strings.Contains(lower, "rate limit"):
 		return store.Refuse(store.CodeUnavailable, "GitHub's rate limit: try again later ("+message+")")
-	case strings.Contains(lower, "http 403") || strings.Contains(lower, "http 422") || strings.Contains(lower, "http 410"):
+	case strings.Contains(lower, "http 403") || strings.Contains(lower, "http 422"):
 		return store.Refuse(store.CodeRefused, message)
 	}
 	return store.Refuse(store.CodeUnavailable, message)

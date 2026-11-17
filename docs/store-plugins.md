@@ -110,17 +110,23 @@ one.
 
 - The issue body is the whole brief, and its title is the brief's title.
 - The Stage is shown as a `stage:<column>` label, and a **closed issue is Done** (so the Done column's key must be
-  `done`, or you name it with `done = "<key>"` in `[store.settings]`). An open issue with no stage label is `todo`.
+  `done`, or you name it with `done = "<key>"` in `[store.settings]`). An open issue with no stage label is in the first
+  column, `todo`, or the key you give as `initial = "<key>"`. A brief's Stage word must be its column's key.
   Moving a card sets the label (and closes or reopens the issue); closing, reopening or relabelling the issue on GitHub
   moves the card the next time you run `kanbanzai sync`.
 - The type is the issue's own type if it has one (`Bug`, `Task`), else a `type:<key>` label. It appears as the brief's
   `Type` line.
-- Other labels, assignees, milestones and comments are never changed. Only the `stage:` and `type:` labels are written.
+- The issue's title is the brief's title, and a title changed on GitHub reaches the brief. The issue's own type wins over
+  a `Type` line you edit.
+- Other labels, assignees, milestones and comments are never changed. Only the `stage:` labels and the one `type:`
+  label the plugin reads are replaced; a second `type:` label of a person's stays. An issue closed as "not planned"
+  stays closed as that.
 - A brief over GitHub's limit of 65,536 characters is refused, never cut.
 
 **The query** is GitHub's issue-search syntax, narrowed to your repository and to issues (never pull requests):
 `label:agent`, `milestone:"v1"`, `assignee:name`, `is:open`, `-label:wontfix`. It may not name `repo:`, `org:` or `user:`:
-the board keeps one repository, because issue numbers repeat across repositories and the id is `<prefix>-<number>`.
+the board keeps one repository, because issue numbers repeat across repositories and the id is `<prefix>-<number>`. For
+the same reason it may not use `OR` or parentheses outside a quoted value: write plain qualifiers.
 An empty query is every issue of the repository, closed ones too. GitHub's search returns at most 1,000 results; a
 query that matches more is refused until you narrow it, so the board is never silently partial.
 
@@ -128,6 +134,8 @@ query that matches more is refused until you narrow it, so the board is never si
 
 - GitHub has no conditional write for an issue. The plugin refuses a stale write by comparing the issue just before it
   writes, but a change that lands in between can be overwritten.
+- GitHub's search index lags a few seconds behind a change. A `sync` straight after one can miss an issue you just
+  created or relabelled; it appears at the next `sync`. A card in flight is never dropped for it.
 - A rate limit or a lost connection is `unavailable`, and nothing retries it: run the command again.
 - Only github.com: GitHub Enterprise Server is a later change (CHANGE-91) and a `host` other than github.com is
   refused.

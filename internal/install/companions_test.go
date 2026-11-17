@@ -150,3 +150,26 @@ func TestARefreshReplacesTheProgramOnlyWhereOneIsInstalled(t *testing.T) {
 		t.Fatalf("a refresh with nothing installed mentions the plugin program: %q", g.out.String())
 	}
 }
+
+// A program the install cannot replace is found before the command is touched, as a conflicting plugin bundle is.
+func TestAProgramThatCannotBeReplacedStopsTheInstallBeforeTheCommandChanges(t *testing.T) {
+	skipWithoutSymlinks(t)
+	f := newFixture(t)
+	f.withCompanion(t, "pretend plugin v1\n")
+	if err := os.MkdirAll(f.folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := filepath.Join(t.TempDir(), "elsewhere")
+	if err := os.WriteFile(elsewhere, []byte("not ours\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(elsewhere, filepath.Join(f.folder, companionName())); err != nil {
+		t.Fatal(err)
+	}
+	if code := f.run(false, false); code != 2 {
+		t.Fatalf("exit %d, want 2 (refused); stderr %q", code, f.errOut.String())
+	}
+	if _, err := os.Stat(f.target()); err == nil {
+		t.Fatal("the command was installed before the refusal")
+	}
+}

@@ -34,6 +34,12 @@ type State struct {
 	Calls []string `json:"calls"`
 	// Total, when above zero, is the total_count every search claims, as a repository with that many matches would.
 	Total int `json:"total"`
+	// GoneAfter, when above zero, makes issue number GoneAfter answer 410 Gone, as a deleted issue does.
+	GoneAfter int `json:"gone_after,omitempty"`
+	// Incomplete makes every search answer incomplete_results, as a search that timed out does.
+	Incomplete bool `json:"incomplete,omitempty"`
+	// Ignore makes a write change nothing and answer the issue as it was, as a redirected PATCH replayed as a GET does.
+	Ignore bool `json:"ignore,omitempty"`
 	// Down, when set, makes every call fail with this message (a network failure or a sign-in problem).
 	Down string `json:"down,omitempty"`
 }
@@ -159,6 +165,9 @@ func (s *State) issues(method string, rest []string, input bool, stdin []byte) (
 	if err != nil || issue == nil || issue.PullRequest && method != "GET" {
 		return nil, &Error{Message: "gh: Not Found (HTTP 404)", Code: 1}
 	}
+	if s.GoneAfter == number {
+		return nil, &Error{Message: "gh: This issue was deleted (HTTP 410)", Code: 1}
+	}
 	switch method {
 	case "GET":
 		return s.one(issue)
@@ -170,7 +179,9 @@ func (s *State) issues(method string, rest []string, input bool, stdin []byte) (
 		if in.Body != nil && len(*in.Body) > 65536 {
 			return nil, &Error{Message: "gh: Validation Failed (HTTP 422)", Code: 1}
 		}
-		in.apply(issue)
+		if !s.Ignore {
+			in.apply(issue)
+		}
 		return s.one(issue)
 	}
 	return nil, &Error{Message: "gh: Not Found (HTTP 404)", Code: 1}
@@ -301,10 +312,10 @@ func (s *State) search(query string) ([]byte, error) {
 	}
 	pages := []page{}
 	for len(items) > 100 {
-		pages = append(pages, page{TotalCount: total, Items: items[:100]})
+		pages = append(pages, page{TotalCount: total, Incomplete: s.Incomplete, Items: items[:100]})
 		items = items[100:]
 	}
-	pages = append(pages, page{TotalCount: total, Items: items})
+	pages = append(pages, page{TotalCount: total, Incomplete: s.Incomplete, Items: items})
 	return json.Marshal(pages)
 }
 
@@ -356,9 +367,11 @@ func Main(args []string, stdin []byte, out, errOut *bytes.Buffer) int {
 		return 2
 	}
 	answer, runErr := state.Run(args, stdin)
-	if err := state.Save(path); err != nil {
-		fmt.Fprintln(errOut, err)
-		return 2
+	if mutates(args) { // a read leaves the file alone, so reads may run at once
+		if err := state.Save(path); err != nil {
+			fmt.Fprintln(errOut, err)
+			return 2
+		}
 	}
 	if runErr != nil {
 		fmt.Fprintln(errOut, runErr.Error())
@@ -369,4 +382,14 @@ func Main(args []string, stdin []byte, out, errOut *bytes.Buffer) int {
 	}
 	out.Write(answer)
 	return 0
+}
+
+// mutates is whether a `gh` call writes: a -X other than GET.
+func mutates(args []string) bool {
+	for i, arg := range args {
+		if arg == "-X" && i+1 < len(args) && args[i+1] != "GET" {
+			return true
+		}
+	}
+	return false
 }
