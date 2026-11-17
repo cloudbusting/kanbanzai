@@ -270,7 +270,7 @@ func TestCIRunsTheReleaseChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, command := range []string{
-		"go test ./...",
+		"go test -timeout 20m ./...",
 		"node --test board-view/*.test.mjs opencode/*.test.mjs",
 		"bash -n hooks/*.sh",
 		"claude plugin validate",
