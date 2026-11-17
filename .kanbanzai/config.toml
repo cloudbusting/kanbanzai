@@ -232,4 +232,4 @@ skip_values = ["None"]
 # never fetches or pushes on its own. Moved here from main by CHANGE-94 (2026-11-18).
 [board]
 home = "branch"
-publish = "ask"
+publish = "auto"
