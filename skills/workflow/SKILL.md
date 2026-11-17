@@ -96,7 +96,9 @@ that the owner should ask the administrator that the board branch's name (`kanba
 otherwise) may be created and pushed to.
 
 **Hand over, do not write:** `workflow apply` does not write `[board]`, so this skill never edits `.kanbanzai/config.toml`.
-For a new project the setup is `kanbanzai init --board-branch` (add `--preset team-pr`). For an existing one, show the owner
+For a new project `kanbanzai init` already puts the board on the branch by default when the preset works in a worktree per
+card (`software`, `release-train`, `team-pr`) or none is chosen; `--board-main` keeps it on main and `init --board-branch` asks
+for it for any other preset (`simple`, say). Run `kanbanzai sync --attach` after init. For an existing one, show the owner
 the lines to add to the config (`[board]` with `home = "branch"` and `publish = "ask"`), say that the config change goes to
 main through their own pull request, then `kanbanzai sync --attach` makes the worktree and `kanbanzai sync` publishes the
 branch; cards already on main move onto the board branch as `docs/team-board.md` describes. `publish = "auto"` lets the

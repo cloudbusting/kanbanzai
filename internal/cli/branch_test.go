@@ -12,7 +12,7 @@ import (
 // branch (a team whose main is protected keeps its board changes on a branch and merges them through review).
 func TestNoCommandRefusesBecauseTheCheckoutIsOffMain(t *testing.T) {
 	project := newProject(t, "")
-	if code, _, errOut := runCLI(t, "init", "--prefix", "W"); code != 0 {
+	if code, _, errOut := runCLI(t, "init", "--board-main", "--prefix", "W"); code != 0 {
 		t.Fatalf("init = %d %q", code, errOut)
 	}
 	testutil.Git(t, project.Root, "add", "-A")

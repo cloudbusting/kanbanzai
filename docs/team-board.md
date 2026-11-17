@@ -5,7 +5,12 @@ is made of files, and by default it is committed on `main` (a new card, every mo
 `main` those commits are refused. A **board branch** keeps the board off `main`: the cards, the number ledger and the claims
 live on a branch of their own, checked out as a worktree inside your checkout and shared by your team through git.
 
-It is opt-in. A project with no `[board]` table behaves exactly as before.
+`kanbanzai init` makes it the default for a new project whose flow works in a worktree per card: the `software`,
+`release-train` and `team-pr` presets, and `init` with no preset. The other presets keep the board on `main` (see
+[presets.md](presets.md#where-the-board-lives)), `--board-main` keeps it there for any preset, and `--board-branch` puts it
+on a branch for any preset. A project with no `[board]` table behaves exactly as before: `init` never changes an existing
+config. Why a worktree project wants it: the main checkout holds only the board and the audit calls an uncommitted board
+file there a hard finding, so on `main` every move is a finding until it is committed, and a commit of its own.
 
 ## What changes
 
@@ -25,7 +30,7 @@ Code is unchanged: each card still has its own worktree and branch, reviewed and
 For a new project:
 
 ```bash
-kanbanzai init --preset team-pr --board-branch     # or without --preset
+kanbanzai init --preset team-pr                    # the board branch is the default for team-pr; --board-main opts out
 git add .kanbanzai/config.toml .kanbanzai/.gitignore .kanbanzai/templates   # init prints the exact list
 git commit -m "Set up Kanbanzai"                    # on a branch; this config reaches main through your pull request
 kanbanzai doctor --board                            # what would stand in the way (below)
@@ -47,6 +52,10 @@ publish = "ask"      # "auto" lets the board commands push the board branch for 
 copy `.kanbanzai/work/` aside, remove it from `main` in your pull request (`git rm -r .kanbanzai/work`), run
 `kanbanzai sync --attach`, copy the files back, and `kanbanzai sync`. A teammate who clones later runs
 `kanbanzai sync --attach` once: it checks the branch out from `origin`.
+
+`init` leaves a board branch **not yet attached**: `kanbanzai check` waits until `kanbanzai sync --attach` has made the
+worktree, and `init` says so instead of reporting a failure. The editor's setup (Kanbanzai: Init and Apply) cannot make that
+worktree, so it always keeps the board on `main`; to move a project to the branch, use the steps above.
 
 `kanbanzai workflow show` says when the board branch is recommended (the `team-pr` preset, or `integration = "remote"`),
 and `/kanbanzai:workflow` explains and recommends it; it never sets it for you.

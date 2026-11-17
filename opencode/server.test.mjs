@@ -26,7 +26,7 @@ if (!existsSync(BIN)) {
 function newProject() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "kanbanzai-opencode-"));
   execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
-  execFileSync(BIN, ["init"], { cwd: dir, env: { ...process.env, KANBANZAI_BIN: BIN } });
+  execFileSync(BIN, ["init", "--board-main"], { cwd: dir, env: { ...process.env, KANBANZAI_BIN: BIN } });
   return dir;
 }
 

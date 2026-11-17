@@ -36,6 +36,16 @@ and skills, and how to write a local one.
 Each preset is proved in CI: `internal/cli/presets_test.go` sets it up in an empty repository, checks its golden
 config and fixture board, and drives a card through every column, gate and close with the real commands.
 
+## Where the board lives
+
+`init` chooses where a new project's board lives from the preset: the presets whose cards each work in a worktree (`software`,
+`release-train`, `team-pr`) keep the board on a branch of its own, and so does `init` with no preset, because the main
+checkout then holds only the board and a board on `main` is never clean ([team-board.md](team-board.md)). `simple` (a branch
+per card), `docs-only`, `marketing`, `homework` (a shared checkout) and `pr-review` keep it on `main`. `--board-main` and
+`--board-branch` decide it by hand, and `kanbanzai workflow presets NAME` says which a preset takes. A local preset asks for the
+branch with `board_home = "branch"` in its `[preset]` table; `main` is the default. `init` keeps `main` and says why when the
+work folder already holds files, and never changes an existing config.
+
 ## The team-pr preset
 
 `team-pr` is for a team that never merges its own work locally: each card gets a worktree and a branch, the author
@@ -44,7 +54,7 @@ pull request, and the card waits in **In review** until the host has merged it. 
 `kanbanzai move ID building` (a back move is never gated).
 
 ```bash
-kanbanzai init --preset team-pr          # add --board-branch where main is protected (below)
+kanbanzai init --preset team-pr          # the board branch is the default for this preset (below)
 # ... check finishes into In review; push the branch and open the pull request; write its link on the card's
 #     `Pull request` line; the team reviews and the host merges it ...
 kanbanzai gate pass ID --note "PR #123 merged, 1a2b3c4"
@@ -59,9 +69,10 @@ The preset sets `[flow] integration = "remote"`: `kanbanzai tree --merge ID` has
 and `/cleanup` count a branch as landed when its commits are on the main branch, on a remote-tracking branch, or
 already in the main branch's content (a squash merge). See [isolation.md](isolation.md#integration-local-or-remote).
 
-Where `main` is protected, the board's own commits (a new card, a move, the Done record) cannot go to `main` either: pair the preset
-with a board branch, `kanbanzai init --preset team-pr --board-branch` ([team-board.md](team-board.md)). `kanbanzai workflow show` and
-`/kanbanzai:workflow` recommend it for this preset; neither sets it for you.
+Where `main` is protected, the board's own commits (a new card, a move, the Done record) cannot go to `main` either, so `init`
+puts this preset's board on a branch of its own ([team-board.md](team-board.md)); `--board-main` keeps it on `main`.
+`kanbanzai workflow show` and `/kanbanzai:workflow` still recommend the branch to a `team-pr` project that has it on `main`;
+neither changes an existing config for you.
 Release and QA are outside this board; add them with `workflow plan` when the team wants them on it.
 
 ## What init writes

@@ -156,7 +156,7 @@ func TestPresetsMatrix(t *testing.T) {
 			testutil.Git(t, root, "config", "user.name", "Tester")
 
 			// init, and the config it writes is the golden one for a shipped preset
-			ok(t, "init", "--preset", tc.ref, "--owner", "Sam", "--main-branch", "main")
+			ok(t, "init", "--preset", tc.ref, "--board-main", "--owner", "Sam", "--main-branch", "main")
 			if tc.fixture != "" {
 				golden, err := os.ReadFile(filepath.Join(tc.fixture, "config.golden.toml"))
 				if err != nil {

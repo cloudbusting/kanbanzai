@@ -50,6 +50,7 @@ type Info struct {
 	Source        string            `json:"source"`
 	Isolation     string            `json:"isolation"`
 	Integration   string            `json:"integration"`
+	BoardHome     string            `json:"board_home"`
 	PullOrder     []string          `json:"pull_order"`
 	Columns       []flow.ColumnInfo `json:"columns"`
 	Steps         []flow.StepInfo   `json:"steps"`
@@ -87,6 +88,7 @@ func (p *Preset) Describe() (*Info, error) {
 	info := p.Brief()
 	info.Isolation = model.Isolation.Mode
 	info.Integration = model.Isolation.Integration
+	info.BoardHome = p.BoardHome
 	info.PullOrder = model.PullOrder
 	info.Columns, info.Steps, info.Gates = model.Columns, model.Steps, model.Gates
 	info.Paths = map[string]string{"worktree": project.WorktreePattern, "branch": project.BranchPattern,
@@ -137,6 +139,9 @@ func (i *Info) Text() string {
 	fmt.Fprintf(&b, "Isolation\n  %s (worktree %s, branch %s)\n", i.Isolation, i.Paths["worktree"], i.Paths["branch"])
 	if i.Integration == "remote" {
 		fmt.Fprintf(&b, "Integration\n  remote (the host merges a card's branch through a pull request; nothing is merged here)\n")
+	}
+	if i.BoardHome == "branch" {
+		fmt.Fprintf(&b, "Board\n  branch (init keeps the board on a branch of its own; --board-main keeps it on main)\n")
 	}
 	fmt.Fprintf(&b, "Pull order\n  %s\n", strings.Join(i.PullOrder, " > "))
 	fmt.Fprintf(&b, "Types (%d)\n", len(i.Types))

@@ -23,7 +23,10 @@ type Options struct {
 	WithTemplate bool
 	// BoardBranch writes `[board] home = "branch"`: the board lives on a branch of its own, for a project whose main
 	// branch is protected. The config goes to main through the project's pull request; the board never does.
-	BoardBranch  bool
+	BoardBranch bool
+	// BoardMain keeps the board on the main branch for a preset (or the default flow) that would put it on its own
+	// branch. It cannot be combined with BoardBranch.
+	BoardMain    bool
 	PlanFile     string
 	MainBranch   string
 	Owner        string
@@ -154,6 +157,13 @@ func render(out io.Writer, report *Report) {
 	if plan.Settings != nil {
 		fmt.Fprintf(out, "  main branch: %s (%s)\n  owner:       %s (%s)\n", plan.Settings.MainBranch,
 			plan.Settings.MainBranchSource, plan.Settings.Owner, plan.Settings.OwnerSource)
+		if plan.Settings.BoardHome != "" {
+			home := "main"
+			if plan.Settings.BoardHome == "branch" {
+				home = "branch kanbanzai-board (kanbanzai sync --attach makes its worktree)"
+			}
+			fmt.Fprintf(out, "  board:       %s: %s\n", home, plan.Settings.BoardReason)
+		}
 		if len(plan.Settings.Types) > 0 {
 			fmt.Fprintf(out, "  issue types: %s (one global number sequence)\n",
 				strings.Join(plan.Settings.Types, ", "))

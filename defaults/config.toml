@@ -136,6 +136,9 @@ integration = "local"
 #   publish  ask | auto. `ask` (the default) commits the board branch locally and never fetches or pushes; `auto` lets the
 #            board commands fetch and push the board branch (only that branch, never main, a card's branch or a tag)
 # `kanbanzai sync --attach` makes the worktree; `kanbanzai sync` publishes; docs/team-board.md has the whole story.
+# A config with no [board] table keeps the board on main. `kanbanzai init` writes `home = "branch"` for a new project
+# whose preset works in a worktree per card (software, release-train, team-pr) and for init with no preset; --board-main
+# keeps the board on main, --board-branch puts it on a branch for any preset.
 [board]
 home = "main"
 branch = "kanbanzai-board"

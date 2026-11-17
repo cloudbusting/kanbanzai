@@ -432,7 +432,7 @@ test("kanbanzai.init is registered, asks which agents with both ticked, and plan
       assert.deepEqual(vscode.picks[0].items.map((i) => [i.label, i.picked]), [["Claude Code", true], ["OpenCode", true]]);
       const dry = calls.filter((c) => c.args.includes("--dry-run"));
       assert.equal(dry.length, 1);
-      assert.deepEqual(dry[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled"]);
+      assert.deepEqual(dry[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main"]);
       assert.equal(dry[0].opts.cwd, project);
     });
 });
@@ -468,7 +468,7 @@ test("pluginSource, when set, is passed to the plan as --plugin-source", async (
   await run({ folders: folder(gitProject()), trusted: true, pluginSource: "/code/kanbanzai", extensionPath: dir(), script: scripted() },
     async ({ commands, calls }) => {
       await commands["kanbanzai.init"]();
-      assert.deepEqual(calls.find((c) => c.args.includes("--dry-run")).args.slice(-2), ["--plugin-source", "/code/kanbanzai"]);
+      assert.deepEqual(calls.find((c) => c.args.includes("--dry-run")).args.slice(-3), ["--plugin-source", "/code/kanbanzai", "--board-main"]);
     });
 });
 
