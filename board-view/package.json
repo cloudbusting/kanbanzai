@@ -2,7 +2,7 @@
   "name": "kanbanzai-board",
   "displayName": "Kanbanzai Board",
   "description": "Your Kanbanzai board in an editor tab: the cards your Claude Code and OpenCode sessions work on, which session holds each one and when one is waiting for you. The board tab is read-only.",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "publisher": "cloudbusting",
   "license": "MIT",
   "icon": "icon.png",

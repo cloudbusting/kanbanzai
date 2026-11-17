@@ -5,8 +5,11 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
-## [0.28.0] — 2026-11-17
+## [0.28.1] — 2026-11-18
 
+- 0.28.0 was tagged but never published: its Release workflow stopped when the Windows `internal/cli` tests passed the default
+  10-minute `go test` limit (the CI run on the same commit finished in 462s; the limit was 600s). This release carries the
+  same changes and raises the limit to 20 minutes in `ci.yml` and `release.yml`.
 - CHANGE-94: `kanbanzai init` puts a new project's board on a board branch (`[board] home = "branch"`) when its preset
   works in a worktree per card, which is `software`, `release-train` and `team-pr`, and when no preset is chosen. On `main`
   the board's own files are always uncommitted in the main checkout, which `wip --audit` reports as a hard finding, and
