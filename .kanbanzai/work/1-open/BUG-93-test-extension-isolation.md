@@ -1,10 +1,10 @@
 # BUG-93: a test extension in one editor profile replaces every profile's extension and the shared command
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** build task 1 (tools/vsix -label) and task 2 (the refresh version check) in the worktree BUG-93; they share no files
+- **Next action:** check: run the project's checks and review the diff; the owner's VSCodium steps (acceptance checks 3 and 4) stay manual
 - **Where:** worktree BUG-93
 
 ## Goal
@@ -91,15 +91,15 @@ list. Parity: nothing for the adapters to change, for the reason above.
 
 ## Tasks
 
-- [ ] **1. The label** (parallel with 2). Owns `tools/vsix/main.go`, `tools/vsix/vsix_test.go`. Add `-label`; validate it
+- [x] **1. The label** (parallel with 2). Owns `tools/vsix/main.go`, `tools/vsix/vsix_test.go`. Add `-label`; validate it
   as semver pre-release identifiers (`[0-9A-Za-z-]+` joined by single dots, no empty part, not starting with `-`);
   join with `-`, or with `.` when the version already has a pre-release part; rewrite the `version` field of the packed
   `package.json` (a targeted replacement, so the other fields and their order stay) and use the same string in the
   manifest and the printed line. Proof: the first check.
-- [ ] **2. The refresh rule** (parallel with 1). Owns `board-view/init.js`, `board-view/extension.js`,
+- [x] **2. The refresh rule** (parallel with 1). Owns `board-view/init.js`, `board-view/extension.js`,
   `board-view/init.test.mjs`, `board-view/extension_init.test.mjs`. Pass `version` into `refreshInstalled`; add the
   `--version` run (`runFile`, a short timeout) and the comparison; log the skip. Proof: the second check.
-- [ ] **3. Documents** (after 1 and 2). Owns `docs/editor.md`, `docs/upgrade.md`, `board-view/README.md`,
+- [x] **3. Documents** (after 1 and 2). Owns `docs/editor.md`, `docs/upgrade.md`, `board-view/README.md`,
   `.claude/skills/kanbanzai-package/SKILL.md`, `CHANGELOG.md`. State the rule and that a test package is always built with
   `-label <card id>`; the package step's artifact `.vsix` stays unlabelled. Proof: the last check, plus the owner's
   VSCodium steps above, which the build cannot do.
@@ -126,6 +126,7 @@ cache, and nothing in this change touches it. It should be triaged on its own ca
 
 - 2026-11-17: triaged at the owner's request, from what CHANGE-87's editor check did to the main profile.
 - 2026-11-17: designed; the owner chose the skip rule, the `-label` version and one shared command.
+- 2026-11-17: built in worktree BUG-93 (wip commit on branch BUG-93): tasks 1-3, vsix Go tests and 425 extension tests green; the owner's VSCodium steps (checks 3 and 4) are not run.
 
 ## Out of scope
 
