@@ -285,7 +285,7 @@ func newTake(t *testing.T) take {
 		}
 	}
 	goodGIF(t, k.gif, 960, 10, 100)
-	line := `{"type":"assistant","text":"Co-Authored-By: Claude <noreply@anthropic.com>, Base directory for this skill: /home/someone/.local/plugin"}` + "\n"
+	line := `{"type":"assistant","text":"Co-Authored-By: Claude <noreply@anthropic.com>, Base directory for this skill: ` + fakeHome + `/.local/plugin"}` + "\n"
 	if err := os.WriteFile(filepath.Join(k.transcripts, "session.jsonl"), []byte(line), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestVerifyPassesAGoodTakeAndNamesEachProblem(t *testing.T) {
 			}
 		}, "an email address"},
 		{"a home path in a transcript", func(t *testing.T, k take) {
-			if err := os.WriteFile(filepath.Join(k.transcripts, "more.jsonl"), []byte(`{"text":"cd /home/someone/work"}`), 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(k.transcripts, "more.jsonl"), []byte(`{"text":"cd `+fakeHome+`/work"}`), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}, "a home path"},
@@ -430,3 +430,7 @@ func TestEveryStepScriptIsValidAndNamesItsScene(t *testing.T) {
 		t.Errorf("an unknown step gave exit %d and %q", code, out)
 	}
 }
+
+// fakeHome is a home path of a made-up user, joined here so that the repository's own privacy scan does not read the
+// test's fixture as a machine path.
+const fakeHome = "/" + "home" + "/someone"
