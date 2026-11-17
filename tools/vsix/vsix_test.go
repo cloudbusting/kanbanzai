@@ -665,6 +665,9 @@ func TestABadLabelWritesNothingAndExitsTwo(t *testing.T) {
 	}
 	base := t.TempDir()
 	tool := filepath.Join(base, "vsix")
+	if runtime.GOOS == "windows" {
+		tool += ".exe" // `go build -o` writes the name as given, and Windows runs only a file that ends in .exe
+	}
 	build := exec.Command("go", "build", "-o", tool, "./tools/vsix")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
