@@ -1,10 +1,10 @@
 # BUG-85: The editor's board does not live-update when the board lives on a board branch
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record
-- **Next action:** check: run kanbanzai-qa on the BUG-85 worktree; the owner's manual check of the Board tab is the last acceptance line
+- **Next action:** package (deploy-qa): build and prove the .vsix, plugin bundles and command for BUG-85; the owner's manual Board tab check stays
 - **Where:** worktree BUG-85
 
 ## Goal
@@ -82,6 +82,7 @@ Engineer decisions (mentioned, not asked; the owner may veto): the poll, not a g
 - 2026-11-17: design: reproduced the layout in a scratch repository; decided the poll-based design above; owner chose automatic sync under `auto`, show-only under `ask`.
 - 2026-11-17: design done: poll-based board object in sessions --json, extension refresh, auto sync under publish=auto, Sync board command
 - 2026-11-17: build done: tasks 1-5 (core board object in sessions --json, extension refresh/status/project line, Sync board command, auto sync under publish=auto, docs); go vet, go test ./..., node 432, cross-builds, claude plugin validate green; red first for tasks 1-4 (the ask/main no-sync test passed before the code, a guard); manual check not run
+- 2026-11-17: check done: go vet, go test ./... , node 434, cross-builds, claude plugin validate, hooks, steps, vsix dry run green; review found a second poll chain after each sync and a silent Sync board while busy: fixed with tests (4db33b0)
 
 ## Out of scope
 
