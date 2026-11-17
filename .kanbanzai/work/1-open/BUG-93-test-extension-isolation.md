@@ -1,10 +1,10 @@
 # BUG-93: a test extension in one editor profile replaces every profile's extension and the shared command
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** package: kanbanzai-package builds the artifacts; then the owner's VSCodium check of a labelled package (acceptance checks 3 and 4)
+- **Next action:** release: 0.28.0 after the owner approves (the owner chose 0.28.0 for all four on 2026-11-17); package artifacts at /tmp/kanbanzai-package-BUG-93-0.28.0 from main 618b0d7
 - **Where:** worktree BUG-93
 
 ## Goal
@@ -128,6 +128,7 @@ cache, and nothing in this change touches it. It should be triaged on its own ca
 - 2026-11-17: designed; the owner chose the skip rule, the `-label` version and one shared command.
 - 2026-11-17: built in worktree BUG-93 (wip commit on branch BUG-93): tasks 1-3, vsix Go tests and 425 extension tests green; the owner's VSCodium steps (checks 3 and 4) are not run.
 - 2026-11-17: checked: go test ./... (after merging main for CHANGE-87's 9884d60, which fixed the store boundary test that was red on main, not on this card), go vet, 425 extension and 13 OpenCode tests, hook and JS syntax, plugin validate, config and the five steps resolve, vsix dry run (plain 0.27.0; `-label bug93` 0.27.0-bug93 in package.json and manifest); review of the diff found nothing. The owner's VSCodium steps (acceptance checks 3 and 4) are the one manual item.
+- 2026-11-17: Package QA passed at 618b0d7 with CHANGE-94 (and CHANGE-87, BUG-92, already QA-approved and in the same commit): artifacts /tmp/kanbanzai-package-BUG-93-0.28.0, sha256 in /tmp/kanbanzai-package-BUG-93-0.28.0/SHA256SUMS (source f147c7af…, vsix 18d62e0b…); proofs: fresh project from the bundle, the new init default attached, claude validate and a throwaway install, opencode entry, scans of all 7 artifacts clean. Manual and not run: the editor's Init button and the BUG-93 test-build check in a real editor.
 
 ## Out of scope
 
