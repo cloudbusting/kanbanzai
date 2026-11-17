@@ -1,11 +1,11 @@
 # TASK-84: An animated GIF for the extension's marketplace listing, showing the board with an agent session at work in VSCodium
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — shipped in v0.26.0, ae13434 (released with TASK-83), https://github.com/cloudbusting/kanbanzai/releases/tag/v0.26.0; the owner's look at the published listing not done
 - **ADR:** none
-- **Next action:** release: after the owner approves the version, licence and publisher; package artifacts at /tmp/kanbanzai-package-TASK-84-0.25.1 from main 4613b8b; push main first so the GIF link resolves; the owner looks at the published listing
-- **Where:** worktree TASK-84
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
