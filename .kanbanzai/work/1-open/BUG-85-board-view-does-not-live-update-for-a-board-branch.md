@@ -1,10 +1,10 @@
 # BUG-85: The editor's board does not live-update when the board lives on a board branch
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record
-- **Next action:** package (deploy-qa): build and prove the .vsix, plugin bundles and command for BUG-85; the owner's manual Board tab check stays
+- **Next action:** release: v0.26.0-next after the owner approves (version, the manual Board tab check on the team-pr project); package artifacts at /tmp/kanbanzai-package-BUG-85-0.26.0 from main ae1a87e
 - **Where:** worktree BUG-85
 
 ## Goal
@@ -83,6 +83,7 @@ Engineer decisions (mentioned, not asked; the owner may veto): the poll, not a g
 - 2026-11-17: design done: poll-based board object in sessions --json, extension refresh, auto sync under publish=auto, Sync board command
 - 2026-11-17: build done: tasks 1-5 (core board object in sessions --json, extension refresh/status/project line, Sync board command, auto sync under publish=auto, docs); go vet, go test ./..., node 432, cross-builds, claude plugin validate green; red first for tasks 1-4 (the ask/main no-sync test passed before the code, a guard); manual check not run
 - 2026-11-17: check done: go vet, go test ./... , node 434, cross-builds, claude plugin validate, hooks, steps, vsix dry run green; review found a second poll chain after each sync and a silent Sync board while busy: fixed with tests (4db33b0)
+- 2026-11-17: Package QA passed at ae1a87e alone: artifacts /tmp/kanbanzai-package-BUG-85-0.26.0 (source bundle, 5 binary archives, .vsix with 5 commands), sha256 in /tmp/kanbanzai-package-BUG-85-0.26.0/SHA256SUMS (source and vsix prefixes a6c1e1a8 f08e3328); proofs: fresh project from the bundle, claude validate and a throwaway install, opencode entry, scans of all 7 artifacts clean, and the built binary on a board branch with a push-to-main-refusing hook: sessions --json carried board, sync published only kanbanzai-board. Manual: the owner's Board tab check (the last acceptance line) is not run
 
 ## Out of scope
 
