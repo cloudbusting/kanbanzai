@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 )
 
 func runTerminalBoard(project *config.Project, in, out *os.File) error {
@@ -55,14 +55,7 @@ func runTerminalBoard(project *config.Project, in, out *os.File) error {
 	col, row, escape := 0, 0, 0
 	var previous *board.Board
 	redraw := func() error {
-		var readErr error
-		if _, readErr = os.ReadDir(project.Work); readErr == nil {
-			for _, folder := range project.Folders {
-				if _, readErr = os.ReadDir(filepath.Join(project.Work, folder)); readErr != nil {
-					break
-				}
-			}
-		}
+		readErr := stores.For(project, nil).Ready()
 		var b *board.Board
 		if readErr != nil {
 			if previous == nil {

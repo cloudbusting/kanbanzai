@@ -4,12 +4,12 @@ package epic
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/store"
 )
 
 // Progress is the additive board JSON contract on epic cards.
@@ -29,15 +29,12 @@ type member struct {
 
 // Load reads the same board paths as the caller, validating all members before counting delivery. Missing,
 // duplicate or malformed references cannot make an epic complete, even on a board that has not passed check.
-func Load(project *config.Project, paths []string) (map[string]*Progress, []string) {
+func Load(project *config.Project, briefs []store.Card) (map[string]*Progress, []string) {
 	cards := []member{}
 	known := map[string]member{}
 	ambiguous := map[string]bool{}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue // the board reader reports unreadable briefs; references to them remain missing
-		}
+	for _, item := range briefs { // the board reader reports unreadable briefs; references to them remain missing
+		path, data := item.Path, item.Text
 		title, fields := brief.Header(string(data))
 		found := project.TitleRe.FindStringSubmatch(title)
 		if found == nil {

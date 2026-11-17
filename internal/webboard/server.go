@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -100,37 +99,25 @@ func handler(project *config.Project, authority, token string) http.Handler {
 	})
 }
 
-// Root.Open (Go 1.24) confines symlinks as well as lexical paths, including a
-// concurrent symlink replacement. It never opens a board-supplied absolute path.
+// readBrief is a board card's brief through the project's store, which opens it inside the cards folder only (a
+// symlink is confined too) and only as a regular file; a brief over 4 MiB is not served.
 func readBrief(p *config.Project, loaded *board.Board, id string) ([]byte, error) {
 	for _, col := range loaded.Columns {
 		for _, card := range col.Cards {
 			if card.ID != id {
 				continue
 			}
-			rel, err := filepath.Rel(p.Work, filepath.Join(p.Root, card.Path))
-			if err != nil || !filepath.IsLocal(rel) || filepath.Ext(rel) != ".md" {
+			if filepath.Ext(card.Path) != ".md" {
 				return nil, os.ErrPermission
 			}
-			root, err := os.OpenRoot(p.Work)
+			read, err := board.ReadBrief(p, card)
 			if err != nil {
 				return nil, err
 			}
-			defer root.Close()
-			f, err := root.Open(rel)
-			if err != nil {
-				return nil, err
-			}
-			defer f.Close()
-			info, err := f.Stat()
-			if err != nil || !info.Mode().IsRegular() || info.Size() > 4<<20 {
+			if len(read.Text) > 4<<20 {
 				return nil, os.ErrPermission
 			}
-			data, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
-			if len(data) > 4<<20 {
-				return nil, os.ErrPermission
-			}
-			return data, err
+			return read.Text, nil
 		}
 	}
 	return nil, os.ErrNotExist

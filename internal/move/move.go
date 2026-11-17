@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
-	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -27,6 +26,8 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/pluginlink"
 	"github.com/cloudbusting/kanbanzai/internal/step"
+	cardstore "github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
@@ -118,11 +119,12 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		value := "closed, no change: " + strings.TrimSpace(*changes.Reason)
 		changes.Done = &value
 	}
-	source := project.Abs(card.Path)
-	original, err := os.ReadFile(source)
+	cards := stores.For(project, nil)
+	read, err := cards.Read(board.EntryOf(project, card))
 	if err != nil {
 		return "", err
 	}
+	source, original := read.Path, read.Text
 	briefText := string(original)
 	skipped := func(name string) bool {
 		return step.SkippedFor(project, briefText, name)
@@ -294,27 +296,18 @@ func Apply(project *config.Project, cardID, target, owner string, changes Change
 		text = brief.EnsureSection(text, "Progress", project.BriefSectionOrder(cardID))
 		text = brief.AddProgress(text, fmt.Sprintf("- %s: %s", today, *changes.Progress))
 	}
-	destinationPath := filepath.Join(project.Work, goal.Folder, filepath.Base(source))
-	if destinationPath != source && fileExists(destinationPath) {
-		return "", refused(fmt.Sprintf("%s already exists", project.Rel(destinationPath)))
+	written, err := cards.Write(read.Entry, []byte(text), read.Rev, goal.Folder)
+	if errors.Is(err, cardstore.ErrExists) || errors.Is(err, cardstore.ErrConflict) {
+		return "", refused(err.Error())
 	}
-	mode := os.FileMode(0o644)
-	if info, err := os.Stat(source); err == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := fsutil.WriteFileAtomic(destinationPath, []byte(text), mode); err != nil {
+	if err != nil {
 		return "", err
 	}
-	if destinationPath != source {
-		if err := os.Remove(source); err != nil {
-			return "", err
-		}
-	}
-	saved := []string{destinationPath}
-	if destinationPath != source {
+	saved := []string{written.Path}
+	if written.Path != source {
 		saved = append(saved, source)
 	}
-	boardbranch.Saved(project, cardID+": "+movedWords(column.Label, goal.Label, destination == key), saved...)
+	cards.Changed(cardID+": "+movedWords(column.Label, goal.Label, destination == key), saved...)
 	forced := len(problems) > 0
 	entry := map[string]any{
 		"at": timeutil.ToISO(*now), "card": cardID, "from": key, "to": destination, "owner": owner,
@@ -608,10 +601,11 @@ func StartStep(project *config.Project, cardID, owner string) (string, error) {
 	if words.Start == "" {
 		return "", nil
 	}
-	data, err := os.ReadFile(project.Abs(card.Path))
+	read, err := board.ReadBrief(project, card)
 	if err != nil {
 		return "", err
 	}
+	data := read.Text
 	skipped := func(name string) bool { return step.SkippedFor(project, string(data), name) }
 	if skipped(name) {
 		message := "not moved: " + skipStartMessage(project, cardID, name, skipped)

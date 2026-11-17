@@ -24,7 +24,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
-	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	"github.com/cloudbusting/kanbanzai/internal/store/files"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
@@ -77,26 +77,7 @@ func lock(project *config.Project) (*fsutil.Lock, error) {
 
 // Roots is the main checkout and every worktree of it.
 func Roots(project *config.Project) []string {
-	found := []string{project.Root}
-	listing, err := gitutil.GitRaw(project.Root, "worktree", "list", "--porcelain")
-	if err != nil {
-		return found
-	}
-	for _, line := range strings.Split(listing, "\n") {
-		if !strings.HasPrefix(line, "worktree ") {
-			continue
-		}
-		path := strings.TrimSpace(strings.TrimPrefix(line, "worktree "))
-		resolved := absolutePath(path)
-		info, err := os.Stat(resolved)
-		if err != nil || !info.IsDir() {
-			continue
-		}
-		if !contains(found, resolved) {
-			found = append(found, resolved)
-		}
-	}
-	return found
+	return files.Roots(project)
 }
 
 // RepoTaken is every number already recorded in any worktree: only a brief's file name counts.
@@ -670,17 +651,6 @@ func recordString(record map[string]any, key, fallback string) string {
 		return text
 	}
 	return fmt.Sprint(value)
-}
-
-func absolutePath(path string) string {
-	value, err := filepath.Abs(path)
-	if err != nil {
-		return filepath.Clean(path)
-	}
-	if resolved, err := filepath.EvalSymlinks(value); err == nil {
-		return resolved
-	}
-	return filepath.Clean(value)
 }
 
 func contains(values []string, wanted string) bool {

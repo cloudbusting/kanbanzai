@@ -15,6 +15,8 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	cardstore "github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 )
 
 // ErrKilled, returned by ApplyOptions.After, ends the apply on the spot with no rollback, as a killed process
@@ -343,21 +345,22 @@ func execute(p *config.Project, plan *Plan, step *Step) error {
 				change = c
 			}
 		}
-		text, ok := readText(abs(p, step.Path))
-		if !ok || Digest(text) != change.ExpectSHA256 {
+		cards := stores.For(p, nil)
+		source := abs(p, step.Path)
+		read, err := cards.Read(cardstore.Entry{ID: change.ID, Path: source, Folder: filepath.Base(filepath.Dir(source))})
+		if err != nil || Digest(string(read.Text)) != change.ExpectSHA256 {
 			return fmt.Errorf("it changed during the apply")
 		}
-		migrated := Migrate(text, change, p.BriefSectionOrder(change.ID))
+		migrated := Migrate(string(read.Text), change, p.BriefSectionOrder(change.ID))
 		if Digest(migrated) != change.AfterSHA256 {
 			return fmt.Errorf("the migration does not give the text the plan promised")
 		}
-		if err := fsutil.WriteFileAtomic(abs(p, step.NewPath), []byte(migrated), 0o644); err != nil {
-			return err
+		destination := abs(p, step.NewPath)
+		if filepath.Dir(filepath.Dir(destination)) != filepath.Dir(filepath.Dir(source)) {
+			return fmt.Errorf("the migration would move the brief out of the cards folder")
 		}
-		if step.NewPath != step.Path {
-			return os.Remove(abs(p, step.Path))
-		}
-		return nil
+		_, err = cards.Write(read.Entry, []byte(migrated), read.Rev, filepath.Base(filepath.Dir(destination)))
+		return err
 	case StepTemplate:
 		for _, template := range plan.AllTemplates() {
 			if template.Path == step.Path {

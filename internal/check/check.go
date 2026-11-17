@@ -42,15 +42,16 @@ var Checks = []func(*config.Project) []string{
 
 // Epics checks membership, independently of the optional structural schema.
 func Epics(project *config.Project) []string {
-	_, problems := epic.Load(project, board.Briefs(project))
+	_, problems := epic.Load(project, board.Readable(board.Briefs(project)))
 	return problems
 }
 
 // Questions validates optional question records and the hold on an open question.
 func Questions(project *config.Project) []string {
 	var problems []string
-	for _, path := range board.Briefs(project) {
-		data, err := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data, err := item.Text, item.Err
 		if err != nil {
 			continue
 		}
@@ -136,8 +137,9 @@ func Folders(project *config.Project) []string {
 // Titles checks that the first line is "# ID: <the work>" and names the number in the file name.
 func Titles(project *config.Project) []string {
 	problems := []string{}
-	for _, path := range board.Briefs(project) {
-		data, err := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data, err := item.Text, item.Err
 		if err != nil {
 			continue
 		}
@@ -167,8 +169,9 @@ func Headers(project *config.Project) []string {
 			}
 		}
 	}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		_, fields := brief.Header(string(data))
 		name := project.Rel(path)
 		for _, field := range HeadFields {
@@ -200,8 +203,9 @@ func Headers(project *config.Project) []string {
 // Stages checks that the Stage word is known and the brief sits in the folder for it.
 func Stages(project *config.Project) []string {
 	problems := []string{}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		_, fields := brief.Header(string(data))
 		word := brief.StageWord(fields["Stage"])
 		key := project.StageColumn[word]
@@ -232,7 +236,8 @@ func Unique(project *config.Project) []string {
 	problems := []string{}
 	seen := map[string]string{}
 	numbers := map[int]string{}
-	for _, path := range board.Briefs(project) {
+	for _, item := range board.Briefs(project) {
+		path := item.Path
 		named := project.CardFileRe.FindStringSubmatch(filepath.Base(path))
 		card := filepath.Base(path)
 		if named != nil {
@@ -263,8 +268,9 @@ func Unique(project *config.Project) []string {
 // Held checks that a held card says blocked or waiting, and what it is held on.
 func Held(project *config.Project) []string {
 	problems := []string{}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		_, fields := brief.Header(string(data))
 		held := brief.HeldOf(fields["Held"])
 		if held == nil {
@@ -302,8 +308,9 @@ func Gates(project *config.Project) []string {
 	needs := map[string][]string{}
 	known := map[string]bool{}
 	paths := map[string]string{}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		title, fields := brief.Header(string(data))
 		if found := project.TitleRe.FindStringSubmatch(title); found != nil {
 			known[found[1]] = true
@@ -311,8 +318,9 @@ func Gates(project *config.Project) []string {
 			needs[found[1]] = gate.Needs(fields["Needs"])
 		}
 	}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		title, fields := brief.Header(string(data))
 		name := project.Rel(path)
 		id := ""
@@ -413,8 +421,9 @@ func shorten(value string, limit int) string {
 // Links checks that every relative link in a brief resolves.
 func Links(project *config.Project) []string {
 	problems := []string{}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		for _, match := range linkRE.FindAllStringSubmatch(string(data), -1) {
 			link := match[1]
 			if strings.HasPrefix(link, "http://") || strings.HasPrefix(link, "https://") ||
@@ -433,8 +442,9 @@ func Links(project *config.Project) []string {
 // Comments checks that every brief ends in ## Comments.
 func Comments(project *config.Project) []string {
 	problems := []string{}
-	for _, path := range board.Briefs(project) {
-		data, _ := os.ReadFile(path)
+	for _, item := range board.Briefs(project) {
+		path := item.Path
+		data := item.Text
 		sections := headings(string(data))
 		if len(sections) == 0 || sections[len(sections)-1] != "## Comments" {
 			problems = append(problems, fmt.Sprintf("%s: the last section must be '## Comments'", project.Rel(path)))
