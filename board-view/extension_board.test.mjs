@@ -49,7 +49,7 @@ test('the project section prints the branch note, escaped, and nothing when ther
   assert.ok(!shown.includes('<b>x</b>'));
 });
 
-function fixture({ publish = 'ask', withBoard = true, syncFails = false } = {}) {
+function fixture({ publish = 'ask', withBoard = true, syncFails = false, sessionsDelay = 0 } = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'kz-bb-'));
   const root = path.join(temp, 'P');
   fs.mkdirSync(path.join(root, '.kanbanzai/work/1-open'), { recursive: true });
@@ -99,7 +99,7 @@ function fixture({ publish = 'ask', withBoard = true, syncFails = false } = {}) 
     if (args[0] === 'config') return done({ root, config_file: path.join(root, '.kanbanzai/config.toml'),
       project: { work: path.join(root, '.kanbanzai/work'), owner: 'P' }, board: { home: withBoard ? 'branch' : 'main', publish } });
     if (args[0] === 'board') return done(boardAnswer);
-    if (args[0] === 'sessions') return done(state.sessions);
+    if (args[0] === 'sessions') return sessionsDelay ? setTimeout(() => done(state.sessions), sessionsDelay) : done(state.sessions);
     return done(args[0] === 'migrate' ? { schema_version: 1, pending: false, migrations: [] } : {});
   } };
   const real = Module._load;
@@ -205,4 +205,29 @@ test('Kanbanzai: Sync board runs sync --json under both settings and reports the
 test('the command is declared in package.json', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
   assert.ok(pkg.contributes.commands.some((c) => c.command === 'kanbanzai.syncBoard' && /Sync board/.test(c.title)));
+});
+
+test('a sync that lands while a poll is in flight does not start a second poll chain', async () => {
+  const f = fixture({ publish: 'auto', sessionsDelay: 10 });
+  try {
+    f.start({ sessionsMs: 20, idleMs: 20, syncMs: 25 }); await settle(400);
+    f.vscode.window.state.focused = false;           // no more syncs; count what the polls do alone
+    await settle(80);
+    const polls = () => f.calls.filter((c) => c === 'sessions').length;
+    const before = polls(); await settle(300);
+    // one chain polls about every 30 ms (10 ms reply, 20 ms gap): about 10 in 300 ms; a doubled chain would make 20
+    assert.ok(polls() - before <= 14, `${polls() - before} polls in 300 ms`);
+  } finally { f.close(); }
+});
+
+test('Sync board while a sync is already running says so', async () => {
+  const f = fixture({ publish: 'auto' });
+  try {
+    f.start({ syncMs: 100000 }); await settle(100);
+    const first = f.commands['kanbanzai.syncBoard']();
+    await f.commands['kanbanzai.syncBoard']();
+    await first;
+    assert.deepEqual(f.syncs.started, ['sync --json']);
+    assert.ok(f.infos.some((m) => /already/i.test(m)), JSON.stringify(f.infos));
+  } finally { f.close(); }
 });

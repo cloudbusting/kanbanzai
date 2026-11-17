@@ -232,7 +232,14 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       if (p.again) { p.again = false; void refresh(p); }
     }
   }
+  // One poll chain per project: a poll asked for while one is in flight (a sync just ended, the project just became
+  // ready) is dropped, or each such ask would leave another timer chain running for the life of the window.
   async function poll(p) {
+    if (p.polling) return;
+    p.polling = true;
+    try { await pollOnce(p); } finally { p.polling = false; }
+  }
+  async function pollOnce(p) {
     if (stopped || p.stopped || !p.ready) return;
     const result = await command(p.cwd, ['sessions', '--json'], () => !p.stopped);
     if (stopped || p.stopped || entries.get(p.key) !== p) return;
@@ -491,7 +498,10 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     const p = scope[0];
     if (!p) return;
     const result = await syncProject(p);
-    if (!result) return;
+    if (!result) {
+      if (p.syncing) void Promise.resolve(vscode.window.showInformationMessage(`${p.label}: a board sync is already running.`)).catch(() => {});
+      return;
+    }
     if (result.error) void Promise.resolve(vscode.window.showErrorMessage(`${p.label}: ${result.error.text || result.error.reason}`)).catch(() => {});
     else void Promise.resolve(vscode.window.showInformationMessage(`${p.label}: board synced.`)).catch(() => {});
   }
