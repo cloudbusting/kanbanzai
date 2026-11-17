@@ -138,7 +138,11 @@ go run ./tools/vsix -bin "$BINS" -o "$OUT/kanbanzai-board-<extension-version>.vs
 
 `go run ./tools/vsix -o …` with no `-bin` packs a dev build with no command. It is for working on the extension
 only: do not package it, record it as an artifact or hand it to the release step. The release workflow builds the
-real one the same way (`-bins`, then `-bin`) and attaches it to the release. The `.vsix` carries no machine path, so
+real one the same way (`-bins`, then `-bin`) and attaches it to the release. An artifact packed here has no
+`-label`: a labelled `.vsix` (`go run ./tools/vsix -label <card id> -bin "$BINS" -o …`, version
+`<version>-<card id>`) is a test package for the owner's editor check, never a recorded artifact. It installs beside
+the release's folder instead of over it, and its start-up leaves the per-user command and `plugins/current` alone
+(BUG-93); build every owner's test package that way. The `.vsix` carries no machine path, so
 it is a portable artifact; the `kanbanzai.command` setting still overrides the bundled command.
 
 Verify the archive:

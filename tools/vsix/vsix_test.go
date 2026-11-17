@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -569,5 +570,113 @@ func TestTheDevVSIXHasNoCommand(t *testing.T) {
 	}
 	if got := describe("x.vsix", Package{Publisher: "p", Name: "n", Version: "1"}, 5); strings.Contains(got, "no command") || !strings.Contains(got, "5") {
 		t.Fatalf("summary = %q", got)
+	}
+}
+
+// BUG-93: a test package carries its own version, so the editor installs it into its own extension folder and the
+// release's folder (one per id and version, shared by every profile) is left as it was.
+func TestALabelledVSIXHasItsOwnVersion(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(root, "board-view")
+	before, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	plain := filepath.Join(base, "plain.vsix")
+	release, err := BuildVSIX(dir, plain, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	labelled := filepath.Join(base, "labelled.vsix")
+	pkg, err := BuildVSIXLabelled(dir, labelled, "", "change87")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := release.Version + "-change87"
+	if pkg.Version != want {
+		t.Fatalf("version = %q, want %q", pkg.Version, want)
+	}
+	reader, err := zip.OpenReader(labelled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	var packed struct{ Version, Name string }
+	if err := json.Unmarshal(readZipFile(t, reader, "extension/package.json"), &packed); err != nil {
+		t.Fatal(err)
+	}
+	if packed.Version != want || packed.Name != release.Name {
+		t.Fatalf("packed package.json = %+v, want version %q", packed, want)
+	}
+	if !strings.Contains(string(readZipFile(t, reader, "extension.vsixmanifest")), `Version="`+want+`"`) {
+		t.Fatalf("the manifest identity lacks version %q", want)
+	}
+	// only the version line changed
+	original := string(before)
+	if got := strings.Replace(string(readZipFile(t, reader, "extension/package.json")), want, release.Version, 1); got != original {
+		t.Fatalf("the packed package.json differs from the source by more than its version")
+	}
+	if after, _ := os.ReadFile(filepath.Join(dir, "package.json")); string(after) != original {
+		t.Fatal("the tree's package.json was edited")
+	}
+	// without a label the artifact is what it was
+	again := filepath.Join(base, "again.vsix")
+	if _, err := BuildVSIXLabelled(dir, again, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := os.ReadFile(plain)
+	b, _ := os.ReadFile(again)
+	if !bytes.Equal(a, b) {
+		t.Fatal("an empty label changed the artifact")
+	}
+	if got := describe(labelled, pkg, 0); !strings.Contains(got, want) {
+		t.Fatalf("summary = %q, want the labelled version", got)
+	}
+}
+
+func TestALabelOnAPreReleaseVersionJoinsWithADot(t *testing.T) {
+	got, err := labelled("0.28.0-rc.1", "change87")
+	if err != nil || got != "0.28.0-rc.1.change87" {
+		t.Fatalf("labelled = %q, %v", got, err)
+	}
+}
+
+func TestALabelMustBeSemverPreReleaseText(t *testing.T) {
+	for _, bad := range []string{"a b", "-x", "x..y", ".x", "x.", "a/b", "x_y", "é", "a\nb"} {
+		if _, err := labelled("0.27.0", bad); err == nil {
+			t.Errorf("label %q was accepted", bad)
+		}
+	}
+	for _, good := range []string{"change87", "BUG-93", "a.b", "7"} {
+		if _, err := labelled("0.27.0", good); err != nil {
+			t.Errorf("label %q refused: %v", good, err)
+		}
+	}
+}
+
+func TestABadLabelWritesNothingAndExitsTwo(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := t.TempDir()
+	tool := filepath.Join(base, "vsix")
+	build := exec.Command("go", "build", "-o", tool, "./tools/vsix")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build the tool: %v\n%s", err, out)
+	}
+	dest := filepath.Join(base, "never.vsix")
+	out, err := exec.Command(tool, "-dir", filepath.Join(root, "board-view"), "-label", "a b", "-o", dest).CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 2 {
+		t.Fatalf("exit = %v, want 2\n%s", err, out)
+	}
+	if _, err := os.Stat(dest); err == nil {
+		t.Fatal("a refused label still wrote the package")
 	}
 }

@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-93: a test build of the editor extension no longer replaces the release's extension folder or the shared per-user
+  command. `go run ./tools/vsix -label <name>` packs the extension as `<version>-<name>`, so the editor installs it
+  beside the release's folder instead of over it, and the extension's start-up refresh of the per-user command and
+  `plugins/current` runs only when the bundled command's `--version` is the extension's own version; a test build
+  skips it and says why in the Output channel. `install --refresh` by hand and **Kanbanzai: Apply** still replace them.
+
 - BUG-92: `kanbanzai workflow apply` on a board branch (`[board] home = "branch"`) commits the briefs it moves or rewrites,
   in one commit `workflow: apply <plan>` (pushed under `publish = "auto"`), instead of leaving them uncommitted until
   `kanbanzai sync`. Its clean-tree check now looks in the board worktree, over the whole work folder, and refuses a board

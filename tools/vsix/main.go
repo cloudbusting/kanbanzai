@@ -18,6 +18,7 @@ import (
 	"html"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -125,6 +126,54 @@ func typesXML(binaries []binary) string {
 // BuildVSIX packs dir into dest and returns the extension's metadata. When bins is not empty it also packs the
 // command for the five platforms from bins/<os>-<arch>/kanbanzai[.exe], with the executable bit set.
 func BuildVSIX(dir, dest, bins string) (Package, error) {
+	return BuildVSIXLabelled(dir, dest, bins, "")
+}
+
+// BUG-93: the editor keeps one folder per extension id and version, shared by every profile, so a test package that
+// carries the release's version overwrites the release's folder. A label gives a test package its own version,
+// `<version>-<label>`, in the manifest and the packed package.json; board-view/package.json is not edited.
+var labelPart = regexp.MustCompile(`^[0-9A-Za-z-]+$`)
+
+// labelled is version with the label joined as a semver pre-release part: after "-", or after "." when the version
+// already has one. An empty label is the version as it is.
+func labelled(version, label string) (string, error) {
+	if label == "" {
+		return version, nil
+	}
+	parts := strings.Split(label, ".")
+	if strings.HasPrefix(label, "-") {
+		return "", fmt.Errorf("-label %q must not start with a dash", label)
+	}
+	for _, part := range parts {
+		if !labelPart.MatchString(part) {
+			return "", fmt.Errorf("-label %q is not semver pre-release text: use letters, digits and dashes, in parts joined by single dots", label)
+		}
+	}
+	if strings.Contains(version, "-") {
+		return version + "." + label, nil
+	}
+	return version + "-" + label, nil
+}
+
+var versionLine = regexp.MustCompile(`(?m)^(  "version"\s*:\s*)"[^"\n]*"`)
+
+// withVersion is package.json's text with its top-level version replaced and nothing else changed.
+func withVersion(source []byte, version string) ([]byte, error) {
+	if !versionLine.Match(source) {
+		return nil, fmt.Errorf("package.json has no top-level \"version\" line to label")
+	}
+	done := false
+	return versionLine.ReplaceAllFunc(source, func(line []byte) []byte {
+		if done {
+			return line
+		}
+		done = true
+		return []byte(string(versionLine.FindSubmatch(line)[1]) + `"` + version + `"`)
+	}), nil
+}
+
+// BuildVSIXLabelled is BuildVSIX with a label on the version; an empty label is BuildVSIX.
+func BuildVSIXLabelled(dir, dest, bins, label string) (Package, error) {
 	var pkg Package
 	var binaries []binary
 	if bins != "" {
@@ -139,6 +188,17 @@ func BuildVSIX(dir, dest, bins string) (Package, error) {
 	}
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return pkg, err
+	}
+	var packed []byte // the package.json to pack, when the label changes it
+	if label != "" {
+		version, err := labelled(pkg.Version, label)
+		if err != nil {
+			return pkg, err
+		}
+		if packed, err = withVersion(data, version); err != nil {
+			return pkg, err
+		}
+		pkg.Version = version
 	}
 	names := []string{"package.json", "README.md", "icon.png"}
 	entries, err := os.ReadDir(dir)
@@ -174,6 +234,9 @@ func BuildVSIX(dir, dest, bins string) (Package, error) {
 		source, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			return fail(err)
+		}
+		if name == "package.json" && packed != nil {
+			source = packed
 		}
 		if err := writeBytes(writer, "extension/"+name, source); err != nil {
 			return fail(err)
@@ -288,12 +351,17 @@ func main() {
 	dir := flag.String("dir", "board-view", "the board-view folder to pack")
 	bins := flag.String("bin", "", "the folder of commands, DIR/<os>-<arch>/kanbanzai[.exe] (tools/release -bins); empty packs a dev .vsix with no command")
 	dest := flag.String("o", "", "the .vsix path to write")
+	label := flag.String("label", "", "a test package's name, packed as version <version>-<label> so the editor installs it beside the release, not over it (BUG-93); a package for release has none")
 	flag.Parse()
 	if *dest == "" {
 		fmt.Fprintln(os.Stderr, "vsix: -o <path> is needed")
 		os.Exit(2)
 	}
-	pkg, err := BuildVSIX(*dir, *dest, *bins)
+	if _, err := labelled("0.0.0", *label); err != nil {
+		fmt.Fprintf(os.Stderr, "vsix: %v\n", err)
+		os.Exit(2)
+	}
+	pkg, err := BuildVSIXLabelled(*dir, *dest, *bins, *label)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "vsix: %v\n", err)
 		os.Exit(1)

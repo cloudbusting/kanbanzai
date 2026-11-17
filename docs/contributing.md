@@ -91,5 +91,12 @@ A `.vsix` built without the command (`go run ./tools/vsix -o /tmp/kanbanzai-boar
 `go run ./tools/release -bins bins ...` and `go run ./tools/vsix -bin bins -o ...`. The package contains no machine
 path.
 
+**A test package** of a card's branch is built with a label: `go run ./tools/vsix -label <card id> -bin bins -o ...`
+packs the extension as `<version>-<card id>` (for example `0.27.0-bug93`), so the editor installs it into its own
+folder beside the release's instead of over it (it keeps one folder per extension and version, shared by every
+profile). The label is semver pre-release text: letters, digits and dashes, in parts joined by dots; anything else
+exits 2 and writes nothing. A package for a release has no label. A test package does not refresh the per-user command
+or `plugins/current` when it starts, because its bundled command is not the release it says.
+
 The mark is `icon/kanbanzai.svg` at the repository root; `go run ./tools/icon` regenerates `board-view/icon.png`,
 which the Extensions view and the Board tab show.

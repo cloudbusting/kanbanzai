@@ -25,7 +25,12 @@ Windows (amd64), so nothing else needs installing. The extension runs the first 
 
 **Updates.** Each time the extension starts with its bundled command in use, it refreshes a per-user copy that is
 already there to its own release (`install --refresh`), so an extension update brings the hooks and OpenCode along; it
-never creates the copy, and a failure is logged in the Output channel and told once. The bundled plugins in the folder
+never creates the copy, and a failure is logged in the Output channel and told once. It does this only for a release:
+it asks the bundled command for its `--version` first and refreshes only when that is the extension's own version. A
+test package built from a branch (see [contributing.md](contributing.md)) says something else, so it leaves the copy and
+`plugins/current` alone, and the Output channel says "not refreshing" and why; run `install --refresh` with that command,
+or **Kanbanzai: Apply**, when you do want it replaced. The copy is shared by every editor profile, the hooks and the
+shell, so one profile's test build never changes what the others run. The bundled plugins in the folder
 beside it (`plugins/current`) are refreshed the same way: a verified, complete bundle replaces the previous one and the
 previous one is kept until the next update, while a modified or unowned plugin folder is refused and left as it is.
 Claude Code and OpenCode load that folder in place, so a refreshed bundle is what the next session reads; Claude Code

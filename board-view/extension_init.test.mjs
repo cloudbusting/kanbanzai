@@ -41,7 +41,7 @@ delete process.env.XDG_DATA_HOME;
 delete process.env.LOCALAPPDATA;
 
 // `script(cmd, args, opts)` answers a command as { code, stdout, stderr, enoent }.
-function load({ folders, setting = "", pluginSource = "", extensionPath, script, trusted, pick, branch } = {}) {
+function load({ folders, setting = "", pluginSource = "", extensionPath, script, trusted, pick, branch, version } = {}) {
   const channel = { lines: [], info(t) { this.lines.push(["info", t]); }, warn(t) { this.lines.push(["warn", t]); }, error(t) { this.lines.push(["error", t]); }, dispose() {} };
   const item = { shown: false, show() { this.shown = true; }, hide() { this.shown = false; } };
   const commands = {};
@@ -103,6 +103,7 @@ function load({ folders, setting = "", pluginSource = "", extensionPath, script,
   const ext = require("./extension.js");
   Module._load = real;
   const context = { subscriptions: [], extensionUri: "/ext", extensionPath, workspaceState: { get: (_k, d) => d, update: () => Promise.resolve() } };
+  if (version !== undefined) context.extension = { packageJSON: { name: "kanbanzai-board", version } };
   ext.activate(context, { sessionsMs: 20, idleMs: 20 });
   return { vscode, commands, calls, item, channel, context, ext };
 }
@@ -277,14 +278,16 @@ async function withInstalledCopy(body) {
     }
   }
 }
+// BUG-93: a bundled command answers --version as the release it is; only a release refreshes the shared copy.
+const answers = (release, rest) => (cmd, args) => (args[0] === "--version" ? { stdout: `kanbanzai ${release}\n` } : rest && rest(cmd, args));
 const refreshes = (calls) => calls.filter((c) => c.args[0] === "install" && c.args[1] === "--refresh");
 
 test("refresh: an existing per-user copy is refreshed from the bundled command once, quietly, on activation", async () => {
   if (!EXT()) return;
   const { d, file } = extensionWithBundled();
   await withInstalledCopy(async () => {
-    const script = (cmd, args) => (args[0] === "install" ? { stdout: "refreshed /home/example/kanbanzai: v0.6.4 -> v0.8.1\n" } : undefined);
-    await run({ folders: folder(withBoard()), extensionPath: d, script }, async ({ calls, channel, vscode }) => {
+    const script = answers("v0.8.1", (cmd, args) => (args[0] === "install" ? { stdout: "refreshed /home/example/kanbanzai: v0.6.4 -> v0.8.1\n" } : undefined));
+    await run({ folders: folder(withBoard()), extensionPath: d, script, version: "0.8.1" }, async ({ calls, channel, vscode }) => {
       await settle();
       const found = refreshes(calls);
       assert.equal(found.length, 1, JSON.stringify(calls.map((c) => c.args)));
@@ -326,8 +329,8 @@ test("refresh: a failed refresh is logged and told once in plain words, and the 
   if (!EXT()) return;
   const { d } = extensionWithBundled();
   await withInstalledCopy(async (known) => {
-    const script = (cmd, args) => (args[0] === "install" ? { code: 1, stderr: "kanbanzai: install: cannot replace it" } : undefined);
-    await run({ folders: folder(withBoard()), extensionPath: d, script }, async ({ calls, channel, vscode }) => {
+    const script = answers("v0.8.1", (cmd, args) => (args[0] === "install" ? { code: 1, stderr: "kanbanzai: install: cannot replace it" } : undefined));
+    await run({ folders: folder(withBoard()), extensionPath: d, script, version: "0.8.1" }, async ({ calls, channel, vscode }) => {
       await settle();
       assert.equal(refreshes(calls).length, 1);
       assert.equal(vscode.errors.length, 1);
@@ -335,6 +338,47 @@ test("refresh: a failed refresh is logged and told once in plain words, and the 
       assert.match(vscode.errors[0][0], /cannot replace it/);
       assert.ok(channel.lines.some(([level, line]) => level === "error" && line.includes(known)), JSON.stringify(channel.lines));
       assert.ok(calls.some((c) => c.args[0] === "sessions"), "the extension keeps polling the board");
+    });
+  });
+});
+
+// BUG-93: a test package of a card's branch, installed in one profile, must not write the per-user command and plugin
+// bundle that the hooks, the shell and every other profile run.
+test("refresh: a bundled command that is not the extension's release leaves the shared copy alone and says why in the log", async () => {
+  if (!EXT()) return;
+  const { d } = extensionWithBundled();
+  for (const [command, extension] of [["v0.27.1-0.20261117120000-e4444e7abcde", "0.27.0-change87"], ["v0.27.1-0.20261117120000-e4444e7abcde+dirty", "0.27.0"], ["dev", "0.27.0"]]) {
+    await withInstalledCopy(async (known) => {
+      await run({ folders: folder(withBoard()), extensionPath: d, script: answers(command), version: extension }, async ({ calls, channel, vscode }) => {
+        await settle();
+        assert.deepEqual(refreshes(calls), [], `${command} with ${extension}`);
+        assert.deepEqual(vscode.errors, []);
+        assert.deepEqual(vscode.infos, []);
+        const said = channel.lines.filter(([, line]) => line.includes("not refreshing"));
+        assert.equal(said.length, 1, JSON.stringify(channel.lines));
+        assert.ok(said[0][1].includes(command) && said[0][1].includes(extension) && said[0][1].includes(known) &&
+          said[0][1].includes("install --refresh"), said[0][1]);
+        assert.ok(calls.some((c) => c.args[0] === "sessions"), "the board keeps working");
+      });
+    });
+  }
+});
+
+test("refresh: a bundled command that cannot say its release, or an extension that cannot say its own, is not refreshed", async () => {
+  if (!EXT()) return;
+  const { d } = extensionWithBundled();
+  await withInstalledCopy(async () => {
+    await run({ folders: folder(withBoard()), extensionPath: d, script: (cmd, args) => (args[0] === "--version" ? { code: 1, stderr: "boom" } : undefined), version: "0.8.1" },
+      async ({ calls, channel, vscode }) => {
+        await settle();
+        assert.deepEqual(refreshes(calls), []);
+        assert.deepEqual(vscode.errors, []);
+        assert.ok(channel.lines.some(([, line]) => line.includes("not refreshing")), JSON.stringify(channel.lines));
+      });
+    await run({ folders: folder(withBoard()), extensionPath: d, script: answers("v0.8.1") }, async ({ calls, channel }) => {
+      await settle();
+      assert.deepEqual(refreshes(calls), []);
+      assert.ok(channel.lines.some(([, line]) => line.includes("not refreshing")), JSON.stringify(channel.lines));
     });
   });
 });
