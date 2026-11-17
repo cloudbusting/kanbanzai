@@ -1,10 +1,10 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** building
+- **Stage:** built
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
-- **Next action:** build task 1: the GitHub backend in internal/storegithub, test-first against a fake gh runner and the storetest conformance suite
+- **Next action:** check: kanbanzai-qa suite on branch CHANGE-90 (commit 42dae1d), then the owner's by-hand check on a throwaway repository after package
 - **Where:** worktree CHANGE-90
 - **Needs:** CHANGE-87
 
@@ -101,7 +101,7 @@ gains no GitHub code.
 
 ## Acceptance checks
 
-- [ ] **The backend maps issues to cards.** `internal/storegithub` tests, with a fake runner, show that:
+- [x] **The backend maps issues to cards.** `internal/storegithub` tests, with a fake runner, show that:
   - an issue `#7` is the ticket `GH-7`, typed from its native type or its `type:` label, with its stage from its
     `stage:` label or its closed state;
   - the query reaches `search/issues` as `repo:<repo> is:issue <query>`, and an empty query adds nothing;
@@ -112,25 +112,25 @@ gains no GitHub code.
   - `put` stage `done` closes the issue and a later non-done stage reopens it;
   - a body that is not a brief comes back as a brief with the original text under Goal;
   - a brief over 65,536 characters is refused.
-- [ ] **The conformance suite passes.** `internal/store/storetest` passes against this backend in process, and against
+- [x] **The conformance suite passes.** `internal/store/storetest` passes against this backend in process, and against
   the built `kanbanzai-store-github` over the protocol with a fake `gh` first on PATH (the test binary re-run as `gh`
   over a state file), covering list, read, write with a column change, the stale-base conflict, create, the round trip
   and `unsupported`.
-- [ ] **A configured project shows only matching issues.** In a temp project with `[store] plugin = "github"`,
+- [x] **A configured project shows only matching issues.** In a temp project with `[store] plugin = "github"`,
   `prefix = "GH"`, `repo` and a query of `label:agent is:open`, and the fake `gh` holding five issues of which two
   match: after `kanbanzai store trust` and `kanbanzai sync`, `kanbanzai board --json` lists exactly those two as
   `GH-<n>` with their working-copy paths. `move GH-<n> start` updates the issue in the fake, and `resolve <n>`
   prints `GH-<n>`.
-- [ ] **A card that leaves the query.** Relabelling one of the two so it no longer matches: after `sync`, a started
+- [x] **A card that leaves the query.** Relabelling one of the two so it no longer matches: after `sync`, a started
   card stays and `wip --audit` flags "left the query", an unstarted one drops.
-- [ ] **A person's change on GitHub moves the card.** Closing an issue in the fake and syncing puts its card in Done;
+- [x] **A person's change on GitHub moves the card.** Closing an issue in the fake and syncing puts its card in Done;
   reopening with `stage:building` puts it in Building.
-- [ ] **No network of its own.** The extended `network_test.go` passes, `go.mod` has no `require`, and the plugin
+- [x] **No network of its own.** The extended `network_test.go` passes, `go.mod` has no `require`, and the plugin
   package and program import neither `net/http` nor `net`.
-- [ ] **It ships.** A release test shows each platform archive contains `kanbanzai-store-github` (`.exe` on Windows)
+- [x] **It ships.** A release test shows each platform archive contains `kanbanzai-store-github` (`.exe` on Windows)
   beside `kanbanzai`, and an install test shows `kanbanzai install` copies and links it. The package step's install
   test runs `kanbanzai-store-github` with a `hello` request and gets protocol 1.
-- [ ] **A file board is unchanged.** `go test ./...`, `node --test board-view` and `node --test opencode` pass with no
+- [x] **A file board is unchanged.** `go test ./...`, `node --test board-view` and `node --test opencode` pass with no
   expected output edited, and the core's change (sending `settings.prefix`) leaves a file board's `board --json`,
   `wip --audit` and `check` byte-identical.
 - [ ] **Owner's check by hand (after package, before ship).** On a throwaway repository the owner names, with their
@@ -147,27 +147,27 @@ contract and ship in it.
 
 Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 last.
 
-- [ ] 1. **The backend and the prefix.**
+- [x] 1. **The backend and the prefix.**
   - Files: `internal/storegithub/` (backend, mapping, query, rev, runner interface and its tests),
     `internal/store/plugin/plugin.go` (send `settings.prefix`) and its test, `internal/store/storetest` only if a
     case is missing.
   - What it does: everything under Design except the program and packaging, with tests written first against a fake
     runner.
   - Check: the backend tests and the in-process conformance suite; a plugin test that the request carries the prefix.
-- [ ] 2. **The program.**
+- [x] 2. **The program.**
   - Files: `cmd/kanbanzai-store-github/` (main, the `gh` runner over `os/exec`, the fake-`gh` test helper and tests),
     `internal/store/network_test.go`.
   - What it does: `protocol.Serve` over the backend; the runner passes arguments as an array, sets
     `GH_PROMPT_DISABLED=1`, and maps `gh`'s failures to the error codes.
   - Check: the conformance suite and the board scenarios above over the real process with the fake `gh`, and the
     extended network test.
-- [ ] 3. **Release and install.**
+- [x] 3. **Release and install.**
   - Files: `tools/release/main.go` and tests, `internal/install/` and tests, `tools/packageset` and its skill wording
     if the package step names the binaries, `skills` or `.claude/skills/kanbanzai-package` only where they list the
     artifacts.
   - What it does: build and archive the second program for the five platforms; install it with the command.
   - Check: the release, install and packageset tests above.
-- [ ] 4. **Docs.**
+- [x] 4. **Docs.**
   - Files: `docs/store-plugins.md`, `docs/security.md`, `docs/configuration.md`, `docs/commands.md` if install's
     output changes, `README.md`, `defaults/config.toml` comments, `CHANGELOG.md` and `docs_test.go`.
   - Check: `docs_test.go` with the new required phrases.
@@ -207,12 +207,35 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
   - Other labels, assignees, milestones and comments are never touched.
   - A `host` other than github.com is refused naming CHANGE-91.
 
+## Build notes
+
+- Proven in the worktree CHANGE-90 (commit 42dae1d): `go vet ./...` and `go test ./...` green; `node --test board-view` (425) and
+  `node --test opencode` (13) green; `bash -n hooks/*.sh`; `go.mod` has no `require`; `kanbanzai-store-github` cross-builds for linux/arm64,
+  darwin/arm64 and windows/amd64. On a fresh `init`ed project the old and new commands print byte-identical `board --json`, `board`,
+  `wip --audit` and `check`.
+- Red evidence: the backend, release, install and prefix tests were written before the code and failed on assertions (a missing
+  archive entry, no installed program, `REF-1` where `ZED-1` was wanted); the backend's own test file was written against a package that did
+  not exist yet, so its red was a compile error, not an assertion.
+- Differences from the Design, settled in build:
+  - **The Type line.** The core reads a card's type from the brief's `Type` head line, not from `list`'s `type`, so `get` adds or corrects
+    that line from the issue's type, and `put` clears the `type:` label when the brief has no type. A native issue type is part of the revision.
+  - **`done`.** `[store.settings] done = "<key>"` names the column a closed issue is in (default `done`).
+  - **Install.** `kanbanzai install` installs `kanbanzai-store-github` only when it sits beside the running command (a release archive; the
+    editor's bundled command has none). A refresh replaces a copy only where one is installed, and says nothing otherwise. The PATH note is said once.
+  - **Archives.** Each of the five holds two files, the command first. `-bins` (the editor's raw binaries) stays the command only.
+  - **No network.** `internal/store/network_test.go` already walks `cmd/`, so the new program is covered with no change.
+  - **Flag wording.** `wip --audit` says the card "no longer matches the store's query" (the core's CHANGE-87 text), not "left the query".
+  - **Skills.** The package skill lists the plugin proof (`--version`, a `hello` request, `install` into a throwaway home) and the release skill
+    runs `kanbanzai-store-github --version` on the downloaded archive.
+- Not run: the owner's check by hand on a throwaway repository. Nothing in the build reached github.com; every test uses a fake `gh`.
+
 ## Progress
 
 - 2026-11-17: split out of W-25 under EPIC-86; Needs CHANGE-87.
 - 2026-11-18: designed with the owner: issue body is the brief, stage as a label and closed state, one repository
   per project, a second shipped program; four build tasks and a by-hand check on a throwaway repository.
 - 2026-11-18: designed with the owner: issue body is the brief, stage label plus closed state, one repository per project, a second shipped program
+- 2026-11-18: built: backend, program, release and install, docs; all suites green, file board byte-identical; commit 42dae1d on branch CHANGE-90
 
 ## Out of scope
 
