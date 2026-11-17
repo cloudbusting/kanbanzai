@@ -25,7 +25,7 @@ var workAllowed = map[string]struct {
 	"internal/context/context.go": {3, "the session context names the path: the board, a board branch, a store plugin's working copy"},
 	"internal/doctor/board.go":    {3, "doctor says where the board branch is checked out"},
 	"internal/doctor/doctor.go":   {2, "doctor checks the folders exist"},
-	"internal/flow/apply.go":      {1, "git status over the cards folder before a workflow change"},
+	"internal/flow/apply.go":      {6, "git status over the cards folder, and the board worktree's, before a workflow change (BUG-92)"},
 	"internal/flow/plan.go":       {4, "a workflow change plans new and unused folders and where each brief goes"},
 	"internal/flow/planfile.go":   {1, "the plan's file list names the cards folder"},
 	"internal/init/detect.go":     {1, "setup keeps an existing project's cards path"},
