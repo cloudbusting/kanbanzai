@@ -20,6 +20,7 @@ var workAllowed = map[string]struct {
 }{
 	"internal/board/board.go":     {1, "the folder a misplaced brief belongs in, in a problem message"},
 	"internal/check/check.go":     {8, "the folder layout: column folders exist, no other folder, file names are a type, a misplaced brief"},
+	"internal/cli/store.go":       {1, "store status shows where the working copy is"},
 	"internal/cli/cli.go":         {1, "config --json and config print the path"},
 	"internal/context/context.go": {2, "the session context names the path"},
 	"internal/doctor/board.go":    {3, "doctor says where the board branch is checked out"},

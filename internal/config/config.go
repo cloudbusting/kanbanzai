@@ -128,13 +128,18 @@ type Project struct {
 	BriefSchemas       map[string]BriefSchema
 	Owner              string
 	MainBranch         string
-	Preset             PresetRecord // the delivery preset the config was written from; empty for a hand-made config
-	Isolation          string       // worktree, branch, shared or external: how a card's change is kept apart
-	Integration        string       // local or remote: whether a finished card's branch is merged here or on the remote
-	BoardHome          string       // main or branch: where the cards, the number ledger and the claims live
-	BoardBranch        string       // the board branch's name, when BoardHome is branch
-	BoardRemote        string       // the remote the board branch is fetched from and pushed to, by name
-	BoardPublish       string       // ask or auto: whether the board commands may fetch and push the board branch unasked
+	Preset             PresetRecord      // the delivery preset the config was written from; empty for a hand-made config
+	Isolation          string            // worktree, branch, shared or external: how a card's change is kept apart
+	Integration        string            // local or remote: whether a finished card's branch is merged here or on the remote
+	BoardHome          string            // main or branch: where the cards, the number ledger and the claims live
+	BoardBranch        string            // the board branch's name, when BoardHome is branch
+	BoardRemote        string            // the remote the board branch is fetched from and pushed to, by name
+	BoardPublish       string            // ask or auto: whether the board commands may fetch and push the board branch unasked
+	StorePlugin        string            // the store that keeps the cards: "files" (the default), or a plugin's bare name
+	StorePrefix        string            // a remote store's id prefix: its cards are PREFIX-<number>
+	StoreQuery         string            // a remote store's query, store-native and passed verbatim; empty means all
+	StoreSync          string            // manual or auto: whether the editor runs `kanbanzai sync` for a remote store
+	StoreSettings      map[string]string // [store.settings], passed to the plugin as data
 	WorktreePattern    string
 	BranchPattern      string
 	BatchBranchPattern string
@@ -171,7 +176,9 @@ type Project struct {
 	TitleRe    *regexp.Regexp
 	CardFileRe *regexp.Regexp
 	ParseRe    *regexp.Regexp
-	IDInRe     *regexp.Regexp
+	// storeParseRe parses a remote store's id, any case, capturing its number
+	storeParseRe *regexp.Regexp
+	IDInRe       *regexp.Regexp
 
 	cfg map[string]any
 }
@@ -459,6 +466,9 @@ func (p *Project) build() error {
 	if err := p.loadBoard(); err != nil {
 		return err
 	}
+	if err := p.loadStore(); err != nil {
+		return err
+	}
 	preset, err := p.section("preset")
 	if err != nil {
 		return err
@@ -510,10 +520,16 @@ func (p *Project) build() error {
 		looseLegacy = regexp.QuoteMeta(p.Prefix) + `-(\d+)`
 	}
 	p.IDPattern = alternatives(typedPattern, legacyPattern)
+	looseIDs := alternatives(looseTyped, looseLegacy)
+	if p.RemoteStore() {
+		p.IDPattern = alternatives(p.IDPattern, regexp.QuoteMeta(p.StorePrefix)+`-[1-9]\d*`)
+		looseIDs = alternatives(looseIDs, regexp.QuoteMeta(p.StorePrefix)+`-\d+`)
+		p.storeParseRe = regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(p.StorePrefix) + `-(\d+)$`)
+	}
 	p.CardRe = regexp.MustCompile(`^` + p.IDPattern + `$`)
 	p.TitleRe = regexp.MustCompile(`^# (` + p.IDPattern + `): (.+)$`)
 	p.CardFileRe = regexp.MustCompile(`^(` + p.IDPattern + `)-.+\.md$`)
-	p.IDInRe = regexp.MustCompile(`(?i)(?:` + alternatives(looseTyped, looseLegacy) + `)`)
+	p.IDInRe = regexp.MustCompile(`(?i)(?:` + looseIDs + `)`)
 	if looseLegacy != "" {
 		p.ParseRe = regexp.MustCompile(`(?i)^` + looseLegacy + `$`)
 	}
@@ -851,6 +867,70 @@ func (p *Project) loadBoard() error {
 	return nil
 }
 
+// RemoteStore reports whether the cards are kept by a store plugin rather than in the project's files.
+func (p *Project) RemoteStore() bool { return p.StorePlugin != "files" }
+
+var storePrefix = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
+
+// loadStore reads [store]: which store keeps the cards. The default is the project's own files, which is how a
+// project has always worked. A remote store keeps a working copy of its cards under the state folder, which git
+// ignores, so tickets never land in the repository.
+func (p *Project) loadStore() error {
+	table, err := p.section("store")
+	if err != nil {
+		return err
+	}
+	p.StorePlugin = asString(table["plugin"], "files")
+	p.StorePrefix = asString(table["prefix"], "")
+	p.StoreQuery = asString(table["query"], "")
+	p.StoreSync = asString(table["sync"], "manual")
+	p.StoreSettings = map[string]string{}
+	if settings, ok := table["settings"].(map[string]any); ok {
+		for key, value := range settings {
+			if text, ok := value.(string); ok {
+				p.StoreSettings[key] = text
+			}
+		}
+	}
+	if !p.RemoteStore() {
+		if p.StorePrefix != "" {
+			return errf("store.prefix is for a store plugin; the files store's ids are the project's types")
+		}
+		return nil
+	}
+	if p.BoardOnBranch() {
+		return errf("store.plugin '%s' keeps the cards elsewhere, so the board cannot also be on a board branch: "+
+			"remove [board] home = \"branch\" or the [store] plugin", p.StorePlugin)
+	}
+	if !storePrefix.MatchString(p.StorePrefix) {
+		return errf("store.prefix '%s' must be the store's id prefix in upper-case letters and digits, such as "+
+			"PROJ for PROJ-123", p.StorePrefix)
+	}
+	for _, taken := range append(p.CardPrefixes(), p.Prefix) {
+		if strings.EqualFold(taken, p.StorePrefix) {
+			return errf("store.prefix '%s' is already a card type's prefix: choose the store's own", p.StorePrefix)
+		}
+	}
+	p.Work = filepath.Join(p.State, "store", "work")
+	return nil
+}
+
+// storeCardNumber is (number, true) for a remote store's id in any case.
+func (p *Project) storeCardNumber(value string) (int, bool) {
+	if p.storeParseRe == nil {
+		return 0, false
+	}
+	match := p.storeParseRe.FindStringSubmatch(strings.TrimSpace(value))
+	if match == nil {
+		return 0, false
+	}
+	number, err := strconv.Atoi(match[1])
+	if err != nil || number <= 0 {
+		return 0, false
+	}
+	return number, true
+}
+
 // BoardOnBranch reports whether the board lives on its own branch, off the main branch.
 func (p *Project) BoardOnBranch() bool { return p.BoardHome == "branch" }
 
@@ -994,6 +1074,9 @@ func (p *Project) IsCardID(value string) bool {
 // CanonicalCardID returns value as a canonical card id, or false. Input is case-insensitive; a typed id is padded
 // to the configured digits, and the legacy prefix is accepted as a legacy card.
 func (p *Project) CanonicalCardID(value string) (string, bool) {
+	if number, ok := p.storeCardNumber(value); ok {
+		return p.StorePrefix + "-" + strconv.Itoa(number), true
+	}
 	if p.TypeSet != nil {
 		if card, ok := p.TypeSet.Canonical(value); ok {
 			return card, true
@@ -1038,6 +1121,9 @@ func (p *Project) CardIDsIn(value string) []string {
 
 // CardNumber is the numeric part of a card id, typed or legacy.
 func (p *Project) CardNumber(value string) (int, bool) {
+	if number, ok := p.storeCardNumber(value); ok {
+		return number, true
+	}
 	if p.TypeSet != nil {
 		if _, number, ok := p.TypeSet.Parse(value); ok {
 			return number, true
@@ -1235,6 +1321,8 @@ func (p *Project) AsDict() map[string]any {
 			"integration": p.Integration},
 		"board": map[string]any{"home": p.BoardHome, "branch": p.BoardBranch, "remote": p.BoardRemote,
 			"publish": p.BoardPublish},
+		"store": map[string]any{"plugin": p.StorePlugin, "remote": p.RemoteStore(), "prefix": p.StorePrefix,
+			"query": p.StoreQuery, "sync": p.StoreSync, "settings": p.StoreSettings},
 		"preset": map[string]any{"name": p.Preset.Name, "delivery_style": p.Preset.DeliveryStyle,
 			"version": p.Preset.Version},
 		"columns": columns,

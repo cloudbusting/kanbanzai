@@ -22,6 +22,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
 	"github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/mirror"
 	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
@@ -54,7 +55,9 @@ type Card struct {
 	Path              string           `json:"path"`
 	Gate              *gate.Status     `json:"gate"`
 	Question          *Question        `json:"question,omitempty"`
-	Epic              *epic.Progress   `json:"epic,omitempty"`
+	// StoreState is what a store plugin's last sync found: "conflict" or "left_query"; absent when all is well
+	StoreState *string        `json:"store_state,omitempty"`
+	Epic       *epic.Progress `json:"epic,omitempty"`
 
 	column   string
 	gateLine string
@@ -93,6 +96,16 @@ type Board struct {
 	// Unclaimed is {owner label: session} for the sessions of this project that are waiting for the owner and hold
 	// no card (BUG-64): no card can show them asking. Always an object; empty unless the board read the live claims.
 	Unclaimed map[string]sessions.Record `json:"unclaimed"`
+	// Store says which store plugin keeps the cards; absent for a board kept in the project's files.
+	Store *StoreInfo `json:"store,omitempty"`
+}
+
+// StoreInfo is the store plugin behind a board.
+type StoreInfo struct {
+	Plugin   string `json:"plugin"`
+	Remote   bool   `json:"remote"`
+	Query    string `json:"query"`
+	SyncedAt string `json:"synced_at"`
 }
 
 // CardAt is one card and the column it sits in.
@@ -129,6 +142,12 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 	if claims == nil && readsSessions {
 		result.Unclaimed = sessions.UnclaimedAsking(owners, project)
 	}
+	states := map[string]mirror.State{}
+	if project.RemoteStore() {
+		result.Store = &StoreInfo{Plugin: project.StorePlugin, Remote: true, Query: project.StoreQuery,
+			SyncedAt: mirror.SyncedAt(project)}
+		states = mirror.States(project)
+	}
 	byColumn := map[string][]*Card{}
 	for _, column := range project.Columns {
 		byColumn[column.Key] = []*Card{}
@@ -150,6 +169,13 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			continue
 		}
 		seen[card.ID] = card.Path
+		if state, ok := states[card.ID]; ok && (state.Conflict || state.LeftQuery) {
+			value := "left_query"
+			if state.Conflict {
+				value = "conflict"
+			}
+			card.StoreState = &value
+		}
 		if owner, ok := owners[card.ID]; ok {
 			value := owner
 			card.Owner = &value
@@ -278,6 +304,9 @@ func ReadCard(project *config.Project, item Brief) (*Card, []string) {
 		Mark: brief.MarkOf(project, stage, held), Interrupted: false, Session: nil, ClaimedNotStarted: false,
 		Path: rel, column: key, gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
+	if card.Type == nil && fields["Type"] != "" {
+		card.Type = typeNamed(project, fields["Type"])
+	}
 	if entries, err := question.Parse(string(data)); err == nil {
 		for _, entry := range entries {
 			if entry.Answer == "" || entry.Answer == "—" {
@@ -311,6 +340,19 @@ func read(cards store.Store) ([]Brief, error) {
 		briefs = append(briefs, Brief{Card: card, Err: readErr})
 	}
 	return briefs, err
+}
+
+// typeNamed is the type a brief's Type line names, by key, label or prefix: how a store plugin's card, whose id
+// carries no type, says what it is.
+func typeNamed(project *config.Project, name string) *typeid.TypeInfo {
+	name = strings.TrimSpace(name)
+	for _, item := range project.Types {
+		if strings.EqualFold(item.Key, name) || strings.EqualFold(item.Label, name) || strings.EqualFold(item.Prefix, name) {
+			info := item.Info()
+			return &info
+		}
+	}
+	return nil
 }
 
 // EntryOf is the store entry of a card on the board.

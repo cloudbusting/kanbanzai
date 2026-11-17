@@ -22,6 +22,16 @@ type Harness struct {
 	Seed func(t *testing.T, id, title, stage, folder string)
 	// Tamper changes a card's brief behind the store's back, as another writer would.
 	Tamper func(t *testing.T, id string)
+	// Prefix is the ids' prefix the store accepts (default TASK): the suite's cards are <Prefix>-31 and up.
+	Prefix string
+}
+
+func (h Harness) id(n int) string {
+	prefix := h.Prefix
+	if prefix == "" {
+		prefix = "TASK"
+	}
+	return fmt.Sprintf("%s-%d", prefix, n)
 }
 
 // Brief is the minimal brief the suite seeds.
@@ -67,8 +77,8 @@ func listAndRead(t *testing.T, h Harness) {
 	if err := h.Store.Ready(); err != nil {
 		t.Fatalf("Ready on a fresh store = %v", err)
 	}
-	h.Seed(t, "TASK-31", "First", "todo", h.Folders[0])
-	h.Seed(t, "TASK-32", "Second", "done", h.Folders[1])
+	h.Seed(t, h.id(31), "First", "todo", h.Folders[0])
+	h.Seed(t, h.id(32), "Second", "done", h.Folders[1])
 	entries, err := h.Store.List()
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -76,7 +86,7 @@ func listAndRead(t *testing.T, h Harness) {
 	if len(entries) != 2 {
 		t.Fatalf("List = %v, want two cards", entries)
 	}
-	first, second := mustFind(t, h.Store, "TASK-31"), mustFind(t, h.Store, "TASK-32")
+	first, second := mustFind(t, h.Store, h.id(31)), mustFind(t, h.Store, h.id(32))
 	if first.Folder != h.Folders[0] || second.Folder != h.Folders[1] {
 		t.Fatalf("folders = %q, %q, want %q, %q", first.Folder, second.Folder, h.Folders[0], h.Folders[1])
 	}
@@ -87,7 +97,7 @@ func listAndRead(t *testing.T, h Harness) {
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
-	if !strings.HasPrefix(string(card.Text), "# TASK-31: First\n") || card.Rev == "" {
+	if !strings.HasPrefix(string(card.Text), "# "+h.id(31)+": First\n") || card.Rev == "" {
 		t.Fatalf("Read = %q rev %q", card.Text, card.Rev)
 	}
 	again, _ := h.Store.Read(first)
@@ -100,8 +110,8 @@ func listAndRead(t *testing.T, h Harness) {
 }
 
 func roundTrip(t *testing.T, h Harness) {
-	h.Seed(t, "TASK-33", "Third", "todo", h.Folders[0])
-	entry := mustFind(t, h.Store, "TASK-33")
+	h.Seed(t, h.id(33), "Third", "todo", h.Folders[0])
+	entry := mustFind(t, h.Store, h.id(33))
 	card, err := h.Store.Read(entry)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -124,8 +134,8 @@ func roundTrip(t *testing.T, h Harness) {
 }
 
 func relocate(t *testing.T, h Harness) {
-	h.Seed(t, "TASK-34", "Fourth", "todo", h.Folders[0])
-	entry := mustFind(t, h.Store, "TASK-34")
+	h.Seed(t, h.id(34), "Fourth", "todo", h.Folders[0])
+	entry := mustFind(t, h.Store, h.id(34))
 	card, _ := h.Store.Read(entry)
 	text := []byte(strings.Replace(string(card.Text), "**Stage:** todo", "**Stage:** done", 1))
 	written, err := h.Store.Write(entry, text, card.Rev, h.Folders[1])
@@ -135,14 +145,14 @@ func relocate(t *testing.T, h Harness) {
 	if written.Folder != h.Folders[1] {
 		t.Fatalf("Write put it in %q, want %q", written.Folder, h.Folders[1])
 	}
-	listed := mustFind(t, h.Store, "TASK-34")
+	listed := mustFind(t, h.Store, h.id(34))
 	if listed.Folder != h.Folders[1] || listed.Path != written.Path {
 		t.Fatalf("List = %+v, want %+v", listed, written)
 	}
 	entries, _ := h.Store.List()
 	count := 0
 	for _, e := range entries {
-		if e.ID == "TASK-34" {
+		if e.ID == h.id(34) {
 			count++
 		}
 	}
@@ -155,16 +165,16 @@ func relocate(t *testing.T, h Harness) {
 }
 
 func conflict(t *testing.T, h Harness) {
-	h.Seed(t, "TASK-35", "Fifth", "todo", h.Folders[0])
-	entry := mustFind(t, h.Store, "TASK-35")
+	h.Seed(t, h.id(35), "Fifth", "todo", h.Folders[0])
+	entry := mustFind(t, h.Store, h.id(35))
 	card, _ := h.Store.Read(entry)
-	h.Tamper(t, "TASK-35")
+	h.Tamper(t, h.id(35))
 	_, err := h.Store.Write(entry, []byte(strings.Replace(string(card.Text), "Body.", "Mine.", 1)), card.Rev,
 		h.Folders[0])
 	if !errors.Is(err, store.ErrConflict) {
 		t.Fatalf("Write on a stale base = %v, want a conflict", err)
 	}
-	now, err := h.Store.Read(mustFind(t, h.Store, "TASK-35"))
+	now, err := h.Store.Read(mustFind(t, h.Store, h.id(35)))
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
@@ -174,9 +184,9 @@ func conflict(t *testing.T, h Harness) {
 }
 
 func notFound(t *testing.T, h Harness) {
-	h.Seed(t, "TASK-36", "Sixth", "todo", h.Folders[0])
-	entry := mustFind(t, h.Store, "TASK-36")
-	gone := store.Entry{ID: "TASK-99", Path: strings.Replace(entry.Path, "TASK-36", "TASK-99", 1), Folder: entry.Folder}
+	h.Seed(t, h.id(36), "Sixth", "todo", h.Folders[0])
+	entry := mustFind(t, h.Store, h.id(36))
+	gone := store.Entry{ID: h.id(99), Path: strings.Replace(entry.Path, h.id(36), h.id(99), 1), Folder: entry.Folder}
 	if _, err := h.Store.Read(gone); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("Read of a missing card = %v, want not found", err)
 	}
