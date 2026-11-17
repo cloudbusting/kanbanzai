@@ -122,6 +122,19 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       assert.match(prompts.at(-1).text, /kanbanzai workflow show/);
       assert.match(prompts.at(-1).text, /inspect my flow/);
     }
+    // TASK-83: the help skill is the one source of the cheat sheet, registered in OpenCode like every other skill.
+    const helpSkill = added.find((skill) => skill.id === "help");
+    assert.ok(helpSkill, "the help skill was not registered");
+    assert.match(helpSkill.description, /cheat sheet/i);
+    for (const name of ["help", "kanbanzai:help"]) {
+      const command = commands.find((entry) => entry.name === name);
+      assert.ok(command, `the /${name} command was not registered`);
+      assert.equal(command.description, helpSkill.description);
+      await command.execute({ sessionID: "ses_test1", prompt: { text: "how do I start?" }, delivery: "steer" });
+      assert.match(prompts.at(-1).text, /# Help/);
+      assert.match(prompts.at(-1).text, /\/kanbanzai:triage/);
+      assert.match(prompts.at(-1).text, /how do I start\?/);
+    }
     const build = commands.find((entry) => entry.name === "build");
     assert.ok(build, "the build command was not registered");
     await build.execute({ sessionID: "ses_test1", prompt: { text: "do the thing" }, delivery: "steer" });

@@ -25,6 +25,7 @@ kanbanzai config upgrade [--apply]       preview/apply a non-destructive config 
 kanbanzai migrate [--json | --apply --plan HASH | --rollback]
                                          preview, apply (on the hash the preview printed) or roll back what this release
                                          needs migrated in the project
+kanbanzai guide [--json]                 the cheat sheet of commands and common workflows (what `/kanbanzai:help` shows); works outside a project
 kanbanzai doctor [--json] [--board]        local installation diagnostics (no repairs); --board adds the board-branch checks (git and agent hooks)
 kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)

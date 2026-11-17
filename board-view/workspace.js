@@ -9,6 +9,7 @@ const toasts = require('./toasts');
 const sessions = require('./sessions');
 const output = require('./output');
 const notify = require('./notify');
+const help = require('./help');
 
 const STATE = 'kanbanzai.board.workspace.v1';
 const REFRESH_MS = 60000;
@@ -18,6 +19,9 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   let stopped = false, panel = null, lastHtml = '', generation = 0;
   let state = projects.workspaceState(context.workspaceState.get(STATE, {}));
   let importedCollapse = false;
+  // TASK-83: the Help popup. Open or not lives here, so a board refresh rebuilds the page with it still open; the sheet
+  // is fetched on the first open and kept for the window's life, and asked for again after a failure.
+  let helpState = { open: false, status: 'idle', sheet: null, error: '' };
   const entries = new Map(), candidates = new Map(), configWatches = new Map();
   const queues = new Map(), pending = [];
   let active = 0, discoverTimer;
@@ -189,11 +193,11 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
       };
     });
     const signature = JSON.stringify([envelopes.map((p) => [p.key, p.label, p.board, p.error, p.owner,
-      p.collapsed, p.toasts.map((t) => [t.key, t.seq])]), scope]);
+      p.collapsed, p.toasts.map((t) => [t.key, t.seq])]), scope, [helpState.open, helpState.status, helpState.error]]);
     if (signature === lastHtml) return;
     lastHtml = signature;
     panel.webview.html = render.renderWorkspaceHtml(envelopes, {
-      ...scope, nonce: crypto.randomBytes(16).toString('hex'),
+      ...scope, help: helpState, nonce: crypto.randomBytes(16).toString('hex'),
       keepFocus: panel.active === true, // BUG-76: only a tab the user is in may take the focus back
     });
   }
@@ -359,6 +363,8 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   }
   async function message(msg) {
     if (!msg || typeof msg !== 'object' || stopped) return;
+    if (msg.type === 'help-open') { openHelp(); return; }
+    if (msg.type === 'help-close') { closeHelp(); return; }
     if (msg.type === 'project-select') { chooseProject(msg.project); return; }
     if (msg.type === 'type-select') {
       const scope = selected();
@@ -406,9 +412,34 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
     lastHtml = '';
     panel.webview.onDidReceiveMessage((msg) => void message(msg));
     panel.onDidChangeViewState(() => { draw(); for (const p of list()) void refresh(p); });
-    panel.onDidDispose(() => { panel = null; lastHtml = ''; });
+    panel.onDidDispose(() => { panel = null; lastHtml = ''; helpState = { ...helpState, open: false }; });
     draw(); for (const p of list()) void refresh(p);
   }
+  async function loadHelp() {
+    if (helpState.status === 'loading') return;
+    const cwd = (folders()[0] || {}).uri?.fsPath;
+    helpState = { ...helpState, status: 'loading', error: '' };
+    draw();
+    const result = cwd ? await command(cwd, help.ARGS, () => !stopped) : { error: { reason: 'no project folder is open' } };
+    if (stopped) return;
+    if (!result.error && help.isSheet(result.value)) helpState = { ...helpState, status: 'ready', sheet: result.value, error: '' };
+    else {
+      const reason = result.error?.reason || 'the output is not a cheat sheet';
+      helpState = { ...helpState, status: 'error', sheet: null, error: reason };
+      log.warn(`the cheat sheet could not be read: ${reason}`);
+    }
+    draw();
+  }
+  function openHelp() {
+    if (stopped || !panel) return;
+    helpState = { ...helpState, open: true };
+    if (helpState.status !== 'ready' && helpState.status !== 'loading') void loadHelp(); else draw();
+  }
+  function closeHelp() {
+    if (!helpState.open) return;
+    helpState = { ...helpState, open: false }; draw();
+  }
+  function showHelp() { show(); openHelp(); }
   async function offerMigration() {
     let scope = list().filter(inScope).filter((p) => p.migration);
     if (scope.length > 1) {
@@ -436,7 +467,7 @@ function createWorkspace({ vscode, context, run, execFile, log, status, migratio
   }
   void discover();
   syncNotices();
-  return { show, discover, syncNotices, scheduleDiscovery, offerMigration, dispose,
+  return { show, showHelp, discover, syncNotices, scheduleDiscovery, offerMigration, dispose,
     get hasBoard() { return list().some((p) => p.ready || hasConfig(p.cwd)); },
   };
 }

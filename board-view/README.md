@@ -79,6 +79,7 @@ operating-system notification as well. The details:
 | Command | What it does |
 |---|---|
 | **Kanbanzai: Show Board** | Opens the board tab (also `▦ Board` in the status bar). |
+| **Kanbanzai: Help** | Shows the board with its Help popup open: a cheat sheet of the commands and the common workflows (also the **? Help** button on the board). Read-only. |
 | **Kanbanzai: Init** | Makes a setup plan for a project with no board, and opens it. Writes nothing else. |
 | **Kanbanzai: Apply** | Applies the saved setup plan: your approval. |
 | **Kanbanzai: Show Setup Plan** | Opens the pending plan again. |
@@ -94,7 +95,8 @@ operating-system notification as well. The details:
 ## What it executes, reads and writes
 
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
-  `board --json`, `config --json` and `sessions --json` to draw the board, `install --refresh` at startup (only
+  `board --json`, `config --json` and `sessions --json` to draw the board, `guide --json` (read-only, the first time
+  you open Help, for the cheat sheet it shows), `install --refresh` at startup (only
   when a per-user copy is already there), and after you click Apply, `init --plan --dry-run`, `install` and
   `init --plan`; `init --dry-run --json` makes the plan you read. For bundled Claude setup it also runs
   `claude --version`, lists Claude marketplaces and plugins, then uses `claude plugin marketplace add ... --scope local`

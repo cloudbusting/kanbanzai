@@ -70,6 +70,10 @@ project, and:
 /kanbanzai:do <the card>                    # does it, step by step, and stops where it needs you
 ```
 
+Not sure which command to use? `/kanbanzai:help` shows a cheat sheet of the commands and the
+common workflows; `kanbanzai guide` prints the same sheet in a terminal, and the editor board has a **? Help** button
+for it ([docs/editor.md](docs/editor.md#help-the-cheat-sheet)).
+
 For a large requirement, `/kanbanzai:breakdown <pasted text>` (also `/breakdown` in OpenCode) proposes a split and
 asks only unanswered questions. Nothing is allocated or written until you approve the exact source and split.
 It creates an EPIC with linked triaged cards and `Needs` prerequisites, without fetching tickets or starting work.

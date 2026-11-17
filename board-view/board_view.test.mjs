@@ -791,6 +791,8 @@ function workspacePage(projects, saved = null, opts = {}) {
         if (selector === '.col' && classes.has('col')) return this;
         if (selector === '.toast' && classes.has('toast')) return this;
         if (selector === '[data-state-key]' && this.dataset.stateKey) return this;
+        if (selector === '[data-help]' && this.dataset.help) return this;
+        if (selector === '.help-backdrop' && classes.has('help-backdrop')) return this;
         if (selector === '.card, .toast[data-card]' && (classes.has('card') || classes.has('toast') && this.dataset.card)) return this;
         return parent ? parent.closest(selector) : null;
       },
@@ -808,6 +810,12 @@ function workspacePage(projects, saved = null, opts = {}) {
   }
   const toasts = [...out.matchAll(/<div class="toast level-[^"]*"[^>]*>/g)].map((m) => element(m[0]));
   const allButton = out.includes('class="toast-close-all"') ? element('<button class="toast-close-all">') : null;
+  const tagOf = (re) => { const m = out.match(re); return m ? element(m[0]) : null; };
+  const helpButton = tagOf(/<button[^>]*data-help="open"[^>]*>/);
+  const backdrop = tagOf(/<div class="help-backdrop"[^>]*>/);
+  const helpDialog = tagOf(/<div class="help-dialog"[^>]*>/);
+  const helpBody = tagOf(/<div class="help-body"[^>]*>/);
+  const helpClose = tagOf(/<button[^>]*data-help="close"[^>]*>/);
   const projectSelect = element('<select data-state-key="project-select">');
   projectSelect.value = opts.project || 'all';
   const typeSelect = element('<select data-state-key="type-select">');
@@ -815,10 +823,12 @@ function workspacePage(projects, saved = null, opts = {}) {
   document.querySelector = (selector) => ({
     '.workspace-projects': root, '#workspace-project': projectSelect, '#workspace-type': typeSelect,
     '.toast-close-all': allButton && !allButton.removed ? allButton : null,
+    '.help-backdrop': backdrop && !backdrop.removed ? backdrop : null, '.help-body': helpBody,
+    '[data-help="open"]': helpButton, '.help-close': helpClose,
   })[selector] || null;
   document.querySelectorAll = (selector) => ({
     '.board[data-project]': boards, '.col[data-state-key]': cols, '.col .cards': cardScrolls,
-    '[data-state-key]': [...boards, ...cols, ...cards, ...toasts, projectSelect, typeSelect],
+    '[data-state-key]': [...boards, ...cols, ...cards, ...toasts, projectSelect, typeSelect, helpButton, helpDialog].filter(Boolean),
     '.toast': toasts.filter((el) => !el.removed),
     '.toast[data-remaining]': toasts.filter((el) => !el.removed && el.dataset.remaining !== undefined),
   })[selector] || [];
@@ -836,6 +846,7 @@ function workspacePage(projects, saved = null, opts = {}) {
   });
   return {
     out, boards, cols, cardScrolls, cards, toasts, root, projectSelect, typeSelect, messages, timers, document,
+    helpButton, backdrop, helpDialog, helpBody, helpClose,
     get state() { return state; },
     focusWindow() {
       for (const l of windowFocus.splice(0)) { if (!l.once) windowFocus.push(l); l.fn({ target: win }); }
@@ -1008,4 +1019,141 @@ test("workspace filtering preserves scroll for columns temporarily without match
   filtered.boards[0].scroll();
   const restored = workspacePage(workspaceProjects(), filtered.state);
   assert.equal(restored.cardScrolls[0].scrollTop, 123);
+});
+
+// TASK-83: the Help popup, from the sheet `kanbanzai guide --json` prints (fixtures/guide.json is checked against it).
+const guide = JSON.parse(readFileSync(path.join(here, "fixtures", "guide.json"), "utf8"));
+const helpOpen = (over = {}) => ({ open: true, status: "ready", sheet: guide, error: "", ...over });
+const helpText = (out) => out.replace(/<[^>]*>/g, "\n");
+// The page's own stylesheet and script name the popup's classes; what the tests forbid is in the markup only.
+const markup = (out) => out.replace(/<style[\s\S]*?<\/style>/, "").replace(/<script[\s\S]*?<\/script>/, "");
+
+test("TASK-83: the workspace toolbar has a Help button and no popup until one is asked for", () => {
+  const out = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all" });
+  assert.match(out, /<button type="button" class="help-button" data-help="open" data-state-key="help-button"[^>]*aria-haspopup="dialog"[^>]*>/);
+  assert.doesNotMatch(markup(out), /role="dialog"|help-backdrop/);
+  for (const help of [{ open: false, status: "ready", sheet: guide }, null, "open", { open: "yes" }]) {
+    assert.doesNotMatch(markup(renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all", help })), /role="dialog"/);
+  }
+});
+
+test("TASK-83: the open popup is a modal dialog with every section and item of the command's sheet", () => {
+  const out = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all", help: helpOpen() });
+  assert.match(out, /<div class="help-backdrop"[^>]*>\s*<div class="help-dialog" role="dialog" aria-modal="true" aria-labelledby="help-title" tabindex="-1" data-state-key="help-dialog">/);
+  assert.match(out, new RegExp(`<h2 id="help-title">${guide.title}</h2>`));
+  assert.match(out, /data-help="close"[^>]*aria-label="Close help"/);
+  assert.ok(guide.sections.length >= 3);
+  for (const section of guide.sections) {
+    assert.ok(out.includes(`>${section.title}</h3>`), `section ${section.title}`);
+    if (section.text) assert.ok(helpText(out).includes(section.text), "the paragraph of " + section.title);
+    for (const item of section.items) {
+      assert.ok(out.includes(`<code class="help-command">${item.command.replace(/&/g, "&amp;")}</code>`), item.command);
+    }
+  }
+  assert.ok(out.includes("/kanbanzai:triage") && out.includes("/kanbanzai:help"), "the fixture names the skills");
+  assert.match(out, /<code>[^<]+<\/code>/, "a `span` in an item's text is shown as code");
+});
+
+test("TASK-83: the popup escapes every field of the sheet, treats each as optional and keeps the one script", () => {
+  const hostile = { title: "<script>alert(1)</script>", sections: [
+    { title: '"><img src=x onerror=alert(2)>', text: "<b>bold</b> & `<i>`", items: [
+      { command: "<script>alert(3)</script>", text: "`<script>alert(4)</script>` <u>x</u>" }, { command: 5, text: null }, null, "x"] },
+    null, "x", { items: "nope" }, { title: 7, items: [{ command: "/ok", text: "fine" }] },
+  ] };
+  const out = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all", help: helpOpen({ sheet: hostile }) });
+  assert.equal((out.match(/<script/g) || []).length, 1, "only the nonce'd script");
+  assert.doesNotMatch(markup(out), /<img|<b>|<i>|<u>/);
+  assert.ok(out.includes("&lt;img src=x onerror=alert(2)&gt;"), "the hostile title is text");
+  assert.ok(out.includes("&lt;script&gt;alert(3)&lt;/script&gt;"));
+  assert.ok(out.includes("<code>&lt;script&gt;alert(4)&lt;/script&gt;</code>"));
+  assert.ok(out.includes("/ok") && out.includes("fine"));
+  for (const sheet of [null, undefined, {}, { sections: "x" }, { sections: [] }, []]) {
+    const empty = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all", help: helpOpen({ sheet }) });
+    assert.match(empty, /role="alert"/, "a sheet with nothing to show says so rather than opening empty");
+  }
+});
+
+test("TASK-83: the popup says Loading, and says what to do when the command has no guide", () => {
+  const loading = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all", help: { open: true, status: "loading" } });
+  assert.match(loading, /role="status"[^>]*>Loading the cheat sheet/);
+  assert.match(loading, /role="dialog"/);
+  const old = renderWorkspaceHtml(workspaceProjects(), { nonce: NONCE, project: "all",
+    help: { open: true, status: "error", error: 'kanbanzai: unknown command "guide" <b>(--help)</b>' } });
+  assert.match(old, /role="alert"/);
+  assert.ok(old.includes("unknown command &quot;guide&quot; &lt;b&gt;(--help)&lt;/b&gt;"));
+  assert.match(helpText(old), /kanbanzai guide/);
+  assert.match(helpText(old), /update the Kanbanzai Board extension or the kanbanzai command/);
+  assert.match(helpText(old), /\/kanbanzai:help/);
+  assert.doesNotMatch(old, /<h3/);
+});
+
+test("TASK-83: the browser board has no Help button and no popup", () => {
+  assert.doesNotMatch(html, /data-help|help-backdrop|help-button/);
+  assert.doesNotMatch(renderHtml(board, { nonce: NONCE, help: helpOpen() }), /data-help|role="dialog"/);
+});
+
+test("TASK-83: the popup's script asks the host to open and close it, and closes on Esc, the X and the backdrop only", () => {
+  const closed = workspacePage(workspaceProjects());
+  assert.ok(closed.helpButton);
+  closed.key(closed.helpButton, "Escape");
+  assert.deepEqual(closed.messages, [], "Esc with no popup open does nothing");
+  closed.focus(closed.helpButton);
+  closed.click(closed.helpButton);
+  assert.deepEqual(closed.messages, [{ type: "help-open" }]);
+  assert.equal(closed.state.focus, "help-dialog", "the rebuilt page hands the focus to the dialog");
+
+  const open = (opts = {}) => workspacePage(workspaceProjects(), null, { help: helpOpen(), ...opts });
+  let page = open();
+  assert.ok(page.backdrop && page.helpClose && page.helpDialog);
+  page.click(page.helpClose);
+  assert.deepEqual(page.messages, [{ type: "help-close" }]);
+  assert.equal(page.backdrop.removed, true, "it closes at once, without waiting for the host");
+  assert.equal(page.document.activeElement, page.helpButton, "the focus returns to the Help button");
+  assert.equal(page.state.focus, "help-button");
+
+  page = open();
+  page.key(page.helpDialog, "Escape");
+  assert.deepEqual(page.messages, [{ type: "help-close" }]);
+  assert.equal(page.backdrop.removed, true);
+
+  page = open();
+  page.click(page.backdrop);
+  assert.deepEqual(page.messages, [{ type: "help-close" }]);
+
+  page = open();
+  page.click(page.helpDialog);
+  page.click(page.helpBody);
+  page.key(page.helpDialog, "Enter");
+  page.key(page.helpDialog, "a");
+  assert.deepEqual(page.messages, [], "a click inside the dialog or another key leaves it open");
+  assert.equal(page.backdrop.removed, false);
+});
+
+test("TASK-83: a rebuild keeps the open popup's scroll and gives it the focus only when the window gets it", () => {
+  const first = workspacePage(workspaceProjects(), null, { help: helpOpen() });
+  first.helpBody.scrollTop = 77; first.helpBody.scroll();
+  const again = workspacePage(workspaceProjects(), first.state, { help: helpOpen(), keepFocus: true });
+  assert.equal(again.helpBody.scrollTop, 77);
+  assert.equal(again.document.activeElement, null, "loading never takes the focus");
+  const asked = workspacePage(workspaceProjects());
+  asked.focus(asked.helpButton); asked.click(asked.helpButton);
+  const rebuilt = workspacePage(workspaceProjects(), asked.state, { help: helpOpen(), keepFocus: true });
+  rebuilt.focusWindow();
+  assert.equal(rebuilt.document.activeElement, rebuilt.helpDialog);
+  const away = workspacePage(workspaceProjects(), asked.state, { help: helpOpen(), keepFocus: false });
+  away.focusWindow();
+  assert.equal(away.document.activeElement, null, "a popup rebuilt behind the user's typing does not take the keyboard");
+});
+
+test("TASK-83: Tab moves between the popup's scroll area and its close button and never leaves it", () => {
+  const page = workspacePage(workspaceProjects(), null, { help: helpOpen() });
+  page.key(page.helpDialog, "Tab");
+  assert.equal(page.document.activeElement, page.helpBody);
+  page.key(page.helpBody, "Tab");
+  assert.equal(page.document.activeElement, page.helpClose);
+  page.key(page.helpClose, "Tab");
+  assert.equal(page.document.activeElement, page.helpBody);
+  const closed = workspacePage(workspaceProjects());
+  closed.key(closed.helpButton, "Tab");
+  assert.equal(closed.document.activeElement, null, "with no popup, Tab is the editor's");
 });

@@ -49,6 +49,10 @@
         "title": "Kanbanzai: Show Board"
       },
       {
+        "command": "kanbanzai.help",
+        "title": "Kanbanzai: Help"
+      },
+      {
         "command": "kanbanzai.init",
         "title": "Kanbanzai: Init"
       },

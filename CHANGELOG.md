@@ -8,6 +8,14 @@ and the editor extension carry the same version.
 - TASK-84: the extension's marketplace listing opens with a short animation of the board beside a Claude Code session on
   a made-up project: Init and Apply, a request triaged into a card, a requirement broken down, a card worked to Done. The
   recording and how to remake it are in `tools/demo-gif/`.
+- TASK-83: a cheat sheet and guide to the commands and the common workflows. New skill `/kanbanzai:help` shows which skill to reach for and in what order: a new idea or bug (triage, then do), a large requirement
+  (breakdown, then next), one card, several cards at once, a card waiting on you, tidying up. New command
+  `kanbanzai guide [--json]` prints the same sheet (it works outside a project), and the editor extension's board has a
+  **? Help** button and a **Kanbanzai: Help** palette command that open it as a popup over the board. The sheet is
+  written once, in the help skill, and the command and the popup serve that text, so they cannot disagree; a test
+  fails when a shipped skill is missing from it. The popup opens only when asked, is read-only and sends nothing
+  anywhere; the browser and terminal boards are unchanged. The extension runs `kanbanzai guide --json`, which a command
+  older than the extension does not have: the popup says so and asks you to update.
 
 ## [0.25.1] — 2026-11-17
 

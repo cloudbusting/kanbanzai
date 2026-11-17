@@ -6,7 +6,8 @@ what each claimed card's Claude Code or OpenCode session is doing. Its listing p
 executes, reads and writes. This guide is the full behaviour.
 
 The tab is read-only. No drag and drop and no editing: the cards move when their briefs do. The extension runs
-`kanbanzai board --json`, `kanbanzai config --json` and `kanbanzai sessions --json` from the workspace and renders the
+`kanbanzai board --json`, `kanbanzai config --json` and `kanbanzai sessions --json` from the workspace (and
+`kanbanzai guide --json` the first time you open Help) and renders the
 answer, so the rules for a card live in one place, the command. The browser board (`kanbanzai board --web`) and the
 terminal board draw the same view: [boards.md](boards.md).
 
@@ -96,6 +97,25 @@ tab. Only `.md` files inside the cards folder can be opened.
 
 What the extension executes, reads and writes, exactly, is on its listing page:
 [What it executes, reads and writes](../board-view/README.md#what-it-executes-reads-and-writes).
+
+## Help: the cheat sheet
+
+Not sure which command to reach for? The board's toolbar has a **? Help** button, and **Kanbanzai: Help** in the
+command palette opens the board with the same popup. It is a cheat sheet and guide to the common workflows: which of
+`/kanbanzai:triage`, `breakdown`, `do`, `next`, `wip`, `audit`, `answer` and the other commands to use, and in what
+order for a new idea, a large requirement, one card, several cards at once or a card that is waiting on you.
+
+- It opens only when you ask. **Esc**, the **✕** button or a click outside it closes it, and the focus goes back to
+  the **? Help** button. **Tab** stays inside it while it is open.
+- A board refresh or a card move leaves it open and where you scrolled.
+- The text is the one `/kanbanzai:help` shows in a Claude Code or OpenCode session and `kanbanzai guide` prints in a
+  terminal: the help skill's own sheet, so the three cannot disagree. The extension runs `kanbanzai guide --json` the
+  first time you open it and keeps the answer until the window closes; it reads nothing else and writes nothing.
+- A command older than the extension has no `guide`. The popup then says so, with the command's own message, and
+  asks you to update the extension or the command (an extension update brings the matching command); `/kanbanzai:help`
+  in a session still works. The next time you open the popup it asks again.
+- Only the editor board has the popup. The browser board (`kanbanzai board --web`) and the terminal board are unchanged:
+  [boards.md](boards.md).
 
 ## Several projects
 
