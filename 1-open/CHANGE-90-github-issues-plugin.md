@@ -1,11 +1,11 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
-- **Next action:** build task 1: the GitHub backend in `internal/storegithub`, written test-first against a fake `gh` runner and the `storetest` conformance suite
-- **Where:** —
+- **Next action:** build task 1: the GitHub backend in internal/storegithub, test-first against a fake gh runner and the storetest conformance suite
+- **Where:** worktree CHANGE-90
 - **Needs:** CHANGE-87
 
 ## Goal
@@ -212,6 +212,7 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
 - 2026-11-17: split out of W-25 under EPIC-86; Needs CHANGE-87.
 - 2026-11-18: designed with the owner: issue body is the brief, stage as a label and closed state, one repository
   per project, a second shipped program; four build tasks and a by-hand check on a throwaway repository.
+- 2026-11-18: designed with the owner: issue body is the brief, stage label plus closed state, one repository per project, a second shipped program
 
 ## Out of scope
 
