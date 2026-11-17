@@ -6,6 +6,7 @@
 - **ADR:** none — the brief is the record
 - **Next action:** release: v0.26.0-next after the owner approves (version, the manual Board tab check on the team-pr project); package artifacts at /tmp/kanbanzai-package-BUG-85-0.26.0 from main ae1a87e
 - **Where:** worktree BUG-85
+- **Gate:** passed by claude:2ca6c59a-d91c-48be-9242-36ef6b6e4181, 2026-11-17 — Approve release as v0.27.0 (owner, via the question tool, 2026-11-17, in place of holding for the manual Board tab check)
 
 ## Goal
 
