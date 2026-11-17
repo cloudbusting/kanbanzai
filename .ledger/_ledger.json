@@ -94,7 +94,8 @@
     92,
     93,
     94,
-    95
+    95,
+    96
   ],
   "reserved": [
     {
@@ -119,6 +120,14 @@
       "note": "",
       "number": 95,
       "owner": "claude:1e67f12b-41e9-4fc4-8865-9e711c61ca26",
+      "type": "task"
+    },
+    {
+      "at": "2026-11-17T22:27:49+00:00",
+      "item": "TASK-96",
+      "note": "",
+      "number": 96,
+      "owner": "claude:eda8176a-6acb-4210-877d-510d97f4c2f8",
       "type": "task"
     }
   ]
