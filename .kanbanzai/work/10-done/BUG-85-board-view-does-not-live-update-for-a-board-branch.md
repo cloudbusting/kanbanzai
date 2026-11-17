@@ -1,11 +1,11 @@
 # BUG-85: The editor's board does not live-update when the board lives on a board branch
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — v0.27.0, 30c6e70, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.27.0
 - **ADR:** none — the brief is the record
-- **Next action:** release: v0.26.0-next after the owner approves (version, the manual Board tab check on the team-pr project); package artifacts at /tmp/kanbanzai-package-BUG-85-0.26.0 from main ae1a87e
-- **Where:** worktree BUG-85
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
