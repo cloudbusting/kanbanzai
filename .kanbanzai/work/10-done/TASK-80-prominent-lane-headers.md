@@ -1,11 +1,11 @@
 # TASK-80: Board lane headers (the column group names) should be prominent
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — v0.25.1, 9931d57, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.25.1
 - **ADR:** none
-- **Next action:** release: after the owner approves; first look at the lane names in a dark and a light theme (editor and browser board); package artifacts at /tmp/kanbanzai-package-TASK-80-0.25.0 from main bfbfb28
-- **Where:** worktree TASK-80
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

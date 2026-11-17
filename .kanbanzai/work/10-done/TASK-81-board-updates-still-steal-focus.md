@@ -1,11 +1,11 @@
 # TASK-81: Board updates still steal focus from the active cursor (the prompt input, a terminal)
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — v0.25.1, 9931d57, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.25.1
 - **ADR:** none
-- **Next action:** release: after the owner approves; first the editor focus check (click a card, then type in the terminal and the chat prompt while a card moves); package artifacts at /tmp/kanbanzai-package-TASK-81-0.25.0 from main ef454fa
-- **Where:** worktree TASK-81
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

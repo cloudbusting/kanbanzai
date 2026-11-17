@@ -1,11 +1,11 @@
 # BUG-82: `plugins link` refuses an empty pointer file, which `doctor` says to fix with `plugins link`
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — v0.25.1, 9931d57, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.25.1
 - **ADR:** none
-- **Next action:** release: 0.25.1 after the owner approves (metadata still says 0.25.0: the release step bumps it, settles the semver and rebuilds from its tag); package artifacts at /tmp/kanbanzai-package-BUG-82-0.25.1 from main 412c474
-- **Where:** worktree BUG-82
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
