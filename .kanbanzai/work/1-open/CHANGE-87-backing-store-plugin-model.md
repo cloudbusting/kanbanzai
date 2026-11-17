@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** this brief (Decisions and Contract) is the record; the repository keeps no separate decision-record folder
-- **Next action:** deploy-qa: package and install-test the artifacts; first the owner's editor check by hand (Acceptance checks, last item)
+- **Next action:** deploy-qa in a fresh session (the owner's choice): `/kanbanzai:do 87` resumes the preserved worktree work through the recovery audit, then packages and install-tests the artifacts
 - **Where:** worktree CHANGE-87
 
 ## Goal
