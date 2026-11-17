@@ -166,7 +166,20 @@ func Open(project *config.Project, stderr io.Writer) (*Client, error) {
 	if err := Trusted(project, program); err != nil {
 		return nil, err
 	}
-	return NewClient(program, project.Root, project.StoreSettings, stderr), nil
+	return NewClient(program, project.Root, settingsOf(project), stderr), nil
+}
+
+// settingsOf is what a plugin is sent as its settings: the project's [store.settings], and the [store] prefix as
+// "prefix" unless the settings name their own, so a plugin that builds ids needs no second copy of it.
+func settingsOf(project *config.Project) map[string]string {
+	settings := map[string]string{}
+	if project.StorePrefix != "" {
+		settings["prefix"] = project.StorePrefix
+	}
+	for key, value := range project.StoreSettings {
+		settings[key] = value
+	}
+	return settings
 }
 
 // NewClient is a client of a program, run in dir with settings; stderr receives what the plugin writes there.

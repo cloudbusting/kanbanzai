@@ -124,6 +124,9 @@ func Run(options Options) int {
 	if err == nil && !options.Refresh && !options.NoLink {
 		err = onPath(options.DryRun, goos, getenv, folder, target, out)
 	}
+	if err == nil {
+		err = installPrograms(options, goos, getenv, executable, folder, separator, out, current)
+	}
 	if err != nil {
 		fmt.Fprintf(errOut, "kanbanzai: install: %v\n", err)
 		var refused refusal
@@ -140,9 +143,15 @@ func Run(options Options) int {
 // PATH. Nothing here edits PATH or a profile. What is already at the link path is never replaced: it is left alone with
 // a note, and that is not a failure. A failed write is.
 func onPath(dryRun bool, goos string, getenv func(string) string, folder, target string, out io.Writer) error {
+	return linkOnPath(dryRun, goos, getenv, folder, target, "kanbanzai", true, out)
+}
+
+// linkOnPath is onPath for one program: name is its name without .exe, and note says whether to say how to put
+// ~/.local/bin on PATH (the command has said it already when a program follows it).
+func linkOnPath(dryRun bool, goos string, getenv func(string) string, folder, target, name string, note bool, out io.Writer) error {
 	if goos == "windows" {
-		if !pathHas(goos, getenv("PATH"), folder) {
-			fmt.Fprintf(out, "note: kanbanzai.exe is at %s\n", target)
+		if note && !pathHas(goos, getenv("PATH"), folder) {
+			fmt.Fprintf(out, "note: %s.exe is at %s\n", name, target)
 			fmt.Fprintf(out, "note: to run it from a terminal add %s to your user PATH: Settings > System > About > "+
 				"Advanced system settings > Environment Variables > Path > Edit > New; then open a new terminal\n", folder)
 		}
@@ -154,7 +163,7 @@ func onPath(dryRun bool, goos string, getenv func(string) string, folder, target
 		return nil
 	}
 	dir := home + "/.local/bin"
-	link := dir + "/kanbanzai"
+	link := dir + "/" + name
 
 	switch _, err := os.Lstat(dir); {
 	case err == nil:
@@ -176,7 +185,9 @@ func onPath(dryRun bool, goos string, getenv func(string) string, folder, target
 		if info.Mode()&os.ModeSymlink != 0 {
 			if to, err := os.Readlink(link); err == nil && to == target {
 				fmt.Fprintf(out, "already linked: %s\n", link)
-				pathNote(goos, getenv, dir, out)
+				if note {
+					pathNote(goos, getenv, dir, out)
+				}
 				return nil
 			}
 		}
@@ -194,7 +205,9 @@ func onPath(dryRun bool, goos string, getenv func(string) string, folder, target
 		return fmt.Errorf("cannot link %s: %w", link, err)
 	}
 	fmt.Fprintf(out, "linked %s -> %s\n", link, target)
-	pathNote(goos, getenv, dir, out)
+	if note {
+		pathNote(goos, getenv, dir, out)
+	}
 	return nil
 }
 
@@ -405,4 +418,58 @@ func copyAtomic(sourcePath, folder, target string, windows bool) error {
 			"Windows; stop it and run install again)", target, err)
 	}
 	return nil
+}
+
+// Programs are the store plugins a release ships beside the command. Install copies each that sits next to the running
+// command (a source build has none), the way it copies the command, and links it onto PATH, where the command finds a
+// plugin by its name.
+var Programs = []string{"kanbanzai-store-github"}
+
+// installPrograms installs every program that sits beside the running command. A refresh only replaces a copy that is
+// already installed, and says nothing about one that is not.
+func installPrograms(options Options, goos string, getenv func(string) string, executable func() (string, error),
+	folder, separator string, out io.Writer, current string) error {
+	path, err := executable()
+	if err != nil {
+		return nil // install already said why it cannot find the command
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	for _, program := range Programs {
+		file := program
+		if goos == "windows" {
+			file += ".exe"
+		}
+		source := filepath.Join(filepath.Dir(path), file)
+		if info, err := os.Stat(source); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		target := folder + separator + file
+		if options.Refresh {
+			if info, err := os.Lstat(target); err != nil || !info.Mode().IsRegular() {
+				continue
+			}
+		}
+		beside := func() (string, error) { return source, nil }
+		versionOf := func(path string) string {
+			return strings.TrimSpace(strings.TrimPrefix(options.versionOf()(path), "-store-github"))
+		}
+		if err := install(options.DryRun, options.Refresh, goos == "windows", beside, folder, target, out, current, versionOf); err != nil {
+			return err
+		}
+		if !options.Refresh && !options.NoLink {
+			if err := linkOnPath(options.DryRun, goos, getenv, folder, target, program, false, out); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (o Options) versionOf() func(string) string {
+	if o.VersionOf != nil {
+		return o.VersionOf
+	}
+	return releaseOf
 }

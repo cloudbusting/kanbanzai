@@ -124,8 +124,10 @@ go run ./tools/release -version "v<version>" -out "$OUT" -bins "$BINS"
 
 It cross-compiles `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64` and `windows/amd64` with
 `CGO_ENABLED=0 -trimpath`, writes the five archives and a `SHA256SUMS` to `$OUT`, and leaves the raw commands in
-`$BINS/<os>-<arch>/kanbanzai[.exe]` for the next step. The release workflow rebuilds the same set from the tag; this
-run proves the procedure.
+`$BINS/<os>-<arch>/kanbanzai[.exe]` for the next step. Each archive holds two programs: the command, and
+`kanbanzai-store-github[.exe]`, the GitHub issues store plugin, beside it (`kanbanzai install` copies both). `$BINS` has
+only the command: the editor bundles that and nothing else. The release workflow rebuilds the same set from the tag;
+this run proves the procedure.
 
 ### 3. The editor extension
 
@@ -182,6 +184,21 @@ tar -xzf "$OUT/kanbanzai-<version>.tar.gz"
 ```
 
 The bundle must work with no checkout beside it and no runtime prerequisite.
+
+### The store plugin program
+
+From the unpacked Linux archive (its own new, empty folder, as the download rule says), the plugin program answers the
+protocol and `kanbanzai install` copies it with the command into a throwaway home:
+
+```bash
+P="$(mktemp -d)" && tar -xzf "$OUT/kanbanzai_<version>_linux_amd64.tar.gz" -C "$P"
+"$P/kanbanzai-store-github" --version
+printf '{"protocol":1,"method":"hello","settings":{"repo":"o/r","prefix":"GH"}}' | "$P/kanbanzai-store-github"
+H="$(mktemp -d)" && HOME="$H" XDG_DATA_HOME="$H/data" "$P/kanbanzai" install && ls "$H/data/kanbanzai/bin"
+```
+
+The `hello` answer must say protocol 1 and the name `github`, and `ls` must list both programs. This runs no `gh` and
+reaches no network.
 
 ### The Claude Code plugin
 

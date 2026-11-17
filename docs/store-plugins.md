@@ -71,13 +71,66 @@ kanbanzai board
 ## Ids
 
 A card's id is the store's own key: `PROJ-123` for a JIRA issue, or `<prefix>-<number>` for a GitHub issue, using the
-`prefix` you set.
+`prefix` you set. Kanbanzai tells the plugin that prefix, so it needs no second copy in `[store.settings]`.
 
 - The store issues the number when a card is created: `kanbanzai number --title "<title>"` asks the plugin to create
   the ticket and prints its key.
 - `kanbanzai resolve 123` finds `PROJ-123`.
 - The card's type comes from the ticket (an issue type or a label the plugin maps) and is shown on the brief's
   `Type` line.
+
+## GitHub issues
+
+`kanbanzai-store-github` keeps the cards as the issues of **one** GitHub repository. It ships in each release archive
+beside `kanbanzai`, and `kanbanzai install` copies both and links both onto your `PATH`. It runs your own `gh` (the
+GitHub CLI) and holds no token, so `gh auth login` is the only sign-in there is.
+
+```toml
+[store]
+plugin = "github"                    # runs kanbanzai-store-github
+prefix = "GH"                        # a card is GH-<issue number>
+query  = "label:agent is:open"       # GitHub's own issue search; empty means every issue of the repository
+
+[store.settings]
+repo = "owner/name"                  # required: the one repository this board keeps
+```
+
+```bash
+gh auth login
+kanbanzai store trust
+kanbanzai sync
+```
+
+**Public means public.** A card written to a public repository is public: its brief, Next action and Comments are
+readable by anyone, and the first command that writes a card replaces its issue's body with the brief. If the issue was
+written by a person, their text is kept under the brief's Goal. Use a repository you mean to publish to, or a private
+one.
+
+**How a card sits on its issue.**
+
+- The issue body is the whole brief, and its title is the brief's title.
+- The Stage is shown as a `stage:<column>` label, and a **closed issue is Done** (so the Done column's key must be
+  `done`, or you name it with `done = "<key>"` in `[store.settings]`). An open issue with no stage label is `todo`.
+  Moving a card sets the label (and closes or reopens the issue); closing, reopening or relabelling the issue on GitHub
+  moves the card the next time you run `kanbanzai sync`.
+- The type is the issue's own type if it has one (`Bug`, `Task`), else a `type:<key>` label. It appears as the brief's
+  `Type` line.
+- Other labels, assignees, milestones and comments are never changed. Only the `stage:` and `type:` labels are written.
+- A brief over GitHub's limit of 65,536 characters is refused, never cut.
+
+**The query** is GitHub's issue-search syntax, narrowed to your repository and to issues (never pull requests):
+`label:agent`, `milestone:"v1"`, `assignee:name`, `is:open`, `-label:wontfix`. It may not name `repo:`, `org:` or `user:`:
+the board keeps one repository, because issue numbers repeat across repositories and the id is `<prefix>-<number>`.
+An empty query is every issue of the repository, closed ones too. GitHub's search returns at most 1,000 results; a
+query that matches more is refused until you narrow it, so the board is never silently partial.
+
+**Limits.**
+
+- GitHub has no conditional write for an issue. The plugin refuses a stale write by comparing the issue just before it
+  writes, but a change that lands in between can be overwritten.
+- A rate limit or a lost connection is `unavailable`, and nothing retries it: run the command again.
+- Only github.com: GitHub Enterprise Server is a later change (CHANGE-91) and a `host` other than github.com is
+  refused.
 
 ## Writing a plugin
 

@@ -58,8 +58,9 @@ func TestTheReleaseBuildsTheFiveArchivesAndChecksums(t *testing.T) {
 			t.Fatalf("bad checksum for %s", fields[1])
 		}
 	}
-	checkTar(t, filepath.Join(out, "kanbanzai_0.0.0-test_linux_amd64.tar.gz"), "kanbanzai")
-	checkZip(t, filepath.Join(out, "kanbanzai_0.0.0-test_windows_amd64.zip"), "kanbanzai.exe")
+	// Each archive holds the command and the GitHub store plugin beside it, for `kanbanzai install` to copy together.
+	checkTar(t, filepath.Join(out, "kanbanzai_0.0.0-test_linux_amd64.tar.gz"), "kanbanzai", "kanbanzai-store-github")
+	checkZip(t, filepath.Join(out, "kanbanzai_0.0.0-test_windows_amd64.zip"), "kanbanzai.exe", "kanbanzai-store-github.exe")
 
 	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
 		binary := extractTar(t, filepath.Join(out, "kanbanzai_0.0.0-test_linux_amd64.tar.gz"), "kanbanzai")
@@ -70,6 +71,11 @@ func TestTheReleaseBuildsTheFiveArchivesAndChecksums(t *testing.T) {
 		}
 		if strings.TrimSpace(string(version)) != "kanbanzai v0.0.0-test" {
 			t.Fatalf("--version = %q", version)
+		}
+		plugin := extractTar(t, filepath.Join(out, "kanbanzai_0.0.0-test_linux_amd64.tar.gz"), "kanbanzai-store-github")
+		version, err = exec.Command(plugin, "--version").CombinedOutput()
+		if err != nil || strings.TrimSpace(string(version)) != "kanbanzai-store-github v0.0.0-test" {
+			t.Fatalf("the plugin's --version = %q, %v", version, err)
 		}
 	}
 }
@@ -127,7 +133,7 @@ func TestTheReleaseLeavesRawBinariesWhenAskedTo(t *testing.T) {
 	}
 }
 
-func checkTar(t *testing.T, path, name string) {
+func checkTar(t *testing.T, path string, names ...string) {
 	t.Helper()
 	file, err := os.Open(path)
 	if err != nil {
@@ -139,24 +145,34 @@ func checkTar(t *testing.T, path, name string) {
 		t.Fatal(err)
 	}
 	reader := tar.NewReader(gzipReader)
-	header, err := reader.Next()
-	if err != nil {
-		t.Fatal(err)
+	for _, name := range names {
+		header, err := reader.Next()
+		if err != nil {
+			t.Fatalf("%s: wanted %s: %v", path, name, err)
+		}
+		if header.Name != name || header.Size == 0 || header.Mode&0o111 == 0 {
+			t.Fatalf("tar entry = %#v, want an executable %s", header, name)
+		}
 	}
-	if header.Name != name || header.Size == 0 {
-		t.Fatalf("tar entry = %#v", header)
+	if header, err := reader.Next(); err == nil {
+		t.Fatalf("%s holds an extra entry %s", path, header.Name)
 	}
 }
 
-func checkZip(t *testing.T, path, name string) {
+func checkZip(t *testing.T, path string, names ...string) {
 	t.Helper()
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	if len(reader.File) != 1 || reader.File[0].Name != name || reader.File[0].UncompressedSize64 == 0 {
-		t.Fatalf("zip entries = %v", reader.File)
+	if len(reader.File) != len(names) {
+		t.Fatalf("zip entries = %v, want %v", reader.File, names)
+	}
+	for n, name := range names {
+		if reader.File[n].Name != name || reader.File[n].UncompressedSize64 == 0 {
+			t.Fatalf("zip entry %d = %v, want %s", n, reader.File[n].Name, name)
+		}
 	}
 }
 
@@ -172,9 +188,14 @@ func extractTar(t *testing.T, path, name string) string {
 		t.Fatal(err)
 	}
 	reader := tar.NewReader(gzipReader)
-	header, err := reader.Next()
-	if err != nil || header.Name != name {
-		t.Fatalf("tar entry = %#v, %v", header, err)
+	for {
+		header, err := reader.Next()
+		if err != nil {
+			t.Fatalf("%s has no %s: %v", path, name, err)
+		}
+		if header.Name == name {
+			break
+		}
 	}
 	destination := filepath.Join(t.TempDir(), name)
 	output, err := os.Create(destination)

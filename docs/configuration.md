@@ -46,7 +46,8 @@ cards. [team-board.md](team-board.md) has the setup and what can stand in the wa
 
 **Store.** `[store] plugin` says which store keeps the cards: `files` (the default: the project's own briefs, as
 always) or a store plugin's bare name, which runs `kanbanzai-store-<name>` from your `PATH` (`reference` is the
-built-in example). A plugin runs only after you trust it in this clone with `kanbanzai store trust`. With a plugin,
+built-in example, and `github` keeps them as the issues of one GitHub repository: `[store.settings] repo = "owner/name"`).
+A plugin runs only after you trust it in this clone with `kanbanzai store trust`. With a plugin,
 `prefix` is its id prefix (`PROJ` for `PROJ-123`), `query` is its own query passed as it is (JQL for JIRA, an issue
 search for GitHub; empty means every ticket it can see), and
 `[store.settings]` is text the plugin reads, never a credential. The cards are then a working copy under

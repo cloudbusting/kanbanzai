@@ -5,6 +5,17 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-90: a GitHub issues store plugin ships with the command. Set `[store] plugin = "github"`, a `prefix` and
+  `[store.settings] repo = "owner/name"`, run `gh auth login`, `kanbanzai store trust` and `kanbanzai sync`, and the board
+  shows the issues of that one repository, narrowed by `[store] query`, which is GitHub's own issue search
+  (`label:agent is:open`). A card is `<prefix>-<issue number>`: the issue body is the brief, a `stage:<column>` label shows
+  its Stage, a closed issue is Done and a `type:` label (or the issue's own type) is its type, so closing or relabelling an
+  issue on GitHub moves the card. Only the `stage:` and `type:` labels are ever written. The program,
+  `kanbanzai-store-github`, runs your own `gh`: it holds no token and has no HTTP client, and `kanbanzai` itself still
+  makes no network request. Each release archive now holds it beside `kanbanzai`, and `kanbanzai install` copies and links
+  both. A card written to a public repository is public. A plugin is now told the project's `[store] prefix` as
+  `settings.prefix`.
+
 ## [0.28.1] — 2026-11-18
 
 - 0.28.0 was tagged but never published: its Release workflow stopped when the Windows `internal/cli` tests passed the default
