@@ -348,7 +348,8 @@ Tasks 1 to 5 run in order. Task 6 can run in parallel with task 5 once task 4 is
   things are open for the check step and the owner:
   - The editor check by hand: on a `reference` plugin temp project, open the board tab, see the cards and the store
     line, click a card to open its working-copy brief, and see the ⇄ mark on a card in conflict.
-  - A bug card for `workflow apply` on a board branch (it never commits the briefs it moves), if the owner wants one.
+  - `workflow apply` on a board branch (it never commits the briefs it moves) is now BUG-92, triaged at the owner's
+    request on 2026-11-17.
 
 - 2026-11-17 — breakdown session: split from W-25 (closed as superseded by EPIC-86); the network-call question is the
   owner's call, so design must ask before the contract is set.
