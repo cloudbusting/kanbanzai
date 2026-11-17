@@ -1,0 +1,10 @@
+{
+  "branch": "main",
+  "card": "CHANGE-90",
+  "claimed_at": "2026-11-17T23:00:58+00:00",
+  "expires_at": "2026-11-18T01:00:58+00:00",
+  "minutes": 120,
+  "owner": "claude:fc7a1d81-90a9-4c27-bac5-2cb16d96d38d",
+  "renewed_at": "2026-11-17T23:00:58+00:00",
+  "where": "main"
+}
