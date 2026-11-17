@@ -1,11 +1,11 @@
 # TASK-83: A /kanbanzai:help cheat sheet and a help popup over the extension board
 
-- **Stage:** qa-approved
+- **Stage:** done
 - **Updated:** 2026-11-17
-- **Done:** —
+- **Done:** 2026-11-17 — v0.26.0, ae13434, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.26.0
 - **ADR:** none — the design and the owner's choices are recorded in Decisions (this repository keeps no separate decision-record folder)
-- **Next action:** release: v0.25.1 or later after the owner approves (version is the owner's call); first the owner's manual editor check (open Kanbanzai: Show Board, click ?, Esc; Kanbanzai: Help with the board closed; popup stays open while a card moves); package artifacts at /tmp/kanbanzai-package-TASK-83-0.25.1 from main 311e271
-- **Where:** worktree TASK-83
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
