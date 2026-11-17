@@ -28,7 +28,7 @@ new request differs. Do not rewrite another card's design or tasks.
 For a new item, obtain its ID with `kanbanzai number`, never by guessing; its prefix is the card's type, and there
 is no separate Type line. Start from the template for that type: `kanbanzai template <ID or type>` prints it, and
 `--where` names its file and schema (a type with no template of its own gets the project's, and an unreadable named
-template is an error, never a silent fallback). Write its brief in the initial column's configured folder (when `kanbanzai context` says the board lives on a board branch, that folder is its worktree: publish the new card with `kanbanzai sync` and never commit it to the main branch), with title, Stage, Updated, Goal, Next action and Where;
+template is an error, never a silent fallback). Write its brief in the initial column's configured folder (when `kanbanzai context` says the board lives on a board branch, that folder is its worktree: publish the new card with `kanbanzai sync` and never commit it to the main branch; when it says a store plugin keeps the cards, `kanbanzai number --title "<title>" --type <key>` creates the card in the store and prints its id and brief, so fill that brief in and publish it with `kanbanzai sync`), with title, Stage, Updated, Goal, Next action and Where;
 include acceptance checks, scope and files when known. A type that has a schema also needs its required fields and
 sections (a bug's reproduction, a change's before and after): `kanbanzai check` names what is missing. Keep Comments as the append-only handover. A small settled
 item needs enough detail for a builder; a choice needs a clear question for the owner. Do not write the owner's

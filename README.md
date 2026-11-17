@@ -23,8 +23,10 @@ leaves the doing to the agents and the rules you already have.
   per card, a shared checkout or a workspace its host owns ([docs/isolation.md](docs/isolation.md)).
 - **The workflow is yours.** The shipped columns, steps and gates are a default. A project renames, adds or drops them,
   or starts from a [delivery preset](docs/presets.md).
-- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). The one
-  opt-in exception is a [board branch](docs/team-board.md) for a team whose `main` is protected: `git push` of that one branch.
+- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). There
+  are two opt-in exceptions. A [board branch](docs/team-board.md), for a team whose `main` is protected, runs `git push`
+  of that one branch. A [store plugin](docs/store-plugins.md) you select and trust keeps the cards in JIRA, GitHub
+  issues or another tracker, and reaches it with the tools it drives; the command itself still makes no request.
 
 ## Supported
 

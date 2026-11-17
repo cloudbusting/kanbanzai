@@ -22,7 +22,7 @@ var workAllowed = map[string]struct {
 	"internal/check/check.go":     {8, "the folder layout: column folders exist, no other folder, file names are a type, a misplaced brief"},
 	"internal/cli/store.go":       {1, "store status shows where the working copy is"},
 	"internal/cli/cli.go":         {1, "config --json and config print the path"},
-	"internal/context/context.go": {2, "the session context names the path"},
+	"internal/context/context.go": {3, "the session context names the path: the board, a board branch, a store plugin's working copy"},
 	"internal/doctor/board.go":    {3, "doctor says where the board branch is checked out"},
 	"internal/doctor/doctor.go":   {2, "doctor checks the folders exist"},
 	"internal/flow/apply.go":      {1, "git status over the cards folder before a workflow change"},

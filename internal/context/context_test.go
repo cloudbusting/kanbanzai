@@ -234,3 +234,14 @@ func TestContextSaysWhereTheBoardLivesOnlyWhenItIsOnABranch(t *testing.T) {
 		}
 	}
 }
+
+func TestAStorePluginsContextSaysHowANewCardAndAHandEditReachIt(t *testing.T) {
+	project := testProject(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"reference\"\nprefix = \"REF\"\n")
+	rule := boardRule(project)
+	for _, want := range []string{"store plugin reference", "REF-<number>", "`kanbanzai number --title", "`kanbanzai sync`",
+		"never in git"} {
+		if !strings.Contains(rule, want) {
+			t.Errorf("the context lacks %q:\n%s", want, rule)
+		}
+	}
+}

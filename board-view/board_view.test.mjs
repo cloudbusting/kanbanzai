@@ -1157,3 +1157,24 @@ test("TASK-83: Tab moves between the popup's scroll area and its close button an
   closed.key(closed.helpButton, "Tab");
   assert.equal(closed.document.activeElement, null, "with no popup, Tab is the editor's");
 });
+
+test("a store plugin's board names the plugin, and its flagged cards carry an escaped mark; a file board shows neither", () => {
+  const card = (state) => ({ id: 'REF-12', title: 'A ticket', store_state: state });
+  const view = (store, state) => renderHtml({ store, columns: [{ key: 'todo', cards: [card(state)] }] }, { nonce: NONCE });
+  const remote = view({ plugin: 'jira-<x>', remote: true, query: 'project = X', synced_at: '2026-11-17T10:00:00Z' }, 'conflict');
+  assert.match(remote, /class="store-note"/);
+  assert.match(remote, /jira-&lt;x&gt;/);
+  assert.doesNotMatch(remote, /jira-<x>/);
+  assert.match(remote, /2026-11-17T10:00:00Z/);
+  assert.match(remote, /class="glyph glyph-store-conflict"/);
+  assert.match(remote, /store-conflict/);
+  const left = view({ plugin: 'gh', remote: true }, 'left_query');
+  assert.match(left, /class="glyph glyph-store-left_query"/);
+  assert.match(left, /never synced/);
+  for (const state of [undefined, null, 'other', '<script>', 3]) {
+    assert.doesNotMatch(view({ plugin: "gh", remote: true }, state), /class="glyph glyph-store-/);
+  }
+  for (const store of [undefined, null, 'files', { plugin: 'files', remote: false }, []]) {
+    assert.doesNotMatch(view(store, undefined), /class="store-note"/);
+  }
+});
