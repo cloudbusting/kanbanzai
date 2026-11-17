@@ -1,10 +1,10 @@
 # TASK-96: A skill and a command to remake the board demo GIF, so each new version of the tool can refresh the film
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none
-- **Next action:** check (kanbanzai-qa), then close: Deploy is None
+- **Next action:** close: merge TASK-96 into main (Deploy is None)
 - **Where:** worktree TASK-96
 
 ## Goal
@@ -73,6 +73,7 @@ None — a project skill and development tooling under `tools/`; no shipped arti
 
 - 2026-11-18: designed. The owner chose the pinned editor and the skill-plus-script shape of the command.
 - 2026-11-18: built; committed in worktree TASK-96
+- 2026-11-18: checked: kanbanzai-qa suite green on the worktree (go test ./..., vet, board-view 425, opencode 13, hooks, plugin validate); diff review: 19 files, all in the brief, no version change, no machine path or secret outside planted test fixtures
 
 ## Comments
 
