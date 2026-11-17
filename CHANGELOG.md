@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-11-17
+
 - CHANGE-94: `kanbanzai init` puts a new project's board on a board branch (`[board] home = "branch"`) when its preset
   works in a worktree per card, which is `software`, `release-train` and `team-pr`, and when no preset is chosen. On `main`
   the board's own files are always uncommitted in the main checkout, which `wip --audit` reports as a hard finding, and
