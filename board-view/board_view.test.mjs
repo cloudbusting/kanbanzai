@@ -1178,3 +1178,11 @@ test("a store plugin's board names the plugin, and its flagged cards carry an es
     assert.doesNotMatch(view(store, undefined), /class="store-note"/);
   }
 });
+
+test("the editor's workspace view names a store plugin's board too, and a file board's not at all", () => {
+  const project = (store) => ({ key: 'p', label: 'store-check', board: { store, columns: [{ key: 'todo', cards: [{ id: 'REF-3', title: 'x', store_state: 'conflict' }] }] } });
+  const remote = renderWorkspaceHtml([project({ plugin: 'reference', remote: true, synced_at: '2026-11-17T10:00:37+00:00' })], { nonce: NONCE });
+  assert.match(remote, /<div class="store-note" role="status">Cards kept by the store plugin reference/);
+  assert.match(remote, /class="glyph glyph-store-conflict"/);
+  assert.doesNotMatch(renderWorkspaceHtml([project(undefined)], { nonce: NONCE }), /<div class="store-note"/);
+});
