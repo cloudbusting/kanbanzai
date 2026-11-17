@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-11-17
+
 - TASK-84: the extension's marketplace listing opens with a short animation of the board beside a Claude Code session on
   a made-up project: Init and Apply, a request triaged into a card, a requirement broken down, a card worked to Done. The
   recording and how to remake it are in `tools/demo-gif/`.
