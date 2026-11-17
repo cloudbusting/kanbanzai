@@ -1,11 +1,11 @@
 # CHANGE-94: The board branch becomes this project's board home and the default for new projects on the files store
 
-- **Stage:** shipping
-- **Updated:** 2026-11-17
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-18
+- **Done:** 2026-11-18 — v0.28.1, 56d8ec3, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.28.1
 - **ADR:** none — the brief is the record (no decision-record folder in this repository)
-- **Next action:** release: 0.28.0 after the owner approves (the owner chose 0.28.0 for all four on 2026-11-17); package artifacts at /tmp/kanbanzai-package-BUG-93-0.28.0 from main 618b0d7
-- **Where:** worktree CHANGE-94
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
@@ -85,7 +85,7 @@ Order matters. 3 and 4 depend on 2 and can run in parallel (no shared files). 5 
 - [x] 3. **`workflow show`** — no change was needed: `internal/flow/model.go` already recommends only for a project on `main` (`internal/flow/model.go:168`). The recommendation stays for a project on `main` with `team-pr` or `integration = "remote"`; a project already on the branch says nothing new. Check: the model test for a `team-pr` project with `--board-main`.
 - [x] 4. **Docs and skills** — `docs/team-board.md` (the default and the opt-out; the "for a new project" block drops `--board-branch` for the worktree presets), `docs/presets.md`, `docs/configuration.md`, `docs/setup.md`, `docs/commands.md` (`init` flags), `skills/setup/SKILL.md`, `skills/workflow/SKILL.md`, `defaults/config.toml` comments, `internal/cli/skills_wording_test.go`, `README.md` where it names the board's home. Check: `docs_test.go` and the wording test.
 - [x] 5. **Changelog and the full check** — `CHANGELOG.md` under `[Unreleased]`: the default changed for new projects only; an existing config is untouched. Check: `go vet`, `go test ./...`, node tests, `claude plugin validate`.
-- [ ] 6. **Move this project's board** — `.kanbanzai/config.toml`, `.kanbanzai/work/` and `.kanbanzai/.gitignore`; no code. Manual, owner present, in the main checkout, after BUG-92, BUG-93 and CHANGE-87 are released and **no claim is live** (the ledger and claims move onto the branch): run `kanbanzai doctor --board`, copy `.kanbanzai/work/` and `.kanbanzai/state/numbers` and `claims` aside, add `[board] home = "branch"` to the config, `git rm -r .kanbanzai/work` and commit that with the config and ignore entry on main, `kanbanzai sync --attach`, copy the cards, ledger and claims back, `kanbanzai sync`, and compare `board --json` before and after. Then remove the stale card worktrees' view of the work folder by merging main into any live card branch before it lands, so its copy of the briefs does not come back. Check: the last acceptance line.
+- [ ] 6. **Move this project's board** (NOT DONE when the card closed: still to do, by hand, as the Comments say) — `.kanbanzai/config.toml`, `.kanbanzai/work/` and `.kanbanzai/.gitignore`; no code. Manual, owner present, in the main checkout, after BUG-92, BUG-93 and CHANGE-87 are released and **no claim is live** (the ledger and claims move onto the branch): run `kanbanzai doctor --board`, copy `.kanbanzai/work/` and `.kanbanzai/state/numbers` and `claims` aside, add `[board] home = "branch"` to the config, `git rm -r .kanbanzai/work` and commit that with the config and ignore entry on main, `kanbanzai sync --attach`, copy the cards, ledger and claims back, `kanbanzai sync`, and compare `board --json` before and after. Then remove the stale card worktrees' view of the work folder by merging main into any live card branch before it lands, so its copy of the briefs does not come back. Check: the last acceptance line.
 
 ## Docs
 
@@ -126,3 +126,4 @@ Engineer decisions (mentioned, not asked; the owner may veto): the preset's `boa
 ## Comments
 
 - 2026-11-17 — triage session: related cards are CHANGE-77 (shipped the board branch), BUG-92 (`workflow apply` on a board branch, QA-approved), BUG-85 (editor board follows a board branch, done), CHANGE-87 (store model, QA-approved; rejects a board branch with a plugin) and TASK-73 (`team-pr`, `integration = "remote"`).
+- 2026-11-18 — release session: released in v0.28.1 (0.28.0 was tagged but never published). Tasks 1 to 5 shipped; **task 6, moving this project's own board to `home = "branch"`, was not done** and has no card of its own. BUG-92, BUG-93 and CHANGE-87 are now released, so its precondition holds; it also needs no live claim. The owner decides whether to do it now or triage it as a new card.

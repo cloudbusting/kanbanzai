@@ -1,11 +1,11 @@
 # BUG-93: a test extension in one editor profile replaces every profile's extension and the shared command
 
-- **Stage:** shipping
-- **Updated:** 2026-11-17
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-18
+- **Done:** 2026-11-18 — v0.28.1, 56d8ec3, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.28.1
 - **ADR:** none
-- **Next action:** release: 0.28.0 after the owner approves (the owner chose 0.28.0 for all four on 2026-11-17); package artifacts at /tmp/kanbanzai-package-BUG-93-0.28.0 from main 618b0d7
-- **Where:** worktree BUG-93
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

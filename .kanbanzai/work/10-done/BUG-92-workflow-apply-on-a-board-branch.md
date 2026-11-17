@@ -1,11 +1,11 @@
 # BUG-92: workflow apply does not commit the briefs it moves on a board branch
 
-- **Stage:** shipping
-- **Updated:** 2026-11-17
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-18
+- **Done:** 2026-11-18 — v0.28.1, 56d8ec3, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.28.1
 - **ADR:** none
-- **Next action:** release: version to be chosen by the owner (0.27.1 or 0.28.0) after the owner approves; package artifacts at /tmp/kanbanzai-package-BUG-92-0.27.0 from main b6fad0a
-- **Where:** worktree BUG-92
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 

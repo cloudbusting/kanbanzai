@@ -1,11 +1,11 @@
 # CHANGE-87: Backing-store plugin model: the contract, the trust model and the in-repo store as the standard plugin
 
-- **Stage:** shipping
-- **Updated:** 2026-11-17
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-18
+- **Done:** 2026-11-18 — v0.28.1, 56d8ec3, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.28.1
 - **ADR:** this brief (Decisions and Contract) is the record; the repository keeps no separate decision-record folder
-- **Next action:** release: version to be settled by the owner (0.27.0 is already released; metadata still says 0.27.0) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-87-0.27.0 from main 9884d60; owner's editor check passed earlier
-- **Where:** worktree CHANGE-87
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
