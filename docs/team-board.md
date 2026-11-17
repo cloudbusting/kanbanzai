@@ -73,6 +73,14 @@ files, and keeps your commits. Resolve in the board worktree (`git -C .kanbanzai
 The likeliest conflict is the number ledger when two people took numbers offline (`publish = "ask"`): keep the union of both
 `issued` lists in `.ledger/_ledger.json`, commit, and `kanbanzai sync`; a card two people numbered alike needs one renumbered by hand.
 
+## The editor follows the branch
+
+The editor's board ([editor.md](editor.md)) reads where the board branch stands from `kanbanzai sessions --json` (a `board`
+object, local git only), so it refreshes when a move, a merge or a pull changes the branch, and shows `⇣N` when your clone
+is behind origin. Under `publish = "auto"` the extension runs `kanbanzai sync` about once a minute while its window is
+focused, so your teammates' moves appear without a command of yours; under `ask` it never fetches or pushes, and the
+**Kanbanzai: Sync board** command runs `kanbanzai sync` when you choose.
+
 ## `publish = "auto"` is a decision for you
 
 The command otherwise makes no network request. With `publish = "auto"` (or when you run `kanbanzai sync`) it runs `git fetch`

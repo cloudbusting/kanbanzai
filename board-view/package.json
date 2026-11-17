@@ -53,6 +53,10 @@
         "title": "Kanbanzai: Help"
       },
       {
+        "command": "kanbanzai.syncBoard",
+        "title": "Kanbanzai: Sync board"
+      },
+      {
         "command": "kanbanzai.init",
         "title": "Kanbanzai: Init"
       },

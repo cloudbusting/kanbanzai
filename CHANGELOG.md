@@ -5,6 +5,15 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-85: the editor's board follows a board branch. `kanbanzai sessions --json` gains an optional `board` object for a
+  project with `[board] home = "branch"` (the branch, its head, ahead, behind, uncommitted and publish; local git only, no
+  network; absent for a board on main), and the extension refreshes the tab when it changes, so a move made in a terminal
+  or pulled in shows without a reload even where the editor's file watcher misses the git-ignored board worktree. The
+  status bar shows `⇣N` and the project line shows what is behind or unpublished. New command **Kanbanzai: Sync board**
+  runs `kanbanzai sync`; under `publish = "auto"` the extension runs it about once a minute while the window is focused
+  (a new outward act, `git fetch` and `git push` of the board branch only, under the owner's standing approval); under
+  `ask` it never does.
+
 ## [0.26.0] — 2026-11-17
 
 - TASK-84: the extension's marketplace listing opens with a short animation of the board beside a Claude Code session on

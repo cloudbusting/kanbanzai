@@ -80,6 +80,7 @@ operating-system notification as well. The details:
 |---|---|
 | **Kanbanzai: Show Board** | Opens the board tab (also `▦ Board` in the status bar). |
 | **Kanbanzai: Help** | Shows the board with its Help popup open: a cheat sheet of the commands and the common workflows (also the **? Help** button on the board). Read-only. |
+| **Kanbanzai: Sync board** | For a project that keeps its board on a [board branch](https://github.com/cloudbusting/kanbanzai/blob/main/docs/team-board.md): runs `kanbanzai sync` (fetch, merge and push of that branch only) and says what it did. Under `publish = "auto"` the extension also does this by itself, below. |
 | **Kanbanzai: Init** | Makes a setup plan for a project with no board, and opens it. Writes nothing else. |
 | **Kanbanzai: Apply** | Applies the saved setup plan: your approval. |
 | **Kanbanzai: Show Setup Plan** | Opens the pending plan again. |
@@ -95,7 +96,7 @@ operating-system notification as well. The details:
 ## What it executes, reads and writes
 
 - **Executes:** the resolved `kanbanzai` command, with `execFile` and an argument array (never a shell string):
-  `board --json`, `config --json` and `sessions --json` to draw the board, `guide --json` (read-only, the first time
+  `board --json`, `config --json` and `sessions --json` to draw the board, `sync --json` for a project whose board is on a branch (when you run **Sync board**, and about once a minute, only while the window is focused, when that project sets `publish = "auto"`), `guide --json` (read-only, the first time
   you open Help, for the cheat sheet it shows), `install --refresh` at startup (only
   when a per-user copy is already there), and after you click Apply, `init --plan --dry-run`, `install` and
   `init --plan`; `init --dry-run --json` makes the plan you read. For bundled Claude setup it also runs
@@ -120,7 +121,7 @@ operating-system notification as well. The details:
   had set it up). The plan file is deleted after a successful Apply. A migration writes through the command, only
   when you click Apply (the project's config today, backed up under `.kanbanzai/state/migrate/`). The board tab
   itself never writes.
-- **Network, telemetry:** none. The extension makes no request and sends nothing. The bundled route loads plugins
+- **Network, telemetry:** none from the extension itself: it makes no request and sends nothing. The one thing it can start is `kanbanzai sync` for a board branch, which runs `git fetch` and `git push` of that branch's own ref to the remote you named, only when you run **Sync board** or the project sets `publish = "auto"` ([security.md](https://github.com/cloudbusting/kanbanzai/blob/main/docs/security.md)). The bundled route loads plugins
   locally; the separate GitHub marketplace source can be fetched by Claude Code.
 - **The command is not signed:** a binary taken from the extension may meet macOS Gatekeeper or Windows SmartScreen
   prompts. If the editor does not keep its executable bit, the extension sets it once and logs that to the Output

@@ -19,7 +19,7 @@ kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or f
 kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
-kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing
+kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing; for a board on a branch, `--json` adds a `board` object (branch, head, ahead, behind, uncommitted, publish; local git only)
 kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
 kanbanzai migrate [--json | --apply --plan HASH | --rollback]

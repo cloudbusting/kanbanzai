@@ -30,7 +30,7 @@ A hook that fails exits quietly: a Kanbanzai fault must not land in your session
   the tree is unchanged since you read it, and refuses otherwise.
 - Nothing is ever committed or pushed for you. Shipping and pushing are steps you approve. The one opt-in exception is a project
   whose board lives on a board branch: its commands commit **the files they wrote** to that branch, and `kanbanzai sync` (or
-  `publish = "auto"`, which you set) fetches and pushes that branch's own ref, never `main`, a card's branch or a tag, never
+  `publish = "auto"`, which you set) fetches and pushes that branch's own ref (the editor extension starts `kanbanzai sync` for you only under `publish = "auto"`, once a minute while the window is focused, or when you run **Kanbanzai: Sync board**), never `main`, a card's branch or a tag, never
   forced and never skipping a git hook ([team-board.md](team-board.md)).
 - Settings files you already have are merged into, never overwritten; a rule file such as `AGENTS.md` is read, never edited.
 - `.claude/settings.json` is committed with the project, so Claude Code offers the plugin to every teammate who opens

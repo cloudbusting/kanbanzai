@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -524,7 +525,15 @@ func runSessions(project *config.Project, asJSON bool, out io.Writer) int {
 		}
 	}
 	if asJSON {
-		writeCompact(out, map[string]any{"waiting": waiting, "claims": len(claims), "cards": cards, "unclaimed": unclaimed})
+		answer := map[string]any{"waiting": waiting, "claims": len(claims), "cards": cards, "unclaimed": unclaimed}
+		// BUG-85: a board on a branch says where the branch stands, so a poll sees a commit, a merge or a fast-forward
+		// whether or not the editor's file watcher reported it. A board on main has no such key.
+		if board, err := boardbranch.New(project); err == nil {
+			if summary, ok := board.Summary(); ok {
+				answer["board"] = summary
+			}
+		}
+		writeCompact(out, answer)
 		return 0
 	}
 	keys := make([]string, 0, len(cards))

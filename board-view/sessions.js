@@ -26,10 +26,37 @@ function sessionOf(value) {
   return { state: s.state, since: s.since, name: typeof s.name === 'string' ? s.name : '' };
 }
 
-// The status bar text: the count of asking cards, or nothing extra.
+// The status bar text: the count of asking cards, then (BUG-85) how many board-branch commits this clone lacks from
+// origin, or nothing extra.
 function statusLabel(sessions) {
-  const n = sessions && typeof sessions === 'object' ? sessions.waiting : 0;
-  return Number.isInteger(n) && n > 0 ? `${PLAIN} ❓${n}` : PLAIN;
+  const o = sessions && typeof sessions === 'object' ? sessions : {};
+  const n = o.waiting, behind = o.behind;
+  return PLAIN + (Number.isInteger(n) && n > 0 ? ` ❓${n}` : '') + (Number.isInteger(behind) && behind > 0 ? ` ⇣${behind}` : '');
+}
+
+// BUG-85: the `board` object of `sessions --json`, which a board kept on a branch adds: where the branch stands. Every
+// field is optional; null when the answer has none (a board on main, or an older command).
+function parseBoard(value) {
+  if (!plainObject(value)) return null;
+  const count = (n) => (Number.isInteger(n) && n > 0 ? n : 0);
+  return {
+    branch: typeof value.branch === 'string' ? value.branch : '',
+    head: typeof value.head === 'string' ? value.head : '',
+    ahead: count(value.ahead), behind: count(value.behind), uncommitted: count(value.uncommitted),
+    publish: value.publish === 'auto' ? 'auto' : 'ask',
+  };
+}
+
+// The project line above a board kept on a branch: what is not in step, and the last failed sync. '' when all is well.
+function boardNote(board, syncError) {
+  const b = plainObject(board) ? board : null;
+  if (!b) return '';
+  const parts = [];
+  if (b.behind > 0) parts.push(`${b.behind} behind origin`);
+  if (b.uncommitted > 0) parts.push(`${b.uncommitted} unpublished file${b.uncommitted === 1 ? '' : 's'}`);
+  if (b.ahead > 0) parts.push(`${b.ahead} commit${b.ahead === 1 ? '' : 's'} not pushed`);
+  if (syncError) parts.push(`sync failed: ${syncError}`);
+  return parts.length ? `Board branch${b.branch ? ` ${b.branch}` : ''}: ${parts.join(', ')}` : '';
 }
 
 // The command's output as an object, or null when it is not what it should be.
@@ -48,6 +75,7 @@ function parseSessions(text) {
     cards: value.cards && typeof value.cards === 'object' ? value.cards : {},
     // BUG-64: the sessions asking the owner that hold no card; an older command does not say, which reads as none.
     unclaimed: plainObject(value.unclaimed) ? value.unclaimed : {},
+    board: parseBoard(value.board),
   };
 }
 
@@ -140,7 +168,7 @@ function askingTooltip(answer) {
 }
 
 const api = {
-  elapsed, sessionOf, statusLabel, parseSessions, newlyAsking, askMessages, askingTooltip, looseAsking, PLAIN,
+  elapsed, sessionOf, statusLabel, parseSessions, parseBoard, boardNote, newlyAsking, askMessages, askingTooltip, looseAsking, PLAIN,
   projectContext, projectFields, scopedKey,
 };
 if (typeof module === 'object' && module.exports) module.exports = api;

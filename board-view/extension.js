@@ -358,6 +358,7 @@ function activate(context, opts) {
     vscode.commands.registerCommand('kanbanzai.cancelSetup', () => runSetup('kanbanzai.cancelSetup', setup.discardPending, env)),
     vscode.commands.registerCommand('kanbanzai.showBoard', () => workspace.show()),
     vscode.commands.registerCommand('kanbanzai.help', () => workspace.showHelp()),
+    vscode.commands.registerCommand('kanbanzai.syncBoard', () => workspace.syncBoard().catch(() => {})),
     vscode.commands.registerCommand('kanbanzai.migrate', () => workspace.offerMigration().catch(() => {})),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (!e || typeof e.affectsConfiguration !== 'function') return;
