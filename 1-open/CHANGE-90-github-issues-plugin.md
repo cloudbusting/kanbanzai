@@ -1,12 +1,11 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** qa-approved
-- **Updated:** 2026-11-17
+- **Stage:** shipping
+- **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
 - **Next action:** owner: approve the release (QA-approved gate) after the by-hand check on a throwaway repository you name: gh auth login, [store] plugin github with prefix GH and settings repo, kanbanzai store trust, sync, see an issue on the board, number --title, move it and see the stage: label; then ship (kanbanzai-release) chooses the version
 - **Where:** worktree CHANGE-90
-- **Gate:** passed by claude:fc7a1d81-90a9-4c27-bac5-2cb16d96d38d, 2026-11-17 — Approve now, check during release (owner, 2026-11-18, asked whether to run the by-hand check on cloudbusting/kanbanzai first)
 - **Needs:** CHANGE-87
 
 ## Goal
