@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-11-18
+
 - CHANGE-90: a GitHub issues store plugin ships with the command. Set `[store] plugin = "github"`, a `prefix` and
   `[store.settings] repo = "owner/name"`, run `gh auth login`, `kanbanzai store trust` and `kanbanzai sync`, and the board
   shows the issues of that one repository, narrowed by `[store] query`, which is GitHub's own issue search
