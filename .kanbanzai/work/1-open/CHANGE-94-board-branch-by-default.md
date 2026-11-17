@@ -1,10 +1,10 @@
 # CHANGE-94: The board branch becomes this project's board home and the default for new projects on the files store
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record (no decision-record folder in this repository)
-- **Next action:** check: run kanbanzai:check on worktree CHANGE-94 (commit 5078d24); task 6 (move this project's board to the branch) stays open until BUG-92, BUG-93 and CHANGE-87 are released and no claim is live
+- **Next action:** package: kanbanzai-package builds the artifacts from main after the merge of CHANGE-94; task 6 (move this project's board) stays open until BUG-92, BUG-93 and CHANGE-87 are released and no claim is live
 - **Where:** worktree CHANGE-94
 
 ## Goal
@@ -105,6 +105,7 @@ Engineer decisions (mentioned, not asked; the owner may veto): the preset's `boa
 - 2026-11-17: captured from the owner's request and triaged; shipped CHANGE-77 already has the board branch, `init --board-branch` and `sync --attach`, and the default is `main`.
 - 2026-11-17: design: owner chose the presets (worktree presets except pr-review, plus no-preset init) and the by-hand migration; found that a preset cannot set `[board]` today, so a `board_home` key in `[preset]` is read by `init` only; wrote six tasks and twelve checks.
 - 2026-11-17: build: tasks 1 to 5 done in worktree CHANGE-94 (commit 5078d24, not pushed): preset `board_home`, `init --board-main`, the home choice and its reason, an unattached branch is not a failed check, editor passes `--board-main`, docs, skills, changelog. Found while building: `init` has no `[store]` option, so that check was dropped; the editor flow needed the flag. `go vet`, `go test ./...` (all packages), node 438, `claude plugin validate`, hooks syntax, three cross-builds and the vsix dry run pass.
+- 2026-11-17: check: green. QA skill: go vet, go test -count=1 ./... (every package), node 438, `claude plugin validate`, hook syntax, JS syntax, the five steps resolve, `kanbanzai check`, card audit, vsix dry run (no `bin.json`, no machine path, init.js carries `--board-main`), Windows, macOS and arm64 builds. Review of the whole diff: no must-fix; the tests fail without the change; version metadata untouched. Manual and not run: the editor's Init button against a real editor (the extension test proves it passes `--board-main`).
 
 ## Out of scope
 
