@@ -1,0 +1,7 @@
+# The web editor the board demo GIF is recorded in: the open-source web build of VS Code (VSCodium has no web build).
+# `demo.sh prepare` downloads `url`, refuses it unless its sha256 is `sha256`, and unpacks it into a scratch folder.
+# The sha256 is the digest GitHub publishes for the release asset. To move to a newer editor, change all three lines
+# together and look at a remake before committing.
+version=openvscode-server-v1.109.5
+url=https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-x64.tar.gz
+sha256=b433bf4f0227321a7014d8460d10a8f958adc0f45aa79bd889e84e65e8f88363
