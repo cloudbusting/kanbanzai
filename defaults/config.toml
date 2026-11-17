@@ -142,6 +142,22 @@ branch = "kanbanzai-board"
 remote = "origin"
 publish = "ask"
 
+# Which store keeps the cards. The default, `files`, is the project's own Markdown briefs in <work>: nothing else runs.
+# Keys:
+#   plugin   files (the default), or a store plugin's bare name: `x` runs `kanbanzai-store-x` from PATH, and
+#            `reference` is the built-in example plugin (`kanbanzai store serve`). Never a path, an argument or a
+#            shell command. A plugin runs only after this clone's owner trusts it (`kanbanzai store trust`).
+#   prefix   a plugin's id prefix: its cards are PREFIX-<number>, such as PROJ-123 for a JIRA key (required with a
+#            plugin; never a card type's prefix)
+#   query    the plugin's own query, passed as it is: JQL for JIRA, an issue search for GitHub. Empty means every
+#            ticket the plugin can see
+#   settings a [store.settings] table of text the plugin reads (a host, a project), never a credential: the
+#            plugin's own tool holds those
+# A plugin's cards are a working copy under <state>/store/work, which git ignores; a plugin and a board branch
+# cannot be used together. docs/store-plugins.md has the protocol and the trust model.
+[store]
+plugin = "files"
+
 # The columns, in the board's order. Keys:
 #   key      the column's id, and the Stage word that puts a card in it (unless `words` says more)
 #   label    its name on the board

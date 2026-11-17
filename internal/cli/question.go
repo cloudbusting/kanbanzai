@@ -4,17 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
-	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
-	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/move"
 	"github.com/cloudbusting/kanbanzai/internal/question"
+	cardstore "github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
 
@@ -89,13 +88,14 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		fmt.Fprintf(errOut, "%s: no card %s\n", command, cardID)
 		return 2
 	}
-	path := project.Abs(card.Path)
-	data, err := os.ReadFile(path)
+	cards := stores.For(project, nil)
+	read, err := board.ReadBrief(project, card)
 	if err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
-	text := string(data)
+	path := read.Path
+	text := string(read.Text)
 	_, fields := brief.Header(text)
 	today := now.Format("2006-01-02")
 	if command == "ask" {
@@ -118,7 +118,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		text = brief.SetFields(text, map[string]*string{"Held": &held, "Next action": &next, "Updated": &today})
 		text = brief.EnsureSection(text, "Progress", project.BriefSectionOrder(cardID))
 		text = brief.AddProgress(text, "- "+today+": waiting for an answer in ## Questions")
-		if err := writeQuestionBrief(path, text); err != nil {
+		if err := writeQuestionBrief(cards, read, text); err != nil {
 			fmt.Fprintln(errOut, err)
 			return 1
 		}
@@ -130,7 +130,7 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 			fmt.Fprintln(errOut, err)
 			return 1
 		}
-		boardbranch.Saved(project, cardID+": waiting for an answer", path, store.Path(cardID))
+		cards.Changed(cardID+": waiting for an answer", path, store.Path(cardID))
 		fmt.Fprintf(out, "%s: question recorded; claim released\n", cardID)
 		return 0
 	}
@@ -177,11 +177,11 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 		return 2
 	}
 	text = brief.SetFields(text, map[string]*string{"Held": nil, "Next action": &next, "Updated": &today})
-	if err := writeQuestionBrief(path, text); err != nil {
+	if err := writeQuestionBrief(cards, read, text); err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
-	boardbranch.Saved(project, cardID+": answer recorded", path)
+	cards.Changed(cardID+": answer recorded", path)
 	// A refused return is intentional: retain the recorded answer and leave an interrupted card.
 	position := 0
 	for i, col := range project.Columns {
@@ -214,10 +214,8 @@ func runQuestion(project *config.Project, command string, args []string, out, er
 	return 0
 }
 
-func writeQuestionBrief(path, text string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	return fsutil.WriteFileAtomic(path, []byte(text), info.Mode().Perm())
+// writeQuestionBrief writes the brief back through its store, refusing when it changed since it was read.
+func writeQuestionBrief(cards cardstore.Store, read cardstore.Card, text string) error {
+	_, err := cards.Write(read.Entry, []byte(text), read.Rev, read.Folder)
+	return err
 }

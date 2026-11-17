@@ -26,6 +26,11 @@ const MARKS = {
 const CLAIMED_GLYPH = '●';
 const SESSION_WORD = { waiting: 'asking', busy: 'busy', idle: 'idle' };
 const INTERRUPTED_TEXT = 'Interrupted: the step was under way and no session holds it';
+// A store plugin's flags on a card (board --json store_state). Only these values draw; anything else is ignored.
+const STORE_STATES = {
+  conflict: { glyph: '⇄', text: 'Conflict: changed both here and in the store since the last sync (kanbanzai store status says how to settle it)' },
+  left_query: { glyph: '⊘', text: "Left the query: the store's query no longer returns it; it stays while it is in flight" },
+};
 const UNSTARTED_TEXT = 'Claimed but its step has not started: the card was not moved into its Doing column';
 
 function esc(value) {
@@ -147,11 +152,18 @@ function cardHtml(card, colKey, ownerName, now, project) {
     hover.push(UNSTARTED_TEXT);
     classes.push('unstarted');
   }
+  const storeState = typeof c.store_state === 'string' && Object.prototype.hasOwnProperty.call(STORE_STATES, c.store_state)
+    ? c.store_state : '';
+  if (storeState) {
+    hover.push(STORE_STATES[storeState].text);
+    classes.push(`store-${storeState}`);
+  }
 
   let glyphs = '';
   if (mark) glyphs += `<span class="glyph glyph-${esc(mark)}">${esc(markInfo.glyph)}</span>`;
   if (c.interrupted === true) glyphs += `<span class="glyph glyph-interrupted" title="${esc(INTERRUPTED_TEXT)}">⚠</span>`;
   if (c.claimed_not_started === true) glyphs += `<span class="glyph glyph-unstarted" title="${esc(UNSTARTED_TEXT)}">⚑</span>`;
+  if (storeState) glyphs += `<span class="glyph glyph-store-${storeState}" title="${esc(STORE_STATES[storeState].text)}">${STORE_STATES[storeState].glyph}</span>`;
   if (gateWaits) glyphs += `<span class="glyph glyph-gate" title="${esc([`Waiting at a ${gate.type} gate: ${gate.state}`, ...needsTable(gate.needs)].join('\n'))}">🔒</span>`;
   if (hasQuestion && !(session && session.state === 'waiting')) glyphs += '<span class="glyph glyph-asking">❓</span>';
   if (session) {
@@ -348,6 +360,9 @@ const STYLE = `
   .glyph-blocked { color: var(--vscode-errorForeground); }
   .glyph-waiting-owner, .glyph-waiting { color: var(--vscode-editorWarning-foreground); }
   .glyph-interrupted, .glyph-unstarted { color: var(--vscode-editorWarning-foreground); }
+  .glyph-store-conflict { color: var(--vscode-errorForeground); }
+  .glyph-store-left_query { color: var(--vscode-descriptionForeground); }
+  .store-note { margin: 2px 0 6px; color: var(--vscode-descriptionForeground); font-size: 0.9em; }
   .glyph-gate { color: var(--vscode-descriptionForeground); }
   .glyph-paused { color: var(--vscode-descriptionForeground); }
   .glyph-claimed { color: var(--vscode-focusBorder); margin-left: auto; }
@@ -515,9 +530,18 @@ function askingSessionsHtml(board, now, project) {
 
 // opts.collapsed: the keys of the columns the user collapsed (kept by the extension per workspace).
 // opts.toasts: the toasts to draw (toasts.toViews), in the lower left over the board.
+// storeNoteHtml names the store plugin behind a board, when one keeps it; a file board has no store field.
+function storeNoteHtml(board) {
+  const store = obj(obj(board).store);
+  if (store.remote !== true || typeof store.plugin !== 'string' || !store.plugin) return '';
+  const synced = typeof store.synced_at === 'string' && store.synced_at ? `synced ${store.synced_at}` : 'never synced: run kanbanzai sync';
+  const query = typeof store.query === 'string' && store.query ? ` · query: ${store.query}` : '';
+  return `<div class="store-note" role="status">Cards kept by the store plugin ${esc(store.plugin)} · ${esc(synced)}${esc(query)}</div>\n`;
+}
+
 function renderContent(board, opts) {
   const problems = arr(obj(board).problems);
-  let inner = '';
+  let inner = storeNoteHtml(board);
   if (problems.length) {
     inner += `<div class="problems" role="alert">${problems.map((p) => `<div>${esc(p)}</div>`).join('')}</div>\n`;
   }
@@ -856,6 +880,8 @@ function renderWorkspaceHtml(projects, opts) {
     inner += `<h2 id="workspace-${esc(scopedKey(p.key, 'heading', ''))}">${esc(p.label)}</h2>`;
     // BUG-85: where a board kept on a branch stands (behind origin, unpublished, a failed sync); nothing when in step.
     if (typeof p.branch === 'string' && p.branch) inner += `<div class="board-branch" role="status">${esc(p.branch)}</div>`;
+    // CHANGE-87: the store plugin that keeps this project's cards; nothing for a board kept in files.
+    inner += storeNoteHtml(p.board);
     if (p.error) inner += `<div class="problems project-error" role="alert">${esc(p.label)}: ${esc(p.error)}${p.board ? ' — showing the last good board; data may be stale.' : ''}</div>`;
     const b = obj(p.board);
     const problems = arr(b.problems);

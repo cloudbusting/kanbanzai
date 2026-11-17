@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -24,14 +25,19 @@ var BoardHomes = map[string]bool{"main": true, "branch": true}
 // without being asked each time.
 var BoardPublishModes = map[string]bool{"ask": true, "auto": true}
 
+// StorePluginName is a store plugin's bare name: it runs `kanbanzai-store-<name>`, so it is never a path, an
+// argument or shell syntax.
+var StorePluginName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+
 // schemaKeys is the single allowlist for all supported configuration tables. Step names are user-defined.
 func schemaKeys() map[string]map[string]string {
 	return map[string]map[string]string{
-		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas", "preset": "table", "board": "table"},
+		"": {"config_version": "version", "config_allow_unknown": "strings", "project": "table", "claims": "table", "flow": "table", "columns": "columns", "steps": "steps", "types": "types", "schemas": "schemas", "preset": "table", "board": "table", "store": "table"},
 		"project": {
 			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
 		"board":        {"home": "board home", "branch": "string", "remote": "string", "publish": "board publish"},
+		"store":        {"plugin": "store plugin", "prefix": "string", "query": "string", "settings": "settings"},
 		"preset":       {"name": "string", "delivery_style": "string", "version": "positive integer"},
 		"claims":       {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":         {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation", "integration": "integration"},
@@ -131,6 +137,10 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 					want = `"main" or "branch"`
 				case "board publish":
 					want = `"ask" or "auto"`
+				case "store plugin":
+					want = `a plugin's bare name: lower-case letters, digits and '-' (never a path, an argument or a shell command)`
+				case "settings":
+					want = "a table of string values"
 				}
 				return errf("%s: %s must be %s; correct the value in the config", source, full, want)
 			}
@@ -138,6 +148,12 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 			case "table":
 				if err := table(value.(map[string]any), key, full); err != nil {
 					return err
+				}
+			case "settings":
+				for _, name := range sortedKeys(value.(map[string]any)) {
+					if _, ok := value.(map[string]any)[name].(string); !ok {
+						return errf("%s: %s.%s must be a string; plugin settings are passed as text", source, full, name)
+					}
 				}
 			case "steps":
 				for _, name := range sortedKeys(value.(map[string]any)) {
@@ -203,6 +219,12 @@ func validType(value any, typ string) bool {
 	case "board publish":
 		text, ok := value.(string)
 		return ok && BoardPublishModes[text]
+	case "store plugin":
+		text, ok := value.(string)
+		return ok && StorePluginName.MatchString(text)
+	case "settings":
+		_, ok := value.(map[string]any)
+		return ok
 	case "started":
 		if _, ok := value.(bool); ok {
 			return true

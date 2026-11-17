@@ -2,7 +2,6 @@ package check
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,7 +13,8 @@ import (
 // BriefSchemas applies opt-in structural rules using the type derived from the filename.
 func BriefSchemas(project *config.Project) []string {
 	var problems []string
-	for _, path := range board.Briefs(project) {
+	for _, found := range board.Briefs(project) {
+		path := found.Path
 		match := project.CardFileRe.FindStringSubmatch(filepath.Base(path))
 		if match == nil {
 			continue
@@ -27,7 +27,7 @@ func BriefSchemas(project *config.Project) []string {
 		if !ok {
 			continue
 		}
-		data, err := os.ReadFile(path)
+		data, err := found.Text, found.Err
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: cannot read brief: %v", project.Rel(path), err))
 			continue

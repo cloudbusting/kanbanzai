@@ -10,6 +10,28 @@ and the editor extension carry the same version.
   `kanbanzai sync`. Its clean-tree check now looks in the board worktree, over the whole work folder, and refuses a board
   that is not attached; before, it could not see the briefs there. A failed or killed apply commits nothing. The config
   and templates it writes still stay uncommitted in the main checkout, and its notes say to merge them before teammates sync.
+- CHANGE-87: the cards are kept by a store, behind one interface, and the in-repo files are the standard store.
+  - **The core reaches every card through the store.** Board, check, move, gate, ask and answer, number, step,
+    workflow apply, the browser board and the terminal board all go through it. A board kept in files gives
+    byte-for-byte the same output, and a brief is now read only inside the cards folder, not through a symlink out
+    of it.
+  - **A new `[store]` table selects a store plugin** by bare name: `kanbanzai-store-<name>` on `PATH`, or the built-in
+    `reference`.
+    - It also takes the plugin's id `prefix` (its cards are `PROJ-123`), its own `query`, passed as it is (JQL, a
+      GitHub search; empty means all), and `[store.settings]`.
+    - A plugin runs only after `kanbanzai store trust` records its SHA-256 in this clone. The command itself still
+      makes no network request and holds no credential.
+  - **A plugin's cards are a working copy under the state folder**, which git ignores.
+    - Board commands write through with the revision the card was synced at. A ticket changed elsewhere is refused,
+      never overwritten.
+    - `kanbanzai sync` fetches and publishes hand edits.
+    - A card in flight that leaves the query stays, flagged.
+  - **New commands:** `kanbanzai store serve|trust|status` and `kanbanzai number --title`.
+  - **`board --json`** gains the optional `store` and `store_state` fields, for a plugin's board only.
+    `config --json` gains `store`.
+  - **`wip --audit`** warns about a card in conflict or out of the query.
+  - **The editor** shows the plugin above the columns and marks those cards.
+  - `docs/store-plugins.md` is the protocol, the trust model and the plugin author's guide.
 
 ## [0.27.0] — 2026-11-17
 

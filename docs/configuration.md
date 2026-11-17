@@ -44,6 +44,15 @@ committed on the main branch, the ledger and claims are per-clone state) or `bra
 branch after each change). `work` must then be inside the main checkout, and `claims` and `numbers` default to folders beside the
 cards. [team-board.md](team-board.md) has the setup and what can stand in the way.
 
+**Store.** `[store] plugin` says which store keeps the cards: `files` (the default: the project's own briefs, as
+always) or a store plugin's bare name, which runs `kanbanzai-store-<name>` from your `PATH` (`reference` is the
+built-in example). A plugin runs only after you trust it in this clone with `kanbanzai store trust`. With a plugin,
+`prefix` is its id prefix (`PROJ` for `PROJ-123`), `query` is its own query passed as it is (JQL for JIRA, an issue
+search for GitHub; empty means every ticket it can see), and
+`[store.settings]` is text the plugin reads, never a credential. The cards are then a working copy under
+`<state>/store/work`, which git ignores, and a board branch cannot be used as well.
+[store-plugins.md](store-plugins.md) has the protocol and the trust model.
+
 `.kanbanzai/config.toml` overrides [defaults/config.toml](../defaults/config.toml) key by key (read its comments for
 every key). A `[[columns]]` list replaces the whole column list. `kanbanzai config` prints the result.
 The bootstrap file is always `.kanbanzai/config.toml` in the main checkout: `project.home` does **not** relocate

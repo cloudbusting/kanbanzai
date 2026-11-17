@@ -184,8 +184,9 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 	type moving struct{ old, new string }
 	var moves []moving
 	var texts = map[string]string{}
-	for _, briefPath := range board.Briefs(p) {
-		data, err := os.ReadFile(briefPath)
+	for _, item := range board.Briefs(p) {
+		briefPath := item.Path
+		data, err := item.Text, item.Err
 		if err != nil {
 			return nil, err
 		}

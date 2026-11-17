@@ -224,6 +224,9 @@
       ]
     }
   },
+  "store": {
+    "plugin": "files"
+  },
   "types": [
     {
       "description": "A piece of work",

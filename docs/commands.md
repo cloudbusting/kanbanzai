@@ -10,13 +10,16 @@ there.
 kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser
 kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
 kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
-kanbanzai sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch, merge and push it
+kanbanzai sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch, merge and push it;
+                                         with a store plugin: fetch its tickets and publish hand edits
+kanbanzai store serve|trust|status       the store plugin: the built-in reference plugin, trust the selected one in this clone, or report it
 kanbanzai claim owner|status [ID]|claim ID [--note T] [--no-move] [--takeover R]|renew ID|release ID|heartbeat
 kanbanzai move ID TARGET [--next T] [--where T] [--held T|--clear-held] [--progress T] [--done T] [--force --reason T]
 kanbanzai ask ID --text T [--option O]... [--recommend R] [--note T]
 kanbanzai answer ID [--text T] [--next T]
 kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or failed, or say where its gate stands
 kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
+kanbanzai number --title T [--type KEY]  with a store plugin: create the ticket, print its id, and write its brief
 kanbanzai check                          validate every brief against the settings
 kanbanzai step NAME | --for ID           what runs a step, and what extends it
 kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing; for a board on a branch, `--json` adds a `board` object (branch, head, ahead, behind, uncommitted, publish; local git only)
@@ -128,6 +131,14 @@ the audit reports one that is clean and has no commits missing from the main bra
 and `wip --cleanup` lists it (never an open card's, nor an early-closed card's) for `/cleanup`, which removes it after
 proving it clean, merged and Done. A finished card's worktree that is dirty, holds unmerged commits or belongs to an
 early close stays a hard finding.
+
+**A store plugin.** With `[store] plugin` set ([store-plugins.md](store-plugins.md)), `kanbanzai sync` fetches the
+tickets the plugin's query returns into the working copy and publishes the briefs you edited by hand. It never overwrites
+a ticket that changed in the store; it flags the card instead. `kanbanzai store trust` records the plugin's program and
+its SHA-256 in this clone, and no command runs a plugin until then. `kanbanzai store status` says which plugin is
+selected, whether it is trusted, the query, when it last synced, and each card in conflict or out of the query.
+`kanbanzai store serve` is the built-in reference plugin, which answers one protocol request. `kanbanzai number --title`
+asks the plugin to create a ticket. Without a plugin these say there is none, and `number --title` is refused.
 
 **The board branch.** `kanbanzai sync` belongs to a project whose board lives on a branch of its own (`[board] home = "branch"`;
 [team-board.md](team-board.md)). `sync --attach` makes the worktree at the work folder (creating the branch, or checking it out of

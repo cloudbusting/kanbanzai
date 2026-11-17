@@ -67,6 +67,12 @@ With several projects open as workspace folders, the board shows them all, each 
 | `●` | claimed by a session; the hover says which |
 | `❓ asking 3m`, filled card | the session holding the card has been waiting for you for 3 minutes |
 | `● busy 12m` / `● idle 4m` | the session holding the card is working, or idle, and for how long |
+| `⇄` | a store plugin's card that changed both here and in the store since the last sync (`kanbanzai store status` says how to settle it) |
+| `⊘` | a store plugin's card that the store's query no longer returns; it stays while it is in flight |
+
+When a store plugin keeps the board ([store plugins](https://github.com/cloudbusting/kanbanzai/blob/main/docs/store-plugins.md)),
+a line above the columns names the plugin, when it last synced and its query. These come from the optional `store`
+and `store_state` fields of `kanbanzai board --json`; a board kept in files has neither.
 
 A session that is asking you but holds no card is listed in a strip above the columns. When a card moves, finishes,
 becomes blocked or starts asking, a note appears in the board's corner. A message also appears in the editor's

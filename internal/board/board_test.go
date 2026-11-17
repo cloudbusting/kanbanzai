@@ -703,3 +703,12 @@ func TestAClosedCardGateCarriesTheNeedsAndNoOtherGateDoes(t *testing.T) {
 		}
 	}
 }
+
+func TestALegacyCardOnAFileBoardHasNoTypeWhateverItsTypeLineSays(t *testing.T) {
+	project := testProject(t, "[project]\nowner = \"Sam\"\n")
+	testutil.Write(t, filepath.Join(project.Work, "1-open", "W-07-x.md"), testutil.Brief("W-07", "x", "todo", "- **Type:** bug"))
+	_, card := Find(Load(project, map[string]string{}, map[string]sessions.Record{}), "W-07")
+	if card == nil || card.Type != nil {
+		t.Fatalf("a legacy card has no type on a file board: %+v", card)
+	}
+}

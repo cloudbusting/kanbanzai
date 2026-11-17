@@ -75,7 +75,10 @@ its work. Stop instead of forcing a refused move or changing someone else's desi
 Reuse a matching epic only when the plan explicitly approved updating it. Otherwise obtain the epic ID with
 `kanbanzai number --type epic`. Allocate only approved new items with `kanbanzai number --type <configured-key>`;
 never guess IDs or issue numbers for dropped pieces or folds. Use `kanbanzai template <ID or type>` for each card,
-including schema-required fields/sections, and the configured initial folder/column for new briefs.
+including schema-required fields/sections, and the configured initial folder/column for new briefs. When
+`kanbanzai context` says a store plugin keeps the cards, the store issues each id: create each approved card with
+`kanbanzai number --title "<title>" --type <configured-key>`, fill in the brief it prints, and publish the edits with
+`kanbanzai sync`.
 
 Apply `/triage` to each approved piece without running `/do`: small settled work gets a concrete next action
 only where the configured route supports it; a design question stays a question. An actual external blocker gets

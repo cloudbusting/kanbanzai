@@ -2,14 +2,11 @@ package number
 
 import (
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 )
 
 // BareNumber is value as a card number when it is only digits (07 and 123 are, TASK-07 and #7 are not).
@@ -33,37 +30,11 @@ func BareNumber(value string) (int, bool) {
 // Cards is every card that has a brief in any worktree, by number: the canonical ids that carry it, sorted. Only a
 // brief's file name counts, in any folder (Done and Paused too); one brief checked out in two worktrees is one card.
 func Cards(project *config.Project) map[int][]string {
-	found := map[int][]string{}
-	inside, err := filepath.Rel(project.Root, project.Work)
-	external := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
-	for _, root := range Roots(project) {
-		briefs := project.Work
-		if !external {
-			briefs = filepath.Join(root, inside)
-		}
-		if info, err := os.Stat(briefs); err != nil || !info.IsDir() {
-			continue
-		}
-		_ = filepath.WalkDir(briefs, func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil || entry.IsDir() {
-				return nil
-			}
-			match := project.CardFileRe.FindStringSubmatch(entry.Name())
-			if match == nil {
-				return nil
-			}
-			card, ok := project.CanonicalCardID(match[1])
-			number, hasNumber := project.CardNumber(match[1])
-			if ok && hasNumber && !contains(found[number], card) {
-				found[number] = append(found[number], card)
-			}
-			return nil
-		})
+	taken, err := stores.For(project, nil).Taken()
+	if err != nil || taken == nil {
+		return map[int][]string{}
 	}
-	for number := range found {
-		sort.Strings(found[number])
-	}
-	return found
+	return taken
 }
 
 // Resolve is the canonical id a command argument names. A full id (any case or padding) is its canonical form, with

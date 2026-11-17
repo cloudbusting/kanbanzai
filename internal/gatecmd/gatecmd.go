@@ -8,18 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
-	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/fsutil"
 	"github.com/cloudbusting/kanbanzai/internal/gate"
+	cardstore "github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 )
 
@@ -115,6 +115,7 @@ func record(project *config.Project, opts Options, out, errOut io.Writer) int {
 	loaded := board.Load(project, map[string]string{}, nil)
 	type change struct {
 		id, path, text, column string
+		read                   cardstore.Card
 	}
 	var changes []change
 	for _, id := range opts.Cards {
@@ -162,26 +163,22 @@ func record(project *config.Project, opts Options, out, errOut io.Writer) int {
 			}
 			line = gate.FailedLine(owner, reason, now)
 		}
-		path := project.Abs(card.Path)
-		original, err := os.ReadFile(path)
+		read, err := board.ReadBrief(project, card)
 		if err != nil {
 			fmt.Fprintf(errOut, "gate: %v\n", err)
 			return 1
 		}
 		today := now.Format("2006-01-02")
-		text := brief.SetFields(string(original), map[string]*string{"Gate": &line, "Updated": &today})
-		changes = append(changes, change{id: id, path: path, text: text, column: key})
+		text := brief.SetFields(string(read.Text), map[string]*string{"Gate": &line, "Updated": &today})
+		changes = append(changes, change{id: id, path: read.Path, text: text, column: key, read: read})
 	}
+	cards := stores.For(project, nil)
 	for _, item := range changes {
-		mode := os.FileMode(0o644)
-		if info, err := os.Stat(item.path); err == nil {
-			mode = info.Mode().Perm()
-		}
-		if err := fsutil.WriteFileAtomic(item.path, []byte(item.text), mode); err != nil {
+		if _, err := cards.Write(item.read.Entry, []byte(item.text), item.read.Rev, item.read.Folder); err != nil {
 			fmt.Fprintf(errOut, "gate: %v\n", err)
 			return 1
 		}
-		boardbranch.Saved(project, item.id+": gate "+map[bool]string{true: "passed", false: "failed"}[opts.Action == "pass"], item.path)
+		cards.Changed(item.id+": gate "+map[bool]string{true: "passed", false: "failed"}[opts.Action == "pass"], item.path)
 		_, fields := brief.Header(item.text)
 		entry := map[string]any{"at": timeutil.ToISO(now), "card": item.id, "column": item.column,
 			"action": opts.Action, "owner": owner, "record": fields["Gate"]}

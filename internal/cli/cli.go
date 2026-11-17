@@ -47,13 +47,16 @@ commands:
   board [--json | --tui | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
   wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
   tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
-  sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch and push it
+  sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch and push it;
+                                 with a store plugin: fetch its tickets and publish hand edits
+  store serve|trust|status       the store plugin: the built-in reference plugin, trust the selected one, or report it
   claim <action> ...             owner, status, claim, renew, release, takeover, heartbeat
   move ID TARGET [options]       move a card in one step
   ask ID --text T [--option O] [--recommend R] [--note T]  record a question and release the claim
   answer ID [--text T] [--next T] show or record the answer to a question
   gate pass|fail|status [ID...]  record a card's gate result, or say where its gate stands
   number [PREFIX] [--type KEY] [--peek|--status|--release ID|--mark ID]   allocate the next card number
+  number --title TEXT [--type KEY]   with a store plugin: create the ticket and print its id
   check                          validate every brief
   step NAME | --for ID           what runs a step
   sessions [--json]              the claimed cards with a live session, and the sessions asking with no card
@@ -142,6 +145,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if command == "guide" {
 		return runGuide(rest, out, errOut)
+	}
+	if command == "store" && len(rest) == 1 && rest[0] == "serve" {
+		return runStoreServe(in, out, errOut)
 	}
 	if command == "install" {
 		positionals, _, set, err := parse(rest, map[string]bool{"dry-run": true, "where": true, "refresh": true, "no-link": true}, nil)
@@ -269,6 +275,9 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			}
 			return 0
 		}
+		if !storeReady(project, command, errOut) {
+			return 1
+		}
 		loaded := board.Load(project, nil, nil)
 		if set["json"] {
 			writeCompact(out, loaded)
@@ -296,7 +305,16 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 	case "tree":
 		return runTree(project, args, out, errOut)
 	case "sync":
+		if project.RemoteStore() {
+			positionals, _, set, err := parse(args, map[string]bool{"json": true}, nil)
+			if err != nil || len(positionals) != 0 {
+				return usageError(errOut, command, err)
+			}
+			return runStoreSync(project, set["json"], out, errOut)
+		}
 		return runSync(project, args, out, errOut)
+	case "store":
+		return runStore(project, args, out, errOut)
 	case "workflow":
 		return runWorkflow(project, args, out, errOut)
 	case "template":
@@ -353,9 +371,20 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			Out: out, Err: errOut})
 	case "number":
 		positionals, flags, set, err := parse(args, map[string]bool{"peek": true, "status": true},
-			map[string]bool{"release": true, "mark": true, "note": true, "type": true})
+			map[string]bool{"release": true, "mark": true, "note": true, "type": true, "title": true})
 		if err != nil || len(positionals) > 1 {
 			return usageError(errOut, command, err)
+		}
+		if project.RemoteStore() {
+			if len(positionals) != 0 || set["peek"] || set["status"] || flags["release"] != "" || flags["mark"] != "" {
+				fmt.Fprintln(errOut, "kanbanzai: number: a store plugin issues its own ids: use --title \"<title>\" [--type <type>]")
+				return 2
+			}
+			return newRemoteCard(project, flags["type"], flags["title"], out, errOut)
+		}
+		if _, given := flags["title"]; given {
+			fmt.Fprintln(errOut, "kanbanzai: number: --title is for a store plugin; the files store issues a number and you write the brief")
+			return 2
 		}
 		prefix := ""
 		if len(positionals) == 1 {

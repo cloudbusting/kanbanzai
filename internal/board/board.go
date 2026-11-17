@@ -8,7 +8,6 @@ package board
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -22,6 +21,9 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/gate"
 	"github.com/cloudbusting/kanbanzai/internal/question"
 	"github.com/cloudbusting/kanbanzai/internal/sessions"
+	"github.com/cloudbusting/kanbanzai/internal/store"
+	"github.com/cloudbusting/kanbanzai/internal/store/mirror"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/typeid"
 )
@@ -53,7 +55,9 @@ type Card struct {
 	Path              string           `json:"path"`
 	Gate              *gate.Status     `json:"gate"`
 	Question          *Question        `json:"question,omitempty"`
-	Epic              *epic.Progress   `json:"epic,omitempty"`
+	// StoreState is what a store plugin's last sync found: "conflict" or "left_query"; absent when all is well
+	StoreState *string        `json:"store_state,omitempty"`
+	Epic       *epic.Progress `json:"epic,omitempty"`
 
 	column   string
 	gateLine string
@@ -92,6 +96,16 @@ type Board struct {
 	// Unclaimed is {owner label: session} for the sessions of this project that are waiting for the owner and hold
 	// no card (BUG-64): no card can show them asking. Always an object; empty unless the board read the live claims.
 	Unclaimed map[string]sessions.Record `json:"unclaimed"`
+	// Store says which store plugin keeps the cards; absent for a board kept in the project's files.
+	Store *StoreInfo `json:"store,omitempty"`
+}
+
+// StoreInfo is the store plugin behind a board.
+type StoreInfo struct {
+	Plugin   string `json:"plugin"`
+	Remote   bool   `json:"remote"`
+	Query    string `json:"query"`
+	SyncedAt string `json:"synced_at"`
 }
 
 // CardAt is one card and the column it sits in.
@@ -128,14 +142,24 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 	if claims == nil && readsSessions {
 		result.Unclaimed = sessions.UnclaimedAsking(owners, project)
 	}
+	states := map[string]mirror.State{}
+	if project.RemoteStore() {
+		result.Store = &StoreInfo{Plugin: project.StorePlugin, Remote: true, Query: project.StoreQuery,
+			SyncedAt: mirror.SyncedAt(project)}
+		states = mirror.States(project)
+	}
 	byColumn := map[string][]*Card{}
 	for _, column := range project.Columns {
 		byColumn[column.Key] = []*Card{}
 	}
 	seen := map[string]string{}
-	paths := Briefs(project)
-	for _, path := range paths {
-		card, found := ReadCard(project, path)
+	cards := stores.For(project, nil)
+	briefs, err := read(cards)
+	if err != nil {
+		result.Problems = append(result.Problems, fmt.Sprintf("the cards cannot be listed (%v)", err))
+	}
+	for _, item := range briefs {
+		card, found := ReadCard(project, item)
 		result.Problems = append(result.Problems, found...)
 		if card == nil {
 			continue
@@ -145,6 +169,13 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			continue
 		}
 		seen[card.ID] = card.Path
+		if state, ok := states[card.ID]; ok && (state.Conflict || state.LeftQuery) {
+			value := "left_query"
+			if state.Conflict {
+				value = "conflict"
+			}
+			card.StoreState = &value
+		}
 		if owner, ok := owners[card.ID]; ok {
 			value := owner
 			card.Owner = &value
@@ -162,28 +193,12 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 			claim.UnstartedMinutes(project, column, card.Held != nil, records[card.ID], now) != nil
 		byColumn[column.Key] = append(byColumn[column.Key], card)
 	}
-	work := project.Work
-	if entries, err := os.ReadDir(work); err == nil {
-		for _, entry := range entries {
-			if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-				continue // hidden folders are the board's own state (a board branch's claims and ledger)
-			}
-			path := filepath.Join(work, entry.Name())
-			if contains(project.Folders, entry.Name()) || filepath.Clean(path) == filepath.Clean(project.Batches) {
-				continue
-			}
-			paths, _ := filepath.Glob(filepath.Join(path, "*.md"))
-			sort.Strings(paths)
-			for _, briefPath := range paths {
-				if !project.CardFileRe.MatchString(filepath.Base(briefPath)) {
-					continue
-				}
-				result.Problems = append(result.Problems, fmt.Sprintf("%s: not in a board folder (%s)",
-					project.Rel(briefPath), strings.Join(project.Folders, ", ")))
-			}
-		}
+	strays, _ := cards.Strays()
+	for _, stray := range strays {
+		result.Problems = append(result.Problems, fmt.Sprintf("%s: not in a board folder (%s)",
+			project.Rel(stray.Path), strings.Join(project.Folders, ", ")))
 	}
-	progress, epicProblems := epic.Load(project, paths)
+	progress, epicProblems := epic.Load(project, Readable(briefs))
 	result.Problems = append(result.Problems, epicProblems...)
 	for _, cards := range byColumn {
 		for _, card := range cards {
@@ -240,11 +255,11 @@ func Load(project *config.Project, claims map[string]string, sessionMap map[stri
 }
 
 // ReadCard is (card, problems) for one brief. The card is nil when it cannot be placed in a column.
-func ReadCard(project *config.Project, path string) (*Card, []string) {
+func ReadCard(project *config.Project, item Brief) (*Card, []string) {
+	path, data := item.Path, item.Text
 	rel := project.Rel(path)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, []string{fmt.Sprintf("%s: cannot be read (%v)", rel, err)}
+	if item.Err != nil {
+		return nil, []string{fmt.Sprintf("%s: cannot be read (%v)", rel, item.Err)}
 	}
 	titleLine, fields := brief.Header(string(data))
 	problems := []string{}
@@ -289,6 +304,9 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 		Mark: brief.MarkOf(project, stage, held), Interrupted: false, Session: nil, ClaimedNotStarted: false,
 		Path: rel, column: key, gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
+	if card.Type == nil && fields["Type"] != "" && project.RemoteStore() { // a store plugin's id carries no type
+		card.Type = typeNamed(project, fields["Type"])
+	}
 	if entries, err := question.Parse(string(data)); err == nil {
 		for _, entry := range entries {
 			if entry.Answer == "" || entry.Answer == "—" {
@@ -300,19 +318,63 @@ func ReadCard(project *config.Project, path string) (*Card, []string) {
 	return card, problems
 }
 
-// Briefs is every brief in a board folder, folder by folder, each in file-name order.
-func Briefs(project *config.Project) []string {
-	var paths []string
-	for _, folder := range project.Folders {
-		found, _ := filepath.Glob(filepath.Join(project.Work, folder, "*.md"))
-		sort.Strings(found)
-		for _, path := range found {
-			if project.CardFileRe.MatchString(filepath.Base(path)) {
-				paths = append(paths, path)
-			}
+// Brief is one brief as the project's store gave it: its text, or why it could not be read.
+type Brief struct {
+	store.Card
+	Err error
+}
+
+// Briefs is every brief in a board folder, read once through the project's store, folder by folder, each in
+// file-name order.
+func Briefs(project *config.Project) []Brief {
+	briefs, _ := read(stores.For(project, nil))
+	return briefs
+}
+
+func read(cards store.Store) ([]Brief, error) {
+	entries, err := cards.List()
+	briefs := make([]Brief, 0, len(entries))
+	for _, entry := range entries {
+		card, readErr := cards.Read(entry)
+		card.Entry = entry
+		briefs = append(briefs, Brief{Card: card, Err: readErr})
+	}
+	return briefs, err
+}
+
+// typeNamed is the type a brief's Type line names, by key, label or prefix: how a store plugin's card, whose id
+// carries no type, says what it is.
+func typeNamed(project *config.Project, name string) *typeid.TypeInfo {
+	name = strings.TrimSpace(name)
+	for _, item := range project.Types {
+		if strings.EqualFold(item.Key, name) || strings.EqualFold(item.Label, name) || strings.EqualFold(item.Prefix, name) {
+			info := item.Info()
+			return &info
 		}
 	}
-	return paths
+	return nil
+}
+
+// EntryOf is the store entry of a card on the board.
+func EntryOf(project *config.Project, card *Card) store.Entry {
+	path := project.Abs(card.Path)
+	return store.Entry{ID: card.ID, Path: path, Folder: filepath.Base(filepath.Dir(path))}
+}
+
+// ReadBrief is a board card's brief, read through the project's store.
+func ReadBrief(project *config.Project, card *Card) (store.Card, error) {
+	return stores.For(project, nil).Read(EntryOf(project, card))
+}
+
+// Readable is the briefs that could be read.
+func Readable(briefs []Brief) []store.Card {
+	found := make([]store.Card, 0, len(briefs))
+	for _, item := range briefs {
+		if item.Err == nil {
+			found = append(found, item.Card)
+		}
+	}
+	return found
 }
 
 // LiveClaims is {card: owner label} for every live claim.

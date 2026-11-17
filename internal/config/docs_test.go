@@ -40,8 +40,10 @@ func schemaFor(path string) string {
 	switch {
 	case path == "":
 		return ""
-	case path == "project" || path == "claims" || path == "flow" || path == "preset" || path == "board" || path == "columns" || path == "types":
+	case path == "project" || path == "claims" || path == "flow" || path == "preset" || path == "board" || path == "store" || path == "columns" || path == "types":
 		return path
+	case path == "store.settings":
+		return "settings" // a plugin's own settings: any key, each a string
 	case strings.HasPrefix(path, "steps."):
 		return "step"
 	case strings.HasPrefix(path, "schemas."):
@@ -84,7 +86,7 @@ func TestEveryConfigKeyInTheDocsIsOneTheCommandAccepts(t *testing.T) {
 				if root {
 					table = ""
 				}
-				if table == "?" {
+				if table == "?" || table == "settings" {
 					continue
 				}
 				if _, ok := keys[table][key]; !ok && !contains(illustrative, key) {

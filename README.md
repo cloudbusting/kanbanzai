@@ -23,8 +23,10 @@ leaves the doing to the agents and the rules you already have.
   per card, a shared checkout or a workspace its host owns ([docs/isolation.md](docs/isolation.md)).
 - **The workflow is yours.** The shipped columns, steps and gates are a default. A project renames, adds or drops them,
   or starts from a [delivery preset](docs/presets.md).
-- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). The one
-  opt-in exception is a [board branch](docs/team-board.md) for a team whose `main` is protected: `git push` of that one branch.
+- **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). There
+  are two opt-in exceptions. A [board branch](docs/team-board.md), for a team whose `main` is protected, runs `git push`
+  of that one branch. A [store plugin](docs/store-plugins.md) you select and trust keeps the cards in JIRA, GitHub
+  issues or another tracker, and reaches it with the tools it drives; the command itself still makes no request.
 
 ## Supported
 
@@ -110,6 +112,7 @@ explains the board, and [docs/workflow.md](docs/workflow.md) changes it.
 | Set a project's keys: paths, owner, steps and skills | [docs/configuration.md](docs/configuration.md) |
 | Choose or write issue types and numbering | [docs/types.md](docs/types.md) |
 | Decide how a change is kept apart: worktree, branch, shared, external | [docs/isolation.md](docs/isolation.md) |
+| Keep the cards in JIRA, GitHub issues or another store, or write a store plugin | [docs/store-plugins.md](docs/store-plugins.md) |
 | Add gates, skip rules and a delivery process | [docs/delivery.md](docs/delivery.md) |
 | Start from a preset (software, docs, review, release train, team pull requests, …) | [docs/presets.md](docs/presets.md) |
 | Run several projects in one workspace | [docs/multi-project.md](docs/multi-project.md) |

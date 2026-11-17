@@ -24,6 +24,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
+	"github.com/cloudbusting/kanbanzai/internal/store/mirror"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
 	"github.com/cloudbusting/kanbanzai/internal/workspace"
 )
@@ -501,6 +502,10 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 		}
 		held = filteredHeld
 	}
+	storeStates := map[string]mirror.State{}
+	if project.RemoteStore() {
+		storeStates = mirror.States(project)
+	}
 	where := map[string]string{}
 	cancelled := map[string]bool{}
 	owners := map[string]string{}
@@ -517,6 +522,16 @@ func reconcile(project *config.Project, cards CardsByColumn, wts []Worktree, hel
 			cancelled[row.Item] = row.Cancelled
 			if row.Cancelled {
 				soft = append(soft, fmt.Sprintf("%s: early close retained workspace record '%s'; inspect any remaining work before cleanup", row.Item, row.Where))
+			}
+			if state, ok := storeStates[row.Item]; ok {
+				if state.Conflict {
+					soft = append(soft, fmt.Sprintf("%s: changed both here and in %s since the last sync; `kanbanzai store status` "+
+						"says how to settle it", row.Item, project.StorePlugin))
+				}
+				if state.LeftQuery {
+					soft = append(soft, fmt.Sprintf("%s: no longer matches the store's query; it stays on the board while it is "+
+						"in flight", row.Item))
+				}
 			}
 		}
 	}

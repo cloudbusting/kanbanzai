@@ -6,15 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	assets "github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 )
 
 func handler(project *config.Project, authority, token string) http.Handler {
@@ -100,37 +99,14 @@ func handler(project *config.Project, authority, token string) http.Handler {
 	})
 }
 
-// Root.Open (Go 1.24) confines symlinks as well as lexical paths, including a
-// concurrent symlink replacement. It never opens a board-supplied absolute path.
+// readBrief is a board card's brief, opened inside the cards folder only (os.Root confines a symlink as well as the
+// path), only as a regular file, and at most 4 MiB, checked before it is read.
 func readBrief(p *config.Project, loaded *board.Board, id string) ([]byte, error) {
 	for _, col := range loaded.Columns {
 		for _, card := range col.Cards {
-			if card.ID != id {
-				continue
+			if card.ID == id {
+				return stores.ReadConfined(p, board.EntryOf(p, card), 4<<20)
 			}
-			rel, err := filepath.Rel(p.Work, filepath.Join(p.Root, card.Path))
-			if err != nil || !filepath.IsLocal(rel) || filepath.Ext(rel) != ".md" {
-				return nil, os.ErrPermission
-			}
-			root, err := os.OpenRoot(p.Work)
-			if err != nil {
-				return nil, err
-			}
-			defer root.Close()
-			f, err := root.Open(rel)
-			if err != nil {
-				return nil, err
-			}
-			defer f.Close()
-			info, err := f.Stat()
-			if err != nil || !info.Mode().IsRegular() || info.Size() > 4<<20 {
-				return nil, os.ErrPermission
-			}
-			data, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
-			if len(data) > 4<<20 {
-				return nil, os.ErrPermission
-			}
-			return data, err
 		}
 	}
 	return nil, os.ErrNotExist
