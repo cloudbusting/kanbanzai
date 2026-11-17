@@ -1,10 +1,10 @@
 # CHANGE-87: Backing-store plugin model: the contract, the trust model and the in-repo store as the standard plugin
 
-- **Stage:** in-qa
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** this brief (Decisions and Contract) is the record; the repository keeps no separate decision-record folder
-- **Next action:** merge CHANGE-87 into main first (CHANGELOG.md `[Unreleased]` conflicts with BUG-92's entry: keep both), then rerun deploy-qa: `/kanbanzai:do 87`
+- **Next action:** release: version to be settled by the owner (0.27.0 is already released; metadata still says 0.27.0) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-87-0.27.0 from main 9884d60; owner's editor check passed earlier
 - **Where:** worktree CHANGE-87
 
 ## Goal
@@ -310,6 +310,7 @@ Tasks 1 to 5 run in order. Task 6 can run in parallel with task 5 once task 4 is
 - 2026-11-17: built: store interface, files store, plugin protocol, trusted plugin runner, reference plugin, working-copy mirror, store commands, audit/context/editor/skills/docs; all suites green, file board byte-identical
 - 2026-11-17: checked: kanbanzai-qa green (go, vet, node 422 + 13, hooks, JS, claude validate, vsix, audit, check); review found 8 defects, all fixed with tests (40778bc); file board byte-identical
 - 2026-11-17: deploy-qa not run: branch CHANGE-87 was never merged into main (5 commits ahead, 8 behind), and `git merge CHANGE-87` conflicts in CHANGELOG.md (both it and BUG-92 add an [Unreleased] entry); merge aborted, nothing changed; the card waits In QA for the owner's word on resolving it
+- 2026-11-17: Package QA passed at 9884d60 alone: artifacts /tmp/kanbanzai-package-CHANGE-87-0.27.0 (bundle, 5 command archives, .vsix; SHA256SUMS there); CHANGE-87 merged into main first (e36c7ff, CHANGELOG kept both entries; boundary test allowance for BUG-92 in 9884d60); go test, node 436, plugin validate, install test and artifact scans clean
 
 ## Out of scope
 

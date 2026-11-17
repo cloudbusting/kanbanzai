@@ -1,6 +1,6 @@
 # CHANGE-94: The board branch becomes this project's board home and the default for new projects on the files store
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none — the brief is the record (no decision-record folder in this repository)

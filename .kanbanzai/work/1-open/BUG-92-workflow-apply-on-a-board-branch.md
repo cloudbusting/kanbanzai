@@ -1,6 +1,6 @@
 # BUG-92: workflow apply does not commit the briefs it moves on a board branch
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
