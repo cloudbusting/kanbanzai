@@ -1,6 +1,6 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
