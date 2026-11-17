@@ -1,10 +1,10 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
-- **Next action:** check: kanbanzai-qa suite on branch CHANGE-90 (commit 42dae1d), then the owner's by-hand check on a throwaway repository after package
+- **Next action:** package: deploy-qa (kanbanzai-package) merges CHANGE-90 into main, then builds and install-tests the archives; the owner's by-hand check on a throwaway repository comes after, before ship
 - **Where:** worktree CHANGE-90
 - **Needs:** CHANGE-87
 
@@ -227,6 +227,19 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
   - **Flag wording.** `wip --audit` says the card "no longer matches the store's query" (the core's CHANGE-87 text), not "left the query".
   - **Skills.** The package skill lists the plugin proof (`--version`, a `hello` request, `install` into a throwaway home) and the release skill
     runs `kanbanzai-store-github --version` on the downloaded archive.
+- Check (2026-11-18): kanbanzai-qa green: go vet and `go test ./...`, `node --test` board-view 425 and opencode 13, hooks and JS syntax,
+  `claude plugin validate .` (passes; its README install-line advisory also appears on `main`), all five `step` commands, `wip --audit --card`
+  and `check`. An independent read-only review found these real defects, all fixed with tests in 0abd5b6:
+  a person's other `type:`/`stage:` labels dropped on a write; a "not planned" close reason overwritten; a title changed on GitHub
+  reverted by the next write; an unmapped Stage word reopening a Done issue; a hard-coded first column (now `initial`); a 410 Gone on a
+  deleted issue failing every sync; an incomplete search reported as refused; a write GitHub did not apply reported as done; OR and
+  parentheses in a query that could reach past the repository (now refused); `get` reading one issue at a time (now eight at once, inside the
+  60 second request limit); an oversize brief opening an empty issue before it was refused; and install replacing the command before it found
+  a program it could not replace.
+  Known and documented, not fixed: a Stage word that is not its column's key, the issue's own type beating an edited `Type` line, and
+  GitHub's search index lagging a few seconds.
+  Untested against real GitHub (only the owner's by-hand check does that): the exact `gh api --paginate --slurp` output shape, label
+  creation on a first `stage:` label, and that GitHub returns the written body unchanged (compared ignoring line endings and trailing space).
 - Not run: the owner's check by hand on a throwaway repository. Nothing in the build reached github.com; every test uses a fake `gh`.
 
 ## Progress
@@ -236,6 +249,7 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
   per project, a second shipped program; four build tasks and a by-hand check on a throwaway repository.
 - 2026-11-18: designed with the owner: issue body is the brief, stage label plus closed state, one repository per project, a second shipped program
 - 2026-11-18: built: backend, program, release and install, docs; all suites green, file board byte-identical; commit 42dae1d on branch CHANGE-90
+- 2026-11-18: checked: kanbanzai-qa green; independent review found 12 defects, all fixed with tests (0abd5b6); branch CHANGE-90 not yet merged into main (the package step does that)
 
 ## Out of scope
 
