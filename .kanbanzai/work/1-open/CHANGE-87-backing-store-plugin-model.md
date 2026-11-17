@@ -172,7 +172,7 @@ it is for now; the plugin cards may propose mirroring a claim as the ticket's as
 - [x] **Still no network of its own.** `go.mod` has no `require`. No package outside `internal/webboard` imports
   `net/http` or `net` dialers, and a test asserts this. The `no outbound network request` docs test still passes,
   next to the new store wording.
-- [ ] **The editor stays read-only.** The board-view tests pass with a fixture carrying the new optional fields
+- [x] **The editor stays read-only.** The board-view tests pass with a fixture carrying the new optional fields
   (`store`, a card's `store_state`), and pass without them.
   - Owner's check by hand: open the board tab on the reference-plugin temp project. Its cards show, a click opens the
     working-copy brief, and a card in conflict shows its mark.
@@ -298,7 +298,10 @@ Tasks 1 to 5 run in order. Task 6 can run in parallel with task 5 once task 4 is
 - The network-import guard and the plugin, protocol and reference code passed on their first run. Their tests were
   written beside the code, not before it. The mirror's tests caught one real bug (a returning card kept its
   left-query flag), which is fixed.
-- Not run: the owner's check by hand of the editor tab (under Acceptance checks).
+- The owner's check by hand of the editor tab passed on 2026-11-17, on a `reference` plugin project, after one fix
+  (e4444e7). The owner saw the line "Cards kept by the store plugin reference · synced 2026-11-17T10:00:37+00:00", the
+  ⇄ mark with its hover ("yes, mark is there with a hover"), and REF-1 opening at
+  `.kanbanzai/state/store/work/1-open/REF-1-a-ticket-on-the-board.md`.
 
 ## Progress
 
@@ -331,6 +334,14 @@ Tasks 1 to 5 run in order. Task 6 can run in parallel with task 5 once task 4 is
 
 ## Comments
 
+- 2026-11-17 — owner's editor check:
+  - It first found that the editor's tab didn't draw the store line: `renderWorkspaceHtml` never called it, and only the
+    browser board's `renderContent` did. Fixed with a test in e4444e7; `node --test board-view` passes 423, and the Go
+    code is unchanged.
+  - The check then passed.
+  - Side effect: the CHANGE-87 `.vsix` used for the check bundles the command. Its install refresh replaced the
+    owner's per-user `kanbanzai` (v0.27.0) and `plugins/current` with the CHANGE-87 build. Those are restored once the
+    owner reinstalls the released extension.
 - 2026-11-17 — check session: the QA checks were green. An independent review found eight real defects, all now
   fixed with tests in 40778bc:
   - file-board reads through symlinks;
