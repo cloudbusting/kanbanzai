@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
+	"github.com/cloudbusting/kanbanzai/internal/boardbranch"
 	"github.com/cloudbusting/kanbanzai/internal/check"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/doctor"
@@ -148,6 +149,11 @@ func Preflight(p *config.Project, plan *Plan) error {
 	if journal, err := readJournal(journalFile); err == nil && journal.Status == StatusApplying {
 		return refuse("an earlier apply did not finish: run `kanbanzai workflow apply --rollback` first")
 	}
+	if p.BoardOnBranch() {
+		if board, err := boardbranch.New(p); err != nil || !board.Attached() {
+			return refuse("the board is kept on a branch that is not checked out at %s: run `kanbanzai sync --attach` first", p.Rel(p.Work))
+		}
+	}
 	configPath := abs(p, plan.Config.Path)
 	if text, ok := readText(configPath); ok != plan.Config.Existed || (ok && Digest(text) != plan.Config.ExpectSHA256) {
 		return refuse("%s changed since the plan was made: plan again", plan.Config.Path)
@@ -178,15 +184,50 @@ func Preflight(p *config.Project, plan *Plan) error {
 		}
 		touched = append(touched, c.Path)
 	}
-	status, err := gitutil.Git(p.Root, append([]string{"status", "--porcelain", "--"}, append(touched, slash(p.Root, p.Work))...)...)
+	if err := cleanTree(p, touched); err != nil {
+		return err
+	}
+	if problems := check.ProblemsOf(p); len(problems) > 0 {
+		return refuse("`kanbanzai check` is red before the migration; fix it first:\n  %s", strings.Join(problems, "\n  "))
+	}
+	return nil
+}
+
+// cleanTree refuses when anything the apply would write, or that a rollback would have to restore, is uncommitted.
+// Where the board is on the main branch that is one git status over the briefs, config and templates. Where it is on a
+// branch of its own the work folder is a separate worktree that the main checkout's git cannot see into, so the
+// briefs, claims and ledger are checked there, over the whole folder, and only the config and templates in the main
+// checkout. touched lists the config, the templates and the briefs the plan names.
+func cleanTree(p *config.Project, touched []string) error {
+	if !p.BoardOnBranch() {
+		status, err := gitutil.Git(p.Root, append([]string{"status", "--porcelain", "--"}, append(touched, slash(p.Root, p.Work))...)...)
+		if err != nil {
+			return refuse("git status: %v", err)
+		}
+		if strings.TrimSpace(status) != "" {
+			return refuse("the board has uncommitted changes; commit or discard them first so a rollback is exact:\n%s", status)
+		}
+		return nil
+	}
+	var outside []string
+	for _, path := range touched {
+		if !strings.HasPrefix(path, slash(p.Root, p.Work)+"/") {
+			outside = append(outside, path)
+		}
+	}
+	status, err := gitutil.Git(p.Root, append([]string{"status", "--porcelain", "--"}, outside...)...)
 	if err != nil {
 		return refuse("git status: %v", err)
 	}
 	if strings.TrimSpace(status) != "" {
-		return refuse("the board has uncommitted changes; commit or discard them first so a rollback is exact:\n%s", status)
+		return refuse("the config or a template has uncommitted changes; commit or discard them first so a rollback is exact:\n%s", status)
 	}
-	if problems := check.ProblemsOf(p); len(problems) > 0 {
-		return refuse("`kanbanzai check` is red before the migration; fix it first:\n  %s", strings.Join(problems, "\n  "))
+	status, err = gitutil.Git(p.Work, "status", "--porcelain")
+	if err != nil {
+		return refuse("git status in the board worktree %s: %v", p.Rel(p.Work), err)
+	}
+	if strings.TrimSpace(status) != "" {
+		return refuse("the board worktree %s has uncommitted changes; commit them (`kanbanzai sync`) or discard them first so a rollback is exact:\n%s", p.Rel(p.Work), status)
 	}
 	return nil
 }
@@ -320,6 +361,12 @@ func Apply(p *config.Project, plan *Plan, options ApplyOptions) (*Result, error)
 		return nil, err
 	}
 	result := &Result{Changed: []string{}, Unused: plan.Unused, Notes: branchNotes(p)}
+	if p.BoardOnBranch() {
+		saveBoardBranch(p, plan, journal)
+		result.Notes = append(result.Notes, "the moved briefs are committed on the board branch "+fmt.Sprintf("%q", p.BoardBranch)+
+			", but the config and the templates are only uncommitted files in the main checkout: commit them and merge them into "+
+			p.MainBranch+" before teammates sync the board, or their `kanbanzai check` is red")
+	}
 	for _, step := range journal.Steps {
 		if step.Kind == StepMkdir && !step.Created {
 			continue
@@ -330,6 +377,25 @@ func Apply(p *config.Project, plan *Plan, options ApplyOptions) (*Result, error)
 		}
 	}
 	return result, nil
+}
+
+// saveBoardBranch commits every brief the apply rewrote or moved, old path and new, in one commit on the board branch,
+// as every other board command does through the after-write hook (which also publishes under `publish = "auto"`). It
+// runs last, once check and doctor have passed and the journal says applied, so a failed or killed apply has nothing
+// committed to undo and a rollback never rewrites the branch's history. A commit the hook cannot make is its warning:
+// the briefs stay uncommitted for `kanbanzai sync`.
+func saveBoardBranch(p *config.Project, plan *Plan, journal *Journal) {
+	var paths []string
+	seen := map[string]bool{}
+	for _, c := range plan.Cards {
+		for _, rel := range []string{c.Path, c.NewPath} {
+			if rel != "" && !seen[rel] {
+				seen[rel] = true
+				paths = append(paths, abs(p, rel))
+			}
+		}
+	}
+	boardbranch.Saved(p, "workflow: apply "+journal.Plan[:12], paths...)
 }
 
 func execute(p *config.Project, plan *Plan, step *Step) error {

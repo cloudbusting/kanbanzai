@@ -5,6 +5,12 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-92: `kanbanzai workflow apply` on a board branch (`[board] home = "branch"`) commits the briefs it moves or rewrites,
+  in one commit `workflow: apply <plan>` (pushed under `publish = "auto"`), instead of leaving them uncommitted until
+  `kanbanzai sync`. Its clean-tree check now looks in the board worktree, over the whole work folder, and refuses a board
+  that is not attached; before, it could not see the briefs there. A failed or killed apply commits nothing. The config
+  and templates it writes still stay uncommitted in the main checkout, and its notes say to merge them before teammates sync.
+
 ## [0.27.0] — 2026-11-17
 
 - BUG-85: the editor's board follows a board branch. `kanbanzai sessions --json` gains an optional `board` object for a

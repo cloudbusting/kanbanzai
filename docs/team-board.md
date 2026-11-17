@@ -113,6 +113,11 @@ packaging a release, which must build what the release will tag ([isolation.md](
 ## Limits
 
 - The work folder must be inside the main checkout, and the board branch's name must not be the main branch's.
-- `workflow apply` migrates briefs in the work folder; on a board branch its "uncommitted changes" check does not see them, so
-  run it with the board branch committed and synced.
+- `workflow apply` on a board branch checks the board worktree for uncommitted files (the whole work folder, not only the
+  briefs the plan names; the config and templates are checked in the main checkout) and refuses with a list if there are
+  any, or if the board is not attached. It then commits every brief it moved or rewrote in one commit,
+  `workflow: apply <plan>`, and pushes it under `publish = "auto"` like any board change. The config and templates it
+  writes stay uncommitted in the main checkout: commit them and merge them into `main` before teammates sync the board,
+  or their `kanbanzai check` is red until it does. A failed apply commits nothing, so there is nothing to undo on the
+  branch.
 - A claim is a lease, not a lock across offline clones; the push is what makes it exclusive.

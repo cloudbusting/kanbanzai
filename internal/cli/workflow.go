@@ -225,6 +225,8 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		}
 		if set["rollback"] {
 			fmt.Fprintln(out, "rolled back: the board is as it was")
+		} else if project.BoardOnBranch() {
+			fmt.Fprintln(out, "applied; check and doctor pass. The moved briefs are committed on the board branch; the config and templates are not: review `git status` and commit them.")
 		} else {
 			fmt.Fprintln(out, "applied; check and doctor pass. Nothing is committed: review `git status` and commit the board.")
 		}
