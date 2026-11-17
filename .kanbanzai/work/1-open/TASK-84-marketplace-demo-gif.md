@@ -1,10 +1,10 @@
 # TASK-84: An animated GIF for the extension's marketplace listing, showing the board with an agent session at work in VSCodium
 
-- **Stage:** checked
+- **Stage:** qa-approved
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** package and release: kanbanzai step deploy-qa (kanbanzai-package) with the next release; push main first so the GIF link resolves
+- **Next action:** release: after the owner approves the version, licence and publisher; package artifacts at /tmp/kanbanzai-package-TASK-84-0.25.1 from main 4613b8b; push main first so the GIF link resolves; the owner looks at the published listing
 - **Where:** worktree TASK-84
 
 ## Goal
@@ -74,6 +74,7 @@ Related but distinct: TASK-75 (rewrote the marketplace documentation, which this
 - 2026-11-17: designed. Feasibility proven by a spike (web editor served on loopback, board .vsix installed, Playwright loads it). The owner chose the real session and approved running the downloaded editor.
 - 2026-11-17: built; the GIF, listing text, test and tools/demo-gif are committed in worktree TASK-84 (9abfb67)
 - 2026-11-17: checked; branch TASK-84 merged to main
+- 2026-11-17: Package QA passed at 4613b8b alone: artifacts /tmp/kanbanzai-package-TASK-84-0.25.1 (source bundle with docs/media/board-demo.gif, five command archives, .vsix with five commands); source bundle sha256 2ec640039076e2fcc94f634e9d1428b33dcd4d0e0035654f65e17a73f20c1a06, vsix sha256 b5e954f711f450fda9d3c757f06489ac1e4cdd62f46e189ad07fb240575ac5da; fresh-project init, board json and plugin install proved; scan clean; version metadata still 0.25.1, release bumps it
 
 ## Comments
 
