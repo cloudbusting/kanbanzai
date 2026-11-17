@@ -1,10 +1,10 @@
 # BUG-93: a test extension in one editor profile replaces every profile's extension and the shared command
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** check: run the project's checks and review the diff; the owner's VSCodium steps (acceptance checks 3 and 4) stay manual
+- **Next action:** package: kanbanzai-package builds the artifacts; then the owner's VSCodium check of a labelled package (acceptance checks 3 and 4)
 - **Where:** worktree BUG-93
 
 ## Goal
@@ -127,6 +127,7 @@ cache, and nothing in this change touches it. It should be triaged on its own ca
 - 2026-11-17: triaged at the owner's request, from what CHANGE-87's editor check did to the main profile.
 - 2026-11-17: designed; the owner chose the skip rule, the `-label` version and one shared command.
 - 2026-11-17: built in worktree BUG-93 (wip commit on branch BUG-93): tasks 1-3, vsix Go tests and 425 extension tests green; the owner's VSCodium steps (checks 3 and 4) are not run.
+- 2026-11-17: checked: go test ./... (after merging main for CHANGE-87's 9884d60, which fixed the store boundary test that was red on main, not on this card), go vet, 425 extension and 13 OpenCode tests, hook and JS syntax, plugin validate, config and the five steps resolve, vsix dry run (plain 0.27.0; `-label bug93` 0.27.0-bug93 in package.json and manifest); review of the diff found nothing. The owner's VSCodium steps (acceptance checks 3 and 4) are the one manual item.
 
 ## Out of scope
 
