@@ -36,6 +36,7 @@ type Detected struct {
 	GitUser          string      `json:"git_user,omitempty"`
 	Config           ConfigState `json:"config"`
 	Cards            int         `json:"cards"`
+	WorkFiles        int         `json:"work_files"` // every file in the work folder: `sync --attach` needs it empty
 	RootGitignore    bool        `json:"root_gitignore"`
 	SuggestedContext []string    `json:"suggested_context"`
 }
@@ -101,6 +102,7 @@ func Detect(start string) (*Detected, *config.Project, error) {
 		work = existing.Work
 	}
 	d.Cards = countCards(work)
+	d.WorkFiles = countFiles(work)
 	if _, err := os.Stat(filepath.Join(root, ".gitignore")); err == nil {
 		d.RootGitignore = true
 	}
@@ -157,6 +159,17 @@ func validBranchName(d *Detected, name string) bool {
 	}
 	_, err := gitutil.Git(d.Root, "check-ref-format", "--branch", name)
 	return err == nil && !strings.HasPrefix(name, "-")
+}
+
+func countFiles(dir string) int {
+	count := 0
+	_ = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err == nil && !entry.IsDir() {
+			count++
+		}
+		return nil
+	})
+	return count
 }
 
 func countCards(work string) int {

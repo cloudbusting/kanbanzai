@@ -38,7 +38,7 @@ kanbanzai resolve ID|NUMBER              the canonical card id for an id or a ba
 kanbanzai context                        the standing context the hooks inject
 kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR|@bundled]
-                                         [--with-template] [--board-branch] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
+                                         [--with-template] [--board-branch|--board-main] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
                                          [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
                                          set a project up: detect, plan, apply, verify; never commits
 kanbanzai install [--dry-run|--refresh|--where]    copy this command, and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
@@ -139,6 +139,12 @@ its SHA-256 in this clone, and no command runs a plugin until then. `kanbanzai s
 selected, whether it is trusted, the query, when it last synced, and each card in conflict or out of the query.
 `kanbanzai store serve` is the built-in reference plugin, which answers one protocol request. `kanbanzai number --title`
 asks the plugin to create a ticket. Without a plugin these say there is none, and `number --title` is refused.
+
+**Where `init` puts the board.** A new project whose preset works in a worktree per card (`software`, `release-train`,
+`team-pr`), or that has no preset, gets `[board] home = "branch"`; `--board-main` keeps the board on `main`, `--board-branch`
+puts it on a branch for any other preset, and the two cannot be combined. `--dry-run` prints the choice and why. `--board-branch`
+is refused on an existing config or over files already in the work folder; `--board-main` has no effect on an existing config.
+The branch is not attached by `init`: the report says `check` waits, and `kanbanzai sync --attach` makes it.
 
 **The board branch.** `kanbanzai sync` belongs to a project whose board lives on a branch of its own (`[board] home = "branch"`;
 [team-board.md](team-board.md)). `sync --attach` makes the worktree at the work folder (creating the branch, or checking it out of

@@ -56,9 +56,17 @@ func Verify(start string, plan *Plan) *Verification {
 		return v
 	}
 
-	var checkOut bytes.Buffer
-	code := check.Run(project, &checkOut)
-	v.Check = CheckResult{OK: code == 0, Exit: code, Output: strings.TrimSpace(checkOut.String())}
+	// A board branch that is not attached yet has no card folders: that is where init leaves it, not a failure. `check`
+	// and the folder checks of `doctor` have nothing to read until `kanbanzai sync --attach` has made the worktree.
+	pending := project.BoardOnBranch() && !boardAttached(project)
+	if pending {
+		v.Check = CheckResult{OK: true, Output: "not run yet: the board is on the branch " + project.BoardBranch +
+			", which `kanbanzai sync --attach` has not made"}
+	} else {
+		var checkOut bytes.Buffer
+		code := check.Run(project, &checkOut)
+		v.Check = CheckResult{OK: code == 0, Exit: code, Output: strings.TrimSpace(checkOut.String())}
+	}
 
 	var auditOut, auditErr bytes.Buffer
 	v.Audit.Exit = wip.Report(project, wip.Options{Audit: true}, &auditOut, &auditErr)
@@ -75,7 +83,7 @@ func Verify(start string, plan *Plan) *Verification {
 	}
 	if json.Unmarshal(doctorOut.Bytes(), &report) == nil {
 		for _, finding := range report.Findings {
-			if finding.Status == "error" {
+			if finding.Status == "error" && !(pending && strings.HasPrefix(finding.ID, "folder.")) {
 				v.Doctor = append(v.Doctor, finding.ID+": "+finding.Message)
 			}
 		}
@@ -87,8 +95,9 @@ func Verify(start string, plan *Plan) *Verification {
 			strings.Join(v.Commit, " ")+" && git commit -m \"Set up Kanbanzai\"")
 	}
 	if project.BoardOnBranch() && !boardAttached(project) {
-		v.NextActions = append(v.NextActions, "make the board branch's worktree with `kanbanzai sync --attach`, then publish it with `kanbanzai sync` "+
-			"(the config goes to main through your pull request; the board never does)")
+		v.NextActions = append(v.NextActions, "make the board branch's worktree with `kanbanzai sync --attach`, then run `kanbanzai check` and "+
+			"`kanbanzai doctor --board`, and publish the board with `kanbanzai sync` (the config goes to main through your "+
+			"pull request; the board never does)")
 	} else if !v.Check.OK {
 		v.NextActions = append(v.NextActions, "fix what kanbanzai check reports, then run it again")
 	}
@@ -138,6 +147,8 @@ func renderVerify(out io.Writer, v *Verification) {
 	status := "passes"
 	if !v.Check.OK {
 		status = "FAILS"
+	} else if strings.HasPrefix(v.Check.Output, "not run yet") {
+		status = "waits"
 	}
 	fmt.Fprintf(out, "\nkanbanzai check %s: %s\n", status, firstLine(v.Check.Output))
 	if len(v.Audit.Findings) == 0 {

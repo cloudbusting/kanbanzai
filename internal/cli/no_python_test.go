@@ -37,7 +37,7 @@ func TestTheCommandNeedsNoPython(t *testing.T) {
 		!strings.Contains(out.Stdout, "kanbanzai") {
 		t.Fatalf("--version with no Python: %d %q %q", out.Code, out.Stdout, out.Stderr)
 	}
-	if out := testutil.Run(t, project, env, "init"); out.Code != 0 {
+	if out := testutil.Run(t, project, env, "init", "--board-main"); out.Code != 0 {
 		t.Fatalf("init with no Python: %d %q", out.Code, out.Stderr)
 	}
 	if out := testutil.Run(t, project, env, "check"); out.Code != 0 ||

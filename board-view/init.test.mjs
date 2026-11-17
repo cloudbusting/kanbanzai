@@ -395,10 +395,13 @@ test("Init: an unwritable place is refused with nothing written (a link or a pla
   assert.equal(readFileSync(path.join(elsewhere, "target"), "utf8"), "keep");
 });
 
+// CHANGE-94: `init` puts a new project's board on a branch when its flow works in worktrees, and the editor cannot make
+// that branch's worktree (`kanbanzai sync --attach`), so its setup always passes --board-main (a no-op on a project that
+// already has a config).
 test("Init: the dry run asks for the picked agents as one argument and reads the plan from stdout", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["opencode", "claude"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude", "--plugin-source", "@bundled"]);
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude", "--plugin-source", "@bundled", "--board-main"]);
   assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
 });
 
@@ -412,7 +415,7 @@ test("Init: the dry run runs in the project folder", async () => {
 test("Init: an agent that is not claude or opencode never reaches the command line", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["claude", "--plan=/etc/passwd", "x y"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled"]);
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled", "--board-main"]);
   const exec2 = fakeExec(happy);
   const out = await init.planSetup(flowDeps(exec2, project(), fakeUi({ agents: ["--evil"] })));
   assert.equal(out.status, "cancelled", "nothing valid was picked");
@@ -422,10 +425,10 @@ test("Init: an agent that is not claude or opencode never reaches the command li
 test("Init: a plugin source from the setting is passed as --plugin-source and one argument", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi(), { pluginSource: "/home/example/code/kanbanzai" }));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/example/code/kanbanzai"]);
+  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/example/code/kanbanzai", "--board-main"]);
   const exec2 = fakeExec(happy);
   await init.planSetup(flowDeps(exec2, project(), fakeUi(), { pluginSource: "   " }));
-  assert.deepEqual(exec2.calls[0].args.slice(-2), ["--plugin-source", "@bundled"], "blank uses the bundled source");
+  assert.deepEqual(exec2.calls[0].args.slice(-3), ["--plugin-source", "@bundled", "--board-main"], "blank uses the bundled source");
 });
 
 test("Init: a plugin source that looks like a flag is refused before any command runs", async () => {
@@ -444,7 +447,7 @@ test("Init: an unclear main branch (exit 2 naming --main-branch) opens the input
   const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "planned");
   assert.equal(exec.calls.length, 2);
-  assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--main-branch", "trunk"]);
+  assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main", "--main-branch", "trunk"]);
   assert.deepEqual(ui.events, ["pick", "branch", "plan"]);
   assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
 });

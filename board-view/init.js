@@ -436,6 +436,9 @@ async function planSetup(deps) {
     const plan = async (branch) => {
       const args = ['init', '--dry-run', '--json', '--plugins', agents.join(',')];
       args.push('--plugin-source', source || '@bundled');
+      // The editor cannot make a board branch's worktree (`kanbanzai sync --attach`), and a board without it shows no
+      // cards: keep the board on main here. The flag is a no-op on a project that already has a config.
+      args.push('--board-main');
       if (branch) args.push('--main-branch', branch);
       return runFile(execFile, command, args, { cwd: root });
     };

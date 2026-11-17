@@ -40,7 +40,7 @@ var projectKeys = []string{"default_type", "worktree", "branch", "batch_branch",
 var typeKeys = []string{"key", "label", "prefix", "template", "schema", "colour", "icon", "description"}
 var schemaKeys = []string{"required_fields", "optional_fields", "required_sections", "optional_sections",
 	"repeatable_sections", "section_order", "final_section"}
-var presetKeys = []string{"name", "delivery_style", "version", "summary", "best_for", "not_for"}
+var presetKeys = []string{"name", "delivery_style", "version", "summary", "best_for", "not_for", "board_home"}
 
 var nameRE = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
@@ -52,6 +52,10 @@ type Preset struct {
 	Summary       string
 	BestFor       string
 	NotFor        string
+	// BoardHome is where `init` puts the board of a project that takes this preset: "branch" for a preset whose cards
+	// each work in a worktree (the main checkout then holds only the board, and a board on main is never clean), else
+	// "main". Only `init` reads it; the project's own [preset] record does not carry it.
+	BoardHome string
 	// Source is "shipped" for an embedded preset, else the folder it was read from.
 	Source string
 
@@ -283,6 +287,14 @@ func (p *Preset) readRecord(value any, source string) error {
 	}
 	if p.NotFor, err = text("not_for"); err != nil {
 		return err
+	}
+	p.BoardHome = "main"
+	if value, set := record["board_home"]; set {
+		home, _ := value.(string)
+		if home != "main" && home != "branch" {
+			return problem("preset %s: [preset] board_home must be \"main\" or \"branch\"", source)
+		}
+		p.BoardHome = home
 	}
 	version, ok := record["version"].(int64)
 	if !ok || version < 1 || version > 1<<31 {

@@ -273,7 +273,7 @@ func TestHostsLoadTheBundledPluginsFromTheVSIX(t *testing.T) {
 	mustRun(t, project, env, first, "install", "--no-link")
 	installed := filepath.Join(home, "data", "kanbanzai", "bin", "kanbanzai")
 	bundle := filepath.Join(home, "data", "kanbanzai", "plugins", "current")
-	mustRun(t, project, env, installed, "init", "--plugins", "claude,opencode", "--plugin-source", "@bundled")
+	mustRun(t, project, env, installed, "init", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main")
 	for _, name := range []string{".claude/settings.local.json", ".opencode/opencode.json", ".kanbanzai/state/kanbanzai-opencode-path"} {
 		if _, err := os.Stat(filepath.Join(project, filepath.FromSlash(name))); err != nil {
 			t.Fatalf("init wrote no %s: %v", name, err)

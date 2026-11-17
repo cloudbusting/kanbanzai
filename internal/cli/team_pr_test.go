@@ -18,7 +18,7 @@ func TestTeamPRCardWaitsInReviewUntilTheMergeIsRecorded(t *testing.T) {
 	t.Setenv("KANBANZAI_PROJECT", root)
 	testutil.Git(t, root, "config", "user.email", "t@example.com")
 	testutil.Git(t, root, "config", "user.name", "Tester")
-	ok(t, "init", "--preset", "team-pr", "--owner", "Sam", "--main-branch", "main")
+	ok(t, "init", "--preset", "team-pr", "--board-main", "--owner", "Sam", "--main-branch", "main")
 	if _, err := os.Stat(filepath.Join(root, ".kanbanzai", "templates", "pull-request.md")); err != nil {
 		t.Fatalf("init did not create the pull request template: %v", err)
 	}

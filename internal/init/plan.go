@@ -70,6 +70,9 @@ type Settings struct {
 	Owner            string   `json:"owner"`
 	OwnerSource      string   `json:"owner_source"`
 	Types            []string `json:"types,omitempty"`
+	// BoardHome is where the board lives ("main" or "branch") and BoardReason says why init chose it.
+	BoardHome   string `json:"board_home,omitempty"`
+	BoardReason string `json:"board_reason,omitempty"`
 }
 
 // StarterTypes are the issue types a fresh project starts with.
@@ -111,6 +114,10 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	plan := &Plan{SchemaVersion: PlanVersion, Kind: PlanKind, Root: d.Root, Detected: *d, Actions: []Action{},
 		Warnings: []string{}}
 	root := d.Root
+	if opts.BoardBranch && opts.BoardMain {
+		return nil, refuse("--board-branch and --board-main cannot be combined: one puts the board on a branch of its own, " +
+			"the other keeps it on the main branch")
+	}
 	if opts.Preset == "" && (len(opts.Types) > 0 || len(opts.StepSkills) > 0 || len(opts.StepExtends) > 0) {
 		return nil, refuse("--type, --step-skill and --step-extend compose a preset: they need --preset")
 	}
@@ -147,6 +154,10 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		}
 		project = existing
 		configActions = []Action{{Op: OpKeep, Path: ConfigRel, What: WhatConfig}}
+		if opts.BoardMain && project.BoardOnBranch() {
+			plan.Warnings = append(plan.Warnings, "--board-main has no effect: the existing config keeps its board on the "+
+				"branch "+project.BoardBranch+" (edit [board] to change it)")
+		}
 		if detected, _, err := chooseMainBranch(d, ""); err == nil && detected != project.MainBranch {
 			plan.Warnings = append(plan.Warnings, fmt.Sprintf("the config says main_branch = \"%s\" but this "+
 				"checkout looks like \"%s\": wip --audit will flag it until project.main_branch is corrected",
@@ -213,7 +224,11 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 				settings.Types = append([]string{}, StarterTypes...)
 			}
 		}
-		if opts.BoardBranch {
+		settings.BoardHome, settings.BoardReason, err = chooseBoardHome(opts, chosen, d.WorkFiles)
+		if err != nil {
+			return nil, err
+		}
+		if settings.BoardHome == "branch" {
 			text = strings.TrimRight(text, "\n") + "\n\n" + BoardText
 		}
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
@@ -566,6 +581,34 @@ func within(dir, path string) bool {
 }
 
 func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x00") == string(data) }
+
+// chooseBoardHome says where a new project's board lives and why. The board branch is the default for a preset that
+// works in a worktree per card (its main checkout then holds only the board, and a board on main is never clean) and
+// for init with no preset; --board-branch and --board-main decide it by hand. A work folder that already holds files
+// keeps the board on main: `kanbanzai sync --attach` needs that folder empty.
+func chooseBoardHome(opts Options, chosen *preset.Preset, files int) (home, reason string, err error) {
+	held := fmt.Sprintf("the work folder already holds %d file(s) (the cards of an earlier board: move them by hand, "+
+		"docs/team-board.md)", files)
+	switch {
+	case opts.BoardBranch && files > 0:
+		return "", "", refuse("--board-branch: %s", held)
+	case opts.BoardBranch:
+		return "branch", "--board-branch", nil
+	case opts.BoardMain:
+		return "main", "--board-main", nil
+	}
+	if chosen != nil && chosen.BoardHome != "branch" {
+		return "main", fmt.Sprintf("the %s preset keeps the board on the main branch; --board-branch puts it on a branch of its own", chosen.Name), nil
+	}
+	if files > 0 {
+		return "main", "kept on main: " + held + "; --board-branch refuses until they are moved", nil
+	}
+	if chosen != nil {
+		return "branch", fmt.Sprintf("the %s preset works in a worktree per card, so the main checkout holds only the board; "+
+			"--board-main keeps it on main", chosen.Name), nil
+	}
+	return "branch", "the default flow works in a worktree per card, so the main checkout holds only the board; --board-main keeps it on main", nil
+}
 
 // BoardText is the [board] table `init --board-branch` appends to the config it writes.
 const BoardText = `# The board lives on its own branch, not on the protected main branch (docs/team-board.md).

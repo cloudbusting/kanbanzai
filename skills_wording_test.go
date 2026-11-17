@@ -1062,3 +1062,31 @@ func TestWorkflowSkillRecommendsTheBoardBranchAndChecksTheHooks(t *testing.T) {
 		t.Error("skills/workflow must say workflow apply does not write [board]")
 	}
 }
+
+// CHANGE-94: `init` puts a new worktree-per-card project's board on the board branch unless the owner asks for main, so
+// the setup and workflow skills say so, name the opt-out and never write the config for an existing project.
+func TestSetupAndWorkflowSkillsKnowTheBoardBranchIsTheDefault(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "skills", "setup", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	setupText := strings.Join(strings.Fields(string(data)), " ")
+	for name, text := range map[string]string{"skills/setup": setupText, "skills/workflow": workflowSkillText(t)} {
+		lower := strings.ToLower(text)
+		for _, want := range []string{"--board-main", "--board-branch", "default", "worktree", "kanbanzai sync --attach"} {
+			if !strings.Contains(lower, strings.ToLower(want)) {
+				t.Errorf("%s lacks %q in its board branch guidance", name, want)
+			}
+		}
+	}
+	setup := strings.ToLower(setupText)
+	for _, want := range []string{"software", "release-train", "team-pr", "simple", "never set here"} {
+		if !strings.Contains(setup, want) {
+			t.Errorf("skills/setup lacks %q: it must say which presets take the branch and that publish = \"auto\" is never set", want)
+		}
+	}
+}

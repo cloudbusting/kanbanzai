@@ -296,3 +296,48 @@ func TestReplacingATypeDropsItsTemplateAndSchema(t *testing.T) {
 		t.Fatalf("files = %v", got)
 	}
 }
+
+// A preset says where the board lives (CHANGE-94): software, release-train and team-pr work in a worktree per card,
+// so they ask for the board branch; the others leave it on main.
+func TestAPresetNamesTheBoardHomeItAsksFor(t *testing.T) {
+	for name, want := range map[string]string{"software": "branch", "release-train": "branch", "team-pr": "branch",
+		"simple": "main", "docs-only": "main", "marketing": "main", "homework": "main", "pr-review": "main"} {
+		p, err := Load(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.BoardHome != want {
+			t.Errorf("preset %s: BoardHome = %q, want %q", name, p.BoardHome, want)
+		}
+	}
+	info, err := mustLoad(t, "software").Describe()
+	if err != nil || info.BoardHome != "branch" || !strings.Contains(info.Text(), "Board\n  branch") {
+		t.Errorf("software describes its board home as %q (%v):\n%s", info.BoardHome, err, info.Text())
+	}
+	// the key is for init: the project's own [preset] record does not carry it
+	if text := mustLoad(t, "software").ConfigText(Settings{Owner: "Sam"}); strings.Contains(text, "board_home") {
+		t.Errorf("the project's config must not copy board_home:\n%s", text)
+	}
+}
+
+func TestAPresetsBoardHomeIsMainOrBranch(t *testing.T) {
+	dir := copyShipped(t, "simple")
+	edit(t, dir, "config.toml", "version = ", "board_home = \"branch\"\nversion = ")
+	if p, err := Load(dir); err != nil || p.BoardHome != "branch" {
+		t.Fatalf("a local preset may ask for the branch: %v", err)
+	}
+	dir = copyShipped(t, "simple")
+	edit(t, dir, "config.toml", "version = ", "board_home = \"elsewhere\"\nversion = ")
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "board_home") {
+		t.Errorf("a board_home other than main or branch: %v", err)
+	}
+}
+
+func mustLoad(t *testing.T, name string) *Preset {
+	t.Helper()
+	p, err := Load(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}

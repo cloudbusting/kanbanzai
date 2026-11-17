@@ -24,8 +24,9 @@ leaves the doing to the agents and the rules you already have.
 - **The workflow is yours.** The shipped columns, steps and gates are a default. A project renames, adds or drops them,
   or starts from a [delivery preset](docs/presets.md).
 - **Local only.** No network request, no telemetry, nothing sent anywhere ([docs/security.md](docs/security.md)). There
-  are two opt-in exceptions. A [board branch](docs/team-board.md), for a team whose `main` is protected, runs `git push`
-  of that one branch. A [store plugin](docs/store-plugins.md) you select and trust keeps the cards in JIRA, GitHub
+  are two opt-in exceptions. A [board branch](docs/team-board.md), which `init` sets up for a worktree-per-card project
+  and a team whose `main` is protected needs, runs `git push` of that one branch, and only when you say so
+  (`publish = "auto"`). A [store plugin](docs/store-plugins.md) you select and trust keeps the cards in JIRA, GitHub
   issues or another tracker, and reaches it with the tools it drives; the command itself still makes no request.
 
 ## Supported

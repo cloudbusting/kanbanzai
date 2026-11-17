@@ -31,7 +31,11 @@ func initialized(t *testing.T, text string) string {
 	environment(t)
 	root := testutil.Repo(t, text)
 	// The built command, not the package: init verifies with doctor, so this package cannot import init.
-	if result := testutil.Run(t, root, nil, "init"); result.Code > 1 {
+	args := []string{"init"}
+	if _, err := os.Stat(filepath.Join(root, ".kanbanzai", "config.toml")); err != nil {
+		args = append(args, "--board-main") // a new project: these tests are about the board most projects had before CHANGE-94
+	}
+	if result := testutil.Run(t, root, nil, args...); result.Code > 1 {
 		// 1 is a red `check` after init: some fixtures are deliberately broken, and that is the test's business.
 		t.Fatalf("init: %d\n%s%s", result.Code, result.Stdout, result.Stderr)
 	}

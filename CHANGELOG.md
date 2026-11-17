@@ -5,6 +5,17 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-94: `kanbanzai init` puts a new project's board on a board branch (`[board] home = "branch"`) when its preset
+  works in a worktree per card, which is `software`, `release-train` and `team-pr`, and when no preset is chosen. On `main`
+  the board's own files are always uncommitted in the main checkout, which `wip --audit` reports as a hard finding, and
+  every move is a commit of its own. `simple`, `docs-only`, `marketing`, `homework` and `pr-review` keep the board on
+  `main`. `--board-main` keeps it there for any preset, `--board-branch` puts it on a branch for any preset, and a preset
+  of your own asks for the branch with `board_home = "branch"` in its `[preset]` table. `init --dry-run` says which home it
+  chose and why. `init` leaves the branch not yet attached, so `kanbanzai sync --attach` makes its worktree and `check`
+  waits until then instead of failing; `init` keeps `main` and says why when the work folder already holds files. An
+  existing config is never changed, and a config with no `[board]` table behaves as before. The editor's setup passes
+  `--board-main` (it cannot run `sync --attach`), and `--board-main` has no effect on a project that has a config.
+
 - BUG-93: a test build of the editor extension no longer replaces the release's extension folder or the shared per-user
   command. `go run ./tools/vsix -label <name>` packs the extension as `<version>-<name>`, so the editor installs it
   beside the release's folder instead of over it, and the extension's start-up refresh of the per-user command and

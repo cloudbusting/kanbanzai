@@ -5,6 +5,7 @@
 name = "software"
 delivery_style = "software"
 version = 1
+board_home = "branch"
 summary = "Design, build, check, QA and ship each card in its own git worktree, with the owner's approval before a release."
 best_for = "A software product with tests and a release, where several cards can be in flight at once."
 not_for = "Work with no code, no branch or no release; use simple for a small project and docs-only for a docs site."

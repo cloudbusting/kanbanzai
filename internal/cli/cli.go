@@ -35,7 +35,7 @@ import (
 // initUsage is the init line of the usage text, and what `init --help` prints: the setup skill reads it to learn which
 // flags the installed command has.
 const initUsage = `  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
-       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template] [--board-branch]
+       [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template] [--board-branch|--board-main]
        [--preset NAME|DIR [--type KEY=PREFIX[:Label][,...]] [--step-skill STEP=SKILL[,...]]
         [--step-extend STEP=SKILL[+SKILL][,...]]]
                                  set a project up (detect, plan, apply, verify; never commits)
@@ -161,7 +161,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
-			"with-template": true, "board-branch": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
+			"with-template": true, "board-branch": true, "board-main": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
 			"plugins": true, "plugin-source": true, "preset": true, "type": true, "step-skill": true, "step-extend": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
@@ -174,9 +174,9 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 						"combined with it", name))
 				}
 			}
-			if set["force"] || set["with-template"] || set["board-branch"] {
+			if set["force"] || set["with-template"] || set["board-branch"] || set["board-main"] {
 				return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --force, "+
-					"--with-template and --board-branch cannot be combined with it"))
+					"--with-template, --board-branch and --board-main cannot be combined with it"))
 			}
 		}
 		var context []string
@@ -195,7 +195,7 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		return initcmd.Run("", initcmd.Options{Preset: flags["preset"], Types: split("type"), StepSkills: split("step-skill"),
 			StepExtends: split("step-extend"), DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
-			WithTemplate: set["with-template"], BoardBranch: set["board-branch"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
+			WithTemplate: set["with-template"], BoardBranch: set["board-branch"], BoardMain: set["board-main"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
 			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
 			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})
 	}

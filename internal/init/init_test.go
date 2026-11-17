@@ -43,10 +43,23 @@ func repo(t *testing.T, branch string) string {
 }
 
 func initRun(root string, opts Options) (code int, stdout, stderr string) {
-	var out, errOut bytes.Buffer
-	opts.Out, opts.Err = &out, &errOut
-	code = Run(root, opts)
-	return code, out.String(), errOut.String()
+	run := func(opts Options) (int, string, string) {
+		var out, errOut bytes.Buffer
+		opts.Out, opts.Err = &out, &errOut
+		code := Run(root, opts)
+		return code, out.String(), errOut.String()
+	}
+	// These tests are about init's mechanics on the board most projects had before CHANGE-94 made the board branch the
+	// default: they keep the board on main unless a test asks for the branch (the default is tested in internal/cli).
+	// A project that already has a config has no board home to choose, and init says so.
+	if opts.PlanFile == "" && !opts.BoardBranch {
+		withMain := opts
+		withMain.BoardMain = true
+		if code, out, errOut := run(withMain); code != 2 || !strings.Contains(errOut, "have no effect on the existing") {
+			return code, out, errOut
+		}
+	}
+	return run(opts)
 }
 
 // tree is every file under root except .git, by slash path, with its content.

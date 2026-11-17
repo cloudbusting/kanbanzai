@@ -36,8 +36,8 @@ to merge, and `wip --audit` and `/cleanup` treat a Done card's clean workspace a
 landed: reachable from the main branch or a remote-tracking branch, or its remote branch is gone. It has no effect with
 `shared` or `external` isolation, and `workflow validate` says so. [isolation.md](isolation.md) has the detail.
 
-**Board.** `[board] home` says where the cards, the number ledger and the claims live: `main` (the default: the briefs are
-committed on the main branch, the ledger and claims are per-clone state) or `branch` (a branch of its own, checked out at
+**Board.** `[board] home` says where the cards, the number ledger and the claims live: `main` (the default of a config with no `[board]` table: the briefs are
+committed on the main branch, the ledger and claims are per-clone state; `init` writes `branch` for a new project whose preset works in a worktree per card, see [presets.md](presets.md#where-the-board-lives)) or `branch` (a branch of its own, checked out at
 `[project] work`, shared by a team through git, for a project whose main branch is protected). `branch` names it
 (default `kanbanzai-board`, never the main branch), `remote` names the git remote by name (default `origin`, never an address) and
 `publish` is `ask` (the default: commit locally, never fetch or push on its own) or `auto` (the board commands fetch and push that
