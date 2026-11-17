@@ -1,11 +1,11 @@
 # TASK-96: A skill and a command to remake the board demo GIF, so each new version of the tool can refresh the film
 
-- **Stage:** checked
+- **Stage:** done
 - **Updated:** 2026-11-18
-- **Done:** —
+- **Done:** 2026-11-18, 1b6bc2a on main (not pushed or released): project skill and tooling, no deploy
 - **ADR:** none
-- **Next action:** close: merge TASK-96 into main (Deploy is None)
-- **Where:** worktree TASK-96
+- **Next action:** —
+- **Where:** main
 
 ## Goal
 
