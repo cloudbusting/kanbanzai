@@ -1,10 +1,10 @@
 # TASK-84: An animated GIF for the extension's marketplace listing, showing the board with an agent session at work in VSCodium
 
-- **Stage:** built
+- **Stage:** checked
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** owner looks at docs/media/board-demo.gif (worktree TASK-84); then check (kanbanzai-qa), then the demo scratch files in /tmp (see Progress) are deleted
+- **Next action:** package and release: kanbanzai step deploy-qa (kanbanzai-package) with the next release; push main first so the GIF link resolves
 - **Where:** worktree TASK-84
 
 ## Goal
@@ -66,11 +66,14 @@ Related but distinct: TASK-75 (rewrote the marketplace documentation, which this
 
 ## Progress
 
+- 2026-11-17: checked, and the owner approved the GIF ("approved"). `kanbanzai-qa`: go test ./... (36 packages ok) and go vet green; board-view 393 of 393 and opencode 13 of 13; hooks and JS syntax ok; `claude plugin validate .` passes; the five steps and the config resolve; card audit and board check pass; the .vsix dry run lists package.json, README, icon and the runtime modules only, no bin.json and no machine path. Diff review: 8 files, all in the brief; no version change; no machine path or secret in the added text; the only non-standard dependency is Pillow and numpy in the optional `tools/demo-gif/assemble.py`, which the owner has seen flagged and approved. Check 7 (the published listing) stays the owner's.
+
 - 2026-11-17: built in worktree TASK-84 (9abfb67). Recorded one real take in the web editor (openvscode-server on 127.0.0.1) with a clean scratch Claude config: Init and Apply, `/kanbanzai:triage` (BUG-01 in Todo), `/kanbanzai:breakdown` (EPIC-02 and six cards, the board showing the session asking), `/kanbanzai:do BUG-01` to Done in its own worktree. The owner asked mid-run for the terminal beside the board, so the take was redone with the panel on the right. `docs/media/board-demo.gif` is 3,374,735 bytes, 310 frames, 38.8 s, 960 x 640 (a 40 px caption strip under 960 x 600 of editor). `TestTheExtensionListingShowsTheDemoGif` was red before the file and link, now green; go vet and go test ./... clean, board-view 393 of 393; the .vsix lists the same files as 0.25.1 and is 215 bytes larger. Check 5 (privacy) was done by scanning the session transcripts for the owner's email, a home path, tokens and session ids (one hit: the skill's base directory under `~/.local/share/kanbanzai/plugin`, which the terminal does not print) and by looking at contact sheets of the kept frames, not every frame at full size. Check 7 is the owner's and not run.
 - 2026-11-17: findings, not fixed here: in the web editor the board did not update on the file change and waited for its 60-second refresh (the file watcher may not fire there); Claude Code shows "Not logged in" when it signs in through the sandbox's gateway, so `assemble.py` paints that notice over. Both want a look from the owner; neither is this card's.
 
 - 2026-11-17: designed. Feasibility proven by a spike (web editor served on loopback, board .vsix installed, Playwright loads it). The owner chose the real session and approved running the downloaded editor.
 - 2026-11-17: built; the GIF, listing text, test and tools/demo-gif are committed in worktree TASK-84 (9abfb67)
+- 2026-11-17: checked; branch TASK-84 merged to main
 
 ## Comments
 
