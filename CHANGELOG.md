@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-11-17
+
 - BUG-85: the editor's board follows a board branch. `kanbanzai sessions --json` gains an optional `board` object for a
   project with `[board] home = "branch"` (the branch, its head, ahead, behind, uncommitted and publish; local git only, no
   network; absent for a board on main), and the extension refreshes the tab when it changes, so a move made in a terminal
