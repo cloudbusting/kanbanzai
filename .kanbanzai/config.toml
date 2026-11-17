@@ -226,3 +226,10 @@ context = []
 checks = []
 skip_field = "Deploy"
 skip_values = ["None"]
+
+# The board lives on its own branch (kanbanzai-board), mounted as a worktree at project.work, so the main checkout stays
+# clean and no board edit is a commit on main (docs/team-board.md). `kanbanzai sync` publishes the branch; `publish = "ask"`
+# never fetches or pushes on its own. Moved here from main by CHANGE-94 (2026-11-18).
+[board]
+home = "branch"
+publish = "ask"
