@@ -1,10 +1,10 @@
 # TASK-84: An animated GIF for the extension's marketplace listing, showing the board with an agent session at work in VSCodium
 
-- **Stage:** designed
+- **Stage:** built
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
-- **Next action:** build task 1: write tools/demo-gif/seed.sh and its README (the fake project, the requirement, the storyboard)
+- **Next action:** owner looks at docs/media/board-demo.gif (worktree TASK-84); then check (kanbanzai-qa), then the demo scratch files in /tmp (see Progress) are deleted
 - **Where:** worktree TASK-84
 
 ## Goal
@@ -26,12 +26,12 @@ Related but distinct: TASK-75 (rewrote the marketplace documentation, which this
 
 ## Acceptance checks
 
-- [ ] `board-view/README.md` shows the GIF as an https image link to `raw.githubusercontent.com/cloudbusting/kanbanzai/main/docs/media/board-demo.gif` near the top, with alt text that describes the story, and a caption saying it is a real session, cut and sped up. A test in `docs_test.go` pins the link, the alt text and the caption, and that `docs/media/board-demo.gif` exists, starts with the GIF89a signature and is at most 4,194,304 bytes (red before the file and link exist).
-- [ ] The README still has "**Network, telemetry:** none" and now says the image is loaded by the marketplace page, not by the extension; the existing test `TestTheExtensionReadmeStatesWhatItExecutesReadsAndWrites` passes.
-- [ ] `go run ./tools/vsix -dir board-view -o <path>` lists the same files as before (no GIF in the .vsix) and the .vsix is under 100 KB larger than the 0.25.1 one; `tools/vsix` tests pass unchanged.
-- [ ] The GIF shows, in this order, with a legible frame for each: the Init and Apply status bar items, a `/kanbanzai:triage` run of a fake request in Claude Code's terminal, a `/kanbanzai:breakdown` run that leaves several cards in Todo on the board tab, one card claimed (the `●` mark) and moving to a later column, and a card's brief open in an editor tab. Measured: at most 45 s, 960 px wide, at most 4 MB.
-- [ ] No frame shows the owner's email, a path under `/home/dev`, a token or a session id: every kept frame is looked at (contact sheet) and the check is recorded in Progress. The terminal prompt is set to `$ ` and the project lives in `/tmp/demo-proj` before the recording.
-- [ ] `tools/demo-gif/seed.sh` makes the Pantry project from scratch in a given empty folder (git repo, `package.json` with `node --test`, the one-paragraph requirement in `REQUIREMENT.md`); run twice into two empty folders it gives the same files. Its README holds the storyboard and the ffmpeg line.
+- [x] `board-view/README.md` shows the GIF as an https image link to `raw.githubusercontent.com/cloudbusting/kanbanzai/main/docs/media/board-demo.gif` near the top, with alt text that describes the story, and a caption saying it is a real session, cut and sped up. A test in `docs_test.go` pins the link, the alt text and the caption, and that `docs/media/board-demo.gif` exists, starts with the GIF89a signature and is at most 4,194,304 bytes (red before the file and link exist).
+- [x] The README still has "**Network, telemetry:** none" and now says the image is loaded by the marketplace page, not by the extension; the existing test `TestTheExtensionReadmeStatesWhatItExecutesReadsAndWrites` passes.
+- [x] `go run ./tools/vsix -dir board-view -o <path>` lists the same files as before (no GIF in the .vsix) and the .vsix is under 100 KB larger than the 0.25.1 one; `tools/vsix` tests pass unchanged.
+- [x] The GIF shows, in this order, with a legible frame for each: the Init and Apply status bar items, a `/kanbanzai:triage` run of a fake request in Claude Code's terminal, a `/kanbanzai:breakdown` run that leaves several cards in Todo on the board tab, one card claimed (the `●` mark) and moving to a later column, and a card's brief open in an editor tab. Measured: at most 45 s, 960 px wide, at most 4 MB.
+- [x] No frame shows the owner's email, a path under `/home/dev`, a token or a session id: every kept frame is looked at (contact sheet) and the check is recorded in Progress. The terminal prompt is set to `$ ` and the project lives in `/tmp/demo-proj` before the recording.
+- [x] `tools/demo-gif/seed.sh` makes the Pantry project from scratch in a given empty folder (git repo, `package.json` with `node --test`, the one-paragraph requirement in `REQUIREMENT.md`); run twice into two empty folders it gives the same files. Its README holds the storyboard and the ffmpeg line.
 - [ ] Manual, the owner's: open the published listing (or the README preview on GitHub) and see the GIF play, once the file is pushed.
 
 ## Deploy
@@ -66,7 +66,11 @@ Related but distinct: TASK-75 (rewrote the marketplace documentation, which this
 
 ## Progress
 
+- 2026-11-17: built in worktree TASK-84 (9abfb67). Recorded one real take in the web editor (openvscode-server on 127.0.0.1) with a clean scratch Claude config: Init and Apply, `/kanbanzai:triage` (BUG-01 in Todo), `/kanbanzai:breakdown` (EPIC-02 and six cards, the board showing the session asking), `/kanbanzai:do BUG-01` to Done in its own worktree. The owner asked mid-run for the terminal beside the board, so the take was redone with the panel on the right. `docs/media/board-demo.gif` is 3,374,735 bytes, 310 frames, 38.8 s, 960 x 640 (a 40 px caption strip under 960 x 600 of editor). `TestTheExtensionListingShowsTheDemoGif` was red before the file and link, now green; go vet and go test ./... clean, board-view 393 of 393; the .vsix lists the same files as 0.25.1 and is 215 bytes larger. Check 5 (privacy) was done by scanning the session transcripts for the owner's email, a home path, tokens and session ids (one hit: the skill's base directory under `~/.local/share/kanbanzai/plugin`, which the terminal does not print) and by looking at contact sheets of the kept frames, not every frame at full size. Check 7 is the owner's and not run.
+- 2026-11-17: findings, not fixed here: in the web editor the board did not update on the file change and waited for its 60-second refresh (the file watcher may not fire there); Claude Code shows "Not logged in" when it signs in through the sandbox's gateway, so `assemble.py` paints that notice over. Both want a look from the owner; neither is this card's.
+
 - 2026-11-17: designed. Feasibility proven by a spike (web editor served on loopback, board .vsix installed, Playwright loads it). The owner chose the real session and approved running the downloaded editor.
+- 2026-11-17: built; the GIF, listing text, test and tools/demo-gif are committed in worktree TASK-84 (9abfb67)
 
 ## Comments
 
