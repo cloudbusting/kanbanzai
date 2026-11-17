@@ -1,10 +1,10 @@
 # W-25: Pluggable backing stores for work items, with the in-repo store, JIRA and GitHub Issues as plugins and per-plugin filters
 
-- **Stage:** todo
-- **Updated:** 2026-11-11
-- **Done:** —
+- **Stage:** done
+- **Updated:** 2026-11-17
+- **Done:** 2026-11-17 — closed, no change: superseded by EPIC-86 (split into CHANGE-87 to CHANGE-91)
 - **ADR:** needed — the backing-store plugin contract and trust model (design writes it)
-- **Next action:** design: settle the plugin contract and the trust model — where a store plugin runs, what it implements, which side owns the truth, how a card's ID maps to a JIRA key or issue number, how each plugin's configurable filter selects which remote tickets are relevant, and how the in-repo store becomes one standard plugin with the four JIRA/GitHub plugins beside it
+- **Next action:** —
 - **Where:** —
 
 ## Goal
@@ -82,6 +82,9 @@ detail — README says the binary "makes no network request"):
   Goal and Decisions.
 - 2026-11-11: added the owner's request for configurable per-plugin filters (labels, components and the like) that
   select only the relevant remote tickets, into the Goal, Next action, Decisions and Risk.
+- 2026-11-17: split under EPIC-86 into CHANGE-87 (plugin model, with the in-repo store as the standard plugin),
+  CHANGE-88 (JIRA/twg), CHANGE-89 (JIRA/mcp), CHANGE-90 (GitHub public) and CHANGE-91 (GitHub Enterprise Server);
+  closed as superseded by EPIC-86.
 
 ## Out of scope
 

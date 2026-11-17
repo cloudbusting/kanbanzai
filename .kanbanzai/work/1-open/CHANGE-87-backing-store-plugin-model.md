@@ -1,10 +1,10 @@
 # CHANGE-87: Backing-store plugin model: the contract, the trust model and the in-repo store as the standard plugin
 
-- **Stage:** checked
+- **Stage:** in-qa
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** this brief (Decisions and Contract) is the record; the repository keeps no separate decision-record folder
-- **Next action:** deploy-qa in a fresh session (the owner's choice): `/kanbanzai:do 87` resumes the preserved worktree work through the recovery audit, then packages and install-tests the artifacts
+- **Next action:** merge CHANGE-87 into main first (CHANGELOG.md `[Unreleased]` conflicts with BUG-92's entry: keep both), then rerun deploy-qa: `/kanbanzai:do 87`
 - **Where:** worktree CHANGE-87
 
 ## Goal
@@ -309,6 +309,7 @@ Tasks 1 to 5 run in order. Task 6 can run in parallel with task 5 once task 4 is
 - 2026-11-17: designed: the owner settled network (external plugin exe), truth (remote + local working copy), IDs (store's key) and the query (store-native JQL/search, default all); contract, protocol, trust model and 7 tasks in the brief
 - 2026-11-17: built: store interface, files store, plugin protocol, trusted plugin runner, reference plugin, working-copy mirror, store commands, audit/context/editor/skills/docs; all suites green, file board byte-identical
 - 2026-11-17: checked: kanbanzai-qa green (go, vet, node 422 + 13, hooks, JS, claude validate, vsix, audit, check); review found 8 defects, all fixed with tests (40778bc); file board byte-identical
+- 2026-11-17: deploy-qa not run: branch CHANGE-87 was never merged into main (5 commits ahead, 8 behind), and `git merge CHANGE-87` conflicts in CHANGELOG.md (both it and BUG-92 add an [Unreleased] entry); merge aborted, nothing changed; the card waits In QA for the owner's word on resolving it
 
 ## Out of scope
 

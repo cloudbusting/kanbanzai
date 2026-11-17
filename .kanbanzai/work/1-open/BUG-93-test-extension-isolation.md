@@ -1,6 +1,6 @@
 # BUG-93: a test extension in one editor profile replaces every profile's extension and the shared command
 
-- **Stage:** todo
+- **Stage:** designing
 - **Updated:** 2026-11-17
 - **Done:** —
 - **ADR:** none
