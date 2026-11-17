@@ -26,14 +26,26 @@ type Backend struct {
 	file   *regexp.Regexp
 }
 
-// Open is the backend its settings name: root, the folder (relative to the working directory), and prefix, the ids'
-// prefix (default REF).
+// Open is the backend its settings name: root, the folder of tickets, and prefix, the ids' prefix (default REF). The
+// plugin is built in and needs no trust, so a committed config cannot point it outside the project: root is a folder
+// inside the working directory (the project's root, where the command runs it), named without "..", and not a
+// symlink.
 func Open(settings map[string]string) (protocol.Backend, error) {
 	root := strings.TrimSpace(settings["root"])
 	if root == "" {
 		return nil, store.Refuse(store.CodeRefused, "the reference plugin needs [store.settings] root, the folder of tickets")
 	}
-	prefix := settings["prefix"]
+	if !filepath.IsLocal(root) {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("the reference plugin's root %q must be a folder inside the project", root))
+	}
+	if info, err := os.Lstat(root); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("the reference plugin's root %q must not be a symlink", root))
+	}
+	return OpenFolder(root, settings["prefix"])
+}
+
+// OpenFolder is the backend of any folder, with no confinement: for tests and for a plugin author's own harness.
+func OpenFolder(root, prefix string) (protocol.Backend, error) {
 	if prefix == "" {
 		prefix = "REF"
 	}

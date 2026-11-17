@@ -2,10 +2,13 @@
 package stores
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/gitutil"
 	"github.com/cloudbusting/kanbanzai/internal/store"
 	"github.com/cloudbusting/kanbanzai/internal/store/files"
 	"github.com/cloudbusting/kanbanzai/internal/store/mirror"
@@ -28,6 +31,13 @@ func For(project *config.Project, allocate func(cardType, note string) (string, 
 		Query: project.StoreQuery, InFlight: inFlight(project)}), project: project}
 }
 
+// ReadConfined is a board card's brief for a reader that hands it on (the browser board): inside the cards folder
+// only, never through a symlink out of it, and at most limit bytes. A plugin's working copy is laid out as the
+// files store's, so this is the same for every store.
+func ReadConfined(project *config.Project, entry store.Entry, limit int64) ([]byte, error) {
+	return files.New(project, files.Options{}).ReadConfined(entry, limit)
+}
+
 // remote is a plugin's store whose Ready also says whether the plugin can run.
 type remote struct {
 	*mirror.Store
@@ -35,6 +45,12 @@ type remote struct {
 }
 
 func (r *remote) Ready() error {
+	// the working copy is the store's tickets: never in git, where a repository could plant a ticket to publish
+	if tracked, err := gitutil.Git(r.project.Root, "ls-files", "--", r.project.Work); err == nil && strings.TrimSpace(tracked) != "" {
+		return store.Refuse(store.CodeRefused, fmt.Sprintf("the store's working copy %s is in git; take it out "+
+			"(`git rm -r --cached %s`) and commit that, then run `kanbanzai sync`", r.project.Rel(r.project.Work),
+			r.project.Rel(r.project.Work)))
+	}
 	if _, err := open(r.project); err != nil {
 		return err
 	}

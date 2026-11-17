@@ -13,7 +13,7 @@ and the editor extension carry the same version.
   - **A new `[store]` table selects a store plugin** by bare name: `kanbanzai-store-<name>` on `PATH`, or the built-in
     `reference`.
     - It also takes the plugin's id `prefix` (its cards are `PROJ-123`), its own `query`, passed as it is (JQL, a
-      GitHub search; empty means all), `sync` and `[store.settings]`.
+      GitHub search; empty means all), and `[store.settings]`.
     - A plugin runs only after `kanbanzai store trust` records its SHA-256 in this clone. The command itself still
       makes no network request and holds no credential.
   - **A plugin's cards are a working copy under the state folder**, which git ignores.

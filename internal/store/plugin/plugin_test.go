@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,10 @@ func TestMain(m *testing.M) {
 		}
 		switch mode {
 		case "serve":
-			if err := protocol.Serve(os.Stdin, os.Stdout, reference.Open); err != nil {
+			open := func(settings map[string]string) (protocol.Backend, error) {
+				return reference.OpenFolder(settings["root"], settings["prefix"]) // the tests' tickets are in a temporary folder
+			}
+			if err := protocol.Serve(os.Stdin, os.Stdout, open); err != nil {
 				os.Exit(1)
 			}
 		case "garbage":
@@ -78,6 +82,9 @@ func install(t *testing.T, mode string) string {
 func project(t *testing.T, tickets string) *config.Project {
 	t.Helper()
 	t.Setenv("KANBANZAI_PROJECT", "")
+	user := t.TempDir() // the per-user folder that keeps trust, outside every repository
+	t.Setenv("XDG_DATA_HOME", user)
+	t.Setenv("LOCALAPPDATA", user)
 	root := testutil.Repo(t, strings.Replace(fakeConfig, "%s", filepath.ToSlash(tickets), 1))
 	p, err := config.Find(root)
 	if err != nil {
@@ -190,5 +197,37 @@ func TestAPluginIsABareNameOnPathNeverAPath(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	if _, err := Find(p); !errors.Is(err, store.ErrUnavailable) || !strings.Contains(err.Error(), "kanbanzai-store-fake is not on PATH") {
 		t.Fatalf("Find with no plugin installed = %v", err)
+	}
+}
+
+func TestTrustLivesOutsideTheRepositorySoACommittedRecordCountsForNothing(t *testing.T) {
+	install(t, "serve")
+	p := project(t, t.TempDir())
+	program, err := Find(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum, _ := program.Sum()
+	// what a hostile repository could commit: a record naming the installed program and its real SHA-256
+	committed := `{"fake": {"path": ` + strconv.Quote(program.Path) + `, "sha256": "` + sum + `", "at": "then"}}`
+	for _, path := range []string{filepath.Join(p.State, "store", "trust.json"), filepath.Join(p.Root, ".kanbanzai", "trust.json")} {
+		testutil.Write(t, path, committed)
+	}
+	if _, err := Open(p, io.Discard); !errors.Is(err, store.ErrRefused) {
+		t.Fatalf("Open with only a record inside the project = %v, want refused", err)
+	}
+	if _, err := Trust(p, program, "now"); err != nil {
+		t.Fatal(err)
+	}
+	file := TrustFile()
+	if inside, _ := filepath.Rel(p.Root, file); filepath.IsLocal(inside) {
+		t.Fatalf("trust is kept inside the repository: %s", file)
+	}
+	if _, err := Open(p, io.Discard); err != nil {
+		t.Fatalf("Open after trust: %v", err)
+	}
+	other := project(t, t.TempDir())
+	if _, err := Open(other, io.Discard); !errors.Is(err, store.ErrRefused) {
+		t.Fatalf("trust in one clone counted for another: %v", err)
 	}
 }

@@ -48,7 +48,7 @@ cards. [team-board.md](team-board.md) has the setup and what can stand in the wa
 always) or a store plugin's bare name, which runs `kanbanzai-store-<name>` from your `PATH` (`reference` is the
 built-in example). A plugin runs only after you trust it in this clone with `kanbanzai store trust`. With a plugin,
 `prefix` is its id prefix (`PROJ` for `PROJ-123`), `query` is its own query passed as it is (JQL for JIRA, an issue
-search for GitHub; empty means every ticket it can see), `sync` is `manual` (the default) or `auto`, and
+search for GitHub; empty means every ticket it can see), and
 `[store.settings]` is text the plugin reads, never a credential. The cards are then a working copy under
 `<state>/store/work`, which git ignores, and a board branch cannot be used as well.
 [store-plugins.md](store-plugins.md) has the protocol and the trust model.

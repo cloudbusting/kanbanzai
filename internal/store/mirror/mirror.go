@@ -93,6 +93,12 @@ func (s *Store) Write(entry store.Entry, text []byte, baseRev, folder string) (s
 	if baseRev != "" && current.Rev != baseRev {
 		return entry, store.Refuse(store.CodeConflict, fmt.Sprintf("%s changed since it was read", s.project.Rel(entry.Path)))
 	}
+	// refuse what the working copy would refuse before the store changes, so a refused command changed nothing
+	if destination := filepath.Join(s.project.Work, folder, filepath.Base(entry.Path)); destination != entry.Path {
+		if _, err := os.Stat(destination); err == nil {
+			return entry, store.Refuse(store.CodeExists, fmt.Sprintf("%s already exists", s.project.Rel(destination)))
+		}
+	}
 	state := s.state(entry.ID)
 	rev, err := s.backend.Put(entry.ID, state.Rev, string(text), fieldsOf(s.project, text))
 	if errors.Is(err, store.ErrConflict) {
@@ -120,7 +126,7 @@ func (s *Store) Create(cardType, title string, text []byte, folder string) (stor
 	if err != nil {
 		return store.Entry{}, err
 	}
-	if _, ok := s.project.CanonicalCardID(id); !ok {
+	if canonical, ok := s.project.CanonicalCardID(id); !ok || canonical != id {
 		return store.Entry{}, store.Refuse(store.CodeRefused, fmt.Sprintf("%s answered the id %q, which is not %s-<number>",
 			s.options.Name, id, s.project.StorePrefix))
 	}
@@ -173,10 +179,19 @@ func (s *Store) Sync() error {
 			return err
 		}
 		state := s.state(entry.ID)
-		if state.Sum == "" || state.Sum == card.Rev {
+		if state.Sum == card.Rev {
 			continue
 		}
 		edited[entry.ID] = true
+		if state.Sum == "" {
+			// no record of syncing it (a brief written here by hand, or a lost state folder): never replace or drop
+			// it, and leave it for a person
+			state.Conflict = true
+			if err := s.saveState(entry.ID, state); err != nil {
+				return err
+			}
+			continue
+		}
 		if state.Conflict {
 			continue
 		}
@@ -272,6 +287,22 @@ func (s *Store) Sync() error {
 				if err := s.saveState(ticket.ID, fetched); err != nil {
 					return err
 				}
+			}
+		}
+	}
+	// a record whose card is no longer in the working copy (dropped, or deleted to take the store's version) goes too
+	after, err := s.local.List()
+	if err != nil {
+		return err
+	}
+	present := map[string]bool{}
+	for _, entry := range after {
+		present[entry.ID] = true
+	}
+	for id := range States(s.project) {
+		if !present[id] {
+			if err := os.Remove(s.statePath(id)); err != nil && !os.IsNotExist(err) {
+				return err
 			}
 		}
 	}

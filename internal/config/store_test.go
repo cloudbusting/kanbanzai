@@ -13,7 +13,7 @@ const typedStore = "[project]\nowner = \"Sam\"\n"
 
 func TestAConfigWithNoStoreKeepsItsCardsInFiles(t *testing.T) {
 	project := loadProject(t, testutil.Repo(t, typedStore))
-	if project.StorePlugin != "files" || project.RemoteStore() || project.StoreQuery != "" || project.StoreSync != "manual" {
+	if project.StorePlugin != "files" || project.RemoteStore() || project.StoreQuery != "" {
 		t.Fatalf("a config with no [store] table must behave as before: %+v", project)
 	}
 	if project.Work != filepath.Join(project.Root, ".kanbanzai", "work") {
@@ -23,9 +23,9 @@ func TestAConfigWithNoStoreKeepsItsCardsInFiles(t *testing.T) {
 
 func TestARemoteStoreLoadsAndKeepsItsWorkingCopyInState(t *testing.T) {
 	project := loadProject(t, testutil.Repo(t, typedStore+"\n[store]\nplugin = \"reference\"\nprefix = \"REF\"\n"+
-		"query = \"labels = agent AND project = X\"\nsync = \"auto\"\n\n[store.settings]\nroot = \"fixture\"\nhost = \"example.test\"\n"))
+		"query = \"labels = agent AND project = X\"\n\n[store.settings]\nroot = \"fixture\"\nhost = \"example.test\"\n"))
 	if project.StorePlugin != "reference" || !project.RemoteStore() || project.StorePrefix != "REF" ||
-		project.StoreQuery != "labels = agent AND project = X" || project.StoreSync != "auto" ||
+		project.StoreQuery != "labels = agent AND project = X" ||
 		project.StoreSettings["root"] != "fixture" || project.StoreSettings["host"] != "example.test" {
 		t.Fatalf("%+v", project)
 	}
@@ -48,16 +48,16 @@ func TestARemoteStoreLoadsAndKeepsItsWorkingCopyInState(t *testing.T) {
 
 func TestStoreRejectsWhatItCannotUse(t *testing.T) {
 	cases := map[string]struct{ head, store, want string }{
-		"plugin path":      {"", "plugin = \"./x\"\nprefix = \"X\"", "store.plugin"},
-		"plugin shell":     {"", "plugin = \"sh -c x\"\nprefix = \"X\"", "store.plugin"},
-		"plugin empty":     {"", "plugin = \"\"", "store.plugin"},
-		"no prefix":        {"", "plugin = \"jira-twg\"", "store.prefix"},
-		"prefix lower":     {"", "plugin = \"jira-twg\"\nprefix = \"proj\"", "store.prefix"},
-		"prefix is a type": {"", "plugin = \"jira-twg\"\nprefix = \"TASK\"", "store.prefix"},
-		"sync":             {"", "sync = \"always\"", "store.sync"},
-		"board branch":     {"\n[board]\nhome = \"branch\"\n", "plugin = \"jira-twg\"\nprefix = \"X\"", "board branch"},
-		"setting type":     {"", "plugin = \"jira-twg\"\nprefix = \"X\"\n[store.settings]\nport = 3", "store.settings.port"},
-		"unknown key":      {"", "plugin = \"files\"\ncommand = [\"x\"]", "store.command"},
+		"plugin path":       {"", "plugin = \"./x\"\nprefix = \"X\"", "store.plugin"},
+		"plugin shell":      {"", "plugin = \"sh -c x\"\nprefix = \"X\"", "store.plugin"},
+		"plugin empty":      {"", "plugin = \"\"", "store.plugin"},
+		"no prefix":         {"", "plugin = \"jira-twg\"", "store.prefix"},
+		"prefix lower":      {"", "plugin = \"jira-twg\"\nprefix = \"proj\"", "store.prefix"},
+		"prefix is a type":  {"", "plugin = \"jira-twg\"\nprefix = \"TASK\"", "store.prefix"},
+		"sync is not a key": {"", "sync = \"auto\"", "store.sync"},
+		"board branch":      {"\n[board]\nhome = \"branch\"\n", "plugin = \"jira-twg\"\nprefix = \"X\"", "board branch"},
+		"setting type":      {"", "plugin = \"jira-twg\"\nprefix = \"X\"\n[store.settings]\nport = 3", "store.settings.port"},
+		"unknown key":       {"", "plugin = \"files\"\ncommand = [\"x\"]", "store.command"},
 	}
 	for name, c := range cases {
 		err := loadError(t, testutil.Repo(t, typedStore+c.head+"\n[store]\n"+c.store+"\n"))
@@ -82,7 +82,7 @@ func TestStoreIsInTheConfigDictionary(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := decoded["store"].(map[string]any)
-	if got["plugin"] != "reference" || got["prefix"] != "REF" || got["remote"] != true || got["sync"] != "manual" {
+	if got["plugin"] != "reference" || got["prefix"] != "REF" || got["remote"] != true {
 		t.Fatalf("store = %v", decoded["store"])
 	}
 }

@@ -37,7 +37,7 @@ func schemaKeys() map[string]map[string]string {
 			"prefix": "string", "digits": "digits", "owner": "string", "home": "string", "work": "string", "state": "string", "claims": "string", "numbers": "string", "batches": "string", "template": "string", "worktree": "string", "main_branch": "string", "branch": "string", "batch_branch": "string", "context": "strings", "default_type": "string", "project_key": "string",
 		},
 		"board":        {"home": "board home", "branch": "string", "remote": "string", "publish": "board publish"},
-		"store":        {"plugin": "store plugin", "prefix": "string", "query": "string", "sync": "store sync", "settings": "settings"},
+		"store":        {"plugin": "store plugin", "prefix": "string", "query": "string", "settings": "settings"},
 		"preset":       {"name": "string", "delivery_style": "string", "version": "positive integer"},
 		"claims":       {"lease_minutes": "positive number", "owner_env": "string"},
 		"flow":         {"wip_limit": "positive integer", "stale_days": "positive integer", "move_grace_minutes": "positive number", "pull_order": "strings", "isolation": "isolation", "integration": "integration"},
@@ -139,8 +139,6 @@ func validateSchema(raw map[string]any, source string) ([]string, error) {
 					want = `"ask" or "auto"`
 				case "store plugin":
 					want = `a plugin's bare name: lower-case letters, digits and '-' (never a path, an argument or a shell command)`
-				case "store sync":
-					want = `"manual" or "auto"`
 				case "settings":
 					want = "a table of string values"
 				}
@@ -224,9 +222,6 @@ func validType(value any, typ string) bool {
 	case "store plugin":
 		text, ok := value.(string)
 		return ok && StorePluginName.MatchString(text)
-	case "store sync":
-		text, ok := value.(string)
-		return ok && (text == "manual" || text == "auto")
 	case "settings":
 		_, ok := value.(map[string]any)
 		return ok

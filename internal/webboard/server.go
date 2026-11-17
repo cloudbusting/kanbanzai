@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	assets "github.com/cloudbusting/kanbanzai"
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/store/stores"
 )
 
 func handler(project *config.Project, authority, token string) http.Handler {
@@ -99,25 +99,14 @@ func handler(project *config.Project, authority, token string) http.Handler {
 	})
 }
 
-// readBrief is a board card's brief through the project's store, which opens it inside the cards folder only (a
-// symlink is confined too) and only as a regular file; a brief over 4 MiB is not served.
+// readBrief is a board card's brief, opened inside the cards folder only (os.Root confines a symlink as well as the
+// path), only as a regular file, and at most 4 MiB, checked before it is read.
 func readBrief(p *config.Project, loaded *board.Board, id string) ([]byte, error) {
 	for _, col := range loaded.Columns {
 		for _, card := range col.Cards {
-			if card.ID != id {
-				continue
+			if card.ID == id {
+				return stores.ReadConfined(p, board.EntryOf(p, card), 4<<20)
 			}
-			if filepath.Ext(card.Path) != ".md" {
-				return nil, os.ErrPermission
-			}
-			read, err := board.ReadBrief(p, card)
-			if err != nil {
-				return nil, err
-			}
-			if len(read.Text) > 4<<20 {
-				return nil, os.ErrPermission
-			}
-			return read.Text, nil
 		}
 	}
 	return nil, os.ErrNotExist

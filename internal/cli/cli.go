@@ -306,10 +306,11 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		return runTree(project, args, out, errOut)
 	case "sync":
 		if project.RemoteStore() {
-			if positionals, _, _, err := parse(args, nil, nil); err != nil || len(positionals) != 0 {
+			positionals, _, set, err := parse(args, map[string]bool{"json": true}, nil)
+			if err != nil || len(positionals) != 0 {
 				return usageError(errOut, command, err)
 			}
-			return runStoreSync(project, out, errOut)
+			return runStoreSync(project, set["json"], out, errOut)
 		}
 		return runSync(project, args, out, errOut)
 	case "store":

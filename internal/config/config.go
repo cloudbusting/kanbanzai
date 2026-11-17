@@ -138,7 +138,6 @@ type Project struct {
 	StorePlugin        string            // the store that keeps the cards: "files" (the default), or a plugin's bare name
 	StorePrefix        string            // a remote store's id prefix: its cards are PREFIX-<number>
 	StoreQuery         string            // a remote store's query, store-native and passed verbatim; empty means all
-	StoreSync          string            // manual or auto: whether the editor runs `kanbanzai sync` for a remote store
 	StoreSettings      map[string]string // [store.settings], passed to the plugin as data
 	WorktreePattern    string
 	BranchPattern      string
@@ -883,7 +882,6 @@ func (p *Project) loadStore() error {
 	p.StorePlugin = asString(table["plugin"], "files")
 	p.StorePrefix = asString(table["prefix"], "")
 	p.StoreQuery = asString(table["query"], "")
-	p.StoreSync = asString(table["sync"], "manual")
 	p.StoreSettings = map[string]string{}
 	if settings, ok := table["settings"].(map[string]any); ok {
 		for key, value := range settings {
@@ -1322,7 +1320,7 @@ func (p *Project) AsDict() map[string]any {
 		"board": map[string]any{"home": p.BoardHome, "branch": p.BoardBranch, "remote": p.BoardRemote,
 			"publish": p.BoardPublish},
 		"store": map[string]any{"plugin": p.StorePlugin, "remote": p.RemoteStore(), "prefix": p.StorePrefix,
-			"query": p.StoreQuery, "sync": p.StoreSync, "settings": p.StoreSettings},
+			"query": p.StoreQuery, "settings": p.StoreSettings},
 		"preset": map[string]any{"name": p.Preset.Name, "delivery_style": p.Preset.DeliveryStyle,
 			"version": p.Preset.Version},
 		"columns": columns,

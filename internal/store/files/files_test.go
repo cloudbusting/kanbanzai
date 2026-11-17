@@ -128,24 +128,47 @@ func TestTakenSeesEveryWorktree(t *testing.T) {
 	}
 }
 
-func TestReadStaysInsideTheCardsFolder(t *testing.T) {
+// A file board may keep a brief, or a whole column folder, as a symlink, and the board has always read through it.
+// Only the browser board, which serves a brief's text to a page, confines the read to the cards folder.
+func TestReadFollowsASymlinkAndReadConfinedDoesNot(t *testing.T) {
 	p := project(t)
-	outside := filepath.Join(t.TempDir(), "secret.md")
-	testutil.Write(t, outside, storetest.Brief("TASK-50", "Secret", "todo"))
-	link := filepath.Join(p.Work, "1-open", "TASK-50-secret.md")
+	outside := filepath.Join(t.TempDir(), "shared.md")
+	testutil.Write(t, outside, storetest.Brief("TASK-50", "Shared", "todo"))
+	link := filepath.Join(p.Work, "1-open", "TASK-50-shared.md")
 	if err := os.Symlink(outside, link); err != nil {
 		t.Skipf("no symlinks here: %v", err)
 	}
+	archive := t.TempDir()
+	testutil.Write(t, filepath.Join(archive, "TASK-51-old.md"), storetest.Brief("TASK-51", "Old", "done"))
+	if err := os.RemoveAll(filepath.Join(p.Work, "10-done")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(archive, filepath.Join(p.Work, "10-done")); err != nil {
+		t.Fatal(err)
+	}
 	s := New(p, Options{})
 	entries, _ := s.List()
-	if len(entries) != 1 {
-		t.Fatalf("List = %+v", entries)
+	if len(entries) != 2 {
+		t.Fatalf("List = %+v, want the symlinked brief and the card in the symlinked folder", entries)
 	}
-	if card, err := s.Read(entries[0]); err == nil {
-		t.Fatalf("Read followed a symlink out of the cards folder: %q", card.Text)
+	for _, entry := range entries {
+		if card, err := s.Read(entry); err != nil || len(card.Text) == 0 {
+			t.Fatalf("Read %s through a symlink = %v", entry.ID, err)
+		}
+	}
+	if _, err := s.ReadConfined(entries[0], 1<<20); err == nil {
+		t.Fatal("ReadConfined followed a symlink out of the cards folder")
 	}
 	if _, err := s.Read(store.Entry{ID: "TASK-50", Path: outside, Folder: "1-open"}); err == nil {
 		t.Fatal("Read opened a path outside the cards folder")
+	}
+	plain := filepath.Join(p.Work, "1-open", "TASK-52-plain.md")
+	testutil.Write(t, plain, storetest.Brief("TASK-52", "Plain", "todo"))
+	if data, err := s.ReadConfined(store.Entry{ID: "TASK-52", Path: plain, Folder: "1-open"}, 1<<20); err != nil || len(data) == 0 {
+		t.Fatalf("ReadConfined of a plain brief = %v", err)
+	}
+	if _, err := s.ReadConfined(store.Entry{ID: "TASK-52", Path: plain, Folder: "1-open"}, 10); err == nil {
+		t.Fatal("ReadConfined read a brief over its limit")
 	}
 }
 

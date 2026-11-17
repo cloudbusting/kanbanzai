@@ -151,8 +151,6 @@ publish = "ask"
 #            plugin; never a card type's prefix)
 #   query    the plugin's own query, passed as it is: JQL for JIRA, an issue search for GitHub. Empty means every
 #            ticket the plugin can see
-#   sync     manual | auto. `manual` (the default) fetches and publishes hand edits when you run `kanbanzai sync`;
-#            `auto` lets the editor run it on its sync loop
 #   settings a [store.settings] table of text the plugin reads (a host, a project), never a credential: the
 #            plugin's own tool holds those
 # A plugin's cards are a working copy under <state>/store/work, which git ignores; a plugin and a board branch

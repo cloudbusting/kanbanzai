@@ -117,7 +117,9 @@ func TestAnUntrustedPluginStopsTheBoardUntilTrusted(t *testing.T) {
 	if err := os.Chmod(filepath.Join(dir, name), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	env := map[string]string{"KANBANZAI_PROJECT": "", "PATH": dir + string(os.PathListSeparator) + os.Getenv("PATH")}
+	user := t.TempDir() // trust lives in the per-user folder: keep it out of the real one
+	env := map[string]string{"KANBANZAI_PROJECT": "", "PATH": dir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"XDG_DATA_HOME": user, "LOCALAPPDATA": user}
 	result := testutil.Run(t, root, env, "board")
 	if result.Code == 0 || !strings.Contains(result.Stderr, "kanbanzai store trust") {
 		t.Fatalf("board with an untrusted plugin: %d %s %s", result.Code, result.Stdout, result.Stderr)
@@ -132,6 +134,9 @@ func TestAnUntrustedPluginStopsTheBoardUntilTrusted(t *testing.T) {
 	if result := testutil.Run(t, root, env, "store", "status"); result.Code != 0 || !strings.Contains(result.Stdout, "trusted: yes") {
 		t.Fatalf("store status: %d %s %s", result.Code, result.Stdout, result.Stderr)
 	}
+	if _, err := os.Stat(filepath.Join(user, "kanbanzai", "store-trust.json")); err != nil {
+		t.Fatalf("trust is not in the per-user folder: %v", err)
+	}
 }
 
 func TestAFileBoardHasNoStoreInItsBoardJSON(t *testing.T) {
@@ -144,5 +149,38 @@ func TestAFileBoardHasNoStoreInItsBoardJSON(t *testing.T) {
 	}
 	if result := testutil.Run(t, root, env, "store", "status"); result.Code != 0 || !strings.Contains(result.Stdout, "files") {
 		t.Fatalf("store status: %d %s %s", result.Code, result.Stdout, result.Stderr)
+	}
+}
+
+func TestAWorkingCopyInGitStopsTheBoard(t *testing.T) {
+	root, env := referenceProject(t)
+	tracked := filepath.Join(root, ".kanbanzai", "state", "store", "work", "1-open", "REF-9-planted.md")
+	testutil.Write(t, tracked, ticket("REF-9", "Planted", "todo"))
+	testutil.Git(t, root, "add", "-f", tracked)
+	testutil.Git(t, root, "commit", "-q", "-m", "plant")
+	result := testutil.Run(t, root, env, "board")
+	if result.Code == 0 || !strings.Contains(result.Stderr, "in git") {
+		t.Fatalf("board with a tracked working copy: %d %s %s", result.Code, result.Stdout, result.Stderr)
+	}
+	if result := testutil.Run(t, root, env, "sync"); result.Code == 0 {
+		t.Fatalf("sync with a tracked working copy went ahead: %s", result.Stdout)
+	}
+}
+
+func TestSyncJSONOnAStorePlugin(t *testing.T) {
+	root, env := referenceProject(t)
+	result := testutil.Run(t, root, env, "sync", "--json")
+	if result.Code != 0 {
+		t.Fatalf("sync --json: %d %s %s", result.Code, result.Stdout, result.Stderr)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &decoded); err != nil {
+		t.Fatalf("sync --json is not JSON: %v\n%s", err, result.Stdout)
+	}
+	if decoded["plugin"] != "reference" || decoded["cards"] != float64(1) {
+		t.Fatalf("sync --json = %v", decoded)
+	}
+	if flags, ok := decoded["flags"].([]any); !ok || len(flags) != 0 {
+		t.Fatalf("flags = %v", decoded["flags"])
 	}
 }

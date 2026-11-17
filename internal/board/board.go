@@ -304,7 +304,7 @@ func ReadCard(project *config.Project, item Brief) (*Card, []string) {
 		Mark: brief.MarkOf(project, stage, held), Interrupted: false, Session: nil, ClaimedNotStarted: false,
 		Path: rel, column: key, gateLine: fields["Gate"], needs: gate.Needs(fields["Needs"]),
 	}
-	if card.Type == nil && fields["Type"] != "" {
+	if card.Type == nil && fields["Type"] != "" && project.RemoteStore() { // a store plugin's id carries no type
 		card.Type = typeNamed(project, fields["Type"])
 	}
 	if entries, err := question.Parse(string(data)); err == nil {

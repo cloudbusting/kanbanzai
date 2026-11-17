@@ -17,12 +17,16 @@ in files sees no change.
   - `[store] plugin = "x"` runs `kanbanzai-store-x` from your `PATH`. The name is never a path, an argument list or
     a shell command, so a config committed to a repository cannot make your machine run something else.
   - The plugin runs only after you run `kanbanzai store trust` in this clone. That records the plugin's name and the
-    SHA-256 of the program it found in `.kanbanzai/state/store/trust.json`, which git ignores.
+    SHA-256 of the program it found in `store-trust.json` in your per-user Kanbanzai folder
+    (`~/.local/share/kanbanzai/`, or `%LOCALAPPDATA%\kanbanzai\` on Windows), keyed by this clone's path. Because it
+    is outside every repository, a repository can't bring trust in with it.
   - A program that changes, after an upgrade or a different `PATH`, needs trust again. Until then, no command runs
     it, and every command that needs it says so.
 - **It runs as you.** It is started with an argument array (never a shell), in the project's root, with your
   environment. Kanbanzai adds no secret to that environment.
-- **The tickets stay out of git.** The working copy is under `.kanbanzai/state/store/work/`, which git ignores.
+- **The tickets stay out of git.** The working copy is under `.kanbanzai/state/store/work/`, which git ignores. A
+  working copy that git tracks (one a repository could plant tickets in) stops every command that needs the plugin
+  until it is taken out of git.
 - **The plugin is the boundary for what it reads and writes.** Kanbanzai reads only the tickets the plugin returns
   for the query, plus a ticket already on the board that is still in flight.
 
@@ -33,7 +37,6 @@ in files sees no change.
 plugin = "jira-twg"                 # runs kanbanzai-store-jira-twg
 prefix = "PROJ"                     # its cards are PROJ-123
 query = "project = PROJ AND labels = agent"   # the plugin's own query, passed as it is; empty means all
-sync = "manual"                     # or "auto": the editor runs `kanbanzai sync` on its loop
 
 [store.settings]                    # text the plugin reads; never a credential
 host = "jira.example.com"
@@ -135,7 +138,8 @@ An error is an answer of its own:
 ### Testing a plugin
 
 The built-in **`reference`** plugin (`kanbanzai store serve`) answers this protocol from a folder of Markdown files
-(`[store.settings] root`), one file per ticket. Use it as the example, and read its answers to compare with yours.
+(`[store.settings] root`), one file per ticket. Because it is built in, it needs no trust, so its root must be a
+folder inside the project: not an absolute path, not a path with `..`, and not a symlink. Use it as the example, and read its answers to compare with yours.
 
 Kanbanzai's conformance suite (`internal/store/storetest`) is the contract every store passes. It runs against the
 files store directly and against the reference plugin over the protocol. It checks:

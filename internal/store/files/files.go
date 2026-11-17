@@ -101,38 +101,60 @@ func (s *Store) Strays() ([]store.Entry, error) {
 	return strays, nil
 }
 
-// Read is one brief, its revision (the SHA-256 of its bytes) and its file mode. It opens the brief inside the cards
-// folder only (os.Root confines a symlink as well as the path), and only a regular file.
+// Read is one brief, its revision (the SHA-256 of its bytes) and its file mode. The path must name a place under the
+// cards folder; a brief or a column folder that is a symlink is read through, as the board always has.
 func (s *Store) Read(entry store.Entry) (store.Card, error) {
 	rel, err := filepath.Rel(s.project.Work, entry.Path)
 	if err != nil || !filepath.IsLocal(rel) {
 		return store.Card{}, store.Refuse(store.CodeRefused, fmt.Sprintf("%s is not in the cards folder", entry.Path))
 	}
-	root, err := os.OpenRoot(s.project.Work)
-	if err != nil {
-		return store.Card{}, err
-	}
-	defer root.Close()
-	file, err := root.Open(rel)
+	data, err := os.ReadFile(entry.Path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return store.Card{}, store.Refuse(store.CodeNotFound, fmt.Sprintf("%s: no such brief", s.project.Rel(entry.Path)))
 	}
 	if err != nil {
 		return store.Card{}, err
 	}
+	mode := os.FileMode(0o644)
+	if info, err := os.Stat(entry.Path); err == nil {
+		mode = info.Mode().Perm()
+	}
+	return store.Card{Entry: entry, Text: data, Rev: Rev(data), Mode: mode}, nil
+}
+
+// ReadConfined is a brief's text for a reader that hands it to someone else (the browser board): it opens the brief
+// inside the cards folder only (os.Root confines a symlink as well as the path), only as a regular file, and only up
+// to limit bytes, checked before it reads.
+func (s *Store) ReadConfined(entry store.Entry, limit int64) ([]byte, error) {
+	rel, err := filepath.Rel(s.project.Work, entry.Path)
+	if err != nil || !filepath.IsLocal(rel) || filepath.Ext(rel) != ".md" {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("%s is not a brief in the cards folder", entry.Path))
+	}
+	root, err := os.OpenRoot(s.project.Work)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	file, err := root.Open(rel)
+	if err != nil {
+		return nil, err
+	}
 	defer file.Close()
 	info, err := file.Stat()
 	if err != nil {
-		return store.Card{}, err
+		return nil, err
 	}
-	if !info.Mode().IsRegular() {
-		return store.Card{}, store.Refuse(store.CodeRefused, fmt.Sprintf("%s is not a regular file", s.project.Rel(entry.Path)))
+	if !info.Mode().IsRegular() || info.Size() > limit {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("%s is not a regular brief of at most %d bytes", s.project.Rel(entry.Path), limit))
 	}
-	data, err := io.ReadAll(file)
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err != nil {
-		return store.Card{}, err
+		return nil, err
 	}
-	return store.Card{Entry: entry, Text: data, Rev: Rev(data), Mode: info.Mode().Perm()}, nil
+	if int64(len(data)) > limit {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("%s grew past %d bytes", s.project.Rel(entry.Path), limit))
+	}
+	return data, nil
 }
 
 // Write replaces a brief atomically. A relocation writes the brief in its new folder and then removes the old file,

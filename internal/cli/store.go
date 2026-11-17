@@ -60,8 +60,8 @@ func runStore(project *config.Project, args []string, out, errOut io.Writer) int
 			fmt.Fprintf(errOut, "kanbanzai: store trust: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(out, "trusted %s: %s\nsha256 %s\nrecorded in %s (this clone only); a changed program needs trust again\n",
-			program.Name, record.Path, record.SHA256, project.Rel(plugin.TrustFile(project)))
+		fmt.Fprintf(out, "trusted %s: %s\nsha256 %s\nrecorded in %s, for this clone only; a changed program needs trust again\n",
+			program.Name, record.Path, record.SHA256, plugin.TrustFile())
 		return 0
 	case "status":
 		if !project.RemoteStore() {
@@ -112,7 +112,7 @@ func storeFlags(project *config.Project) []string {
 }
 
 // runStoreSync is `kanbanzai sync` for a store plugin: fetch, publish hand edits, and report what needs a person.
-func runStoreSync(project *config.Project, out, errOut io.Writer) int {
+func runStoreSync(project *config.Project, asJSON bool, out, errOut io.Writer) int {
 	cards := stores.For(project, nil)
 	if err := cards.Ready(); err != nil {
 		fmt.Fprintf(errOut, "kanbanzai: sync: %v\n", err)
@@ -123,6 +123,15 @@ func runStoreSync(project *config.Project, out, errOut io.Writer) int {
 		return 1
 	}
 	entries, _ := cards.List()
+	if asJSON {
+		flags := storeFlags(project)
+		if flags == nil {
+			flags = []string{}
+		}
+		writeCompact(out, map[string]any{"plugin": project.StorePlugin, "cards": len(entries), "flags": flags,
+			"synced_at": mirror.SyncedAt(project)})
+		return 0
+	}
 	fmt.Fprintf(out, "synced %d card(s) with %s\n", len(entries), project.StorePlugin)
 	for _, line := range storeFlags(project) {
 		fmt.Fprintln(out, line)

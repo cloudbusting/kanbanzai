@@ -44,7 +44,7 @@ func newFixture(t *testing.T) fixture {
 		t.Fatalf("config.Find: %v", err)
 	}
 	tickets := t.TempDir()
-	backend, err := reference.Open(map[string]string{"root": tickets})
+	backend, err := reference.OpenFolder(tickets, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,5 +218,78 @@ func TestCreateMakesTheTicketAndItsWorkingCopy(t *testing.T) {
 	local, _ := os.ReadFile(entry.Path)
 	if !strings.HasPrefix(string(data), "# REF-12: A new one") || string(local) != string(data) {
 		t.Fatalf("ticket:\n%s\nworking copy:\n%s", data, local)
+	}
+}
+
+func TestAMoveOntoAnExistingBriefIsRefusedBeforeTheStoreChanges(t *testing.T) {
+	f := newFixture(t)
+	f.ticket(t, "REF-20", "Twice", "todo", "")
+	s := f.store("", nil)
+	mustSync(t, s)
+	entry, _ := entryOf(t, s, "REF-20")
+	testutil.Write(t, filepath.Join(f.project.Work, "10-done", filepath.Base(entry.Path)), "in the way\n")
+	card, _ := s.Read(entry)
+	moved := []byte(strings.Replace(string(card.Text), "**Stage:** todo", "**Stage:** done", 1))
+	if _, err := s.Write(entry, moved, card.Rev, "10-done"); !errors.Is(err, store.ErrExists) {
+		t.Fatalf("Write onto an existing brief = %v, want exists", err)
+	}
+	data, _ := os.ReadFile(f.ticketPath(t, "REF-20"))
+	if !strings.Contains(string(data), "**Stage:** todo") {
+		t.Fatalf("a refused move changed the ticket:\n%s", data)
+	}
+}
+
+func TestABriefWithNoSyncRecordIsNeverReplacedOrDropped(t *testing.T) {
+	f := newFixture(t)
+	f.ticket(t, "REF-21", "Known", "todo", "")
+	s := f.store("", nil)
+	mustSync(t, s)
+	entry, _ := entryOf(t, s, "REF-21")
+	if err := os.RemoveAll(filepath.Join(f.project.State, "store", "cards")); err != nil {
+		t.Fatal(err)
+	}
+	f.edit(t, entry.Path, "Body.", "Mine, with no record.")
+	stray := filepath.Join(f.project.Work, "1-open", "REF-22-by-hand.md")
+	testutil.Write(t, stray, storetest.Brief("REF-22", "By hand", "todo"))
+	mustSync(t, s)
+	if data, _ := os.ReadFile(entry.Path); !strings.Contains(string(data), "Mine, with no record.") {
+		t.Fatalf("sync replaced a brief it has no record of:\n%s", data)
+	}
+	if _, err := os.Stat(stray); err != nil {
+		t.Fatal("sync deleted a brief it has no record of")
+	}
+	states := States(f.project)
+	if !states["REF-21"].Conflict || !states["REF-22"].Conflict {
+		t.Fatalf("briefs with no record are not flagged: %+v", states)
+	}
+}
+
+// odd is a backend that answers create with an id that is not the store's exact form.
+type odd struct{ protocol.Backend }
+
+func (odd) Create(string, string, string) (string, string, error) { return "ref-30", "r", nil }
+
+func TestCreateRefusesAnIDThatIsNotTheStoresExactForm(t *testing.T) {
+	f := newFixture(t)
+	s := New(f.project, odd{f.backend}, Options{Name: "reference"})
+	if _, err := s.Create("bug", "x", []byte(storetest.Brief(store.IDPlaceholder, "x", "todo")), "1-open"); !errors.Is(err, store.ErrRefused) {
+		t.Fatalf("Create with id ref-30 = %v, want refused", err)
+	}
+}
+
+func TestARecordWhoseCardIsGoneIsCleared(t *testing.T) {
+	f := newFixture(t)
+	f.ticket(t, "REF-23", "Gone", "todo", "\nagent\n")
+	s := f.store("agent", nil)
+	mustSync(t, s)
+	entry, _ := entryOf(t, s, "REF-23")
+	testutil.Write(t, filepath.Join(f.project.State, "store", "cards", "REF-23.json"), `{"rev": "x", "sum": "y", "conflict": true}`)
+	if err := os.Remove(entry.Path); err != nil {
+		t.Fatal(err)
+	}
+	f.edit(t, f.ticketPath(t, "REF-23"), "agent", "someone else")
+	mustSync(t, s)
+	if _, ok := States(f.project)["REF-23"]; ok {
+		t.Fatal("a conflict record outlived its card")
 	}
 }
