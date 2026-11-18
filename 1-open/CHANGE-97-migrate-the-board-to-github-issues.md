@@ -1,10 +1,10 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** in-qa
+- **Stage:** qa-approved
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; the Decisions below are the record
-- **Next action:** package: build and prove the artifacts (kanbanzai-package) for the checked cards
+- **Next action:** release: 0.30.0 (a minor release; the owner decides the version) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-97-0.30.0 from main 0218b6b; then triage the live cut-over card
 - **Where:** worktree CHANGE-97
 - **Needs:** CHANGE-90
 
@@ -158,6 +158,7 @@ The cut-over steps the contributor guide gets (and the follow-up card runs):
 - 2026-11-18: designed with the owner: all cards, public, label setting, type-prefix ids, one-shot tool
 - 2026-11-18: built: typed store ids, plugin label setting, migrate-board tool, docs
 - 2026-11-18: checked: all suites green, QA review found two untested behaviours, now tested (commit in worktree)
+- 2026-11-18: Package QA passed at 0218b6b alone: artifacts /tmp/kanbanzai-package-CHANGE-97-0.30.0, sha256 (first 12) 6f99c31d398d kanbanzai-0.30.0.tar.gz;91b1298271da kanbanzai_0.30.0_darwin_amd64.tar.gz;e3ae1e1119e9 kanbanzai_0.30.0_darwin_arm64.tar.gz;fcd852df1465 kanbanzai_0.30.0_linux_amd64.tar.gz;6edad3d048e4 kanbanzai_0.30.0_linux_arm64.tar.gz;5837ac9a0633 kanbanzai_0.30.0_windows_amd64.zip;36ff1746d262 kanbanzai-board-0.29.0.vsix;; command, store plugin, install, claude validate and throwaway install, opencode files, machine-path scans all clean; built as 0.30.0 with metadata still 0.29.0 (the release step bumps it)
 
 ## Out of scope
 
