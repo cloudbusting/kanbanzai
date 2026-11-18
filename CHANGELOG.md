@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-11-18
+
 - CHANGE-97: a store's cards can use the project's own type ids. A typed project that leaves `[store] prefix` out has
   `TASK-12`, `BUG-31` and `EPIC-24` on its store, the number being the ticket's, and the plugin is sent `settings.types`,
   `digits`, `default_type` and `project_key` to build them. The GitHub plugin takes the id's prefix from the card's brief
