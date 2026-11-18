@@ -151,8 +151,9 @@ publish = "ask"
 #            `reference` is the built-in example plugin (`kanbanzai store serve`) and `github` keeps the cards as the
 #            issues of one repository (`[store.settings] repo = "owner/name"`, your own `gh` sign-in). Never a path, an argument or a
 #            shell command. A plugin runs only after this clone's owner trusts it (`kanbanzai store trust`).
-#   prefix   a plugin's id prefix: its cards are PREFIX-<number>, such as PROJ-123 for a JIRA key (required with a
-#            plugin; never a card type's prefix)
+#   prefix   a plugin's id prefix: its cards are PREFIX-<number>, such as PROJ-123 for a JIRA key (never a card
+#            type's prefix). A typed project may leave it out: its store cards then use its own type ids, TASK-<number>,
+#            the number being the store's (the plugin is sent the types)
 #   query    the plugin's own query, passed as it is: JQL for JIRA, an issue search for GitHub. Empty means every
 #            ticket the plugin can see
 #   settings a [store.settings] table of text the plugin reads (a host, a project), never a credential: the

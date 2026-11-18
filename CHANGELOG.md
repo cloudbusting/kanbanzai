@@ -5,6 +5,14 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-97: a store's cards can use the project's own type ids. A typed project that leaves `[store] prefix` out has
+  `TASK-12`, `BUG-31` and `EPIC-24` on its store, the number being the ticket's, and the plugin is sent `settings.types`,
+  `digits`, `default_type` and `project_key` to build them. The GitHub plugin takes the id's prefix from the card's brief
+  once it exists, so retyping an issue never renames the card, and gains `[store.settings] label`: it puts that label on
+  every issue it creates and requires it in every search, so issues that are not cards stay off the board. A write to a
+  typed store now sends the type the id says, so a ticket's type label is no longer dropped by a brief with no `Type` line.
+  A store with a `prefix` behaves exactly as before. `tools/migrate-board` (not shipped) moves a files board into such a store.
+
 ## [0.29.0] — 2026-11-18
 
 - CHANGE-90: a GitHub issues store plugin ships with the command. Set `[store] plugin = "github"`, a `prefix` and

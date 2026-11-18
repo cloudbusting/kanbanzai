@@ -22,6 +22,7 @@ icon/                      the Kanbanzai mark's SVG source
 tools/icon/                the stdlib renderer for the plugin and extension PNGs
 tools/vsix/                the .vsix packer
 tools/release/             the per-OS/arch release builder and version check
+tools/migrate-board/       the one-shot program that moved this project's own board to GitHub issues (not shipped)
 LICENSE                    MIT
 CHANGELOG.md               what each release changed
 SECURITY.md                how to report a vulnerability
@@ -75,6 +76,22 @@ packaged. Eligible cards may be free or carry the caller's live claim; the selec
 core and excludes expired or uncertain claims. The package step reclaims or renews each selected card before starting,
 so a selection does not override a competing claim. Releasing the packaged cards stays one card and one owner approval
 at a time.
+
+## Moving this project's board to GitHub issues
+
+This repository's own board is on the `kanbanzai-board` branch. `tools/migrate-board` moves it to the issues of
+`cloudbusting/kanbanzai`, keeping each card's type prefix and rewriting every reference between cards
+([store-plugins.md](store-plugins.md#moving-an-existing-board-to-a-store) says how it behaves and what it cannot keep).
+The issues are public. The steps, with the owner present:
+
+1. `kanbanzai store status` is clean and no card has a live claim: finish or release every claim, this session's included.
+2. Read the dry run: `go run ./tools/migrate-board --from .kanbanzai/work --dry-run`.
+3. On a branch of `main`, in `.kanbanzai/config.toml`, remove `[board] home = "branch"` and add
+   `[store] plugin = "github"` with `[store.settings] repo = "cloudbusting/kanbanzai"` and `label = "kanbanzai"`. The board
+   branch and its worktree stay checked out: they are the source, and the way back.
+4. `kanbanzai store trust`, then `go run ./tools/migrate-board --from .kanbanzai/work --yes`. It paces its writes (a second
+   each) and checks itself at the end; if it stops, run the same command again.
+5. Commit the old-to-new table it prints to the board branch, and merge the config change. To go back, revert the config.
 
 ## The editor extension
 

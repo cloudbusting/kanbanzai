@@ -68,7 +68,11 @@ func runStore(project *config.Project, args []string, out, errOut io.Writer) int
 			fmt.Fprintln(out, "store: files (the project's own briefs)")
 			return 0
 		}
-		fmt.Fprintf(out, "store: %s (prefix %s)\n", project.StorePlugin, project.StorePrefix)
+		ids := "prefix " + project.StorePrefix
+		if project.StoreTypedIDs() {
+			ids = "the project's type ids"
+		}
+		fmt.Fprintf(out, "store: %s (%s)\n", project.StorePlugin, ids)
 		trusted := "yes"
 		if program, err := plugin.Find(project); err != nil {
 			trusted = "no — " + err.Error()

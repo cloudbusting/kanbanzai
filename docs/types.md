@@ -288,6 +288,13 @@ treat them as optional.
 `kanbanzai check` fails a typed board when a brief's file name uses neither a configured prefix nor the legacy prefix,
 when its title id disagrees with its file name, and when two cards share one global number (`TASK-07` and `W-07`).
 
+## Typed ids on a store
+
+A [store plugin](store-plugins.md) normally gives every card one prefix (`PROJ-123`). A typed project that leaves
+`[store] prefix` out keeps the type prefixes instead: the card is `TASK-12` when the store's ticket number is 12 and its
+type is `task`. The number is the store's, not this project's sequence, and the id never changes after the card is
+written, whatever the ticket's type becomes. [store-plugins.md](store-plugins.md#ids) has the details.
+
 ## Changing a card's type
 
 The type is the id's prefix and nothing else: there is no separate Type field to disagree with it. Changing a card's

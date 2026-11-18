@@ -520,7 +520,7 @@ func (p *Project) build() error {
 	}
 	p.IDPattern = alternatives(typedPattern, legacyPattern)
 	looseIDs := alternatives(looseTyped, looseLegacy)
-	if p.RemoteStore() {
+	if p.RemoteStore() && p.StorePrefix != "" {
 		p.IDPattern = alternatives(p.IDPattern, regexp.QuoteMeta(p.StorePrefix)+`-[1-9]\d*`)
 		looseIDs = alternatives(looseIDs, regexp.QuoteMeta(p.StorePrefix)+`-\d+`)
 		p.storeParseRe = regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(p.StorePrefix) + `-(\d+)$`)
@@ -869,6 +869,10 @@ func (p *Project) loadBoard() error {
 // RemoteStore reports whether the cards are kept by a store plugin rather than in the project's files.
 func (p *Project) RemoteStore() bool { return p.StorePlugin != "files" }
 
+// StoreTypedIDs reports whether a store's cards use the project's own type ids (TASK-12) rather than one store
+// prefix (PROJ-12): a typed project that leaves [store] prefix out.
+func (p *Project) StoreTypedIDs() bool { return p.RemoteStore() && p.StorePrefix == "" }
+
 var storePrefix = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 
 // loadStore reads [store]: which store keeps the cards. The default is the project's own files, which is how a
@@ -899,6 +903,11 @@ func (p *Project) loadStore() error {
 	if p.BoardOnBranch() {
 		return errf("store.plugin '%s' keeps the cards elsewhere, so the board cannot also be on a board branch: "+
 			"remove [board] home = \"branch\" or the [store] plugin", p.StorePlugin)
+	}
+	if p.StorePrefix == "" && p.Typed {
+		// the cards keep the project's type ids: the type's prefix and the store's own number
+		p.Work = filepath.Join(p.State, "store", "work")
+		return nil
 	}
 	if !storePrefix.MatchString(p.StorePrefix) {
 		return errf("store.prefix '%s' must be the store's id prefix in upper-case letters and digits, such as "+

@@ -51,7 +51,7 @@ func TestStoreRejectsWhatItCannotUse(t *testing.T) {
 		"plugin path":       {"", "plugin = \"./x\"\nprefix = \"X\"", "store.plugin"},
 		"plugin shell":      {"", "plugin = \"sh -c x\"\nprefix = \"X\"", "store.plugin"},
 		"plugin empty":      {"", "plugin = \"\"", "store.plugin"},
-		"no prefix":         {"", "plugin = \"jira-twg\"", "store.prefix"},
+		"no prefix untyped": {"types = []\n", "plugin = \"jira-twg\"", "store.prefix"},
 		"prefix lower":      {"", "plugin = \"jira-twg\"\nprefix = \"proj\"", "store.prefix"},
 		"prefix is a type":  {"", "plugin = \"jira-twg\"\nprefix = \"TASK\"", "store.prefix"},
 		"sync is not a key": {"", "sync = \"auto\"", "store.sync"},
@@ -60,7 +60,11 @@ func TestStoreRejectsWhatItCannotUse(t *testing.T) {
 		"unknown key":       {"", "plugin = \"files\"\ncommand = [\"x\"]", "store.command"},
 	}
 	for name, c := range cases {
-		err := loadError(t, testutil.Repo(t, typedStore+c.head+"\n[store]\n"+c.store+"\n"))
+		head := typedStore + c.head
+		if strings.HasPrefix(c.head, "types = []") {
+			head = c.head + typedStore
+		}
+		err := loadError(t, testutil.Repo(t, head+"\n[store]\n"+c.store+"\n"))
 		if err == nil {
 			t.Errorf("%s: loaded", name)
 			continue
@@ -84,5 +88,36 @@ func TestStoreIsInTheConfigDictionary(t *testing.T) {
 	got, _ := decoded["store"].(map[string]any)
 	if got["plugin"] != "reference" || got["prefix"] != "REF" || got["remote"] != true {
 		t.Fatalf("store = %v", decoded["store"])
+	}
+}
+
+// A typed project may leave [store] prefix out: its store cards then use the project's own type ids (TASK-12), the
+// number being the store's.
+func TestATypedProjectsStoreCardsUseItsTypeIds(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, typedStore+"\n[store]\nplugin = \"reference\"\n\n[store.settings]\nroot = \"fixture\"\n"))
+	if !project.RemoteStore() || project.StorePrefix != "" || project.StoreTypedIDs() != true {
+		t.Fatalf("a typed store: %+v", project)
+	}
+	if id, ok := project.CanonicalCardID("task-3"); !ok || id != "TASK-03" {
+		t.Fatalf("CanonicalCardID = %q, %v", id, ok)
+	}
+	if n, ok := project.CardNumber("BUG-123"); !ok || n != 123 {
+		t.Fatalf("CardNumber = %d, %v", n, ok)
+	}
+	if !project.CardFileRe.MatchString("EPIC-12-an-epic.md") || !project.TitleRe.MatchString("# CHANGE-07: x") {
+		t.Fatal("the types' ids are the store's card ids")
+	}
+	if item, ok := project.TypeOf("EPIC-12"); !ok || item.Key != "epic" {
+		t.Fatalf("TypeOf = %v, %v", item, ok)
+	}
+	if project.Work != filepath.Join(project.State, "store", "work") {
+		t.Fatalf("work = %s", project.Work)
+	}
+}
+
+func TestAStoreWithAPrefixIsNotTyped(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, typedStore+"\n[store]\nplugin = \"reference\"\nprefix = \"REF\"\n"))
+	if project.StoreTypedIDs() {
+		t.Fatal("a store with a prefix keeps <prefix>-<number> ids")
 	}
 }

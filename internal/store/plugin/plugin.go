@@ -17,6 +17,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cloudbusting/kanbanzai/internal/config"
@@ -170,11 +172,25 @@ func Open(project *config.Project, stderr io.Writer) (*Client, error) {
 }
 
 // settingsOf is what a plugin is sent as its settings: the project's [store.settings], and the [store] prefix as
-// "prefix" unless the settings name their own, so a plugin that builds ids needs no second copy of it.
+// "prefix" unless the settings name their own, so a plugin that builds ids needs no second copy of it. A store with
+// no prefix (a typed project's own ids) is sent the types instead, so the plugin can build TASK-12: "types"
+// (key=PREFIX, comma separated), "digits", "default_type" and, when the project has one, "project_key".
 func settingsOf(project *config.Project) map[string]string {
 	settings := map[string]string{}
 	if project.StorePrefix != "" {
 		settings["prefix"] = project.StorePrefix
+	}
+	if project.StoreTypedIDs() && project.TypeSet != nil {
+		pairs := make([]string, 0, len(project.TypeSet.Types))
+		for _, item := range project.TypeSet.Types {
+			pairs = append(pairs, item.Key+"="+item.Prefix)
+		}
+		settings["types"] = strings.Join(pairs, ",")
+		settings["digits"] = strconv.Itoa(project.TypeSet.Digits)
+		settings["default_type"] = project.TypeSet.Default
+		if project.TypeSet.ProjectKey != "" {
+			settings["project_key"] = project.TypeSet.ProjectKey
+		}
 	}
 	for key, value := range project.StoreSettings {
 		settings[key] = value

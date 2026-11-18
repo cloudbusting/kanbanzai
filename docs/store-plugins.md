@@ -70,9 +70,17 @@ kanbanzai board
 
 ## Ids
 
-A card's id is the store's own key: `PROJ-123` for a JIRA issue, or `<prefix>-<number>` for a GitHub issue, using the
-`prefix` you set. Kanbanzai tells the plugin that prefix, so it needs no second copy in `[store.settings]`.
+A card's id is the store's own key, with one prefix or with the project's type prefixes.
 
+- **One prefix.** `PROJ-123` for a JIRA issue, or `<prefix>-<number>` for a GitHub issue, using the `prefix` you set.
+  Kanbanzai tells the plugin that prefix, so it needs no second copy in `[store.settings]`.
+- **The project's types.** A typed project (the default) may leave `prefix` out. Its cards are then `TASK-12`,
+  `BUG-31`, `EPIC-24`: the type's prefix and the store's number, padded to `digits`, the way a files board names them.
+  Kanbanzai sends the plugin `settings.types` (`task=TASK,bug=BUG,…`), `settings.digits`, `settings.default_type` and, when
+  the project has one, `settings.project_key`, and a plugin that builds ids reads them. Two things follow from the number
+  being the store's: it cannot be chosen, and an old board's `TASK-96` does not keep its number
+  ([moving a board](#moving-an-existing-board-to-a-store)). The prefix is fixed by the card's brief once it exists
+  (its title line), so retyping a ticket in the store changes the card's `Type` line and never its id.
 - The store issues the number when a card is created: `kanbanzai number --title "<title>"` asks the plugin to create
   the ticket and prints its key.
 - `kanbanzai resolve 123` finds `PROJ-123`.
@@ -93,6 +101,7 @@ query  = "label:agent is:open"       # GitHub's own issue search; empty means ev
 
 [store.settings]
 repo = "owner/name"                  # required: the one repository this board keeps
+label = "kanbanzai"                  # optional: put on every issue the plugin creates, and required by every search
 ```
 
 ```bash
@@ -100,6 +109,11 @@ gh auth login
 kanbanzai store trust
 kanbanzai sync
 ```
+
+**A label for the board's issues.** A repository usually holds issues that are not cards (people's bug reports, other
+trackers). `label = "kanbanzai"` makes the plugin put that label on every issue it creates and add it to every search,
+so the board is exactly the labelled issues and the others are never read or written. An issue made by hand joins the
+board by getting the label. Without the setting every issue of the repository, narrowed only by `query`, is a card.
 
 **Public means public.** A card written to a public repository is public: its brief, Next action and Comments are
 readable by anyone, and the first command that writes a card replaces its issue's body with the brief. If the issue was
@@ -139,6 +153,24 @@ query that matches more is refused until you narrow it, so the board is never si
 - A rate limit or a lost connection is `unavailable`, and nothing retries it: run the command again.
 - Only github.com: GitHub Enterprise Server is a later change (CHANGE-91) and a `host` other than github.com is
   refused.
+
+## Moving an existing board to a store
+
+Switching a project that already has a files board starts the store empty: nothing copies the old cards. A one-shot
+program does that for this repository's own board, `tools/migrate-board` (not shipped; read it as the example). It keeps
+each card's type prefix and moves the cards in one run:
+
+- A new id is `<type prefix>-<the issue's number>`, so `TASK-96` becomes `TASK-<n>`. **An old and a new id can name
+  different cards**: a commit message or a release note that says `TASK-96` means the old card. Every migrated brief has a
+  `Was:` line with its old id, and the run writes an old-to-new table.
+- Every reference to a migrated card in a brief (a `Needs` line, an epic's `Work items`, a `Held` line, prose) is rewritten
+  in **one** pass over the whole id map, so an id that is another card's old id is never rewritten twice. Text in a fenced
+  code block and an id that has no card are left as written, and the dry run lists them.
+- The run only reads the old board, creates the issues in ascending old-number order, waits for the store's search to show
+  them (it lags a few seconds), syncs and checks each card's type, stage, `Needs` and text against the old brief.
+  A journal makes a stopped run resumable. Run it with `--dry-run` first, then with `--yes`: **the issues are public when the
+  repository is.**
+- Legacy `W-NN` cards have no type and take `--legacy-type` (default: the project's default type).
 
 ## Writing a plugin
 

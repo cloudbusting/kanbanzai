@@ -589,3 +589,157 @@ func TestTheFirstColumnIsASetting(t *testing.T) {
 		t.Fatalf("the brief says %q", got[0].Text)
 	}
 }
+
+// typedSettings is what the core sends for a typed project whose [store] has no prefix.
+var typedSettings = map[string]string{"repo": repo, "types": "task=TASK,bug=BUG,chore=CHORE,epic=EPIC", "digits": "2",
+	"default_type": "task"}
+
+func openTyped(t *testing.T, state *fakegh.State, extra map[string]string) *Backend {
+	t.Helper()
+	settings := map[string]string{}
+	for key, value := range typedSettings {
+		settings[key] = value
+	}
+	for key, value := range extra {
+		settings[key] = value
+	}
+	backend, err := Open(settings, inProcess{state})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	return backend
+}
+
+func TestTypedIdsCarryTheBriefsOwnPrefixThenTheTypeLabelThenTheDefaultType(t *testing.T) {
+	state := newState()
+	state.Add("Plain", "A person's issue")                                                       // 1: no type at all
+	state.Add("Chore", "x", "type:chore")                                                        // 2: the type label
+	state.Add("Bug", storetest.Brief("BUG-03", "Bug", "building"), "stage:building", "type:bug") // 3: the brief's own id
+	state.Add("Retyped", storetest.Brief("BUG-04", "Retyped", "todo"), "type:task")              // 4: label changed after
+	state.Add("Wrong", storetest.Brief("BUG-77", "Wrong", "todo"), "type:epic")                  // 5: the brief's number is not this issue's
+	backend := openTyped(t, state, nil)
+	tickets, err := backend.List("")
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	got := []string{}
+	for _, ticket := range tickets {
+		got = append(got, ticket.ID+"|"+ticket.Type)
+	}
+	want := []string{"TASK-01|", "CHORE-02|chore", "BUG-03|bug", "BUG-04|task", "EPIC-05|epic"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("List = %v\nwant %v", got, want)
+	}
+	// the number is the key: any known prefix reads the same issue, and the answer carries the card's own id
+	for _, asked := range []string{"BUG-03", "TASK-03", "bug-3"} {
+		found, err := backend.Get([]string{asked})
+		if err != nil || len(found) != 1 || found[0].ID != "BUG-03" || !strings.HasPrefix(found[0].Text, "# BUG-03:") {
+			t.Fatalf("Get(%s) = %+v, %v", asked, found, err)
+		}
+	}
+	if found, err := backend.Get([]string{"NOPE-03", "GH-3"}); err != nil || len(found) != 0 {
+		t.Fatalf("an id that is not a type's is not an issue: %+v, %v", found, err)
+	}
+	// an issue with no brief is shown as one, under the id its type gives it
+	found, err := backend.Get([]string{"CHORE-02"})
+	if err != nil || len(found) != 1 || !strings.HasPrefix(found[0].Text, "# CHORE-02: Chore\n") {
+		t.Fatalf("Get(CHORE-02) = %+v, %v", found, err)
+	}
+}
+
+func TestTypedIdsArePaddedAndMayCarryAProjectKey(t *testing.T) {
+	state := newState()
+	for n := 1; n <= 100; n++ {
+		state.Add(fmt.Sprintf("Issue %d", n), "x", "type:bug")
+	}
+	state.Issue(100).Labels = []string{"type:bug"}
+	backend := openTyped(t, state, map[string]string{"digits": "3", "project_key": "KBZ"})
+	tickets, err := backend.List("")
+	if err != nil || len(tickets) != 100 {
+		t.Fatalf("List: %d, %v", len(tickets), err)
+	}
+	if tickets[0].ID != "KBZ-BUG-001" || tickets[99].ID != "KBZ-BUG-100" {
+		t.Fatalf("ids = %s .. %s", tickets[0].ID, tickets[99].ID)
+	}
+}
+
+func TestACreatedCardGetsItsTypesPrefixAndTheTypeLabel(t *testing.T) {
+	state := newState()
+	backend := openTyped(t, state, nil)
+	id, _, err := backend.Create("bug", "Made", "# <ID>: Made\n\n- **Stage:** todo\n- **Updated:** 2026-11-18\n\n## Goal\n")
+	if err != nil || id != "BUG-01" {
+		t.Fatalf("Create = %q, %v", id, err)
+	}
+	if issue := state.Issue(1); !strings.HasPrefix(issue.Body, "# BUG-01: Made") || !has(issue.Labels, "type:bug") || !has(issue.Labels, "stage:todo") {
+		t.Fatalf("issue = %+v", issue)
+	}
+	if id, _, err := backend.Create("", "Default", "# <ID>: Default\n"); err != nil || id != "TASK-02" {
+		t.Fatalf("a card with no type takes the default type: %q, %v", id, err)
+	}
+	if _, _, err := backend.Create("saga", "Unknown", "# <ID>: Unknown\n"); !errors.Is(err, store.ErrRefused) {
+		t.Fatalf("a type the project does not have is refused, got %v", err)
+	}
+	if len(state.Calls) != 4 {
+		t.Fatalf("a refused type must not reach GitHub: %v", state.Calls)
+	}
+}
+
+func TestALabelSettingMarksWhatItCreatesAndNarrowsTheQuery(t *testing.T) {
+	state := newState()
+	state.Add("Not ours", "A person's issue")                                   // 1
+	state.Add("Not ours either", storetest.Brief("GH-2", "x", "todo"), "agent") // 2
+	backend := open(t, state, map[string]string{"label": "kanbanzai"})
+	id, _, err := backend.Create("task", "Ours", "# <ID>: Ours\n\n- **Stage:** todo\n\n## Goal\n")
+	if err != nil || id != "GH-3" {
+		t.Fatalf("Create = %q, %v", id, err)
+	}
+	if issue := state.Issue(3); !has(issue.Labels, "kanbanzai") || !has(issue.Labels, "stage:todo") || !has(issue.Labels, "type:task") {
+		t.Fatalf("labels = %v", issue.Labels)
+	}
+	tickets, err := backend.List("is:open")
+	if err != nil || len(tickets) != 1 || tickets[0].ID != "GH-3" {
+		t.Fatalf("List = %v, %v; only the labelled issue is on the board", tickets, err)
+	}
+	if call := state.Calls[len(state.Calls)-1]; !strings.Contains(call, `q=repo:acme/widgets is:issue is:open label:"kanbanzai"`) {
+		t.Fatalf("the search was %q", call)
+	}
+	// without the setting nothing changes: no label on a created issue, no narrowing
+	plain := newState()
+	plainBackend := open(t, plain, nil)
+	if _, _, err := plainBackend.Create("task", "Plain", "# <ID>: Plain\n"); err != nil || len(plain.Issue(1).Labels) != 2 {
+		t.Fatalf("labels = %v, %v", plain.Issue(1).Labels, err)
+	}
+}
+
+func TestALabelSettingThatCouldWidenTheSearchIsRefused(t *testing.T) {
+	for _, label := range []string{`a"b`, "x\ny", `kanban" repo:other/x`} {
+		if _, err := Open(map[string]string{"repo": repo, "prefix": "GH", "label": label}, inProcess{newState()}); !errors.Is(err, store.ErrRefused) {
+			t.Errorf("label %q was accepted", label)
+		}
+	}
+}
+
+func TestTypedSettingsAreChecked(t *testing.T) {
+	for name, settings := range map[string]map[string]string{
+		"neither":         {"repo": repo},
+		"both":            {"repo": repo, "prefix": "GH", "types": "task=TASK"},
+		"bad pair":        {"repo": repo, "types": "task"},
+		"bad prefix":      {"repo": repo, "types": "task=ta-sk"},
+		"default unknown": {"repo": repo, "types": "task=TASK", "default_type": "bug"},
+		"bad digits":      {"repo": repo, "types": "task=TASK", "digits": "x"},
+		"bad key":         {"repo": repo, "types": "task=TASK", "project_key": "k-b"},
+	} {
+		if _, err := Open(settings, inProcess{newState()}); !errors.Is(err, store.ErrRefused) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
+
+func has(labels []string, name string) bool {
+	for _, label := range labels {
+		if label == name {
+			return true
+		}
+	}
+	return false
+}

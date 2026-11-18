@@ -207,11 +207,15 @@ func gateLine(project *config.Project) string {
 // empty (and left out) for a board kept on the main branch.
 func boardRule(project *config.Project) string {
 	if project.RemoteStore() {
-		return fmt.Sprintf("The cards are kept by the store plugin %s; their ids are %s-<number>. The briefs in %s are a "+
+		ids := project.StorePrefix + "-<number>"
+		if project.StoreTypedIDs() {
+			ids = "<type prefix>-<number>, such as " + project.IDsExample()
+		}
+		return fmt.Sprintf("The cards are kept by the store plugin %s; their ids are %s. The briefs in %s are a "+
 			"working copy, never in git: moves, gates and answers reach the store themselves; a new card starts with "+
 			"`kanbanzai number --title \"<title>\"` (the store issues its id), and a brief you edit by hand (a Comment, a "+
 			"Progress line) is published with `kanbanzai sync`, which also fetches the store's changes.",
-			project.StorePlugin, project.StorePrefix, project.Work)
+			project.StorePlugin, ids, project.Work)
 	}
 	if !project.BoardOnBranch() {
 		return ""

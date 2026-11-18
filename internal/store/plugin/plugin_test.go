@@ -257,3 +257,28 @@ func configFind(t *testing.T, text string) (*config.Project, error) {
 	t.Helper()
 	return config.Find(testutil.Repo(t, text))
 }
+
+// A store with no prefix (a typed project's own ids) is told the types, so a plugin can build TASK-12 itself; a
+// store with a prefix is told only the prefix, as before.
+func TestAPluginIsToldTheTypesWhenTheStoreHasNoPrefix(t *testing.T) {
+	typed := loadProjectFrom(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"fake\"\n\n[store.settings]\nrepo = \"o/r\"\n")
+	got := settingsOf(typed)
+	if got["repo"] != "o/r" || got["prefix"] != "" || got["types"] != "task=TASK,bug=BUG,change=CHANGE,spike=SPIKE,chore=CHORE,epic=EPIC" ||
+		got["digits"] != "2" || got["default_type"] != "task" || got["project_key"] != "" {
+		t.Fatalf("settings = %v", got)
+	}
+	prefixed := loadProjectFrom(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"fake\"\nprefix = \"REF\"\n")
+	got = settingsOf(prefixed)
+	if got["prefix"] != "REF" || got["types"] != "" || got["digits"] != "" {
+		t.Fatalf("a prefixed store is told only its prefix: %v", got)
+	}
+}
+
+func loadProjectFrom(t *testing.T, configText string) *config.Project {
+	t.Helper()
+	project, err := config.Find(testutil.Repo(t, configText))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return project
+}

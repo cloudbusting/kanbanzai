@@ -316,7 +316,8 @@ func (s *Store) fetch(ticket protocol.Ticket, folder string, old store.Entry) (s
 	if folder == "" {
 		folder = s.folderOf(text)
 	}
-	name := ticket.ID + "-" + files.Slug(titleOf(s.project, text)) + ".md"
+	_, title := titleOf(s.project, text)
+	name := ticket.ID + "-" + files.Slug(title) + ".md"
 	if old.Path != "" {
 		name = filepath.Base(old.Path)
 	}
@@ -393,16 +394,24 @@ func (s *Store) saveState(id string, state State) error {
 // fieldsOf is what put tells a plugin about a brief.
 func fieldsOf(project *config.Project, text []byte) protocol.Fields {
 	_, fields := brief.Header(string(text))
-	return protocol.Fields{Stage: project.StageColumn[brief.StageWord(fields["Stage"])],
-		Title: titleOf(project, text), Type: strings.ToLower(strings.TrimSpace(fields["Type"]))}
+	id, title := titleOf(project, text)
+	cardType := strings.ToLower(strings.TrimSpace(fields["Type"]))
+	if cardType == "" && project.StoreTypedIDs() {
+		// a typed store's id says the type, so a brief with no Type line keeps the ticket's type
+		if item, ok := project.TypeOf(id); ok {
+			cardType = item.Key
+		}
+	}
+	return protocol.Fields{Stage: project.StageColumn[brief.StageWord(fields["Stage"])], Title: title, Type: cardType}
 }
 
-func titleOf(project *config.Project, text []byte) string {
+// titleOf is the id and the title of a brief's heading, empty when it has none.
+func titleOf(project *config.Project, text []byte) (id, title string) {
 	line, _, _ := bytes.Cut(text, []byte("\n"))
 	if found := project.TitleRe.FindStringSubmatch(string(line)); found != nil {
-		return strings.TrimSpace(found[2])
+		return found[1], strings.TrimSpace(found[2])
 	}
-	return ""
+	return "", ""
 }
 
 func sortedKeys(values map[string]store.Entry) []string {

@@ -293,3 +293,68 @@ func TestARecordWhoseCardIsGoneIsCleared(t *testing.T) {
 		t.Fatal("a conflict record outlived its card")
 	}
 }
+
+// typedBackend is a store of typed tickets in memory, remembering the fields of every Put.
+type typedBackend struct {
+	text   map[string]string
+	fields []protocol.Fields
+}
+
+func (b *typedBackend) Hello() (protocol.Hello, error) {
+	return protocol.Hello{Protocol: protocol.Version}, nil
+}
+
+func (b *typedBackend) List(string) ([]protocol.Ticket, error) {
+	out := []protocol.Ticket{}
+	for id := range b.text {
+		out = append(out, protocol.Ticket{ID: id, Rev: "r1", Title: "A bug", Type: "bug", Stage: "todo"})
+	}
+	return out, nil
+}
+
+func (b *typedBackend) Get(ids []string) ([]protocol.Ticket, error) {
+	out := []protocol.Ticket{}
+	for _, id := range ids {
+		if text, ok := b.text[id]; ok {
+			out = append(out, protocol.Ticket{ID: id, Rev: "r1", Title: "A bug", Type: "bug", Stage: "todo", Text: text})
+		}
+	}
+	return out, nil
+}
+
+func (b *typedBackend) Put(id, baseRev, text string, fields protocol.Fields) (string, error) {
+	b.fields = append(b.fields, fields)
+	b.text[id] = text
+	return "r2", nil
+}
+
+func (b *typedBackend) Create(string, string, string) (string, string, error) {
+	return "", "", store.Refuse(store.CodeUnsupported, "no")
+}
+
+// A typed store's brief has no Type line, but its id says the type: a write tells the plugin, so the type label a
+// ticket carries is kept rather than dropped.
+func TestATypedStoresWriteCarriesTheTypeItsIdSays(t *testing.T) {
+	t.Setenv("KANBANZAI_PROJECT", "")
+	project, err := config.Find(testutil.Repo(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"reference\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &typedBackend{text: map[string]string{"BUG-03": storetest.Brief("BUG-03", "A bug", "todo")}}
+	s := New(project, backend, Options{Name: "reference"})
+	mustSync(t, s)
+	entry, ok := entryOf(t, s, "BUG-03")
+	if !ok {
+		t.Fatal("the typed ticket did not sync")
+	}
+	card, err := s.Read(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Write(entry, []byte(strings.Replace(string(card.Text), "todo", "designing", 1)), card.Rev, "1-open"); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if len(backend.fields) != 1 || backend.fields[0].Type != "bug" || backend.fields[0].Title != "A bug" {
+		t.Fatalf("fields = %+v", backend.fields)
+	}
+}

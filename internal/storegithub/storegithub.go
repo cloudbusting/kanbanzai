@@ -72,11 +72,25 @@ type Backend struct {
 	done   string
 	first  string // the stage of an open issue with no stage label
 	id     *regexp.Regexp
+	label  string // put on every issue Create makes, and required by every search ("" for none)
+	typed  *typedIDs
+}
+
+// typedIDs is a typed project's ids: <type prefix>-<number>, the number being the issue's.
+type typedIDs struct {
+	prefixes   map[string]string // type key -> prefix
+	byPrefix   map[string]string // upper-case prefix -> type key
+	defaultKey string
+	digits     int
+	projectKey string
 }
 
 var (
 	repoRE   = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 	prefixRE = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
+	keyRE    = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	// labelRE is a label the plugin may put in a search: it is quoted there, so only quotes and line breaks are barred.
+	labelRE = regexp.MustCompile(`^[^"\r\n\\]+$`)
 	// scopeRE finds a qualifier that widens the search beyond the repository: the board keeps one repository.
 	scopeRE = regexp.MustCompile(`(?i)(^|\s)-?(repo|org|user|owner):`)
 	// groupRE finds what could let the query's own precedence outgrow `repo:<repo> is:issue`: OR, and parentheses.
@@ -84,10 +98,11 @@ var (
 	quoted  = regexp.MustCompile(`"[^"]*"`)
 )
 
-// Open is the backend its settings name: repo ("owner/name", required), prefix (the ids' upper-case prefix,
-// required: the core sends the project's [store] prefix), host (github.com only), done (the column key a closed
-// issue is in, default "done") and initial (the first column's key, the stage of an open issue with no stage label,
-// default "todo").
+// Open is the backend its settings name: repo ("owner/name", required); either prefix (the ids' upper-case prefix:
+// the core sends the project's [store] prefix) or, for a typed project's own ids, types ("task=TASK,bug=BUG"), with
+// digits, default_type and project_key as the core sends them; host (github.com only); done (the column key a closed
+// issue is in, default "done"); initial (the first column's key, the stage of an open issue with no stage label,
+// default "todo"); and label (a label this plugin puts on every issue it creates and requires in every search).
 func Open(settings map[string]string, run Runner) (*Backend, error) {
 	repo := strings.TrimSpace(settings["repo"])
 	if repo == "" {
@@ -95,11 +110,6 @@ func Open(settings map[string]string, run Runner) (*Backend, error) {
 	}
 	if !repoRE.MatchString(repo) || strings.Contains(repo, "..") {
 		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("repo %q must be owner/name", repo))
-	}
-	prefix := strings.TrimSpace(settings["prefix"])
-	if !prefixRE.MatchString(prefix) {
-		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("prefix %q must be upper-case letters and digits; set "+
-			"[store] prefix", prefix))
 	}
 	if host := strings.TrimSpace(settings["host"]); host != "" && !strings.EqualFold(host, "github.com") {
 		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("host %q: this plugin keeps issues on github.com; GitHub "+
@@ -113,8 +123,91 @@ func Open(settings map[string]string, run Runner) (*Backend, error) {
 	if first == "" {
 		first = defaultInitial
 	}
-	return &Backend{run: run, repo: repo, prefix: prefix, done: done, first: first,
-		id: regexp.MustCompile(`^` + regexp.QuoteMeta(prefix) + `-([1-9]\d*)$`)}, nil
+	label := strings.TrimSpace(settings["label"])
+	if label != "" && !labelRE.MatchString(label) {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("label %q may not contain a quote, a backslash or a line break", label))
+	}
+	b := &Backend{run: run, repo: repo, done: done, first: first, label: label}
+	prefix, types := strings.TrimSpace(settings["prefix"]), strings.TrimSpace(settings["types"])
+	switch {
+	case prefix != "" && types != "":
+		return nil, store.Refuse(store.CodeRefused, "the github plugin is sent a prefix or the types, not both")
+	case types != "":
+		typed, err := parseTyped(settings)
+		if err != nil {
+			return nil, err
+		}
+		b.typed = typed
+		b.id = typed.pattern()
+	default:
+		if !prefixRE.MatchString(prefix) {
+			return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("prefix %q must be upper-case letters and digits; set "+
+				"[store] prefix", prefix))
+		}
+		b.prefix = prefix
+		b.id = regexp.MustCompile(`^` + regexp.QuoteMeta(prefix) + `-([1-9]\d*)$`)
+	}
+	return b, nil
+}
+
+func parseTyped(settings map[string]string) (*typedIDs, error) {
+	typed := &typedIDs{prefixes: map[string]string{}, byPrefix: map[string]string{}, digits: 2,
+		projectKey: strings.ToUpper(strings.TrimSpace(settings["project_key"]))}
+	for _, pair := range strings.Split(settings["types"], ",") {
+		key, prefix, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		key, prefix = strings.TrimSpace(key), strings.TrimSpace(prefix)
+		if !ok || !keyRE.MatchString(key) || !prefixRE.MatchString(prefix) || typed.prefixes[key] != "" || typed.byPrefix[prefix] != "" {
+			return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("types %q must be key=PREFIX pairs, such as task=TASK,bug=BUG",
+				settings["types"]))
+		}
+		typed.prefixes[key], typed.byPrefix[prefix] = prefix, key
+		if typed.defaultKey == "" {
+			typed.defaultKey = key
+		}
+	}
+	if given := strings.TrimSpace(settings["default_type"]); given != "" {
+		if typed.prefixes[given] == "" {
+			return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("default_type %q is not one of the types", given))
+		}
+		typed.defaultKey = given
+	}
+	if given := strings.TrimSpace(settings["digits"]); given != "" {
+		n, err := strconv.Atoi(given)
+		if err != nil || n < 1 || n > 18 {
+			return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("digits %q must be a number from 1 to 18", given))
+		}
+		typed.digits = n
+	}
+	if typed.projectKey != "" && !prefixRE.MatchString(typed.projectKey) {
+		return nil, store.Refuse(store.CodeRefused, fmt.Sprintf("project_key %q must be upper-case letters and digits", typed.projectKey))
+	}
+	return typed, nil
+}
+
+// pattern matches a typed id of any of the types, in any case, and captures its number.
+func (t *typedIDs) pattern() *regexp.Regexp {
+	prefixes := make([]string, 0, len(t.byPrefix))
+	for prefix := range t.byPrefix {
+		prefixes = append(prefixes, regexp.QuoteMeta(prefix))
+	}
+	sort.Strings(prefixes)
+	key := ""
+	if t.projectKey != "" {
+		key = regexp.QuoteMeta(t.projectKey) + "-"
+	}
+	return regexp.MustCompile(`(?i)^` + key + `(?:` + strings.Join(prefixes, "|") + `)-0*([1-9]\d*)$`)
+}
+
+// format is the id of issue number n for the type key (the default type when key is not one of the types).
+func (t *typedIDs) format(key string, n int) string {
+	prefix, ok := t.prefixes[key]
+	if !ok {
+		prefix = t.prefixes[t.defaultKey]
+	}
+	if t.projectKey != "" {
+		prefix = t.projectKey + "-" + prefix
+	}
+	return fmt.Sprintf("%s-%0*d", prefix, t.digits, n)
 }
 
 var _ protocol.Backend = (*Backend)(nil)
@@ -188,7 +281,31 @@ func rev(i issue) string {
 	return hex.EncodeToString(sum.Sum(nil))[:16]
 }
 
-func (b *Backend) ticketID(number int) string { return b.prefix + "-" + strconv.Itoa(number) }
+// ticketID is an issue's card id: <prefix>-<number>, or for a typed project the id its brief already carries (so a
+// type label changed afterwards never renames the card), else the one its type label gives it, else the default
+// type's.
+func (b *Backend) ticketID(i issue) string {
+	if b.typed == nil {
+		return b.prefix + "-" + strconv.Itoa(i.Number)
+	}
+	if first, _, _ := strings.Cut(i.body(), "\n"); strings.HasPrefix(first, "# ") {
+		own, _, _ := strings.Cut(strings.TrimPrefix(first, "# "), ":")
+		if match := b.id.FindStringSubmatch(strings.TrimSpace(own)); match != nil && match[1] == strconv.Itoa(i.Number) {
+			return b.typed.canonical(strings.TrimSpace(own), i.Number)
+		}
+	}
+	return b.typed.format(kind(i), i.Number)
+}
+
+// canonical is a typed id in its canonical form (upper-case, padded).
+func (t *typedIDs) canonical(id string, n int) string {
+	id = strings.ToUpper(id)
+	if t.projectKey != "" {
+		id = strings.TrimPrefix(id, t.projectKey+"-")
+	}
+	prefix, _, _ := strings.Cut(id, "-")
+	return t.format(t.byPrefix[prefix], n)
+}
 
 // number is the issue number an id names, or 0 when it is not this plugin's.
 func (b *Backend) number(id string) int {
@@ -218,6 +335,9 @@ func (b *Backend) List(query string) ([]protocol.Ticket, error) {
 	if strings.TrimSpace(query) != "" {
 		q += " " + strings.TrimSpace(query)
 	}
+	if b.label != "" {
+		q += ` label:"` + b.label + `"`
+	}
 	out, err := b.run.Run([]string{"api", "--paginate", "--slurp", "-X", "GET", "-f", "q=" + q, "-f", "per_page=100",
 		"search/issues"}, nil)
 	if err != nil {
@@ -243,7 +363,7 @@ func (b *Backend) List(query string) ([]protocol.Ticket, error) {
 			if i.PullRequest != nil {
 				continue
 			}
-			tickets = append(tickets, protocol.Ticket{ID: b.ticketID(i.Number), Rev: rev(i), Title: i.Title,
+			tickets = append(tickets, protocol.Ticket{ID: b.ticketID(i), Rev: rev(i), Title: i.Title,
 				Type: kind(i), Stage: b.stage(i)})
 		}
 	}
@@ -276,8 +396,7 @@ func (b *Backend) Get(ids []string) ([]protocol.Ticket, error) {
 		go func() {
 			defer wg.Done()
 			for n := range work {
-				id := ids[n]
-				number := b.number(id)
+				number := b.number(ids[n])
 				if number == 0 {
 					continue
 				}
@@ -289,6 +408,7 @@ func (b *Backend) Get(ids []string) ([]protocol.Ticket, error) {
 					results[n].err = err
 					continue
 				}
+				id := b.ticketID(i)
 				results[n] = result{found: true, ticket: protocol.Ticket{ID: id, Rev: rev(i), Title: i.Title, Type: kind(i),
 					Stage: b.stage(i), Text: b.text(id, i)}}
 			}
@@ -514,12 +634,26 @@ func (b *Backend) Create(cardType, title, text string) (string, string, error) {
 		return "", "", store.Refuse(store.CodeRefused, fmt.Sprintf("the new brief is %d characters; GitHub keeps at most "+
 			"65,536 in an issue body", len([]rune(text))))
 	}
+	if b.typed != nil {
+		if cardType == "" {
+			cardType = b.typed.defaultKey
+		}
+		if b.typed.prefixes[cardType] == "" {
+			return "", "", store.Refuse(store.CodeRefused, fmt.Sprintf("%q is not one of the project's types", cardType))
+		}
+	}
 	made := patch{Title: title, Body: store.IDPlaceholder, Labels: b.labels(issue{}, protocol.Fields{Stage: stage, Type: cardType})}
+	if b.label != "" {
+		made.Labels = append(made.Labels, b.label)
+	}
 	created, err := b.send("POST", "repos/"+b.repo+"/issues", made)
 	if err != nil {
 		return "", "", err
 	}
-	id := b.ticketID(created.Number)
+	id := b.prefix + "-" + strconv.Itoa(created.Number)
+	if b.typed != nil {
+		id = b.typed.format(cardType, created.Number)
+	}
 	body := strings.Replace(text, store.IDPlaceholder, id, 1)
 	if len([]rune(body)) > bodyLimit {
 		return "", "", store.Refuse(store.CodeRefused, fmt.Sprintf("the new brief is %d characters; GitHub keeps at most "+
