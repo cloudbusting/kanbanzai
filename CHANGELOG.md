@@ -5,9 +5,20 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-11-19
+
+- TASK-41: `/detangle` (also `/kanbanzai:detangle` in Claude Code) explains what holds blocked cards up and which card to
+  do first to free the most of them. It reads the new `kanbanzai wip --blocked [--json]`, a read-only map of the chains:
+  a card on an unmet `Needs` line behind a card gate, or named in a `Held: blocked|waiting` line, is an edge; a closed
+  `owner`, `ci`, `external` or `date` gate, a Need that is not on the board and a Held line naming no open card end a chain.
+  Each unblocking card is ranked by how many blocked cards it holds up, and one that cannot start (held, claimed, parked,
+  or itself waiting) is listed after every card that can. The skill recommends one card and hands the choice to `/do`; it
+  changes nothing. `/next` and `/do` point to it when blocked cards leave nothing to pull. `wip` without the flag is unchanged.
 - BUG-99: `kanbanzai check` no longer reports a brief's relative link to a repository file as broken when a store
   plugin keeps the card. A link is read from the cards folder `project.work` names as well as from where the brief sits,
   so `../../../README.md` written for the files board still resolves from the store's working copy.
+- BUG-98: the shipped schemas accept a migrated brief's `Was` line, so `kanbanzai check` no longer flags a migrated
+  epic's `Was` as an undeclared field.
 
 ## [0.30.0] — 2026-11-18
 
