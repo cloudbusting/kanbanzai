@@ -1,12 +1,11 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** qa-approved
+- **Stage:** shipping
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; the Decisions below are the record
 - **Next action:** release: 0.30.0 (a minor release; the owner decides the version) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-97-0.30.0 from main 0218b6b; then triage the live cut-over card
 - **Where:** worktree CHANGE-97
-- **Gate:** passed by claude:643b2fa7-e233-498d-b051-72a8309b249f, 2026-11-18 — Approve 0.30.0 (Recommended) — the owner approved shipping CHANGE-97 as the 0.30.0 public release, 2026-11-18
 - **Needs:** CHANGE-90
 
 ## Goal
