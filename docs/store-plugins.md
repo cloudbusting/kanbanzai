@@ -66,6 +66,11 @@ kanbanzai board
   query, the card stays on the board, flagged as having left the query, and can still be moved and finished.
 - **An unstarted card that leaves the query drops out** of the working copy, unless it has edits you haven't
   published.
+- **A relative link in a brief means the same in the working copy.** The working copy sits in
+  `.kanbanzai/state/store/work/<column folder>/`, deeper than the files board, but a link is written for the cards
+  folder `project.work` names (`.kanbanzai/work/<column folder>/` by default), and `kanbanzai check` reads it from
+  there as well as from where the brief sits. Nothing is rewritten, so `sync` publishes no change. The editor's own
+  Markdown preview opens the file where it sits, so a link to a repository file shows as unresolved there.
 - **Claims and sessions stay local, as always.** Two people on different machines can claim the same ticket.
 
 ## Ids

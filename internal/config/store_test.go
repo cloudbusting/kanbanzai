@@ -121,3 +121,28 @@ func TestAStoreWithAPrefixIsNotTyped(t *testing.T) {
 		t.Fatal("a store with a prefix keeps <prefix>-<number> ids")
 	}
 }
+
+func TestARemoteStoreKeepsTheWorkSettingForLinks(t *testing.T) {
+	remote := "\n[store]\nplugin = \"reference\"\nprefix = \"REF\"\n"
+	project := loadProject(t, testutil.Repo(t, typedStore+remote))
+	files := filepath.Join(project.Root, ".kanbanzai", "work")
+	if project.LinkBase != files || project.Work == files {
+		t.Fatalf("LinkBase = %s, Work = %s", project.LinkBase, project.Work)
+	}
+	brief := filepath.Join(project.Work, "10-done", "REF-1-x.md")
+	if got := project.LinkDir(brief); got != filepath.Join(files, "10-done") {
+		t.Fatalf("LinkDir = %s", got)
+	}
+	outside := filepath.Join(project.Root, "elsewhere", "REF-1-x.md")
+	if got := project.LinkDir(outside); got != filepath.Dir(outside) {
+		t.Fatalf("a brief outside the cards folder is read where it sits, not %s", got)
+	}
+	custom := loadProject(t, testutil.Repo(t, "[project]\nowner = \"Sam\"\nwork = \"docs/cards\"\n"+remote))
+	if custom.LinkBase != filepath.Join(custom.Root, "docs", "cards") {
+		t.Fatalf("a custom work setting is kept: %s", custom.LinkBase)
+	}
+	plain := loadProject(t, testutil.Repo(t, typedStore))
+	if plain.LinkBase != plain.Work {
+		t.Fatalf("the files store reads links where the brief sits: %s", plain.LinkBase)
+	}
+}

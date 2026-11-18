@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- BUG-99: `kanbanzai check` no longer reports a brief's relative link to a repository file as broken when a store
+  plugin keeps the card. A link is read from the cards folder `project.work` names as well as from where the brief sits,
+  so `../../../README.md` written for the files board still resolves from the store's working copy.
+
 ## [0.30.0] — 2026-11-18
 
 - CHANGE-97: a store's cards can use the project's own type ids. A typed project that leaves `[store] prefix` out has
