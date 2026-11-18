@@ -184,3 +184,11 @@ func TestSyncJSONOnAStorePlugin(t *testing.T) {
 		t.Fatalf("flags = %v", decoded["flags"])
 	}
 }
+
+func TestStoreStatusSaysWhenTheCardsUseTheTypeIds(t *testing.T) {
+	root := testutil.Repo(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"reference\"\n\n[store.settings]\nroot = \"fixture\"\n")
+	env := map[string]string{"KANBANZAI_PROJECT": "", "KANBANZAI_OWNER": "test:store"}
+	if result := testutil.Run(t, root, env, "store", "status"); result.Code != 0 || !strings.Contains(result.Stdout, "store: reference (the project's type ids)") {
+		t.Fatalf("store status: %d %s %s", result.Code, result.Stdout, result.Stderr)
+	}
+}

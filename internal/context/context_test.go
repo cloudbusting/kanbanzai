@@ -245,3 +245,12 @@ func TestAStorePluginsContextSaysHowANewCardAndAHandEditReachIt(t *testing.T) {
 		}
 	}
 }
+
+func TestATypedStoresContextNamesTheTypeIds(t *testing.T) {
+	rule := boardRule(testProject(t, "[project]\nowner = \"Sam\"\n\n[store]\nplugin = \"reference\"\n"))
+	for _, want := range []string{"store plugin reference", "<type prefix>-<number>, such as TASK-", "`kanbanzai number --title"} {
+		if !strings.Contains(rule, want) {
+			t.Errorf("the context lacks %q:\n%s", want, rule)
+		}
+	}
+}
