@@ -227,9 +227,13 @@ checks = []
 skip_field = "Deploy"
 skip_values = ["None"]
 
-# The board lives on its own branch (kanbanzai-board), mounted as a worktree at project.work, so the main checkout stays
-# clean and no board edit is a commit on main (docs/team-board.md). `kanbanzai sync` publishes the branch; `publish = "ask"`
-# never fetches or pushes on its own. Moved here from main by CHANGE-94 (2026-11-18).
-[board]
-home = "branch"
-publish = "auto"
+# The cards are the issues of cloudbusting/kanbanzai labelled `kanbanzai`, kept by the kanbanzai-store-github plugin
+# (docs/store-plugins.md); Kanbanzai keeps a local working copy as Markdown briefs. They were moved there from the
+# kanbanzai-board branch by CHORE-98 (2026-11-18); the branch stays as it was. To go back, revert this change: put
+# `[board] home = "branch"` and `publish = "auto"` back and remove the [store] tables.
+[store]
+plugin = "github"
+
+[store.settings]
+repo = "cloudbusting/kanbanzai"
+label = "kanbanzai"

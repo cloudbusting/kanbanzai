@@ -56,7 +56,10 @@ func TestSessionsWithNoAskingSessionKeepsItsShape(t *testing.T) {
 }
 
 func TestBoardCommandCarriesTheAskingSession(t *testing.T) {
-	project := newProject(t, "")
+	// A project with no config file of its own reads the checkout the tests run in, whose config names a store plugin
+	// (this repository keeps its board in GitHub issues); the board command would then ask that store. Give the
+	// project a config so it is read on its own.
+	project := newProject(t, "config_version = 1\n")
 	testutil.ClaudeSession(t, askingSession, "proj-b5", project.Root, nil)
 	if _, out, _ := runCLI(t, "board", "--json"); !strings.Contains(out, `"unclaimed":{"claude:`+askingSession+`"`) {
 		t.Fatalf("board json = %q", out)
