@@ -1,11 +1,11 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** designing
+- **Stage:** designed
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; the Decisions below are the record
-- **Next action:** build: tasks 1 and 2 (typed store ids in the core; the plugin's ids and `label` setting) have no shared files and can run in parallel; task 3 (the migration tool) follows both
-- **Where:** —
+- **Next action:** build tasks 1 and 2 (typed store ids in the core; the plugin's ids and label setting): no shared files, can run in parallel; then task 3, the migration tool
+- **Where:** worktree CHANGE-97
 - **Needs:** CHANGE-90
 
 ## Goal
@@ -149,6 +149,7 @@ The cut-over steps the contributor guide gets (and the follow-up card runs):
 - 2026-11-18: designed with the owner (all cards, public, label setting, original type prefix, a one-shot tool that
   reconciles the references in one pass). Typed store ids in the core and the plugin's `label` are part of this card, so
   it ships a release; the tool does not. Next: build tasks 1 and 2.
+- 2026-11-18: designed with the owner: all cards, public, label setting, type-prefix ids, one-shot tool
 
 ## Out of scope
 
