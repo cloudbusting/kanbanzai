@@ -1,11 +1,11 @@
 # CHANGE-90: GitHub (public) issues backing-store plugin, with GitHub filters
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-18
-- **Done:** —
+- **Done:** 2026-11-18 — v0.29.0, e5a331d, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.29.0
 - **ADR:** this brief (Decisions and Design) is the record; the repository keeps no separate decision-record folder
-- **Next action:** owner: approve the release (QA-approved gate) after the by-hand check on a throwaway repository you name: gh auth login, [store] plugin github with prefix GH and settings repo, kanbanzai store trust, sync, see an issue on the board, number --title, move it and see the stage: label; then ship (kanbanzai-release) chooses the version
-- **Where:** worktree CHANGE-90
+- **Next action:** —
+- **Where:** main
 - **Needs:** CHANGE-87
 
 ## Goal
@@ -250,6 +250,18 @@ Task 1 first; tasks 2 and 3 can then run in parallel (no shared files); task 4 l
   - `kanbanzai_0.28.1_{linux_amd64,linux_arm64,darwin_amd64,darwin_arm64}.tar.gz` and `…_windows_amd64.zip`, each holding `kanbanzai` and `kanbanzai-store-github` (`.exe` on Windows).
 - Proven: from the Linux archive, `kanbanzai-store-github --version` says v0.28.1 and a `hello` request answers protocol 1, name github; `kanbanzai install` into a throwaway home copies and links both programs; `init --board-main`, `check` and `board --json` work; the source bundle lists the new code and no `.git`, state or `.env`; `go run ./tools/release -scan` clean on the source bundle, the .vsix and all five archives; `claude plugin validate` passes and the bundle installs in a throwaway Claude config at 0.28.1; `go vet` and `go test ./...` green on main after the merge.
 - Not run: the owner's by-hand check (below), and anything on github.com.
+
+## Release
+
+- v0.29.0, commit e5a331d, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.29.0 (tags `v0.29.0` and `kanbanzai--v0.29.0`).
+- Release prep needed two fixes to the other session's TASK-96 test file `tools/demo-gif/demo_test.go`, both test-only: its made-up home
+  path tripped the release's privacy check (cad8d58), and its verify test cannot run on Windows (e5a331d, CI on `a7732ba` failed there).
+  Pushing main also published TASK-96's two commits (the demo-GIF skill and command; they are Done, Deploy not a package).
+- CI green on all three systems at e5a331d; the Release workflow green including Open VSX and the Visual Studio Marketplace (0.29.0 on both listings).
+- `SHA256SUMS` lists seven files and passes on a fresh download. Verified from the published archive: `kanbanzai` and `kanbanzai-store-github` say v0.29.0,
+  `init --board-main`, `check` and `board --json` work; `go install …/cmd/kanbanzai@v0.29.0` and `…/cmd/kanbanzai-store-github@v0.29.0` work; the plugin
+  installs at 0.29.0 in a throwaway Claude config. The released `.vsix` is installed in the owner's editor (0.29.0).
+- Still the owner's: the by-hand check against real GitHub, run after release at their request (they approved "check during release"), and a Developer: Reload Window.
 
 ## Progress
 
