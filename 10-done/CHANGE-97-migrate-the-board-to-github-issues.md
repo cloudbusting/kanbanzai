@@ -1,11 +1,11 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** shipping
+- **Stage:** done
 - **Updated:** 2026-11-18
-- **Done:** —
+- **Done:** 2026-11-18 — v0.30.0, 04f73b8, https://github.com/cloudbusting/kanbanzai/releases/tag/v0.30.0 (pushed and tagged; both marketplace jobs green)
 - **ADR:** none; the Decisions below are the record
-- **Next action:** release: 0.30.0 (a minor release; the owner decides the version) after the owner approves; package artifacts at /tmp/kanbanzai-package-CHANGE-97-0.30.0 from main 0218b6b; then triage the live cut-over card
-- **Where:** worktree CHANGE-97
+- **Next action:** —
+- **Where:** main
 - **Needs:** CHANGE-90
 
 ## Goal
