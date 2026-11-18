@@ -1,6 +1,6 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** todo
+- **Stage:** designing
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none yet; design decides whether the ID and history choices need a record
