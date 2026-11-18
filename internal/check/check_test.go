@@ -398,3 +398,51 @@ func TestANeedsLineNamesCardsThatExistAndNeverCircles(t *testing.T) {
 	put(t, project, "1-open", "W-08-work.md", withHead("W-08", "todo", "- **Needs:** W-06\n"))
 	fails(t, Gates, project, "the cards wait on each other")
 }
+
+// storeCopyProject is a project whose cards sit in a store plugin's working copy, two folders deeper than the
+// files board the project's work setting names. The files store reads it, so no plugin runs.
+func storeCopyProject(t *testing.T) *config.Project {
+	t.Helper()
+	project := testProject(t)
+	project.LinkBase = project.Work
+	project.Work = filepath.Join(project.State, "store", "work")
+	return project
+}
+
+func TestLinksStoreWorkingCopy(t *testing.T) {
+	project := storeCopyProject(t)
+	// written for .kanbanzai/work/10-done/: three folders up is the project root
+	put(t, project, "10-done", "W-05-work.md", goodBrief("W-05", "done", "", ""))
+	if problems := Links(project); len(problems) != 0 {
+		t.Fatalf("a link written for the files board was reported in the store's working copy: %v", problems)
+	}
+	put(t, project, "10-done", "W-06-work.md", goodBrief("W-06", "done", " And [gone](../../../nowhere.md).", ""))
+	fails(t, Links, project, "broken link ../../../nowhere.md")
+}
+
+func TestLinksResolveFromTheBriefsOwnFolderToo(t *testing.T) {
+	project := storeCopyProject(t)
+	put(t, project, "1-open", "W-06-work.md",
+		goodBrief("W-06", "designed", " And [own](../../../../../README.md).", ""))
+	for _, problem := range Links(project) {
+		if strings.Contains(problem, "../../../../../README.md") {
+			t.Fatalf("a link that resolves from the file's own folder was reported: %q", problem)
+		}
+	}
+}
+
+func TestLinksFollowACustomWorkSetting(t *testing.T) {
+	project := storeCopyProject(t)
+	project.LinkBase = filepath.Join(project.Root, "docs", "cards")
+	// from docs/cards/1-open/ two folders up is docs/, three is the root: one more than the default sits deeper
+	testutil.Write(t, filepath.Join(project.Root, "docs", "guide.md"), "guide\n")
+	put(t, project, "1-open", "W-06-work.md", goodBrief("W-06", "designed", " And [g](../../guide.md).", ""))
+	for _, problem := range Links(project) {
+		if strings.Contains(problem, "guide.md") {
+			t.Fatalf("a link written for docs/cards/<folder>/ was reported: %q", problem)
+		}
+	}
+	// from .kanbanzai/work/1-open/ the same link would not reach docs/guide.md
+	put(t, project, "1-open", "W-07-work.md", goodBrief("W-07", "designed", " And [h](../../nowhere.md).", ""))
+	fails(t, Links, project, "broken link ../../nowhere.md")
+}

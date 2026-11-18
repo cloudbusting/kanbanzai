@@ -418,7 +418,9 @@ func shorten(value string, limit int) string {
 	return value
 }
 
-// Links checks that every relative link in a brief resolves.
+// Links checks that every relative link in a brief resolves. A link is written for the cards folder the project's work
+// setting names, so it is read from there as well as from the folder the brief sits in: a store plugin keeps its
+// working copy deeper, and moving a brief there does not change what its links mean.
 func Links(project *config.Project) []string {
 	problems := []string{}
 	for _, item := range board.Briefs(project) {
@@ -430,13 +432,19 @@ func Links(project *config.Project) []string {
 				strings.HasPrefix(link, "#") || strings.HasPrefix(link, "mailto:") {
 				continue
 			}
-			target := filepath.Join(filepath.Dir(path), strings.Split(link, "#")[0])
-			if _, err := os.Stat(target); err != nil {
-				problems = append(problems, fmt.Sprintf("%s: broken link %s", project.Rel(path), link))
+			name := strings.Split(link, "#")[0]
+			if linkResolves(filepath.Dir(path), name) || linkResolves(project.LinkDir(path), name) {
+				continue
 			}
+			problems = append(problems, fmt.Sprintf("%s: broken link %s", project.Rel(path), link))
 		}
 	}
 	return problems
+}
+
+func linkResolves(dir, link string) bool {
+	_, err := os.Stat(filepath.Join(dir, link))
+	return err == nil
 }
 
 // Comments checks that every brief ends in ## Comments.

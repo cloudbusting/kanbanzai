@@ -147,6 +147,7 @@ type Project struct {
 
 	Home              string
 	Work              string
+	LinkBase          string // the cards folder the project's work setting names: where a brief's relative links were written from, whichever store keeps it
 	State             string
 	Claims            string
 	Numbers           string
@@ -417,6 +418,7 @@ func (p *Project) build() error {
 	if p.Work, err = p.path(asString(project["work"], ".kanbanzai/work")); err != nil {
 		return err
 	}
+	p.LinkBase = p.Work
 	if p.State, err = p.path(asString(project["state"], ".kanbanzai/state")); err != nil {
 		return err
 	}
@@ -864,6 +866,18 @@ func (p *Project) loadBoard() error {
 		p.Claims = filepath.Join(p.Work, ".claims")
 	}
 	return nil
+}
+
+// LinkDir is the folder a brief's relative links were written from: the brief's place under the work setting's
+// folder (LinkBase), which is where it sits unless a store plugin keeps its working copy elsewhere. A path outside the
+// cards folder is read where it sits.
+func (p *Project) LinkDir(path string) string {
+	dir := filepath.Dir(path)
+	rel, err := filepath.Rel(p.Work, dir)
+	if err != nil || p.LinkBase == "" || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return dir
+	}
+	return filepath.Join(p.LinkBase, rel)
 }
 
 // RemoteStore reports whether the cards are kept by a store plugin rather than in the project's files.
