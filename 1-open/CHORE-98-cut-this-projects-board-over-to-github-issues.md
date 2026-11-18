@@ -1,11 +1,11 @@
 # CHORE-98: Cut this project's board over from the board branch to GitHub issues
 
-- **Stage:** todo
+- **Stage:** building
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; CHANGE-97's Decisions are the record
 - **Next action:** settled: with the owner present, run the cut-over steps below once CHANGE-97 is Done
-- **Where:** —
+- **Where:** worktree CHORE-98
 - **Needs:** CHANGE-97
 
 ## Goal
