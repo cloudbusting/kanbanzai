@@ -363,3 +363,21 @@ func TestTheTypesGuideSchemaExampleLoadsAndItsBugTemplateChecks(t *testing.T) {
 		t.Fatalf("the docs/types.md example fails check: %d %s %s", code, out, errOut)
 	}
 }
+
+// A migrated brief carries a "Was:" line (the id it had before the move); every type that has a schema accepts it.
+func TestEveryTypeSchemaAcceptsAWasLine(t *testing.T) {
+	project := schemaExampleProject(t)
+	was := func(s string) string { return strings.Replace(s, "- **Where:**", "- **Was:** W-07\n- **Where:**", 1) }
+	card(t, project, "TASK-01", "task.md", was)
+	card(t, project, "BUG-02", "bug.md", was)
+	card(t, project, "CHANGE-03", "change.md", was)
+	if code, out, errOut := runCLI(t, "check"); code != 0 {
+		t.Fatalf("a Was line is flagged: %d %s %s", code, out, errOut)
+	}
+	// The epic schema ships in the defaults.
+	epic := newProject(t, "[project]\ndefault_type = \"task\"\n[flow]\nisolation = \"shared\"\n")
+	card(t, epic, "EPIC-04", "epic.md", was)
+	if code, out, errOut := runCLI(t, "check"); code != 0 {
+		t.Fatalf("a Was line on an epic is flagged: %d %s %s", code, out, errOut)
+	}
+}

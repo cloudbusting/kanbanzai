@@ -90,7 +90,7 @@ schema = "epic"
 
 [schemas.epic]
 required_fields = ["Stage", "Updated", "Next action", "Where", "Work items"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs", "Was"]
 required_sections = ["Goal", "Source", "Work items", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
 optional_sections = ["Design", "Questions"]
 repeatable_sections = []

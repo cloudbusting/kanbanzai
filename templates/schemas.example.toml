@@ -29,7 +29,7 @@ schema = "change"
 
 [schemas.task]
 required_fields = ["Stage", "Updated", "Next action", "Where"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs", "Was"]
 required_sections = ["Goal", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
 optional_sections = ["Design", "Questions"]
 repeatable_sections = []
@@ -38,7 +38,7 @@ final_section = "Comments"
 
 [schemas.bug]
 required_fields = ["Stage", "Updated", "Next action", "Where"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs", "Was"]
 required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
 optional_sections = ["Design", "Questions"]
 repeatable_sections = []
@@ -47,7 +47,7 @@ final_section = "Comments"
 
 [schemas.change]
 required_fields = ["Stage", "Updated", "Next action", "Where"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs", "Was"]
 required_sections = ["Goal", "Before", "After", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
 optional_sections = ["Design", "Questions"]
 repeatable_sections = []

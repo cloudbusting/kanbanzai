@@ -78,7 +78,7 @@ cards unchanged (the head fields and a final Comments, with any other field or s
 
 | key | meaning |
 |---|---|
-| `required_fields` / `optional_fields` | the head's `- **Name:** value` labels. A required field must be present and non-empty in a brief and present in the template; any field not listed is an error. |
+| `required_fields` / `optional_fields` | the head's `- **Name:** value` labels. A required field must be present and non-empty in a brief and present in the template; any field not listed is an error. | `Was` (the id a card had before a migration) is an optional field in the shipped schemas.
 | `required_sections` / `optional_sections` | the level-two `## Name` headings. A required one must appear; one not listed is an error. |
 | `section_order` | every declared section exactly once, in the order they must appear. A section out of that order is an error. |
 | `repeatable_sections` | sections that may appear more than once, adjacent in that order. Any other section appearing twice is an error. |
@@ -325,7 +325,7 @@ schema = "bug"                  # opt in: names [schemas.bug]; without it the le
 
 [schemas.bug]
 required_fields = ["Stage", "Updated", "Next action", "Where"]
-optional_fields = ["Done", "ADR", "Held", "Gate", "Needs"]
+optional_fields = ["Done", "ADR", "Held", "Gate", "Needs", "Was"]
 required_sections = ["Goal", "Reproduction", "Expected", "Actual", "Acceptance checks", "Deploy", "Tasks", "Docs", "Decisions", "Progress", "Out of scope", "Risk", "Comments"]
 optional_sections = ["Design", "Questions"]
 repeatable_sections = []
