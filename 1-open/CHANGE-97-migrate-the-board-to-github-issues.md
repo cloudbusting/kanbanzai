@@ -1,6 +1,6 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** built
+- **Stage:** checking
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; the Decisions below are the record
