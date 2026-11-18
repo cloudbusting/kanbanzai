@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -71,8 +70,6 @@ type Map struct {
 	Leaves     []Leaf      `json:"leaves"`
 	Cycles     [][]string  `json:"cycles"`
 }
-
-var idRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]*-\d+`)
 
 type node struct {
 	at     board.CardAt
@@ -230,8 +227,8 @@ func waitsOf(card *board.Card, open func(string) bool) ([]Wait, []string) {
 	}
 	if card.Held != nil {
 		named := []string{}
-		for _, id := range idRE.FindAllString(*card.Held, -1) {
-			if id != card.ID && open(id) && !contains(named, id) {
+		for _, id := range gate.Needs(*card.Held) { // the same card-id reading as a Needs line
+			if id != card.ID && open(id) {
 				named = append(named, id)
 			}
 		}
@@ -244,15 +241,6 @@ func waitsOf(card *board.Card, open func(string) bool) ([]Wait, []string) {
 		}
 	}
 	return waits, edges
-}
-
-func contains(list []string, want string) bool {
-	for _, item := range list {
-		if item == want {
-			return true
-		}
-	}
-	return false
 }
 
 // whyNot is why a session cannot start a card now, or "" when it can.
