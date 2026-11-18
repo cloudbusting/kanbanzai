@@ -98,6 +98,9 @@ test("registers the skills, labels a shell, heartbeats, adds context and writes 
       assert.match(prompts.at(-1).text, /# Breakdown/);
       assert.match(prompts.at(-1).text, /split this requirement/);
     }
+    for (const name of ["detangle", "kanbanzai:detangle"]) {
+      assert.ok(commands.some((entry) => entry.name === name), `the /${name} command was not registered`);
+    }
     assert.ok(added.some((skill) => skill.id === "answer"), "the answer skill was not registered");
     assert.ok(commands.some((entry) => entry.name === "answer"), "the /answer command was not registered");
     const prefixed = expected.map((name) => `kanbanzai:${name}`);

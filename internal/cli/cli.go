@@ -45,7 +45,7 @@ const usage = `usage: kanbanzai <command> [options]
 
 commands:
   board [--json | --tui | --web [--no-open] [--port N]]  the board; --web opens a foreground loopback browser view
-  wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
+  wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup|--blocked [--json]]
   tree [--merge ID] [--json]     what the main checkout holds, and whether a merge may go ahead (read-only)
   sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch and push it;
                                  with a store plugin: fetch its tickets and publish hand edits
@@ -286,8 +286,8 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 		fmt.Fprintln(out, board.AsText(loaded, project.Owner))
 		return 0
 	case "wip":
-		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true, "recovery": true},
-			map[string]bool{"title": true, "card": true})
+		positionals, flags, set, err := parse(args, map[string]bool{"audit": true, "cleanup": true, "next": true, "recovery": true, "blocked": true,
+			"json": true}, map[string]bool{"title": true, "card": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
@@ -301,7 +301,7 @@ func dispatch(project *config.Project, command string, args []string, in io.Read
 			}
 		}
 		return wip.Run(project, wip.Options{Audit: set["audit"], Recovery: set["recovery"], Cleanup: set["cleanup"], Next: set["next"],
-			Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
+			Blocked: set["blocked"], JSON: set["json"], Title: flags["title"], Card: flags["card"], Out: out, Err: errOut})
 	case "tree":
 		return runTree(project, args, out, errOut)
 	case "sync":

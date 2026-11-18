@@ -49,6 +49,10 @@ brief (an In QA card held `waiting:` for the owner's own test, for example). A h
 stale or interrupted, but it still counts toward the cap. Delete the line when the blocker clears. Paused is a column
 of its own: only the owner un-parks a card.
 
+When cards are held up by a gate, a `Needs:` line or a Held line, `kanbanzai wip --blocked [--json]` maps the chains and
+ranks the cards that free the most of them, and `/detangle` explains the answer and recommends one to do first
+([commands](commands.md)). The map is a skill's working, not a view; the board stays the record.
+
 A main session with a question tool asks the owner directly and, once answered, continues the permitted route while
 keeping its claim. It may record the decision in the brief without opening a question. An existing open question still
 uses `/answer`.

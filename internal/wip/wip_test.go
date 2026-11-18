@@ -25,6 +25,7 @@ type cardSpec struct {
 	Folder  string
 	Where   string
 	Held    string
+	Needs   string
 	Updated string
 	Next    string
 	Done    string
@@ -64,6 +65,9 @@ func putCard(t *testing.T, project *config.Project, spec cardSpec) string {
 	lines = append(lines, "- **Next action:** "+spec.Next, "- **Where:** "+spec.Where)
 	if spec.Held != "" {
 		lines = append(lines, "- **Held:** "+spec.Held)
+	}
+	if spec.Needs != "" {
+		lines = append(lines, "- **Needs:** "+spec.Needs)
 	}
 	lines = append(lines, "## Goal", "", "Body.", "", "## Comments", "")
 	path := filepath.Join(project.Work, spec.Folder, spec.ID+"-x.md")

@@ -23,6 +23,7 @@ import (
 	"github.com/cloudbusting/kanbanzai/internal/brief"
 	"github.com/cloudbusting/kanbanzai/internal/claim"
 	"github.com/cloudbusting/kanbanzai/internal/config"
+	"github.com/cloudbusting/kanbanzai/internal/detangle"
 	"github.com/cloudbusting/kanbanzai/internal/gitutil"
 	"github.com/cloudbusting/kanbanzai/internal/store/mirror"
 	"github.com/cloudbusting/kanbanzai/internal/timeutil"
@@ -751,6 +752,8 @@ type Options struct {
 	Recovery bool
 	Cleanup  bool
 	Next     bool
+	Blocked  bool // the map of what holds cards up and which to do first (TASK-41)
+	JSON     bool // with Blocked only: the map as one JSON object
 	Title    string
 	Card     string
 	Out      io.Writer
@@ -763,6 +766,23 @@ func Run(project *config.Project, opts Options) int {
 	if opts.Recovery && (!opts.Audit || opts.Card == "" || opts.Next || opts.Cleanup || opts.Title != "") {
 		fmt.Fprintln(errOut, "--recovery requires --audit and --card ID only")
 		return 2
+	}
+	if opts.Blocked && (opts.Audit || opts.Next || opts.Cleanup || opts.Title != "" || opts.Card != "") {
+		fmt.Fprintln(errOut, "--blocked stands alone: it cannot be combined with --next, --audit, --cleanup, --title or --card")
+		return 2
+	}
+	if opts.JSON && !opts.Blocked {
+		fmt.Fprintln(errOut, "--json is only for --blocked")
+		return 2
+	}
+	if opts.Blocked {
+		m := detangle.Build(project, board.Load(project, nil, nil))
+		if opts.JSON {
+			fmt.Fprintln(out, string(m.JSON()))
+		} else {
+			fmt.Fprintln(out, m.Text())
+		}
+		return 0
 	}
 	if opts.Title != "" {
 		title, ok := TitleFor(project, opts.Title)

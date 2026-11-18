@@ -12,7 +12,7 @@ assets.go                  the embedded shipped defaults and card template
 defaults/config.toml       the shipped workflow (embedded in the binary)
 templates/card.md          the brief template (embedded in the binary)
 templates/{task,bug,change}.md, schemas.example.toml   opt-in per-type examples (embedded; see [types.md](types.md))
-skills/                    setup, workflow, breakdown, triage, design, do, next, answer, wip, audit, cleanup, build, check
+skills/                    setup, workflow, breakdown, triage, design, do, next, detangle, answer, wip, audit, cleanup, build, check
 .claude-plugin/            Claude Code: plugin.json, and marketplace.json (this repo is its own marketplace)
 hooks/                     Claude Code: the heartbeat after every tool call, the board's context at session start
 opencode/                  OpenCode (V2): the same skills, heartbeat, context, and the command on the shell's PATH

@@ -83,6 +83,10 @@ It creates an EPIC with linked triaged cards and `Needs` prerequisites, without 
 Default types, fresh init and the software preset include EPIC; explicit custom type lists are never rewritten.
 See [EPIC membership, progress and compatibility](docs/types.md#epics-and-breakdown).
 
+When cards wait on each other and nothing can start, `/kanbanzai:detangle` (also `/detangle` in OpenCode) explains
+the chain in words and recommends the card to do first to free the most work. It reads `kanbanzai wip --blocked --json`,
+changes nothing and hands your choice to `/do`.
+
 `kanbanzai board --tui` (terminal), `kanbanzai board --web` (browser) and the editor tab show the board, read-only.
 If anything is red, run `kanbanzai doctor` and see [docs/troubleshooting.md](docs/troubleshooting.md).
 

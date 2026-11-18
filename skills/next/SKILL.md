@@ -22,7 +22,8 @@ a time with a logged takeover. If `parallel: no` appears in workspace output, do
 
 Compare each candidate's owned files, shared documents, dependencies and live test surfaces. Drop any pair that
 overlaps or depends on the other; exclude cards already in a batch. Record the reason for each exclusion. Default to
-three cards, at most four, and honor an area or count in the request. If none qualify, say why and stop.
+three cards, at most four, and honor an area or count in the request. If none qualify, say why and stop; when cards are blocked by gates, holds or Needs lines, point the owner to
+`/detangle`, which finds the card that frees the most of them.
 
 ## Map and claim
 

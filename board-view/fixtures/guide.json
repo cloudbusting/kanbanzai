@@ -35,6 +35,10 @@
           "text": "check that the board is true and report any drift."
         },
         {
+          "command": "/kanbanzai:detangle",
+          "text": "when cards are blocked, explain what holds them up and which card to do first."
+        },
+        {
           "command": "/kanbanzai:answer",
           "text": "answer a question a card is waiting on."
         },
@@ -87,6 +91,10 @@
         {
           "command": "/kanbanzai:wip → /kanbanzai:next",
           "text": "several cards at once: wip shows what is free, next starts them."
+        },
+        {
+          "command": "/kanbanzai:detangle → /kanbanzai:do",
+          "text": "nothing can start because cards wait on each other: detangle names the card that frees the most, do takes it."
         },
         {
           "command": "/kanbanzai:answer",

@@ -8,7 +8,7 @@ there.
 
 ```
 kanbanzai board [--json | --tui | --web [--no-open] [--port N]]  the board, optionally in a terminal or local browser
-kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup]
+kanbanzai wip [--next|--title ID|--audit [--card ID [--recovery]]|--cleanup|--blocked [--json]]
 kanbanzai tree [--merge ID] [--json]      what the main checkout holds, and whether a merge or package may go ahead (read-only)
 kanbanzai sync [--attach|--status] [--json]  the board branch ([board] home = "branch"): check it out, report it, or fetch, merge and push it;
                                          with a store plugin: fetch its tickets and publish hand edits
@@ -86,6 +86,16 @@ held by a `card` gate also gets a table of the cards in its `Needs:` line (`N of
 not satisfy the gate first, each with the column it is in and the one the gate wants); `board --json` carries it as
 `gate.needs`, present only on a closed `card` gate. A card in a parked column (Paused) never counts as having reached
 an open column.
+
+`kanbanzai wip --blocked [--json]` is the map `/detangle` reads (it is for a skill's own resolution, not a board): it walks what
+holds each open card up, chain by chain, and ranks the cards that free the most of them. An edge is a card on an unmet
+`Needs` line behind a closed `card` gate, or an open card named in a `Held: blocked|waiting` line; a chain ends at a leaf,
+a closed `owner`, `ci`, `external` or `date` gate, a Need that is not on the board (`missing`), or a Held line naming no
+open card (`held-text`, shown as written). The JSON object has `blocked` (each card with its `waits`), `unblockers`
+(`rank`, `actionable`, `why_not`, `directly`, `through`; a card that is held, claimed, parked or itself waiting is listed
+after every card that can start), `leaves` and `cycles`; each list is present and never null. It is read-only: no claim,
+no write, no network, exit 0 on a readable board (also when nothing is blocked), exit 2 with another `wip` mode or `--json`
+alone.
 
 `kanbanzai step --for <ID> --json` also includes a `route` object describing the immediate action, step, target,
 whether a gate or hold blocks it, workspace facts, the column `finish` lands in (`finish`), and whether closing needs

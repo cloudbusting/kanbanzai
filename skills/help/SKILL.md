@@ -28,6 +28,7 @@ Everything is a card: one short brief per piece of work, kept in git, and the bo
 - `/kanbanzai:next` — start several independent cards together, each in its own workspace.
 - `/kanbanzai:wip` — see what is in flight: cards, claims, workspaces, and anything orphaned or stale.
 - `/kanbanzai:audit` — check that the board is true and report any drift.
+- `/kanbanzai:detangle` — when cards are blocked, explain what holds them up and which card to do first.
 - `/kanbanzai:answer` — answer a question a card is waiting on.
 - `/kanbanzai:design` — settle how a card should work and write its tasks and checks; do runs this when the route needs it.
 - `/kanbanzai:build` — make the change a card describes, with its tests.
@@ -43,6 +44,7 @@ Everything is a card: one short brief per piece of work, kept in git, and the bo
 - `/kanbanzai:breakdown → /kanbanzai:next` — a large requirement: breakdown makes the epic and its cards, then next starts the independent ones together, or do takes them one at a time.
 - `/kanbanzai:do` — one card from start to finish: it designs, builds, checks and ships as the project's workflow says, and stops at your decisions and approvals.
 - `/kanbanzai:wip → /kanbanzai:next` — several cards at once: wip shows what is free, next starts them.
+- `/kanbanzai:detangle → /kanbanzai:do` — nothing can start because cards wait on each other: detangle names the card that frees the most, do takes it.
 - `/kanbanzai:answer` — a card is waiting on you: answer it, and do or next picks the card up again.
 - `/kanbanzai:audit → /kanbanzai:cleanup` — tidy up: audit reports drift, then cleanup removes what is finished.
 - `/kanbanzai:workflow` — change the project's own route, gates or limits.
