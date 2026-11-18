@@ -1,10 +1,10 @@
 # CHANGE-97: Migrate this project's board from the board branch to GitHub issues
 
-- **Stage:** checking
+- **Stage:** checked
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; the Decisions below are the record
-- **Next action:** check: run the QA skill on the worktree diff (commit 87cc7b4)
+- **Next action:** package: build and prove the artifacts (kanbanzai-package) for the checked cards
 - **Where:** worktree CHANGE-97
 - **Needs:** CHANGE-90
 
@@ -157,6 +157,7 @@ The cut-over steps the contributor guide gets (and the follow-up card runs):
   `claude plugin validate .` are green. Next: check.
 - 2026-11-18: designed with the owner: all cards, public, label setting, type-prefix ids, one-shot tool
 - 2026-11-18: built: typed store ids, plugin label setting, migrate-board tool, docs
+- 2026-11-18: checked: all suites green, QA review found two untested behaviours, now tested (commit in worktree)
 
 ## Out of scope
 
