@@ -96,7 +96,8 @@
     94,
     95,
     96,
-    97
+    97,
+    98
   ],
   "reserved": [
     {
@@ -124,12 +125,12 @@
       "type": "task"
     },
     {
-      "at": "2026-11-17T22:59:42+00:00",
-      "item": "CHANGE-97",
+      "at": "2026-11-18T06:21:08+00:00",
+      "item": "CHORE-98",
       "note": "",
-      "number": 97,
-      "owner": "claude:fc7a1d81-90a9-4c27-bac5-2cb16d96d38d",
-      "type": "change"
+      "number": 98,
+      "owner": "claude:643b2fa7-e233-498d-b051-72a8309b249f",
+      "type": "chore"
     }
   ]
 }
