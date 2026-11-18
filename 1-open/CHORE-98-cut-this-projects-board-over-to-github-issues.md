@@ -4,7 +4,7 @@
 - **Updated:** 2026-11-18
 - **Done:** —
 - **ADR:** none; CHANGE-97's Decisions are the record
-- **Next action:** settled: with the owner present, run the cut-over steps below once CHANGE-97 is Done
+- **Next action:** the owner approved the run (2026-11-18): config switched, `kanbanzai store trust`, `migrate-board --yes`; then commit the id table to the board branch, merge the config branch CHORE-98, check `kanbanzai board`
 - **Where:** worktree CHORE-98
 - **Needs:** CHANGE-97
 
@@ -59,6 +59,8 @@ a `label:kanbanzai` marks the board's issues. Open for the owner at run time: wh
 ## Progress
 
 - 2026-11-18: triaged from CHANGE-97's design; Needs CHANGE-97, which is shipping 0.30.0 (the typed store ids and the plugin's `label` the cut-over needs).
+
+- 2026-11-18: owner read the dry run (94 cards, 1297 references, 31 ids left as written) and approved the run; claim released so the tool can run.
 
 ## Out of scope
 
