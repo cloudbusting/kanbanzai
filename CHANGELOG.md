@@ -5,6 +5,8 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-11-19
+
 - CHANGE-100: the editor's board no longer shows the grey "Type filters cards only…" hint in its toolbar. The store
   plugin's note (the plugin, when it last synced, its query) takes that place, one line per store-kept project, each named
   when the board lists several projects. The single-board and browser views are unchanged.
