@@ -71,8 +71,10 @@ With several projects open as workspace folders, the board shows them all, each 
 | `⊘` | a store plugin's card that the store's query no longer returns; it stays while it is in flight |
 
 When a store plugin keeps the board ([store plugins](https://github.com/cloudbusting/kanbanzai/blob/main/docs/store-plugins.md)),
-a line above the columns names the plugin, when it last synced and its query. These come from the optional `store`
-and `store_state` fields of `kanbanzai board --json`; a board kept in files has neither.
+a line names the plugin, when it last synced and its query: above the columns in a single board, and in the editor's
+toolbar, beside the Project and Type selectors, one line per store-kept project (named when the board lists several).
+These come from the optional `store` and `store_state` fields of `kanbanzai board --json`; a board kept in files has
+neither.
 
 A session that is asking you but holds no card is listed in a strip above the columns. When a card moves, finishes,
 becomes blocked or starts asking, a note appears in the board's corner. A message also appears in the editor's

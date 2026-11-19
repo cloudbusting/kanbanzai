@@ -5,6 +5,10 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-100: the editor's board no longer shows the grey "Type filters cards only…" hint in its toolbar. The store
+  plugin's note (the plugin, when it last synced, its query) takes that place, one line per store-kept project, each named
+  when the board lists several projects. The single-board and browser views are unchanged.
+
 ## [0.31.0] — 2026-11-19
 
 - TASK-41: `/detangle` (also `/kanbanzai:detangle` in Claude Code) explains what holds blocked cards up and which card to

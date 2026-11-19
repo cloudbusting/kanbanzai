@@ -531,12 +531,14 @@ function askingSessionsHtml(board, now, project) {
 // opts.collapsed: the keys of the columns the user collapsed (kept by the extension per workspace).
 // opts.toasts: the toasts to draw (toasts.toViews), in the lower left over the board.
 // storeNoteHtml names the store plugin behind a board, when one keeps it; a file board has no store field.
-function storeNoteHtml(board) {
+// lead: the project's name, in front of the note when a toolbar lists several (CHANGE-100); absent in the single-board view.
+function storeNoteHtml(board, lead) {
   const store = obj(obj(board).store);
   if (store.remote !== true || typeof store.plugin !== 'string' || !store.plugin) return '';
   const synced = typeof store.synced_at === 'string' && store.synced_at ? `synced ${store.synced_at}` : 'never synced: run kanbanzai sync';
   const query = typeof store.query === 'string' && store.query ? ` · query: ${store.query}` : '';
-  return `<div class="store-note" role="status">Cards kept by the store plugin ${esc(store.plugin)} · ${esc(synced)}${esc(query)}</div>\n`;
+  const name = typeof lead === 'string' && lead ? `<span class="store-note-project">${esc(lead)}</span> ` : '';
+  return `<div class="store-note" role="status">${name}Cards kept by the store plugin ${esc(store.plugin)} · ${esc(synced)}${esc(query)}</div>\n`;
 }
 
 function renderContent(board, opts) {
@@ -613,7 +615,10 @@ const WORKSPACE_STYLE = `
     border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border, transparent));
   }
   .workspace-toolbar select:focus-visible { outline: 1px solid var(--vscode-focusBorder); }
-  .workspace-hint, .no-matches { color: var(--vscode-descriptionForeground); }
+  .workspace-store-notes { flex: 1 1 20em; min-width: 0; overflow-wrap: anywhere; }
+  .workspace-store-notes .store-note { margin: 0; }
+  .store-note-project { font-weight: 600; }
+  .no-matches { color: var(--vscode-descriptionForeground); }
   .workspace-projects { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
   .project-section { flex: none; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
   .project-section h2 { flex: none; margin: 0; font-size: 1.1em; overflow-wrap: anywhere; }
@@ -866,11 +871,12 @@ function renderWorkspaceHtml(projects, opts) {
   const types = workspaceTypes(scope);
    const type = o.type === 'untyped' || types.some((t) => t.value === o.type) ? o.type : 'all';
   const option = (key, label, value) => `<option value="${esc(key)}"${value === key ? ' selected' : ''}>${esc(label)}</option>`;
-  const hint = 'Type filters cards only; asking counts, sessions and alerts include all types in the selected project scope.';
+  // CHANGE-100: the store plugins' notes take the toolbar spot the type-filter hint had; a project in scope is named only when several are.
+  const storeNotes = scope.map((p) => storeNoteHtml(p.board, scope.length > 1 ? p.label : '')).join('');
   let inner = '<div class="workspace-toolbar">'
-    + `<label for="workspace-project">Project <select id="workspace-project" data-state-key="project-select" aria-describedby="workspace-filter-hint">${option('all', 'All projects', selected)}${list.map((p) => option(p.key, p.label, selected)).join('')}</select></label>`
-    + `<label for="workspace-type">Type <select id="workspace-type" data-state-key="type-select" aria-describedby="workspace-filter-hint">${option('all', 'All types', type)}${types.map((t) => option(t.value, t.label, type)).join('')}${option('untyped', 'Untyped/legacy', type)}</select></label>`
-    + `<span class="workspace-hint" id="workspace-filter-hint">${hint}</span>`
+    + `<label for="workspace-project">Project <select id="workspace-project" data-state-key="project-select">${option('all', 'All projects', selected)}${list.map((p) => option(p.key, p.label, selected)).join('')}</select></label>`
+    + `<label for="workspace-type">Type <select id="workspace-type" data-state-key="type-select">${option('all', 'All types', type)}${types.map((t) => option(t.value, t.label, type)).join('')}${option('untyped', 'Untyped/legacy', type)}</select></label>`
+    + (storeNotes ? `<span class="workspace-store-notes">${storeNotes}</span>` : '')
     + '<button type="button" class="help-button" data-help="open" data-state-key="help-button" aria-haspopup="dialog" title="Cheat sheet and guide to the commands">? Help</button></div>\n';
   inner += `<main class="workspace-projects ${selected === 'all' ? 'workspace-grouped' : 'workspace-single'}" data-project="${esc(selected)}" data-project-count="${list.length}" data-keep-focus="${o.keepFocus === true}">`;
   const now = typeof o.now === 'number' ? o.now : Date.now();
@@ -880,8 +886,6 @@ function renderWorkspaceHtml(projects, opts) {
     inner += `<h2 id="workspace-${esc(scopedKey(p.key, 'heading', ''))}">${esc(p.label)}</h2>`;
     // BUG-85: where a board kept on a branch stands (behind origin, unpublished, a failed sync); nothing when in step.
     if (typeof p.branch === 'string' && p.branch) inner += `<div class="board-branch" role="status">${esc(p.branch)}</div>`;
-    // CHANGE-87: the store plugin that keeps this project's cards; nothing for a board kept in files.
-    inner += storeNoteHtml(p.board);
     if (p.error) inner += `<div class="problems project-error" role="alert">${esc(p.label)}: ${esc(p.error)}${p.board ? ' — showing the last good board; data may be stale.' : ''}</div>`;
     const b = obj(p.board);
     const problems = arr(b.problems);

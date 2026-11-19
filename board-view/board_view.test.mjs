@@ -724,7 +724,8 @@ test("workspace type union uses metadata and observed keys, qualifies label conf
   assert.match(out, /Alpha &lt;problem&gt;/);
   assert.match(out, /Board &lt;stale&gt;/);
   assert.equal((out.match(/class="asking-sessions"/g) || []).length, 2, 'hidden types do not hide asks');
-  assert.match(out, /Type filters cards only/);
+  assert.doesNotMatch(out, /Type filters cards only/, 'CHANGE-100: the filter hint is gone');
+  assert.doesNotMatch(out, /workspace-filter-hint|aria-describedby/, 'nothing points at the removed hint');
   const untyped = bodyOnly(renderWorkspaceHtml(projects, { project: 'all', type: 'untyped' }));
   assert.equal((untyped.match(/data-card="/g) || []).length, 4);
   assert.match(untyped, /Not typed by ID/);
@@ -1185,4 +1186,45 @@ test("the editor's workspace view names a store plugin's board too, and a file b
   assert.match(remote, /<div class="store-note" role="status">Cards kept by the store plugin reference/);
   assert.match(remote, /class="glyph glyph-store-conflict"/);
   assert.doesNotMatch(renderWorkspaceHtml([project(undefined)], { nonce: NONCE }), /<div class="store-note"/);
+});
+
+test("CHANGE-100: the workspace toolbar carries the store notes where the type hint was, one per store-kept project", () => {
+  const project = (key, label, store) => ({ key, label, board: { store, columns: [{ key: 'todo', cards: [{ id: 'REF-3', title: 'x' }] }] } });
+  const toolbar = (html) => html.slice(html.indexOf('<div class="workspace-toolbar">'), html.indexOf('<main class="workspace-projects'));
+  const above = (html) => html.slice(html.indexOf('<main class="workspace-projects'));
+  const kept = { plugin: 'gh', remote: true, synced_at: '2026-11-17T10:00:37+00:00', query: 'repo = x' };
+  // One project: its note alone, after the Type select and before the Help button, no name in front.
+  const one = renderWorkspaceHtml([project('a', 'Alpha', kept)], { nonce: NONCE });
+  const bar = toolbar(one);
+  assert.equal((bar.match(/class="store-note"/g) || []).length, 1);
+  assert.match(bar, /<div class="store-note" role="status">Cards kept by the store plugin gh · synced 2026-11-17T10:00:37\+00:00 · query: repo = x<\/div>/);
+  assert.ok(bar.indexOf('id="workspace-type"') < bar.indexOf('class="store-note"') && bar.indexOf('class="store-note"') < bar.indexOf('class="help-button"'));
+  assert.doesNotMatch(bar, /store-note-project/, 'a single project is not named');
+  assert.doesNotMatch(above(one), /class="store-note"/, 'no note is left above the board');
+  assert.doesNotMatch(one, /Type filters cards only/);
+  // Several projects: one note per store-kept project, in order, each named; a file board adds none.
+  const many = renderWorkspaceHtml([
+    project('a', 'Alpha <one>', kept),
+    project('b', 'Beta', undefined),
+    project('c', 'Gamma', { plugin: 'jira&co', remote: true, query: '<q>' }),
+  ], { nonce: NONCE, project: 'all' });
+  const notes = [...toolbar(many).matchAll(/<div class="store-note"[^>]*>(.*?)<\/div>/g)].map((m) => m[1]);
+  assert.equal(notes.length, 2);
+  assert.match(notes[0], /^<span class="store-note-project">Alpha &lt;one&gt;<\/span> Cards kept by the store plugin gh/);
+  assert.match(notes[1], /^<span class="store-note-project">Gamma<\/span> Cards kept by the store plugin jira&amp;co · never synced: run kanbanzai sync · query: &lt;q&gt;$/);
+  assert.doesNotMatch(many, /Beta<\/span> Cards kept/);
+  assert.doesNotMatch(above(many), /class="store-note"/);
+  assert.doesNotMatch(many, /jira&co|<q>|Alpha <one>/, 'every value is escaped');
+  // Scoped to one of them, the lead goes: a single project in scope is not named.
+  assert.doesNotMatch(toolbar(renderWorkspaceHtml([project('a', 'Alpha', kept), project('c', 'Gamma', kept)], { nonce: NONCE, project: 'c' })), /store-note-project/);
+  // No store-kept project: no container, no gap.
+  const files = renderWorkspaceHtml([project('a', 'Alpha', undefined), project('b', 'Beta', { plugin: 'files', remote: false })], { nonce: NONCE });
+  assert.doesNotMatch(toolbar(files), /store-note|workspace-store-notes/);
+  assert.match(toolbar(files), /class="help-button"/);
+});
+
+test("CHANGE-100: the single-board view keeps its store note above the columns", () => {
+  const html = renderHtml({ store: { plugin: 'gh', remote: true }, columns: [{ key: 'todo', cards: [] }] }, { nonce: NONCE });
+  assert.match(html, /<div class="store-note" role="status">Cards kept by the store plugin gh/);
+  assert.doesNotMatch(html, /store-note-project/);
 });
