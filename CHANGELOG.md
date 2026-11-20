@@ -3,6 +3,16 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.32.1] — 2026-11-20
+
+- BUG-102: the editor's guided setup with the GitHub issues store works from the extension alone. The `.vsix` now carries
+  `kanbanzai-store-github` beside the command for all five platforms, so **Kanbanzai: Apply** (`kanbanzai install`
+  from the bundled command) installs the plugin and links it onto your `PATH`, and **Trust and sync** finds it; 0.32.0
+  bundled none and failed with "kanbanzai-store-github is not on PATH". If the plugin is still missing, **Trust and
+  sync** now says what to run. A machine set up with 0.32.0 has the command and no plugin: run
+  `<the extension's bundled command> install` once, then `kanbanzai store trust` and `kanbanzai sync`. The update
+  refresh still never creates a copy.
+
 ## [0.32.0] — 2026-11-20
 
 - CHANGE-101: setup asks where the cards are kept. `kanbanzai init` takes `--store NAME [--store-setting
