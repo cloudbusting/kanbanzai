@@ -1262,6 +1262,42 @@ test("Trust and sync: a failing trust shows its own stderr, and sync does not ru
   assert.match(ui.errors[0], /store trust/);
 });
 
+// BUG-102: a machine set up by 0.32.0 has the command in the per-user folder but not the store plugin, because that
+// extension bundled none. The command's own refusal says the plugin is not on PATH; the owner is told what puts it there.
+const PLUGIN_MISSING = 'kanbanzai: store trust: store plugin "github": kanbanzai-store-github is not on PATH; install the plugin, then run `kanbanzai store trust`';
+
+test("Trust and sync: a store plugin that is not on PATH says to run install from the bundled command, then trust and sync by hand", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "store" ? { code: 1, stderr: PLUGIN_MISSING } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  const out = await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(out.status, "applied");
+  assert.deepEqual(afterApply(exec).map((c) => c.args), [["store", "trust"]], "sync does not run, and nothing is installed by the click");
+  assert.equal(ui.errors.length, 1);
+  assert.match(ui.errors[0], /kanbanzai-store-github is not on PATH/, "the command's own words stay");
+  assert.ok(ui.errors[0].includes("`/ext/bin/linux-amd64/kanbanzai install`"), `names the bundled command's install: ${ui.errors[0]}`);
+  assert.match(ui.errors[0], /kanbanzai store trust.*kanbanzai sync/s, "and what to run after it");
+});
+
+test("Trust and sync: with a command that is not the bundled one, the plugin advice points at a release's install", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "store" ? { code: 1, stderr: PLUGIN_MISSING } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  await init.applyPending(flowDeps(exec, root, ui, { command: "/opt/tools/kanbanzai", commandSource: "setting" }));
+  assert.equal(ui.errors.length, 1);
+  assert.match(ui.errors[0], /release archive/);
+  assert.doesNotMatch(ui.errors[0], /\/ext\/bin/);
+});
+
+test("Trust and sync: another failure of store trust is not given the plugin advice", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "store" ? { code: 1, stderr: "kanbanzai: store trust: the per-user folder is not writable" } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(ui.errors.length, 1);
+  assert.doesNotMatch(ui.errors[0], /install/);
+});
+
 test("Trust and sync: a failing sync shows its own stderr after trust ran", async () => {
   const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
   const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "sync" ? { code: 1, stderr: "gh: not signed in; run gh auth login" } : undefined)));

@@ -205,7 +205,8 @@ go run ./tools/vsix -bin "$BINS" -o "$CHECK/kanbanzai-board-<extension-version>.
 `SHA256SUMS` covers only the five archives, so this one replaces it. `git archive` fails on a path that is not in
 the tag, so keep the path list to files that are present (`docs` is there because the README links `docs/setup.md`).
 Run this from a clean checkout at the tagged commit. Verify the archive listing, and the `.vsix` listing and manifest
-version (`extension/bin/<os>-<arch>/kanbanzai[.exe]` for all five platforms, no `extension/bin.json`), before
+version (`extension/bin/<os>-<arch>/kanbanzai[.exe]` and `kanbanzai-store-github[.exe]` for all five platforms, no
+`extension/bin.json`), before
 publishing; the package step's checks apply again to these files.
 
 ### GitHub release
@@ -325,7 +326,8 @@ codium --list-extensions --show-versions | grep kanbanzai
   as an argument. Do not run a tool or interpreter from inside it (`sha256sum -c` is the one place the directory is
   entered, and it reads only the two files just downloaded).
 - Check the listing before installing: it must show the five bundled commands (`extension/bin/<os>-<arch>/kanbanzai`
-  for linux and darwin on amd64 and arm64, and `windows-amd64/kanbanzai.exe`). Never install a command-less `.vsix`.
+  for linux and darwin on amd64 and arm64, and `windows-amd64/kanbanzai.exe`) and the five `kanbanzai-store-github`
+  plugins beside them. Never install a command-less `.vsix`.
   Stop the install, not the release, if the checksum or the listing is wrong.
 - `codium` is the editor's own CLI. Where the editor runs in a remote or container session it is the editor server's
   remote-cli, on PATH inside an editor terminal; it installs into the host editor. If the CLI differs on this machine (`code`, `code-insiders`), use the

@@ -20,21 +20,29 @@ import (
 // extracted from that artifact for this platform: what the editor runs after an install, with no checkout beside it.
 func vsixCommand(t *testing.T, root, base string) string {
 	t.Helper()
-	binary := filepath.Join(base, "built-command")
-	build := exec.Command("go", "build", "-trimpath", "-o", binary, "./cmd/kanbanzai")
-	build.Dir = root
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build command: %v\n%s", err, out)
+	build := func(program string) []byte {
+		binary := filepath.Join(base, "built-"+program)
+		cmd := exec.Command("go", "build", "-trimpath", "-o", binary, "./cmd/"+program)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("build %s: %v\n%s", program, err, out)
+		}
+		data, err := os.ReadFile(binary)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
 	}
-	data, err := os.ReadFile(binary)
-	if err != nil {
-		t.Fatal(err)
-	}
+	command, plugin := build("kanbanzai"), build("kanbanzai-store-github")
 	bins := filepath.Join(base, "bins")
-	for _, target := range bundledTargets {
+	for _, target := range wantTargets {
 		dir := filepath.Join(bins, target.dir)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
+		}
+		data := command
+		if strings.HasPrefix(target.name, "kanbanzai-store-github") {
+			data = plugin
 		}
 		if err := os.WriteFile(filepath.Join(dir, target.name), data, 0o755); err != nil {
 			t.Fatal(err)
@@ -49,19 +57,22 @@ func vsixCommand(t *testing.T, root, base string) string {
 		t.Fatal(err)
 	}
 	defer reader.Close()
-	name := "kanbanzai"
+	exe := ""
 	if runtime.GOOS == "windows" {
-		name += ".exe"
+		exe = ".exe"
 	}
-	entry := "extension/bin/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + name
-	extracted := filepath.Join(base, "extracted", name)
-	if err := os.MkdirAll(filepath.Dir(extracted), 0o755); err != nil {
-		t.Fatal(err)
+	// Both programs land in one folder, the way the extension carries them: the plugin beside the command.
+	for _, program := range []string{"kanbanzai", "kanbanzai-store-github"} {
+		entry := "extension/bin/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + program + exe
+		extracted := filepath.Join(base, "extracted", program+exe)
+		if err := os.MkdirAll(filepath.Dir(extracted), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(extracted, readZipFile(t, reader, entry), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(extracted, readZipFile(t, reader, entry), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return extracted
+	return filepath.Join(base, "extracted", "kanbanzai"+exe)
 }
 
 // isolatedHome is a user's home with nothing in it, for the command and the hosts to write to.
@@ -96,6 +107,71 @@ func TestVSIXCommandInstallsBundledPluginsWithoutCheckout(t *testing.T) {
 		if info, err := os.Stat(filepath.Join(bundle, filepath.FromSlash(name))); err != nil || !info.Mode().IsRegular() {
 			t.Errorf("VSIX install lacks %s: %v", name, err)
 		}
+	}
+}
+
+// BUG-102: the editor runs the bundled command, so `install` from it must put the store plugin where the command finds
+// it. A refresh follows an installed plugin and never makes one.
+func TestVSIXInstallCopiesAndLinksTheStorePluginBesideTheCommand(t *testing.T) {
+	root, err := testutil.RepoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	extracted := vsixCommand(t, root, t.TempDir())
+	exe := filepath.Ext(extracted)
+	home, env := isolatedHome(t)
+	run := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command(extracted, args...)
+		cmd.Dir = home
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("install %v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	folder := filepath.Join(home, "data", "kanbanzai", "bin")
+	command, plugin := filepath.Join(folder, "kanbanzai"+exe), filepath.Join(folder, "kanbanzai-store-github"+exe)
+	bundled, err := os.ReadFile(filepath.Join(filepath.Dir(extracted), "kanbanzai-store-github"+exe))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run("install", "--refresh")
+	for _, path := range []string{command, plugin} {
+		if _, err := os.Stat(path); err == nil {
+			t.Fatalf("a refresh with nothing installed made %s", path)
+		}
+	}
+
+	run("install")
+	for _, path := range []string{command, plugin} {
+		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+			t.Fatalf("install from the bundled command did not put %s in the per-user folder: %v", path, err)
+		}
+	}
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(home, ".local", "bin", "kanbanzai-store-github")
+		if target, err := os.Readlink(link); err != nil || target != plugin {
+			t.Fatalf("the plugin link %s = %q, %v; want it to point at %s", link, target, err, plugin)
+		}
+	}
+
+	// A stale plugin is replaced by a refresh; one the owner never installed is not made.
+	if err := os.WriteFile(plugin, []byte("an older plugin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run("install", "--refresh")
+	if got, err := os.ReadFile(plugin); err != nil || !bytes.Equal(got, bundled) {
+		t.Fatalf("a refresh left the installed plugin as it was (%d bytes, %v), want the bundled one", len(got), err)
+	}
+	if err := os.Remove(plugin); err != nil {
+		t.Fatal(err)
+	}
+	run("install", "--refresh")
+	if _, err := os.Stat(plugin); err == nil {
+		t.Fatal("a refresh made a plugin that was not installed")
 	}
 }
 
@@ -396,12 +472,19 @@ func TestTheManifestCarriesTheListingMetadata(t *testing.T) {
 	}
 }
 
+// BUG-102: the command and the GitHub store plugin, for each of the five platforms. The plugin sits beside the command
+// so that `kanbanzai install`, run from the bundled command, copies both.
 var wantTargets = []struct{ dir, name string }{
 	{"linux-amd64", "kanbanzai"},
 	{"linux-arm64", "kanbanzai"},
 	{"darwin-amd64", "kanbanzai"},
 	{"darwin-arm64", "kanbanzai"},
 	{"windows-amd64", "kanbanzai.exe"},
+	{"linux-amd64", "kanbanzai-store-github"},
+	{"linux-arm64", "kanbanzai-store-github"},
+	{"darwin-amd64", "kanbanzai-store-github"},
+	{"darwin-arm64", "kanbanzai-store-github"},
+	{"windows-amd64", "kanbanzai-store-github.exe"},
 }
 
 // fakeBins writes a small file for every target, laid out as tools/release -bins leaves them.
@@ -413,14 +496,14 @@ func fakeBins(t *testing.T) string {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(path, []byte("fake kanbanzai for "+target.dir+"\n"), 0o755); err != nil {
+		if err := os.WriteFile(path, []byte("fake "+target.name+" for "+target.dir+"\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 	return bins
 }
 
-func TestTheVSIXBundlesTheFiveBinaries(t *testing.T) {
+func TestTheVSIXBundlesTheCommandAndThePluginForFivePlatforms(t *testing.T) {
 	root, err := testutil.RepoRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -454,7 +537,7 @@ func TestTheVSIXBundlesTheFiveBinaries(t *testing.T) {
 			t.Fatalf("%s external attributes %#x, creator %d: want Unix 0755", name, file.ExternalAttrs, file.CreatorVersion>>8)
 		}
 		content := readZipFile(t, reader, name)
-		if string(content) != "fake kanbanzai for "+target.dir+"\n" {
+		if string(content) != "fake "+target.name+" for "+target.dir+"\n" {
 			t.Fatalf("%s content = %q", name, content)
 		}
 	}
@@ -508,8 +591,8 @@ func TestTheVSIXRefusesIncompleteOrOddBinaries(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err := BuildVSIX(dir, filepath.Join(t.TempDir(), "x.vsix"), bins)
-			if err == nil || !strings.Contains(err.Error(), target.dir) {
-				t.Fatalf("error = %v, want it to name %s", err, target.dir)
+			if err == nil || !strings.Contains(err.Error(), target.dir) || !strings.Contains(err.Error(), target.name) {
+				t.Fatalf("error = %v, want it to name %s and %s", err, target.dir, target.name)
 			}
 		})
 	}
@@ -568,7 +651,7 @@ func TestTheDevVSIXHasNoCommand(t *testing.T) {
 	if got := describe("x.vsix", Package{Publisher: "p", Name: "n", Version: "1"}, 0); !strings.Contains(got, "no command") {
 		t.Fatalf("summary = %q, want it to say there is no command", got)
 	}
-	if got := describe("x.vsix", Package{Publisher: "p", Name: "n", Version: "1"}, 5); strings.Contains(got, "no command") || !strings.Contains(got, "5") {
+	if got := describe("x.vsix", Package{Publisher: "p", Name: "n", Version: "1"}, 5); strings.Contains(got, "no command") || !strings.Contains(got, "5") || !strings.Contains(got, "store plugin") {
 		t.Fatalf("summary = %q", got)
 	}
 }

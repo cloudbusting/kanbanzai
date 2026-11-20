@@ -117,7 +117,8 @@ A card's id is the store's own key, with one prefix or with the project's type p
 ## GitHub issues
 
 `kanbanzai-store-github` keeps the cards as the issues of **one** GitHub repository. It ships in each release archive
-beside `kanbanzai`, and `kanbanzai install` copies both and links both onto your `PATH`. It runs your own `gh` (the
+beside `kanbanzai`, and `kanbanzai install` copies both and links both onto your `PATH`. The editor extension carries
+both too, so **Kanbanzai: Apply** installs the plugin with the command ([editor.md](editor.md#which-command-it-runs)). It runs your own `gh` (the
 GitHub CLI) and holds no token, so `gh auth login` is the only sign-in there is.
 
 ```toml

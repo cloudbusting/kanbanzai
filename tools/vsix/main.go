@@ -5,9 +5,12 @@
 //
 //	go run ./tools/vsix -o /tmp/kanbanzai-board.vsix
 //
-// With -bin DIR (the layout tools/release -bins leaves: DIR/<os>-<arch>/kanbanzai[.exe] for linux/amd64,
-// linux/arm64, darwin/amd64, darwin/arm64 and windows/amd64) the archive also carries the command at
-// extension/bin/<os>-<arch>/kanbanzai[.exe], executable. Without it the .vsix is a dev build with no command.
+// With -bin DIR (the layout tools/release -bins leaves: DIR/<os>-<arch>/kanbanzai[.exe] and
+// DIR/<os>-<arch>/kanbanzai-store-github[.exe] for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 and
+// windows/amd64) the archive also carries the command at
+// extension/bin/<os>-<arch>/kanbanzai[.exe], executable, and the GitHub store plugin kanbanzai-store-github[.exe] beside
+// it (BUG-102: `kanbanzai install`, run from the bundled command, copies a program that sits beside it). Without -bin the
+// .vsix is a dev build with no command.
 package main
 
 import (
@@ -84,28 +87,38 @@ const contentTypes = `<?xml version="1.0" encoding="utf-8"?>
 // The command is an extensionless file (and .exe on Windows), so each binary gets an Override on its own path.
 const binaryContentType = "application/octet-stream"
 
-// bundledTargets are the platforms the .vsix carries, as tools/release builds them.
+// bundledTargets are the programs the .vsix carries for each platform, as tools/release builds them: the command, and
+// the GitHub store plugin that `kanbanzai install` copies from beside it.
 var bundledTargets = []struct{ dir, name string }{
 	{"linux-amd64", "kanbanzai"},
 	{"linux-arm64", "kanbanzai"},
 	{"darwin-amd64", "kanbanzai"},
 	{"darwin-arm64", "kanbanzai"},
 	{"windows-amd64", "kanbanzai.exe"},
+	{"linux-amd64", "kanbanzai-store-github"},
+	{"linux-arm64", "kanbanzai-store-github"},
+	{"darwin-amd64", "kanbanzai-store-github"},
+	{"darwin-arm64", "kanbanzai-store-github"},
+	{"windows-amd64", "kanbanzai-store-github.exe"},
 }
+
+// bundledPlatforms is how many platforms the .vsix carries programs for.
+const bundledPlatforms = 5
 
 type binary struct {
 	entry string // the path in the archive
 	path  string // the file to read
 }
 
-// findBinaries checks that bins holds all five targets as regular files (not links, not folders).
+// findBinaries checks that bins holds the command and the plugin for all five platforms as regular files (not links,
+// not folders).
 func findBinaries(bins string) ([]binary, error) {
 	var found []binary
 	for _, target := range bundledTargets {
 		path := filepath.Join(bins, target.dir, target.name)
 		info, err := os.Lstat(path)
 		if err != nil {
-			return nil, fmt.Errorf("-bin %s lacks the %s command (%s/%s): %w", bins, target.dir, target.dir, target.name, err)
+			return nil, fmt.Errorf("-bin %s lacks %s/%s: %w", bins, target.dir, target.name, err)
 		}
 		if !info.Mode().IsRegular() {
 			return nil, fmt.Errorf("-bin: %s/%s is not a regular file (%v)", target.dir, target.name, info.Mode().Type())
@@ -124,7 +137,7 @@ func typesXML(binaries []binary) string {
 }
 
 // BuildVSIX packs dir into dest and returns the extension's metadata. When bins is not empty it also packs the
-// command for the five platforms from bins/<os>-<arch>/kanbanzai[.exe], with the executable bit set.
+// command and the store plugin for the five platforms from bins/<os>-<arch>/, with the executable bit set.
 func BuildVSIX(dir, dest, bins string) (Package, error) {
 	return BuildVSIXLabelled(dir, dest, bins, "")
 }
@@ -342,7 +355,7 @@ func writeExecutable(writer *zip.Writer, name string, data []byte) error {
 func describe(dest string, pkg Package, binaries int) string {
 	contents := "no command: a dev build, the extension uses kanbanzai.command or PATH"
 	if binaries > 0 {
-		contents = fmt.Sprintf("with the command for %d platforms", binaries)
+		contents = fmt.Sprintf("with the command and the store plugin for %d platforms", binaries)
 	}
 	return fmt.Sprintf("wrote %s (%s.%s %s); %s; not installed", dest, pkg.Publisher, pkg.Name, pkg.Version, contents)
 }
@@ -368,7 +381,7 @@ func main() {
 	}
 	count := 0
 	if *bins != "" {
-		count = len(bundledTargets)
+		count = bundledPlatforms
 	}
 	fmt.Println(describe(*dest, pkg, count))
 }
