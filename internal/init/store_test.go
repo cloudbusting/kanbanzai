@@ -116,12 +116,10 @@ func TestStorePlanLoadsAndNamesTheOwnersNextSteps(t *testing.T) {
 }
 
 func TestStoreFilesIsTheDefaultPlanByteForByte(t *testing.T) {
-	rootA, rootB := repo(t, "main"), repo(t, "main")
-	_, plain := storePlan(t, rootA, Options{Owner: "Sam"})
-	_, files := storePlan(t, rootB, Options{Owner: "Sam", Store: "files"})
-	// the two roots differ only by the temporary folder's name
-	plain = strings.ReplaceAll(plain, rootA, "ROOT")
-	files = strings.ReplaceAll(files, rootB, "ROOT")
+	// A dry run writes nothing, so two runs in one repository differ only by the flag under test.
+	root := repo(t, "main")
+	_, plain := storePlan(t, root, Options{Owner: "Sam"})
+	_, files := storePlan(t, root, Options{Owner: "Sam", Store: "files"})
 	if plain != files {
 		t.Errorf("--store files changes the plan:\n%s\n---\n%s", plain, files)
 	}
