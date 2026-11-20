@@ -45,7 +45,7 @@ var targets = []target{
 var programs = []string{"kanbanzai", "kanbanzai-store-github"}
 
 // Build compiles every target and writes its archive and SHA256SUMS into out. When bins is not empty it also
-// leaves each raw binary at bins/<os>-<arch>/kanbanzai (kanbanzai.exe for windows), mode 0755, for tools/vsix.
+// leaves each raw binary at bins/<os>-<arch>/<program> (with .exe for windows), mode 0755, for tools/vsix.
 func Build(root, version, out, bins string) ([]string, error) {
 	artifactVersion := strings.TrimPrefix(version, "v")
 	if artifactVersion == "" {
@@ -78,8 +78,9 @@ func Build(root, version, out, bins string) ([]string, error) {
 				os.RemoveAll(temporary)
 				return nil, fmt.Errorf("%s/%s: %s: %v: %s", platform.OS, platform.Arch, program, err, stderr.String())
 			}
-			// The raw binaries are the editor's: only the command, never a store plugin.
-			if bins != "" && program == programs[0] {
+			// The raw binaries are the editor's: the command and the store plugin beside it, so that `kanbanzai install`,
+			// run from the command the editor bundles, copies both (BUG-102).
+			if bins != "" {
 				if err := keepBinary(binary, filepath.Join(bins, platform.OS+"-"+platform.Arch, name)); err != nil {
 					os.RemoveAll(temporary)
 					return nil, err
@@ -217,7 +218,7 @@ func main() {
 	version := flag.String("version", "", "the release tag, like v1.2.3")
 	out := flag.String("out", "dist", "the directory for the archives and SHA256SUMS")
 	root := flag.String("root", "", "the repository root (default: found from the current directory)")
-	bins := flag.String("bins", "", "also leave the raw binaries in this directory as <os>-<arch>/kanbanzai[.exe], for tools/vsix -bin")
+	bins := flag.String("bins", "", "also leave the raw binaries in this directory as <os>-<arch>/kanbanzai[.exe] and <os>-<arch>/kanbanzai-store-github[.exe], for tools/vsix -bin")
 	check := flag.Bool("check", false, "check that the manifests, CHANGELOG.md and -version agree, and that no shipped file carries a machine-specific path, session id or settings file, then exit")
 	scan := flag.String("scan", "", "scan this unpacked folder (a source archive, a .vsix, a binary) for machine-specific paths and session ids, then exit")
 	flag.Parse()

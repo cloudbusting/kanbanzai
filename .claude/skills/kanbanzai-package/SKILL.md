@@ -126,12 +126,14 @@ It cross-compiles `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64` a
 `CGO_ENABLED=0 -trimpath`, writes the five archives and a `SHA256SUMS` to `$OUT`, and leaves the raw commands in
 `$BINS/<os>-<arch>/kanbanzai[.exe]` for the next step. Each archive holds two programs: the command, and
 `kanbanzai-store-github[.exe]`, the GitHub issues store plugin, beside it (`kanbanzai install` copies both). `$BINS` has
-only the command: the editor bundles that and nothing else. The release workflow rebuilds the same set from the tag;
+both programs for each platform, as `<os>-<arch>/kanbanzai[.exe]` and `<os>-<arch>/kanbanzai-store-github[.exe]`: the
+editor bundles both, so `install` run from the bundled command installs the plugin too (BUG-102). The release workflow rebuilds the same set from the tag;
 this run proves the procedure.
 
 ### 3. The editor extension
 
-The `.vsix` carries the `kanbanzai` command for the five platforms, so the editor works with nothing installed.
+The `.vsix` carries the `kanbanzai` command and the `kanbanzai-store-github` plugin for the five platforms, so the editor
+works, and sets up a store, with nothing installed.
 Build it from the binaries of the step above, still from `$SRC`, never without `-bin`:
 
 ```bash
@@ -154,8 +156,9 @@ unzip -l "$OUT/kanbanzai-board-<extension-version>.vsix"
 ```
 
 `extension/package.json`, `extension/README.md`, every runtime `.js` module and `extension.vsixmanifest` must be
-present, with `extension/bin/<os>-<arch>/kanbanzai[.exe]` for all five platforms (`linux-amd64`, `linux-arm64`,
-`darwin-amd64`, `darwin-arm64`, `windows-amd64`). There must be no `extension/bin.json`. The manifest version must
+present, with `extension/bin/<os>-<arch>/kanbanzai[.exe]` and `extension/bin/<os>-<arch>/kanbanzai-store-github[.exe]`
+for all five platforms (`linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`, `windows-amd64`): ten programs.
+There must be no `extension/bin.json`. The manifest version must
 match `package.json`.
 
 ### 4. Checksums
@@ -231,7 +234,18 @@ The bundle is archived from the same commit as the tested tree; say that, and do
 
 ### The extension
 
-The unit and render tests ran in the check step. The archive listing is the packaging proof. A real editor
+The unit and render tests ran in the check step. The archive listing is the packaging proof, and one install proves the
+plugin the editor carries: unpack the `.vsix` (a zip) into a new, empty folder, and from its `extension/bin/linux-amd64/`
+run the command's `install` into a throwaway home, passing the paths as arguments:
+
+```bash
+X="$(mktemp -d)" && unzip -q "$OUT/kanbanzai-board-<extension-version>.vsix" -d "$X"
+chmod +x "$X"/extension/bin/linux-amd64/kanbanzai "$X"/extension/bin/linux-amd64/kanbanzai-store-github
+H="$(mktemp -d)" && HOME="$H" XDG_DATA_HOME="$H/data" "$X/extension/bin/linux-amd64/kanbanzai" install --no-link && ls "$H/data/kanbanzai/bin"
+```
+
+`ls` must list `kanbanzai` and `kanbanzai-store-github` (BUG-102: the editor's guided setup runs `install` from this
+command, and the plugin is found beside it). Put the line in the report. A real editor
 install and a look at the Board tab is the owner's check; name the screen and the step in the report.
 
 ## Security and cleanliness

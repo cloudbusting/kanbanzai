@@ -18,8 +18,8 @@ path described under [Kanbanzai: Init and Apply](#kanbanzai-init-and-apply)).
 
 ## Which command it runs
 
-A release's extension carries the `kanbanzai` command and both agent plugins for Linux and macOS (amd64, arm64) and
-Windows (amd64), so nothing else needs installing. The extension runs the first of these that exists:
+A release's extension carries the `kanbanzai` command, the `kanbanzai-store-github` store plugin beside it and both agent
+plugins for Linux and macOS (amd64, arm64) and Windows (amd64), so nothing else needs installing. The extension runs the first of these that exists:
 
 1. the `kanbanzai.command` setting (an absolute path);
 2. the command bundled in the extension, for this machine;
@@ -41,6 +41,13 @@ previous one is kept until the next update, while a modified or unowned plugin f
 Claude Code and OpenCode load that folder in place, so a refreshed bundle is what the next session reads; Claude Code
 keeps its own record of the installed version, which **Kanbanzai: Apply** brings up to date with
 `claude plugin update`, or you do with `claude plugin update kanbanzai@kanbanzai --scope local`.
+
+**The store plugin.** `kanbanzai install` (which **Kanbanzai: Apply** runs) copies a store plugin that sits beside the
+command it runs, so from the bundled command it puts `kanbanzai-store-github` in the per-user folder and links it onto
+your `PATH` next to `kanbanzai`; **Trust and sync** then finds it there. The update refresh replaces a plugin that is
+already installed and, like the command, never creates one. A machine set up with extension 0.32.0, which bundled no
+plugin, has the command and no plugin: **Trust and sync** says so and what to run, which is `install` from the bundled
+command (the message names its path), then `kanbanzai store trust` and `kanbanzai sync` in the project.
 
 **A leftover setting.** `kanbanzai.command` is machine-wide, so every profile shares it: a leftover value pointing at
 an old build wins over the bundled command. The Output channel (**Kanbanzai**) says at startup which command is in

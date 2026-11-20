@@ -605,6 +605,19 @@ async function planSetup(deps) {
 
 const TRUST_AND_SYNC = 'Trust and sync';
 
+// The command's refusal when the store plugin it selected is not installed (internal/store/plugin: "kanbanzai-store-<name>
+// is not on PATH"). BUG-102: a machine set up by 0.32.0 has the command in the per-user folder and no plugin, because that
+// extension bundled none. The extension never runs `install` on a click that is about trust, and `install --refresh` never
+// makes a copy, so it says what puts the plugin there.
+const PLUGIN_NOT_ON_PATH = /kanbanzai-store-[A-Za-z0-9._-]+ is not on PATH/;
+
+function pluginAdvice(command, commandSource) {
+  const how = commandSource === 'bundled' && nonEmpty(command)
+    ? `run \`${command} install\` in a terminal (the extension bundles the plugin beside that command, and install copies it to the per-user folder and onto your PATH)`
+    : 'run `kanbanzai install` from a release archive of this version (it carries the plugin beside the command, and install copies it to the per-user folder and onto your PATH)';
+  return `${how}, then run \`kanbanzai store trust\` and \`kanbanzai sync\` in the project.`;
+}
+
 // `env` with the folder the installed command lives in first on PATH, so a kanbanzai-store-<name> installed beside it is
 // found. Windows spells the variable Path and separates with ";". The caller's object is not changed.
 function pathWith(env, installed, platform) {
@@ -638,6 +651,7 @@ async function offerTrustAndSync(deps, plugin) {
       if (r.ok) continue;
       if (r.missing && missingText) fail(missingText);
       else if (!r.missing && TOO_OLD.test(r.stderr || '')) fail(tooOldMessage(which, commandSource === 'setting' ? 'setting' : 'well-known', r.stderr));
+      else if (!r.missing && PLUGIN_NOT_ON_PATH.test(r.stderr || '')) fail(`Kanbanzai: ${step.join(' ')} failed: ${r.stderr.trim().replace(/[.\s]+$/, '')}. To get the plugin, ${pluginAdvice(command, commandSource)}`);
       else fail(`Kanbanzai: ${step.join(' ')} failed: ${r.stderr || r.message || 'failed'}`);
       return;
     }

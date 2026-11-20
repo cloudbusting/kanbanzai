@@ -103,23 +103,27 @@ func TestTheReleaseLeavesRawBinariesWhenAskedTo(t *testing.T) {
 		t.Fatalf("bins holds %v, want %v", found, wantDirs)
 	}
 	for _, dir := range wantDirs {
-		name := "kanbanzai"
-		if strings.HasPrefix(dir, "windows") {
-			name += ".exe"
-		}
-		info, err := os.Lstat(filepath.Join(bins, dir, name))
-		if err != nil {
-			t.Fatalf("%s: %v", dir, err)
-		}
-		if !info.Mode().IsRegular() || info.Size() == 0 {
-			t.Fatalf("%s: mode %v, size %d", dir, info.Mode(), info.Size())
-		}
-		if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
-			t.Fatalf("%s: permissions %v, want 0755", dir, info.Mode().Perm())
+		// BUG-102: the editor carries the store plugin beside the command, so `install` run from the bundled command
+		// copies both.
+		for _, program := range []string{"kanbanzai", "kanbanzai-store-github"} {
+			name := program
+			if strings.HasPrefix(dir, "windows") {
+				name += ".exe"
+			}
+			info, err := os.Lstat(filepath.Join(bins, dir, name))
+			if err != nil {
+				t.Fatalf("%s: %v", dir, err)
+			}
+			if !info.Mode().IsRegular() || info.Size() == 0 {
+				t.Fatalf("%s/%s: mode %v, size %d", dir, name, info.Mode(), info.Size())
+			}
+			if runtime.GOOS != "windows" && info.Mode().Perm() != 0o755 {
+				t.Fatalf("%s/%s: permissions %v, want 0755", dir, name, info.Mode().Perm())
+			}
 		}
 		inner, err := os.ReadDir(filepath.Join(bins, dir))
-		if err != nil || len(inner) != 1 {
-			t.Fatalf("%s holds %v, %v; want only the binary", dir, inner, err)
+		if err != nil || len(inner) != 2 {
+			t.Fatalf("%s holds %v, %v; want the command and the store plugin", dir, inner, err)
 		}
 	}
 	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {

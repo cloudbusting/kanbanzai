@@ -26,8 +26,8 @@ moves, and the status bar reads `▦ Board ❓2` while two sessions are waiting 
    `code --install-extension cloudbusting.kanbanzai-board`, or `codium --install-extension cloudbusting.kanbanzai-board`.
 2. Run **Developer: Reload Window** once.
 
-That's all. The extension carries the `kanbanzai` command for Linux, macOS and Windows and both agent plugins, so
-nothing else needs installing. If you install Kanbanzai some other way, the extension uses that command instead
+That's all. The extension carries the `kanbanzai` command for Linux, macOS and Windows, the GitHub issues store plugin
+(`kanbanzai-store-github`) and both agent plugins, so nothing else needs installing. If you install Kanbanzai some other way, the extension uses that command instead
 ([which command it runs](https://github.com/cloudbusting/kanbanzai/blob/main/docs/editor.md#which-command-it-runs)).
 Each release's `.vsix` is also attached to its [GitHub release](https://github.com/cloudbusting/kanbanzai/releases),
 for **Extensions: Install from VSIX…**.
