@@ -73,6 +73,8 @@ type Settings struct {
 	// BoardHome is where the board lives ("main" or "branch") and BoardReason says why init chose it.
 	BoardHome   string `json:"board_home,omitempty"`
 	BoardReason string `json:"board_reason,omitempty"`
+	// Store is set when a store plugin, not the project's files, keeps the cards.
+	Store *StoreInfo `json:"store,omitempty"`
 }
 
 // StarterTypes are the issue types a fresh project starts with.
@@ -121,6 +123,10 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 	if opts.Preset == "" && (len(opts.Types) > 0 || len(opts.StepSkills) > 0 || len(opts.StepExtends) > 0) {
 		return nil, refuse("--type, --step-skill and --step-extend compose a preset: they need --preset")
 	}
+	store, err := checkStore(opts)
+	if err != nil {
+		return nil, err
+	}
 	var chosen *preset.Preset
 	var pendingTemplates = map[string]bool{}
 
@@ -131,6 +137,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		return nil, refuse("%s exists and is not a regular file: replace it by hand, init will not", ConfigRel)
 	case d.Config.Exists && !opts.Force && opts.BoardBranch:
 		return nil, refuse("--board-branch has no effect on the existing %s: add the [board] table to it (docs/team-board.md), "+
+			"or use --force to back the config up and replace it", ConfigRel)
+	case d.Config.Exists && !opts.Force && store != nil:
+		return nil, refuse("--store has no effect on the existing %s: add the [store] tables to it (docs/store-plugins.md), "+
 			"or use --force to back the config up and replace it", ConfigRel)
 	case d.Config.Exists && !opts.Force && opts.Preset != "":
 		return nil, refuse("--preset has no effect on the existing %s: `kanbanzai workflow plan --preset %s` plans the "+
@@ -224,12 +233,20 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 				settings.Types = append([]string{}, StarterTypes...)
 			}
 		}
-		settings.BoardHome, settings.BoardReason, err = chooseBoardHome(opts, chosen, d.WorkFiles)
+		settings.BoardHome, settings.BoardReason, err = chooseBoardHome(opts, chosen, store, d.WorkFiles)
 		if err != nil {
 			return nil, err
 		}
 		if settings.BoardHome == "branch" {
 			text = strings.TrimRight(text, "\n") + "\n\n" + BoardText
+		}
+		if store != nil {
+			text = strings.TrimRight(text, "\n") + "\n\n" + StoreText(store)
+			settings.Store = store
+			if store.Plugin == "github" {
+				plan.Warnings = append(plan.Warnings, "GitHub issues keep the cards: in a public repository they are public "+
+					"(brief, Next action and Comments), so use a repository you mean to publish to, or a private one")
+			}
 		}
 		loaded, err := config.ValidateText(root, d.Toplevel, d.GitCommon, text)
 		if err != nil {
@@ -586,10 +603,12 @@ func utf8Valid(data []byte) bool { return strings.ToValidUTF8(string(data), "\x0
 // works in a worktree per card (its main checkout then holds only the board, and a board on main is never clean) and
 // for init with no preset; --board-branch and --board-main decide it by hand. A work folder that already holds files
 // keeps the board on main: `kanbanzai sync --attach` needs that folder empty.
-func chooseBoardHome(opts Options, chosen *preset.Preset, files int) (home, reason string, err error) {
+func chooseBoardHome(opts Options, chosen *preset.Preset, store *StoreInfo, files int) (home, reason string, err error) {
 	held := fmt.Sprintf("the work folder already holds %d file(s) (the cards of an earlier board: move them by hand, "+
 		"docs/team-board.md)", files)
 	switch {
+	case store != nil:
+		return "main", fmt.Sprintf("the %s store keeps the cards, so there is no board branch to make", store.Plugin), nil
 	case opts.BoardBranch && files > 0:
 		return "", "", refuse("--board-branch: %s", held)
 	case opts.BoardBranch:

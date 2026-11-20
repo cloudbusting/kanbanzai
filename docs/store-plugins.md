@@ -52,6 +52,28 @@ kanbanzai board
 
 `kanbanzai store status` says which plugin is selected, whether it is trusted and when the working copy last synced.
 
+## Choose it at setup
+
+A new project can pick its store when it is set up, instead of writing `[store]` by hand. `kanbanzai init --store NAME`
+writes the table into the plan's `config.toml`; `--store github --store-setting repo=owner/name,label=kanbanzai` is the
+GitHub issues plugin with the label that keeps the board to its own issues (the `label` is advised, and `repo` is
+required). Any other bare plugin name runs `kanbanzai-store-NAME`; `--store-setting KEY=VALUE[,KEY=VALUE]` and
+`--store-query TEXT` fill its `[store.settings]` and `query`. The setup skill asks the same question after the delivery
+preset, and the editor's **Kanbanzai: Init** asks it after the preset (Files, GitHub issues, or Other plugin…); both pass
+these flags, so both show the same plan ([setup.md](setup.md), [editor.md](editor.md#kanbanzai-init-and-apply)).
+
+- **`init` trusts nothing.** It runs no plugin and makes no network request, so the plan names the steps that are yours:
+  `gh auth login` (GitHub), `kanbanzai store trust` once per clone, and `kanbanzai sync`. The editor can run the last two
+  on one click after Apply, never before. `init`'s verification passes (`check` reads the working copy) and lists
+  those steps as its next actions.
+- **The board stays on `main`.** A store and a board branch exclude each other, so `--store` with `--board-branch` is
+  refused and the plan's board home is `main` for every preset.
+- **No credential.** A setting key that names one (`token`, `password`, `secret`) is refused, and a setting value cannot
+  contain a comma, because the settings are a comma list. The plugin signs in through its own tool.
+- **A public repository's cards are public,** and the plan warns of it.
+- **A project that already has a config is not changed:** `--store` is refused there and `--plan` takes no store flag.
+  Write the `[store]` table by hand as above, then trust and sync.
+
 ## How the working copy behaves
 
 - **The ticket is the truth.**

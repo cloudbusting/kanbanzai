@@ -101,6 +101,13 @@ func Verify(start string, plan *Plan) *Verification {
 	} else if !v.Check.OK {
 		v.NextActions = append(v.NextActions, "fix what kanbanzai check reports, then run it again")
 	}
+	if plan.Settings != nil && plan.Settings.Store != nil {
+		// A plugin runs only once the owner has signed in and trusted it: `check` reads the working copy and passes,
+		// but no card is there until `kanbanzai sync` has fetched them.
+		for _, step := range plan.Settings.Store.NextSteps {
+			v.NextActions = append(v.NextActions, "store "+plan.Settings.Store.Plugin+": "+step)
+		}
+	}
 	other := 0
 	for _, finding := range v.Audit.Findings {
 		if !strings.Contains(finding, uncommittedFlag) {

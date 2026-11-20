@@ -11,6 +11,11 @@ The tab is read-only. No drag and drop and no editing: the cards move when their
 answer, so the rules for a card live in one place, the command. The browser board (`kanbanzai board --web`) and the
 terminal board draw the same view: [boards.md](boards.md).
 
+The tab itself never writes. Setup is the only other thing the extension runs that writes, and each step waits for a
+click: **Init** (a plan, nothing applied), **Apply** (installs and runs `kanbanzai init --plan`), and, when a store was
+chosen at Init, **Trust and sync** after Apply (`kanbanzai store trust` then `kanbanzai sync`, a deliberate write
+path described under [Kanbanzai: Init and Apply](#kanbanzai-init-and-apply)).
+
 ## Which command it runs
 
 A release's extension carries the `kanbanzai` command and both agent plugins for Linux and macOS (amd64, arm64) and
@@ -53,8 +58,17 @@ In a trusted workspace whose first folder is a git checkout with no `.kanbanzai/
 **Kanbanzai: Init** (also in the command palette). It makes a plan first and applies it only when you say so, in two
 clicks with as much time between them as you like:
 
-1. **Init.** It asks which agents to set up (Claude Code, OpenCode; both ticked), runs
-   `kanbanzai init --dry-run --json --plugins <agents> --plugin-source @bundled`, saves the plan in the project as
+1. **Init.** It asks three questions, in this order, each as a pick list with its default picked first:
+   - **Agents** to set up (Claude Code, OpenCode; both ticked).
+   - **Preset**, the delivery style from `kanbanzai workflow presets --json` (**Default setup** picked).
+   - **Store**, where the cards are kept: **Files** (the project's own briefs, picked), **GitHub issues**, or **Other
+     plugin…** (a typed plugin name, never a path). GitHub asks for the repository as `owner/name` (checked before it is
+     used) and a label, `kanbanzai` suggested, so the board is exactly the labelled issues. No credential is asked.
+
+   It then runs `kanbanzai init --dry-run --json --plugins <agents> --plugin-source @bundled`, adding `--preset` and
+   `--store`, `--store-setting` and `--store-query` for the answers, the same flags the setup skill passes, so both show
+   the same plan. A question is skipped, with one line in the plan tab saying so, when the installed `kanbanzai`
+   does not list its flag in `init --help`. It saves the plan in the project as
    `.kanbanzai/state/setup-plan.json`, and opens it in an ordinary tab that you can scroll and search. The first and
    the last lines of the plan are a boxed reminder: *Click "Kanbanzai: Apply" in the status bar.* The status-bar item
    has become **Kanbanzai: Apply**. Nothing else has been written or run.
@@ -66,6 +80,12 @@ clicks with as much time between them as you like:
    is not on your `PATH` (and what to add), a `kanbanzai` of your own already at the link path (left alone), or on
    Windows the folder to add to your user `PATH`. The plan lists the link before you click.
 
+   When a store was chosen, a notification then offers **Trust and sync**. **Clicking it is the approval:** it runs
+   `kanbanzai store trust` and then `kanbanzai sync` in the project's root, finding the plugin from the folder
+   `kanbanzai install` used first on `PATH`, and shows each command's own output if one fails. It is a deliberate
+   write path, approved by the owner: the extension then trusts a program and fetches the cards on one click. It runs
+   only the plugin the plan wrote, and nothing runs until you click. Dismiss it and run the two commands yourself
+   later (the plan lists them, with `gh auth login` for GitHub); a plugin that changes needs trust again.
 A failing step shows the command's own error. After a write failure the plan is kept, so you can fix the cause and
 click Apply again. If Claude registration fails after the board was made, the error names the failure and the plan remains; use
 the Claude commands shown in the plan to finish registration.

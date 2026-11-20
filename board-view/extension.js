@@ -218,6 +218,54 @@ function setupUi(log) {
       );
       return Array.isArray(picked) ? picked.map((p) => p && p.agent) : undefined;
     },
+    // The preset: "Default setup" (no flag) first and picked, then each preset `workflow presets --json` listed.
+    // Resolves null for the default, a preset's name, or undefined when the pick is dismissed.
+    async pickPreset(presets) {
+      const listed = Array.isArray(presets) ? presets.filter((p) => p && typeof p.name === 'string') : [];
+      const picked = await vscode.window.showQuickPick(
+        [
+          { label: 'Default setup', description: 'the standard columns, steps and gates; no preset', picked: true, preset: null },
+          ...listed.map((p) => ({ label: p.name, description: p.summary || undefined, detail: p.best_for || undefined, preset: p.name })),
+        ],
+        { title: 'Kanbanzai: Init', placeHolder: 'Which delivery preset should this project start from?' },
+      );
+      return picked ? picked.preset : undefined;
+    },
+    // The store: files (the default, no flag), the shipped GitHub plugin, or a plugin typed by name.
+    // Resolves 'files', 'github', 'other', or undefined when the pick is dismissed.
+    async pickStore() {
+      const picked = await vscode.window.showQuickPick(
+        [
+          { label: 'Files (default)', description: 'cards are markdown files in the project', picked: true, store: 'files' },
+          { label: 'GitHub issues', description: 'cards are issues of one GitHub repository (the gh command)', store: 'github' },
+          { label: 'Other plugin…', description: 'a store plugin you have installed, by name', store: 'other' },
+        ],
+        { title: 'Kanbanzai: Init', placeHolder: 'Where should the cards be kept?' },
+      );
+      return picked ? picked.store : undefined;
+    },
+    askStoreName() {
+      return vscode.window.showInputBox({
+        title: 'Kanbanzai: Init',
+        prompt: 'The store plugin\'s bare name (the program kanbanzai-store-<name>, for example jira).',
+        validateInput: (value) => (setup.validStoreName(value) ? undefined : 'Lower-case letters, digits, "-" and "_", starting with a letter or digit.'),
+      });
+    },
+    askRepo() {
+      return vscode.window.showInputBox({
+        title: 'Kanbanzai: Init',
+        prompt: 'Which GitHub repository keeps the cards? Write owner/name. Issues in a public one are public.',
+        validateInput: (value) => (setup.validRepo(value) ? undefined : 'Write it as owner/name, for example acme/widgets.'),
+      });
+    },
+    askLabel() {
+      return vscode.window.showInputBox({
+        title: 'Kanbanzai: Init',
+        prompt: 'Which label marks the cards? Only issues with it are on the board.',
+        value: 'kanbanzai',
+        validateInput: (value) => (setup.validLabel(value) ? undefined : 'Words of letters, digits and . _ : / -, without a comma or "=".'),
+      });
+    },
     askBranch() {
       return vscode.window.showInputBox({
         title: 'Kanbanzai: Init',

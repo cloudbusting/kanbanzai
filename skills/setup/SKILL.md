@@ -122,7 +122,20 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    preset writes (`plan.preset`). A project that already has a config is not changed by `--preset`: point to
    `kanbanzai workflow plan --preset NAME`, which makes a plan to review and does nothing until `workflow apply`.
    If the flag is absent, say so and ask nothing.
-7. **Board branch:** only when `init --help` lists `--board-branch`. The board branch is the **default** when the plan
+7. **Store:** only if `init --help` lists `--store`; if the flag is absent, say so and ask nothing. Ask where the cards
+   are kept: **the project's own files** (recommended, the default, no flag), **GitHub issues**, or **another store
+   plugin** by name. For GitHub ask the repository as `owner/name` and recommend the label `kanbanzai`, so the board is
+   exactly the labelled issues; pass `--store github --store-setting repo=owner/name,label=kanbanzai`. For another
+   plugin pass `--store NAME` (a bare name of lower-case letters, digits, `-` and `_`; it runs `kanbanzai-store-NAME`
+   from `PATH`) and `--store-setting KEY=VALUE[,KEY=VALUE]` for the settings the owner names; `--store-query TEXT` only
+   when the owner gives a query. Never ask for or write a credential: `init` refuses a setting key that names one
+   (`token`, `password`, `secret`), and a plugin signs in through its own tool. Say plainly that the cards of a public
+   GitHub repository are public. A store keeps the board on `main`, so it is not combined with `--board-branch`, and
+   the board question below is skipped. `init` never runs or trusts a plugin and makes no network request; after the
+   apply the owner runs `gh auth login` (GitHub), `kanbanzai store trust` (once per clone) and `kanbanzai sync`, which
+   the plan lists as its next steps. A project that already has a config is not changed by `--store`: point to
+   `docs/store-plugins.md` (a hand-written `[store]` table, then trust and sync).
+8. **Board branch:** only when `init --help` lists `--board-branch`. The board branch is the **default** when the plan
    says so (`plan.settings.board_home` is `branch`, and `board_reason` says why): `init` puts a new project's board on a
    branch of its own when its preset works in a worktree per card (`software`, `release-train`, `team-pr`) or when no
    preset is chosen, because the main checkout then holds only the board and a board on main is never clean. `simple`,
@@ -138,7 +151,7 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
 
 The card template, digits, lease, WIP cap and pull order are the shipped defaults and are not asked.
 
-**Capability gate.** Issue types, workflow preset, isolation mode and importing existing items are the owner's
+**Capability gate.** Issue types, workflow preset, store, isolation mode and importing existing items are the owner's
 decisions too, but this skill asks one of them only when the installed command can apply it: run
 `kanbanzai init --help` and ask the question only if it lists the flag that applies that decision. A decision whose
 flag is not listed is not asked and not recorded, so no answer is ever collected and dropped; say in one line that
@@ -148,7 +161,7 @@ the command does not offer it yet.
 
 Make a private folder outside the repository, so it cannot change the tree the plan is checked against:
 `PLAN_DIR=$(mktemp -d)`. Run `kanbanzai init --dry-run --json` with the chosen flags (`--owner`, `--main-branch`,
-`--prefix` only for the single-prefix shape, `--preset` and its composing flags when chosen, `--context`, `--plugins`, `--plugin-source` when supported and selected,
+`--prefix` only for the single-prefix shape, `--preset` and its composing flags when chosen, `--store`, `--store-setting` and `--store-query` when a store is chosen, `--context`, `--plugins`, `--plugin-source` when supported and selected,
 and `--force` only after its own approval) and keep the
 output in `$PLAN_DIR/plan.json`.
 Show the owner:
@@ -193,6 +206,9 @@ Then tell the owner, in plain language:
 - **Where the board is:** the cards folder from `kanbanzai config`, and what the folders are.
 - **What to commit:** the files init listed under "files to commit", and the `git add ... && git commit` line it
   printed for them (read it from the apply output, not from memory). The skill does not run it.
+- **The store's next steps,** when one was chosen: `gh auth login` for GitHub, `kanbanzai store trust` (the plugin
+  runs only after the owner trusts it, once per clone) and `kanbanzai sync`, as the plan and the verify report list
+  them. `check` passes without them, but no card is there until `kanbanzai sync` has run; setup never runs them.
 - **What is still theirs to do:** enable the plugin where it is not yet enabled (`enabledPlugins` in
   `.claude/settings.json` for Claude Code, `plugins` in `.opencode/opencode.json` for OpenCode, as the README
   shows), and make the `kanbanzai` command reachable by the hooks (on `PATH`, or `KANBANZAI_BIN`); `doctor` says

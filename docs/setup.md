@@ -12,8 +12,10 @@ reinitialising it. See [Changing the workflow](workflow.md).
 1. Install the **Kanbanzai Board** extension from its `.vsix` (**Extensions: Install from VSIX…**) and reload the
    window. The `.vsix` contains the `kanbanzai` command and both plugins for Linux, macOS and Windows.
 2. Open your project (a git checkout). With no board in it, the status bar shows **Kanbanzai: Init**.
-3. Click it. It asks which agents to set up (Claude Code, OpenCode), then opens **the whole plan** in a tab you can
-   scroll and search: every file and folder it would make, the `config.toml`, the plugin settings it would merge, and
+3. Click it. It asks three questions: which agents to set up (Claude Code, OpenCode), which delivery preset (**Default
+   setup** is picked first), and where the cards are kept (**Files**, the project's own briefs, is picked first; or
+   **GitHub issues**, which asks for the repository as `owner/name` and a label, `kanbanzai` suggested; or **Other
+   plugin…**, a typed plugin name). It then opens **the whole plan** in a tab you can scroll and search: every file and folder it would make, the `config.toml`, the plugin settings it would merge, and
    the per-user command and plugin locations. The first and last lines of the plan remind you what to do next.
    The plan is saved in the project (`.kanbanzai/state/setup-plan.json`); nothing else has been written yet, and the
    status-bar item now reads **Kanbanzai: Apply**.
@@ -21,6 +23,9 @@ reinitialising it. See [Changing the workflow](workflow.md).
    Plan** (command palette) opens it again; **Kanbanzai: Cancel Setup** throws it away.
 5. Click **Kanbanzai: Apply** in the status bar. The extension checks the plan again, installs the command and plugins in your per-user folder, applies
    exactly the plan you read, and shows the files to commit.
+   If you chose a store, a notification then offers **Trust and sync**. Clicking it runs `kanbanzai store trust` and
+   then `kanbanzai sync` in the project; nothing runs until you click, and you can run the two commands yourself
+   instead. For GitHub, run `gh auth login` first. Cards in a public GitHub repository are public.
 6. Commit them, and start a new Claude Code or OpenCode session in the project: the Kanbanzai skills are there.
    `/kanbanzai:setup` can run the longer interview before applying: it shows a pending editor plan and lets you use it
    or cancel it in the editor and make a replacement for fresh approval. Do not run both setup flows concurrently.
@@ -56,6 +61,14 @@ do not commit it as it is).
    ```
 
    It writes nothing. Use `--plugin-source <a Kanbanzai checkout>` instead to test a checkout.
+
+   To keep the cards in GitHub issues instead of the project's files, add
+   `--store github --store-setting repo=owner/name,label=kanbanzai`. Any other plugin is `--store NAME`
+   (it runs `kanbanzai-store-NAME` from your `PATH`). `init` only writes the choice into `config.toml` and keeps the
+   board on `main`: it runs no plugin, trusts none and makes no network request. After applying, run `gh auth login`
+   (GitHub), `kanbanzai store trust` (once per clone) and `kanbanzai sync`. Never put a credential in a setting; `init`
+   refuses keys such as `token`, `password` and `secret`. A project that already has a config is not changed by
+   `--store`: see [store-plugins.md](store-plugins.md#choose-it-at-setup).
 3. **Apply it.** `kanbanzai init --plugins claude,opencode --plugin-source @bundled`, or save the plan with `--dry-run --json`
    and apply exactly that file with `kanbanzai init --plan FILE`. Init checks the board, the audit and the
    installation, lists the files to commit and never commits. To register Claude Code's local plugin, also run
@@ -82,7 +95,7 @@ files. The versions tested are in the README's Compatibility table.
 
 In a project where the plugin is enabled, `/kanbanzai:setup` does the whole thing with you: it looks at the
 repository, reports what it found with the evidence, asks only what is open (owner, main branch if unclear, project
-key, context files), shows the plan, waits for your approval, applies exactly that plan and proves it with `check`,
+key, context files, delivery preset, and where the cards are kept when the command can apply that), shows the plan, waits for your approval, applies exactly that plan and proves it with `check`,
 `wip --audit` and `doctor`. It asks which agents to set up, including neither; an OpenCode local source is a
 machine-specific path and should not be committed as portable settings. If an editor plan is pending, it offers the
 editor's Apply or Cancel flow before any replacement plan. It never commits. It needs a `kanbanzai` command new enough to have `init --dry-run` and
@@ -111,6 +124,9 @@ Kanbanzai"`. Then give the board its first piece of work with `/kanbanzai:triage
   its cards are `TASK-01`, `BUG-02` and so on, and `prefix = ""` means no legacy alias. `init --prefix KEY` writes
   the older single-prefix shape (`types = []`) instead. An existing project can opt out the same way.
   [types.md](types.md) has the model, the global number sequence, the legacy prefix and the seed.
+- **A store for the cards:** the files in the project by default. GitHub issues or another store plugin is chosen at
+  setup (`--store`, or the editor's third question), and `init` never trusts it: the next steps are `kanbanzai store trust`
+  and `kanbanzai sync`. See [store-plugins.md](store-plugins.md).
 - **An existing `.kanbanzai/config.toml`** is never changed. One that cannot load is reported with the command that
   repairs it (`kanbanzai config upgrade` or `kanbanzai doctor`); replacing a config is a separate question that names
   the backup it makes.

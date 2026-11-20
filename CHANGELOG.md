@@ -5,6 +5,18 @@ and the editor extension carry the same version.
 
 ## [Unreleased]
 
+- CHANGE-101: setup asks where the cards are kept. `kanbanzai init` takes `--store NAME [--store-setting
+  KEY=VALUE[,KEY=VALUE]] [--store-query TEXT]` and writes the `[store]` table into the plan: `--store github` needs
+  `--store-setting repo=owner/name` (`label=kanbanzai` is advised, so the board is exactly the labelled issues), and any
+  other bare plugin name runs `kanbanzai-store-NAME` from `PATH`. A store keeps the board on `main`. `init` runs no
+  plugin, trusts none and makes no network request; the plan warns that cards in a public GitHub repository are public
+  and lists the next steps (`gh auth login`, `kanbanzai store trust`, `kanbanzai sync`), and `verify` reports a store that
+  is not trusted yet as waiting, not as red. A setting key that names a credential is refused, and a project that already
+  has a config is not changed. `/kanbanzai:setup` asks the store after the delivery preset when `init --help` lists the
+  flag. The editor's **Kanbanzai: Init** now asks agents, then preset, then store (Files, GitHub issues, Other plugin…),
+  and after **Apply** a notification offers **Trust and sync**, which runs `kanbanzai store trust` then `kanbanzai sync`
+  only when clicked: a deliberate write path, owner-approved. An older command without the flags skips the question.
+
 ## [0.31.1] — 2026-11-19
 
 - CHANGE-100: the editor's board no longer shows the grey "Type filters cards only…" hint in its toolbar. The store

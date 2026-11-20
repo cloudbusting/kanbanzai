@@ -176,9 +176,20 @@ func TestWorkflowPlanPresetComposesStepSkillsAndRefusesBadInput(t *testing.T) {
 // The setup skill asks an owner about a decision only when `init --help` lists the flag that applies it.
 func TestInitHelpListsTheFlagsTheSetupSkillGatesOn(t *testing.T) {
 	out := ok(t, "init", "--help")
-	for _, flag := range []string{"--preset", "--type", "--step-skill", "--step-extend", "--plugins", "--plugin-source", "--context", "--dry-run"} {
+	for _, flag := range []string{"--preset", "--type", "--step-skill", "--step-extend", "--plugins", "--plugin-source", "--context", "--dry-run", "--store", "--store-setting", "--store-query"} {
 		if !strings.Contains(out, flag) {
 			t.Errorf("init --help does not list %s:\n%s", flag, out)
+		}
+	}
+}
+
+// A plan is applied as it is: the store flags make a new plan, never change one (CHANGE-101).
+func TestInitPlanRefusesTheStoreFlags(t *testing.T) {
+	for _, extra := range [][]string{{"--store", "github"}, {"--store-setting", "repo=a/b"}, {"--store-query", "x"}} {
+		args := append([]string{"init", "--plan", "plan.json"}, extra...)
+		code, _, errOut := runCLI(t, args...)
+		if code != 2 || !strings.Contains(errOut, "--plan applies a plan as it is") {
+			t.Errorf("%v: exit %d, stderr %q", extra, code, errOut)
 		}
 	}
 }

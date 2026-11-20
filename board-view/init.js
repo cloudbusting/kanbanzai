@@ -159,6 +159,66 @@ function validPath(value) {
   return nonEmpty(value) && !value.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
+// A store plugin's name is a bare name: lower-case letters, digits, "-" and "_", not starting with a separator.
+function validStoreName(name) {
+  return typeof name === 'string' && name.length <= 64 && /^[a-z0-9][a-z0-9_-]*$/.test(name);
+}
+
+// owner/name of a GitHub repository. The shape is the box's; an owner starting with "-" or "." and a name that is only
+// dots are not GitHub names and could be read as an option or a path, so they are refused too.
+function validRepo(repo) {
+  if (typeof repo !== 'string' || repo.length > 140 || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return false;
+  const [owner, name] = repo.split('/');
+  return !/^[-.]/.test(owner) && !name.startsWith('-') && !/^\.{1,2}$/.test(name);
+}
+
+// A GitHub label: words of letters, digits and . _ : / - joined by single spaces. No comma or "=" (they separate the
+// --store-setting pairs), no control character, no leading or trailing space.
+function validLabel(label) {
+  return typeof label === 'string' && label.length <= 50 && /^[\w.:/-]+( [\w.:/-]+)*$/.test(label);
+}
+
+// A preset's name as `workflow presets --json` lists it: no leading dash, no separator, no space.
+function validPreset(name) {
+  return typeof name === 'string' && name.length <= 64 && /^[A-Za-z0-9][\w.-]*$/.test(name);
+}
+
+// The one place `init --dry-run --json` arguments are made, so the editor, its tests and the setup skill agree. Values
+// only ever travel as separate execFile arguments; one that is not safe as one is refused here (throws), never passed.
+//   { agents, source, branch, preset, store: { name, repo, label } | null }
+// The files store, the default preset and no branch add no flag, so the plan is today's plan byte for byte.
+function initArgs({ agents, source, branch, preset, store } = {}) {
+  const picked = validAgents(agents);
+  if (!picked.length) throw new Error('Kanbanzai: no agent was picked.');
+  const from = text(source).trim();
+  if (from && !validPath(from)) throw new Error('Kanbanzai: the kanbanzai.pluginSource setting is not a usable path.');
+  const args = ['init', '--dry-run', '--json', '--plugins', picked.join(','), '--plugin-source', from || '@bundled'];
+  // The editor cannot make a board branch's worktree (`kanbanzai sync --attach`), and a board without it shows no
+  // cards: keep the board on main here. The flag is a no-op on a project that already has a config.
+  args.push('--board-main');
+  if (branch !== undefined && branch !== null && branch !== '') {
+    if (!validBranch(branch)) throw new Error('Kanbanzai: that is not a usable branch name (no spaces, and not starting with "-").');
+    args.push('--main-branch', branch);
+  }
+  if (preset !== undefined && preset !== null && preset !== '') {
+    if (!validPreset(preset)) throw new Error('Kanbanzai: that is not a usable preset name.');
+    args.push('--preset', preset);
+  }
+  if (store !== undefined && store !== null) {
+    const name = store && typeof store === 'object' ? store.name : undefined;
+    if (!validStoreName(name)) throw new Error('Kanbanzai: that is not a usable store plugin name (lower-case letters, digits, "-" and "_").');
+    if (name === 'github') {
+      if (!validRepo(store.repo)) throw new Error('Kanbanzai: the GitHub repository must be written owner/name.');
+      const label = store.label === undefined || store.label === null ? null : store.label;
+      if (label !== null && !validLabel(label)) throw new Error('Kanbanzai: that is not a usable GitHub label (words of letters, digits and . _ : / -, no comma or "=").');
+      args.push('--store', name, '--store-setting', `repo=${store.repo}${label !== null ? `,label=${label}` : ''}`);
+    } else if (name !== 'files') {
+      args.push('--store', name);
+    }
+  }
+  return args;
+}
+
 // ---- the plan as text ----
 
 const GROUPS = [
@@ -175,7 +235,8 @@ function indent(block, by) {
 }
 
 // A plain-text rendering of the report `init --dry-run --json` printed, for a read-only tab. `folder` is where
-// `kanbanzai install` will copy the command.
+// `kanbanzai install` will copy the command. `notes` are one-line remarks the flow adds above the plan (a question it
+// skipped because the command is older).
 const BLOCK = [
   '==============================================================================',
   '  NOT APPLIED YET.',
@@ -184,12 +245,13 @@ const BLOCK = [
   '==============================================================================',
 ];
 
-function planText(report, folder, platform = process.platform) {
+function planText(report, folder, platform = process.platform, notes = []) {
   const plan = report && typeof report === 'object' && report.plan && typeof report.plan === 'object' ? report.plan : {};
   const actions = (Array.isArray(plan.actions) ? plan.actions : []).filter((a) => a && typeof a === 'object' && typeof a.op === 'string');
   const warnings = (Array.isArray(plan.warnings) ? plan.warnings : []).filter((w) => typeof w === 'string' && w);
   const settings = plan.settings && typeof plan.settings === 'object' ? plan.settings : null;
-  const out = [...BLOCK, '', 'Kanbanzai setup plan', ''];
+  const lines = (Array.isArray(notes) ? notes : []).filter(nonEmpty);
+  const out = [...(lines.length ? [...lines, ''] : []), ...BLOCK, '', 'Kanbanzai setup plan', ''];
   out.push(`Project: ${text(plan.root) || '(unknown)'}`, '');
   out.push('Settings');
   if (settings) {
@@ -406,7 +468,8 @@ function parseReport(output) {
     !Array.isArray(value.plan) ? value : null;
 }
 
-// Every flow reports through `ui` ({ pickAgents, askBranch, showPlan, info, error }) and `log`, and never rejects.
+// Every flow reports through `ui` ({ pickAgents, pickPreset, pickStore, askStoreName, askRepo, askLabel, askBranch, showPlan,
+// info, error, notify }) and `log`, and never rejects.
 function reporter(deps) {
   const { ui, log, onChanged } = deps;
   return {
@@ -421,8 +484,42 @@ function reporter(deps) {
   };
 }
 
-// Kanbanzai: Init. Picks the agents, asks `init --dry-run --json` for the plan, saves it as the pending file (replacing
-// an older one) and shows it. Nothing is installed or applied. Resolves { status }: 'planned', 'cancelled' or 'failed'.
+// Which of the questions this command can apply: its `init --help` lists the flag. The usage goes to stdout on a
+// current command and to stderr on an older one that refuses `--help`, so both are read, and a help that cannot be run
+// lists nothing (the dry run then says what is wrong with the command).
+async function supportedFlags(execFile, command, root) {
+  const r = await runFile(execFile, command, ['init', '--help'], { cwd: root, timeout: 15 * 1000 });
+  const help = `${r.stdout}\n${r.stderr}`;
+  return { preset: /--preset(?![\w-])/.test(help), store: /--store(?![\w-])/.test(help) };
+}
+
+// The presets `workflow presets --json` lists, as { name, summary, best_for }; null when none can be read.
+async function listPresets(execFile, command, root) {
+  const r = await runFile(execFile, command, ['workflow', 'presets', '--json'], { cwd: root, timeout: 15 * 1000 });
+  if (!r.ok) return null;
+  let value;
+  try { value = JSON.parse(r.stdout); } catch (e) { return null; }
+  const list = value && typeof value === 'object' && Array.isArray(value.presets) ? value.presets : [];
+  const out = list.filter((p) => p && typeof p === 'object' && validPreset(p.name))
+    .map((p) => ({ name: p.name, summary: text(p.summary), best_for: text(p.best_for) }));
+  return out.length ? out : null;
+}
+
+// The note at the top of the plan when a question was skipped because the command does not take its flag.
+function skippedNote(caps) {
+  if (caps.preset && caps.store) return null;
+  if (!caps.preset && !caps.store) {
+    return 'Note: this kanbanzai command is older than the extension (its `init --help` lists neither --preset nor --store), ' +
+      'so the preset and store questions were skipped: this is the default setup, with the cards in files.';
+  }
+  return caps.preset
+    ? 'Note: this kanbanzai command is older than the extension (its `init --help` does not list --store), so the store question was skipped: the cards are kept in files.'
+    : 'Note: this kanbanzai command is older than the extension (its `init --help` does not list --preset), so the preset question was skipped: this is the default setup.';
+}
+
+// Kanbanzai: Init. Picks the agents, then (when the command takes the flag) the preset and the store, asks `init
+// --dry-run --json` for the plan, saves it as the pending file (replacing an older one) and shows it. Nothing is
+// installed or applied. Cancelling any question cancels. Resolves { status }: 'planned', 'cancelled' or 'failed'.
 async function planSetup(deps) {
   const { root, command, commandSource, folder, pluginSource, execFile, fs, ui, missingText } = deps;
   const { fail, changed } = reporter(deps);
@@ -433,15 +530,49 @@ async function planSetup(deps) {
     const source = text(pluginSource).trim();
     if (source && !validPath(source)) return fail('Kanbanzai: the kanbanzai.pluginSource setting is not a usable path.');
 
-    const plan = async (branch) => {
-      const args = ['init', '--dry-run', '--json', '--plugins', agents.join(',')];
-      args.push('--plugin-source', source || '@bundled');
-      // The editor cannot make a board branch's worktree (`kanbanzai sync --attach`), and a board without it shows no
-      // cards: keep the board on main here. The flag is a no-op on a project that already has a config.
-      args.push('--board-main');
-      if (branch) args.push('--main-branch', branch);
-      return runFile(execFile, command, args, { cwd: root });
-    };
+    const notes = [];
+    const caps = await supportedFlags(execFile, command, root);
+    const skipped = skippedNote(caps);
+    if (skipped) notes.push(skipped);
+
+    let preset = null;
+    if (caps.preset) {
+      const presets = await listPresets(execFile, command, root);
+      if (!presets) {
+        notes.push('Note: the preset list could not be read (`workflow presets --json`), so the preset question was skipped: this is the default setup.');
+      } else {
+        const picked = await ui.pickPreset(presets);
+        if (picked === undefined) return { status: 'cancelled' };
+        if (picked !== null && picked !== '') {
+          if (!presets.some((p) => p.name === picked)) return fail('Kanbanzai: that is not one of the presets the command listed.');
+          preset = picked;
+        }
+      }
+    }
+
+    let store = null;
+    if (caps.store) {
+      const choice = await ui.pickStore();
+      if (choice === undefined || choice === null) return { status: 'cancelled' };
+      if (choice === 'github') {
+        const repo = await ui.askRepo();
+        if (repo === undefined || repo === null || repo === '') return { status: 'cancelled' };
+        if (!validRepo(repo)) return fail('Kanbanzai: the GitHub repository must be written owner/name.');
+        const label = await ui.askLabel();
+        if (label === undefined || label === null || label === '') return { status: 'cancelled' };
+        if (!validLabel(label)) return fail('Kanbanzai: that is not a usable GitHub label (words of letters, digits and . _ : / -, no comma or "=").');
+        store = { name: 'github', repo, label };
+      } else if (choice === 'other') {
+        const name = await ui.askStoreName();
+        if (name === undefined || name === null || name === '') return { status: 'cancelled' };
+        if (!validStoreName(name)) return fail('Kanbanzai: that is not a usable store plugin name (lower-case letters, digits, "-" and "_").');
+        store = { name };
+      } else if (choice !== 'files') {
+        return fail('Kanbanzai: that is not one of the stores offered.');
+      }
+    }
+
+    const plan = (branch) => runFile(execFile, command, initArgs({ agents, source, branch, preset, store }), { cwd: root });
 
     let result = await plan();
     if (!result.ok && result.code === 2 && result.stderr.includes('--main-branch')) {
@@ -463,11 +594,55 @@ async function planSetup(deps) {
     const saved = writePending(fs, root, result.stdout);
     if (!saved.ok) return fail(saved.error);
     changed(); // the item is the Apply item from here on, whether or not the tab opens
-    await ui.showPlan(planText(report, folder, deps.platform));
+    await ui.showPlan(planText(report, folder, deps.platform, notes));
     return { status: 'planned' };
   } catch (e) {
     return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
   }
+}
+
+// ---- Trust and sync ----
+
+const TRUST_AND_SYNC = 'Trust and sync';
+
+// `env` with the folder the installed command lives in first on PATH, so a kanbanzai-store-<name> installed beside it is
+// found. Windows spells the variable Path and separates with ";". The caller's object is not changed.
+function pathWith(env, installed, platform) {
+  const out = { ...(env && typeof env === 'object' ? env : {}) };
+  if (!nonEmpty(installed) || !/[\\/]/.test(installed)) return out;
+  const win = platform === 'win32';
+  const dir = flavour(platform).dirname(installed);
+  const key = win ? (Object.keys(out).find((k) => k.toLowerCase() === 'path') || 'Path') : 'PATH';
+  out[key] = nonEmpty(out[key]) ? `${dir}${win ? ';' : ':'}${out[key]}` : dir;
+  return out;
+}
+
+// After Apply with a store plan: the notice, and only on the click `store trust` then `sync` in the project root, stopping
+// at the first failure and showing that command's own words. Never throws. Without a click nothing runs.
+async function offerTrustAndSync(deps, plugin) {
+  const { root, command, commandSource, installedCommand, execFile, ui, missingText } = deps;
+  const { fail } = reporter(deps);
+  try {
+    if (!validStoreName(plugin) || typeof ui.notify !== 'function') return;
+    const choice = await ui.notify(
+      `Kanbanzai: the plan chose the ${plugin} store plugin. ${TRUST_AND_SYNC} runs "kanbanzai store trust" and then "kanbanzai sync", ` +
+      `which run the program kanbanzai-store-${plugin} (looked for in the folder kanbanzai install used, then on your PATH) as you, ` +
+      'with your own permissions. Dismiss this to leave it: the commands are in the setup plan and docs/editor.md.',
+      [TRUST_AND_SYNC],
+    );
+    if (choice !== TRUST_AND_SYNC) return;
+    const which = installedCommand || command;
+    const env = pathWith(deps.env || process.env, which, deps.platform || process.platform);
+    for (const step of [['store', 'trust'], ['sync']]) {
+      const r = await runFile(execFile, which, step, { cwd: root, env });
+      if (r.ok) continue;
+      if (r.missing && missingText) fail(missingText);
+      else if (!r.missing && TOO_OLD.test(r.stderr || '')) fail(tooOldMessage(which, commandSource === 'setting' ? 'setting' : 'well-known', r.stderr));
+      else fail(`Kanbanzai: ${step.join(' ')} failed: ${r.stderr || r.message || 'failed'}`);
+      return;
+    }
+    ui.info(`Kanbanzai: the ${plugin} store plugin is trusted and the first sync ran.`);
+  } catch (e) { /* the setup was applied; the plan and docs/editor.md list the commands */ }
 }
 
 // Kanbanzai: Apply. The click is the approval: `<command> install`, then `<installed command> init --plan <pending file>`.
@@ -563,6 +738,8 @@ async function applyPending(deps) {
           : `Claude Code still records the plugin as ${result.installedVersion} (it loads the files in place); run: claude plugin update kanbanzai@kanbanzai --scope local.`;
       }
     }
+    const store = selected.plan.settings && typeof selected.plan.settings === 'object' ? selected.plan.settings.store : null;
+    const storePlugin = store && typeof store === 'object' ? store.plugin : '';
     removePending(fs, root);
     changed();
     try { if (typeof onApplied === 'function') onApplied(); } catch (e) { /* the board catches up on the next poll */ }
@@ -570,6 +747,7 @@ async function applyPending(deps) {
     const list = files.length ? ` Files to commit: ${files.join(', ')}.` : '';
     const said = [installNotes(installed.stdout), pluginNote].filter(Boolean).join(' ');
     ui.info(`Kanbanzai is set up.${list}${said ? ` ${said}` : ''} Run /kanbanzai:setup in Claude Code for the full interview (card prefix, context files).`);
+    await offerTrustAndSync(deps, storePlugin);
     return { status: 'applied', files };
   } catch (e) {
     return fail(`Kanbanzai: setup failed: ${e && e.message ? e.message : e}`);
@@ -613,6 +791,6 @@ async function discardPending(deps) {
 
 module.exports = {
   AGENTS, NO_PENDING, STALE_PLAN, bundledPath, wellKnownDir, wellKnownFile, resolveCommand, refreshInstalled, ensureExecutable, itemState,
-  validBranch, validAgents, planText, filesToCommit, runFile, pendingPath, hasPending, planSetup, applyPending,
+  TRUST_AND_SYNC, validBranch, validAgents, validStoreName, validRepo, validLabel, validPreset, initArgs, planText, filesToCommit, runFile, pendingPath, hasPending, planSetup, applyPending,
   showPending, discardPending,
 };

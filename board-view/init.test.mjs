@@ -273,6 +273,12 @@ function fakeUi(options = {}) {
     events: [],
     pickAgents: async () => { ui.events.push("pick"); return agents; },
     askBranch: async () => { ui.events.push("branch"); return branch; },
+    pickPreset: async (presets) => { ui.events.push("preset"); ui.presetsOffered = presets; return "preset" in options ? options.preset : null; },
+    pickStore: async () => { ui.events.push("store"); return "store" in options ? options.store : "files"; },
+    askStoreName: async () => { ui.events.push("name"); return options.storeName; },
+    askRepo: async () => { ui.events.push("repo"); return options.repo; },
+    askLabel: async () => { ui.events.push("label"); return "label" in options ? options.label : "kanbanzai"; },
+    notify: async (m, buttons) => { ui.events.push("notify"); ui.notices = (ui.notices || []).concat([[m, buttons]]); return options.click; },
     showPlan: async (text) => { ui.events.push("plan"); ui.planShown = text; },
     info: (m) => { ui.events.push("info"); ui.infos = (ui.infos || []).concat(m); },
     error: (m) => { ui.events.push("error"); ui.errors = (ui.errors || []).concat(m); },
@@ -296,6 +302,11 @@ const flowDeps = (exec, root, ui, extra = {}) => ({
   ...extra,
 });
 const happy = (cmd, args) => (args.includes("--dry-run") ? OK_DRY : args[0] === "init" ? { stdout: APPLY_OUT } : { stdout: "ok\n" });
+const isHelp = (args) => args[0] === "init" && args.includes("--help");
+const isPresets = (args) => args[0] === "workflow" && args[1] === "presets";
+const dryRun = (exec) => exec.calls.filter((c) => c.args.includes("--dry-run"));
+// The new first question is `init --help` (capability detection): tests of the dry run look at the calls but that one.
+const planCalls = (exec) => exec.calls.filter((c) => !isHelp(c.args));
 
 // ---- the pending file ----
 
@@ -334,8 +345,8 @@ test("Init: the plan is saved byte for byte, shown, and only the dry run ran; no
   assert.equal(out.status, "planned");
   assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT, "exactly the dry run's stdout");
   if (process.platform !== "win32") assert.equal(statSync(pending(root)).mode & 0o777, 0o600);
-  assert.deepEqual(exec.verbs(), ["init"]);
-  for (const c of exec.calls) assert.ok(c.args.includes("--dry-run"), c.args.join(" "));
+  assert.deepEqual(planCalls(exec).map((c) => c.args[0]), ["init"]);
+  for (const c of planCalls(exec)) assert.ok(c.args.includes("--dry-run"), c.args.join(" "));
   assert.ok(ui.planShown.includes("Also: copy the command to"));
   assert.deepEqual(ui.events, ["pick", "plan"], "no question after the plan");
   assert.equal(extra.changed, 1, "the item is re-evaluated");
@@ -401,21 +412,21 @@ test("Init: an unwritable place is refused with nothing written (a link or a pla
 test("Init: the dry run asks for the picked agents as one argument and reads the plan from stdout", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["opencode", "claude"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude", "--plugin-source", "@bundled", "--board-main"]);
-  assert.equal(exec.calls[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
+  assert.deepEqual(dryRun(exec)[0].args, ["init", "--dry-run", "--json", "--plugins", "opencode,claude", "--plugin-source", "@bundled", "--board-main"]);
+  assert.equal(dryRun(exec)[0].cmd, "/ext/bin/linux-amd64/kanbanzai");
 });
 
 test("Init: the dry run runs in the project folder", async () => {
   const root = project();
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, root, fakeUi()));
-  assert.equal(exec.calls[0].opts.cwd, root);
+  assert.equal(dryRun(exec)[0].opts.cwd, root);
 });
 
 test("Init: an agent that is not claude or opencode never reaches the command line", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["claude", "--plan=/etc/passwd", "x y"] })));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled", "--board-main"]);
+  assert.deepEqual(dryRun(exec)[0].args, ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled", "--board-main"]);
   const exec2 = fakeExec(happy);
   const out = await init.planSetup(flowDeps(exec2, project(), fakeUi({ agents: ["--evil"] })));
   assert.equal(out.status, "cancelled", "nothing valid was picked");
@@ -425,10 +436,10 @@ test("Init: an agent that is not claude or opencode never reaches the command li
 test("Init: a plugin source from the setting is passed as --plugin-source and one argument", async () => {
   const exec = fakeExec(happy);
   await init.planSetup(flowDeps(exec, project(), fakeUi(), { pluginSource: "/home/example/code/kanbanzai" }));
-  assert.deepEqual(exec.calls[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/example/code/kanbanzai", "--board-main"]);
+  assert.deepEqual(dryRun(exec)[0].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/home/example/code/kanbanzai", "--board-main"]);
   const exec2 = fakeExec(happy);
   await init.planSetup(flowDeps(exec2, project(), fakeUi(), { pluginSource: "   " }));
-  assert.deepEqual(exec2.calls[0].args.slice(-3), ["--plugin-source", "@bundled", "--board-main"], "blank uses the bundled source");
+  assert.deepEqual(dryRun(exec2)[0].args.slice(-3), ["--plugin-source", "@bundled", "--board-main"], "blank uses the bundled source");
 });
 
 test("Init: a plugin source that looks like a flag is refused before any command runs", async () => {
@@ -446,8 +457,8 @@ test("Init: an unclear main branch (exit 2 naming --main-branch) opens the input
   const ui = fakeUi({ branch: "trunk" });
   const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "planned");
-  assert.equal(exec.calls.length, 2);
-  assert.deepEqual(exec.calls[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main", "--main-branch", "trunk"]);
+  assert.equal(planCalls(exec).length, 2);
+  assert.deepEqual(dryRun(exec)[1].args, ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main", "--main-branch", "trunk"]);
   assert.deepEqual(ui.events, ["pick", "branch", "plan"]);
   assert.equal(readFileSync(pending(root), "utf8"), REPORT_TEXT);
 });
@@ -458,7 +469,7 @@ test("Init: the main-branch question dismissed is a cancel; nothing is written",
   const ui = fakeUi({ branch: undefined });
   const out = await init.planSetup(flowDeps(exec, root, ui));
   assert.equal(out.status, "cancelled");
-  assert.equal(exec.calls.length, 1);
+  assert.equal(planCalls(exec).length, 1);
   assert.equal(ui.errors, undefined);
   assert.equal(tree(root), was);
 });
@@ -469,7 +480,7 @@ test("Init: a rejected branch name is never passed to the command", async () => 
     const ui = fakeUi({ branch: bad });
     const out = await init.planSetup(flowDeps(exec, project(), ui));
     assert.equal(out.status, "failed", JSON.stringify(bad));
-    assert.equal(exec.calls.length, 1, `no re-plan for ${JSON.stringify(bad)}`);
+    assert.equal(planCalls(exec).length, 1, `no re-plan for ${JSON.stringify(bad)}`);
     assert.match(ui.errors.join("\n"), /branch/i);
   }
 });
@@ -478,7 +489,7 @@ test("Init: a second 'unclear main branch' after an answer is an error, not a lo
   const exec = fakeExec(() => ({ code: 2, stderr: "pass --main-branch NAME\n" }));
   const out = await init.planSetup(flowDeps(exec, project(), fakeUi({ branch: "trunk" })));
   assert.equal(out.status, "failed");
-  assert.equal(exec.calls.length, 2);
+  assert.equal(planCalls(exec).length, 2);
 });
 
 test("Init: a dry run that fails for another reason shows its stderr and stops", async () => {
@@ -487,7 +498,7 @@ test("Init: a dry run that fails for another reason shows its stderr and stops",
   const out = await init.planSetup(flowDeps(exec, project(), ui));
   assert.equal(out.status, "failed");
   assert.match(ui.errors.join("\n"), /not inside a git checkout/);
-  assert.equal(exec.calls.length, 1);
+  assert.equal(planCalls(exec).length, 1);
 });
 
 test("Init: a dry run that prints something that is not a plan is an error", async () => {
@@ -902,7 +913,7 @@ for (const [source, command, wants] of [
     assert.equal(out.status, "failed");
     assert.equal(ui.errors.length, 1);
     for (const want of wants) assert.match(ui.errors[0], want);
-    assert.equal(exec.calls.filter((c) => !c.args.includes("--dry-run")).length, 0, "nothing but the dry run ran");
+    assert.equal(planCalls(exec).filter((c) => !c.args.includes("--dry-run")).length, 0, "nothing but the dry run ran");
     assert.equal(init.hasPending(fs, root), false);
   });
 }
@@ -935,4 +946,350 @@ test("Apply with an installed command that is too old for init --plan names the 
   assert.match(ui.errors[0], /per-user folder/);
   assert.match(ui.errors[0], /\/home\/example\/\.local\/share\/kanbanzai\/bin\/kanbanzai/);
   assert.equal(init.hasPending(fs, root), true);
+});
+
+// ---- CHANGE-101: the preset and the store questions ----
+
+const PRESETS_JSON = JSON.stringify({ presets: [
+  { name: "docs-only", summary: "Write and check pages.", best_for: "A handbook." },
+  { name: "homework", summary: "Plan, do and self-check.", best_for: "Study." },
+] });
+const HELP_NEW = { stdout: "usage: kanbanzai init [--dry-run] [--json]\n  [--preset NAME|DIR [--type KEY=PREFIX]]\n  [--store NAME [--store-setting KEY=VALUE[,...]] [--store-query TEXT]]\n" };
+const HELP_OLD = { stdout: "usage: kanbanzai init [--dry-run] [--json] [--plugins LIST]\n" };
+const HELP_PRESET_ONLY = { stdout: "usage: kanbanzai init [--preset NAME|DIR]\n" };
+const HELP_STORE_ONLY = { stdout: "usage: kanbanzai init [--store NAME [--store-setting KEY=VALUE]]\n" };
+const withHelp = (help, presets = { stdout: PRESETS_JSON }) => (cmd, args, opts) => {
+  if (isHelp(args)) return help;
+  if (isPresets(args)) return presets;
+  return happy(cmd, args, opts);
+};
+const BASE_ARGS = ["init", "--dry-run", "--json", "--plugins", "claude", "--plugin-source", "@bundled", "--board-main"];
+
+test("initArgs: the dry run's arguments, in order, with only what was chosen", () => {
+  const base = { agents: ["claude", "opencode"], source: "" };
+  assert.deepEqual(init.initArgs(base),
+    ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main"]);
+  assert.deepEqual(init.initArgs({ ...base, source: "/code/kz", branch: "trunk", preset: "docs-only" }),
+    ["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "/code/kz", "--board-main", "--main-branch", "trunk", "--preset", "docs-only"]);
+  assert.deepEqual(init.initArgs({ ...base, store: { name: "github", repo: "acme/widgets", label: "kanbanzai" } }),
+    [...BASE_ARGS.slice(0, 4), "claude,opencode", ...BASE_ARGS.slice(5), "--store", "github", "--store-setting", "repo=acme/widgets,label=kanbanzai"]);
+  assert.deepEqual(init.initArgs({ agents: ["claude"], preset: "homework", branch: "main", store: { name: "jira" } }),
+    [...BASE_ARGS, "--main-branch", "main", "--preset", "homework", "--store", "jira"]);
+  assert.deepEqual(init.initArgs({ agents: ["claude"], store: { name: "files" } }), BASE_ARGS, "the files store is the default: no flag");
+  assert.deepEqual(init.initArgs({ agents: ["claude"], preset: null, store: null }), BASE_ARGS);
+});
+
+test("initArgs: a value that is not safe as one argument is refused, never passed", () => {
+  const agents = ["claude"];
+  for (const repo of ["", "acme", "acme/widgets/extra", "-x/y", "a b/c", "acme/wid;gets", "acme/$(x)", "../etc", "acme/widgets\n", "a,b/c", "--plan=/x/y"]) {
+    assert.throws(() => init.initArgs({ agents, store: { name: "github", repo, label: "kanbanzai" } }), /repository/i, JSON.stringify(repo));
+  }
+  assert.throws(() => init.initArgs({ agents, store: { name: "github", label: "kanbanzai" } }), /repository/i, "github needs a repository");
+  for (const label of ["", "a,b", "a=b", "x\ny", " pad", "a;b", "$(x)"]) {
+    assert.throws(() => init.initArgs({ agents, store: { name: "github", repo: "acme/widgets", label } }), /label/i, JSON.stringify(label));
+  }
+  for (const name of ["", "-x", "--store", "Git Hub", "a/b", "../x", "a b", "A", "x;y", "a\nb", 7]) {
+    assert.throws(() => init.initArgs({ agents, store: { name } }), /store/i, JSON.stringify(name));
+  }
+  for (const preset of ["--evil", "a b", "x;y", "-x", "a/b", 7]) {
+    assert.throws(() => init.initArgs({ agents, preset }), /preset/i, JSON.stringify(preset));
+  }
+  assert.throws(() => init.initArgs({ agents: [] }), /agent/i);
+  assert.throws(() => init.initArgs({ agents, source: "--plan=/x" }), /source/i);
+  assert.throws(() => init.initArgs({ agents, branch: "-x" }), /branch/i);
+});
+
+test("validRepo, validStoreName and validLabel: the shapes the questions accept", () => {
+  for (const ok of ["acme/widgets", "a.b/c_d-e", "Acme/Widgets.js"]) assert.equal(init.validRepo(ok), true, ok);
+  for (const bad of ["acme", "a/b/c", "", "a /b", "-", undefined, 7]) assert.equal(init.validRepo(bad), false, String(bad));
+  for (const ok of ["github", "jira", "my-store_2", "9x"]) assert.equal(init.validStoreName(ok), true, ok);
+  for (const bad of ["", "-a", "_a", "Git", "a b", "a/b", "a.b", undefined]) assert.equal(init.validStoreName(bad), false, String(bad));
+  for (const ok of ["kanbanzai", "board v2", "area:web", "a/b"]) assert.equal(init.validLabel(ok), true, ok);
+  for (const bad of ["", " x", "x ", "a,b", "a=b", "a\tb", undefined]) assert.equal(init.validLabel(bad), false, String(bad));
+});
+
+test("Init: asks the agents, then the preset, then the store, when the command lists both flags", async () => {
+  const root = project();
+  const exec = fakeExec(withHelp(HELP_NEW)); const ui = fakeUi({ agents: ["claude"] });
+  const out = await init.planSetup(flowDeps(exec, root, ui));
+  assert.equal(out.status, "planned");
+  assert.deepEqual(ui.events, ["pick", "preset", "store", "plan"]);
+  assert.deepEqual(ui.presetsOffered.map((p) => [p.name, p.summary, p.best_for]), [
+    ["docs-only", "Write and check pages.", "A handbook."], ["homework", "Plan, do and self-check.", "Study."]]);
+  assert.deepEqual(dryRun(exec).map((c) => c.args), [BASE_ARGS], "the defaults add no flag");
+  const presets = exec.calls.find((c) => isPresets(c.args));
+  assert.deepEqual(presets.args, ["workflow", "presets", "--json"]);
+  assert.equal(presets.opts.cwd, root);
+  assert.equal(presets.cmd, "/ext/bin/linux-amd64/kanbanzai");
+  const help = exec.calls.find((c) => isHelp(c.args));
+  assert.deepEqual(help.args, ["init", "--help"]);
+  assert.doesNotMatch(ui.planShown, /older than|skipped/i, "no note when nothing was skipped");
+});
+
+test("Init: a preset, and the GitHub store with its repository and label, reach the command as separate arguments", async () => {
+  const exec = fakeExec(withHelp(HELP_NEW));
+  const ui = fakeUi({ agents: ["claude"], preset: "docs-only", store: "github", repo: "acme/widgets", label: "board" });
+  const out = await init.planSetup(flowDeps(exec, project(), ui));
+  assert.equal(out.status, "planned");
+  assert.deepEqual(ui.events, ["pick", "preset", "store", "repo", "label", "plan"]);
+  assert.deepEqual(dryRun(exec)[0].args, [...BASE_ARGS, "--preset", "docs-only", "--store", "github", "--store-setting", "repo=acme/widgets,label=board"]);
+});
+
+test("Init: another plugin is asked for as a bare name and passed as --store NAME", async () => {
+  const exec = fakeExec(withHelp(HELP_NEW));
+  const ui = fakeUi({ agents: ["claude"], store: "other", storeName: "jira" });
+  await init.planSetup(flowDeps(exec, project(), ui));
+  assert.deepEqual(ui.events, ["pick", "preset", "store", "name", "plan"]);
+  assert.deepEqual(dryRun(exec)[0].args, [...BASE_ARGS, "--store", "jira"]);
+});
+
+test("Init: the files store, picked, passes no store flag", async () => {
+  const exec = fakeExec(withHelp(HELP_NEW));
+  await init.planSetup(flowDeps(exec, project(), fakeUi({ agents: ["claude"], store: "files" })));
+  assert.deepEqual(dryRun(exec)[0].args, BASE_ARGS);
+});
+
+test("Init: an old command that lists neither flag skips both questions and says so in one line at the top of the plan", async () => {
+  const exec = fakeExec(withHelp(HELP_OLD)); const ui = fakeUi({ agents: ["claude"] });
+  const out = await init.planSetup(flowDeps(exec, project(), ui));
+  assert.equal(out.status, "planned");
+  assert.deepEqual(ui.events, ["pick", "plan"]);
+  assert.deepEqual(dryRun(exec)[0].args, BASE_ARGS);
+  assert.equal(exec.calls.some((c) => isPresets(c.args)), false, "the preset list is not even read");
+  const lines = ui.planShown.split("\n");
+  assert.match(lines[0], /older/i);
+  assert.match(lines[0], /--preset/);
+  assert.match(lines[0], /--store/);
+  assert.equal(lines[1], "");
+  assert.match(lines[2], /^={20,}$/, "the clear block follows");
+  assert.equal(ui.planShown.split("\n").filter((l) => l.startsWith("Note:")).length, 1, "one line");
+});
+
+test("Init: a command with --preset but not --store asks only the preset, and the line names the store", async () => {
+  const exec = fakeExec(withHelp(HELP_PRESET_ONLY)); const ui = fakeUi({ agents: ["claude"], preset: "homework" });
+  await init.planSetup(flowDeps(exec, project(), ui));
+  assert.deepEqual(ui.events, ["pick", "preset", "plan"]);
+  assert.deepEqual(dryRun(exec)[0].args, [...BASE_ARGS, "--preset", "homework"]);
+  const first = ui.planShown.split("\n")[0];
+  assert.match(first, /--store/);
+  assert.doesNotMatch(first, /--preset/);
+});
+
+test("Init: a command with --store but not --preset asks only the store", async () => {
+  const exec = fakeExec(withHelp(HELP_STORE_ONLY)); const ui = fakeUi({ agents: ["claude"], store: "github", repo: "acme/widgets" });
+  await init.planSetup(flowDeps(exec, project(), ui));
+  assert.deepEqual(ui.events, ["pick", "store", "repo", "label", "plan"]);
+  assert.equal(exec.calls.some((c) => isPresets(c.args)), false);
+  assert.match(ui.planShown.split("\n")[0], /--preset/);
+});
+
+test("Init: --help that cannot be run or read counts as a command without the flags; the dry run still decides", async () => {
+  for (const help of [{ code: 2, stderr: "unknown flag --help" }, { stdout: "" }]) {
+    const exec = fakeExec(withHelp(help)); const ui = fakeUi({ agents: ["claude"] });
+    const out = await init.planSetup(flowDeps(exec, project(), ui));
+    assert.equal(out.status, "planned");
+    assert.deepEqual(ui.events, ["pick", "plan"]);
+    assert.deepEqual(dryRun(exec)[0].args, BASE_ARGS);
+  }
+});
+
+test("Init: the help text is read from stdout or stderr, and --store-setting alone does not count as --store", async () => {
+  const stderrHelp = fakeExec(withHelp({ code: 0, stdout: "", stderr: "usage: init [--preset NAME] [--store NAME]" }));
+  const ui = fakeUi({ agents: ["claude"] });
+  await init.planSetup(flowDeps(stderrHelp, project(), ui));
+  assert.deepEqual(ui.events, ["pick", "preset", "store", "plan"]);
+  const lookalike = fakeExec(withHelp({ stdout: "usage: init [--presets-dir X] [--store-setting K=V] [--store-query T]" }));
+  const ui2 = fakeUi({ agents: ["claude"] });
+  await init.planSetup(flowDeps(lookalike, project(), ui2));
+  assert.deepEqual(ui2.events, ["pick", "plan"]);
+});
+
+test("Init: the preset list that cannot be read skips the preset question and says so", async () => {
+  for (const presets of [{ code: 1, stderr: "boom" }, { stdout: "not json" }, { stdout: JSON.stringify({ presets: [] }) }, { stdout: "{}" }]) {
+    const exec = fakeExec(withHelp(HELP_NEW, presets)); const ui = fakeUi({ agents: ["claude"] });
+    const out = await init.planSetup(flowDeps(exec, project(), ui));
+    assert.equal(out.status, "planned");
+    assert.deepEqual(ui.events, ["pick", "store", "plan"], JSON.stringify(presets));
+    assert.match(ui.planShown.split("\n")[0], /preset/i);
+    assert.deepEqual(dryRun(exec)[0].args, BASE_ARGS);
+  }
+});
+
+test("Init: malformed entries in the preset list are dropped before they reach the pick list", async () => {
+  const mixed = JSON.stringify({ presets: [null, 7, { name: "--evil" }, { name: "ok-one", summary: 3 }, { summary: "no name" }, { name: "fine", summary: "s", best_for: "b" }] });
+  const exec = fakeExec(withHelp(HELP_NEW, { stdout: mixed })); const ui = fakeUi({ agents: ["claude"] });
+  await init.planSetup(flowDeps(exec, project(), ui));
+  assert.deepEqual(ui.presetsOffered.map((p) => p.name), ["ok-one", "fine"]);
+  assert.deepEqual(ui.presetsOffered.map((p) => p.summary), ["", "s"]);
+});
+
+for (const [name, options, events] of [
+  ["the preset", { preset: undefined }, ["pick", "preset"]],
+  ["the store", { store: undefined }, ["pick", "preset", "store"]],
+  ["the other plugin's name", { store: "other", storeName: undefined }, ["pick", "preset", "store", "name"]],
+  ["the repository", { store: "github", repo: undefined }, ["pick", "preset", "store", "repo"]],
+  ["the label", { store: "github", repo: "acme/widgets", label: undefined }, ["pick", "preset", "store", "repo", "label"]],
+  ["an empty repository box", { store: "github", repo: "" }, ["pick", "preset", "store", "repo"]],
+]) {
+  test(`Init: cancelling ${name} cancels the whole setup; nothing is planned or written`, async () => {
+    const root = project(); const was = tree(root);
+    const exec = fakeExec(withHelp(HELP_NEW)); const ui = fakeUi({ agents: ["claude"], ...options });
+    const out = await init.planSetup(flowDeps(exec, root, ui));
+    assert.equal(out.status, "cancelled");
+    assert.deepEqual(ui.events, events);
+    assert.equal(dryRun(exec).length, 0);
+    assert.equal(tree(root), was);
+  });
+}
+
+test("Init: cancelling the agents asks nothing and runs nothing, not even --help", async () => {
+  const exec = fakeExec(withHelp(HELP_NEW)); const ui = fakeUi({ agents: undefined });
+  const out = await init.planSetup(flowDeps(exec, project(), ui));
+  assert.equal(out.status, "cancelled");
+  assert.equal(exec.calls.length, 0);
+});
+
+test("Init: a hostile repository, plugin name, label or preset from the UI is refused before the dry run", async () => {
+  for (const options of [
+    { store: "github", repo: "acme/widgets; rm -rf /" },
+    { store: "github", repo: "--plan=/x/y" },
+    { store: "github", repo: "acme/widgets", label: "a,b" },
+    { store: "other", storeName: "../../bin/sh" },
+    { store: "other", storeName: "--plan" },
+    { preset: "--evil" },
+    { store: "unknown-choice" },
+  ]) {
+    const root = project(); const was = tree(root);
+    const exec = fakeExec(withHelp(HELP_NEW)); const ui = fakeUi({ agents: ["claude"], ...options });
+    const out = await init.planSetup(flowDeps(exec, root, ui));
+    assert.equal(out.status, "failed", JSON.stringify(options));
+    assert.equal(dryRun(exec).length, 0, JSON.stringify(options));
+    assert.equal(ui.errors.length, 1);
+    assert.equal(tree(root), was);
+  }
+});
+
+test("planText puts the notes it is given on the first line, and nothing when it has none", () => {
+  const shown = init.planText(report, FOLDER, "linux", ["Note: skipped."]);
+  assert.equal(shown.split("\n")[0], "Note: skipped.");
+  assert.equal(shown.split("\n")[1], "");
+  assert.equal(init.planText(report, FOLDER, "linux", []), init.planText(report, FOLDER, "linux"));
+});
+
+// ---- the store the plan chose: Trust and sync ----
+
+const STORE_PLAN = { ...report, plan: { ...report.plan, settings: { ...report.plan.settings,
+  store: { plugin: "github", settings: { repo: "acme/widgets", label: "kanbanzai" }, query: "", source: "--store", next_steps: ["kanbanzai store trust", "kanbanzai sync"] } } } };
+const INSTALLED = "/home/example/.local/share/kanbanzai/bin/kanbanzai";
+const INSTALLED_DIR = "/home/example/.local/share/kanbanzai/bin";
+const appliedWith = (extraScript = () => undefined) => (cmd, args, opts) => extraScript(cmd, args, opts) || happy(cmd, args, opts);
+const afterApply = (exec) => exec.calls.slice(exec.calls.findIndex((c) => c.args[0] === "init" && c.args.includes("--plan") && !c.args.includes("--dry-run")) + 1);
+
+test("Apply with a store plan offers Trust and sync, names the plugin and says it runs as the user; nothing runs without the click", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith()); const ui = fakeUi({ click: undefined });
+  const out = await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(out.status, "applied");
+  assert.equal(ui.notices.length, 1);
+  assert.deepEqual(ui.notices[0][1], ["Trust and sync"]);
+  assert.match(ui.notices[0][0], /github/);
+  assert.match(ui.notices[0][0], /kanbanzai-store-github/);
+  assert.match(ui.notices[0][0], /as you|with your own|your user/i);
+  assert.deepEqual(afterApply(exec), [], "no trust, no sync without a click");
+  assert.equal(init.hasPending(fs, root), false, "dismissal leaves the applied project as it is");
+});
+
+test("Apply with no store in the plan offers nothing", async () => {
+  const root = project(); plantPending(root);
+  const exec = fakeExec(appliedWith()); const ui = fakeUi({ click: "Trust and sync" });
+  await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(ui.notices, undefined);
+  assert.deepEqual(afterApply(exec), []);
+});
+
+test("Apply with a store plan whose plugin name is not a bare name offers nothing", async () => {
+  for (const plugin of ["../evil", "-x", "a b", "", 7, null]) {
+    const root = project();
+    plantPending(root, JSON.stringify({ ...report, plan: { ...report.plan, settings: { store: { plugin } } } }));
+    const exec = fakeExec(appliedWith()); const ui = fakeUi({ click: "Trust and sync" });
+    const out = await init.applyPending(flowDeps(exec, root, ui));
+    assert.equal(out.status, "applied");
+    assert.equal(ui.notices, undefined, JSON.stringify(plugin));
+    assert.deepEqual(afterApply(exec), []);
+  }
+});
+
+test("Trust and sync clicked: store trust, then sync, in the project root, with the install folder first on PATH", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith()); const ui = fakeUi({ click: "Trust and sync" });
+  const env = { PATH: "/usr/bin:/bin", HOME: "/home/example" };
+  const out = await init.applyPending(flowDeps(exec, root, ui, { env, platform: "linux" }));
+  assert.equal(out.status, "applied");
+  const after = afterApply(exec);
+  assert.deepEqual(after.map((c) => [c.cmd, c.args]), [[INSTALLED, ["store", "trust"]], [INSTALLED, ["sync"]]]);
+  for (const c of after) {
+    assert.equal(c.opts.cwd, root);
+    assert.equal(c.opts.env.PATH, `${INSTALLED_DIR}:/usr/bin:/bin`);
+    assert.equal(c.opts.env.HOME, "/home/example", "the rest of the environment is kept");
+  }
+  assert.deepEqual(env, { PATH: "/usr/bin:/bin", HOME: "/home/example" }, "the caller's environment is not changed");
+  assert.match(ui.infos.join("\n"), /trusted|trust/i);
+  assert.match(ui.infos[ui.infos.length - 1], /sync/i);
+  assert.equal(ui.errors, undefined);
+});
+
+test("Trust and sync on Windows puts the install folder first with ';' under the PATH key the environment uses", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith()); const ui = fakeUi({ click: "Trust and sync" });
+  const installed = "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin\\kanbanzai.exe";
+  await init.applyPending(flowDeps(exec, root, ui, { env: { Path: "C:\\Windows" }, platform: "win32", installedCommand: installed, folder: "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin" }));
+  const after = afterApply(exec);
+  assert.equal(after.length, 2);
+  assert.equal(after[0].cmd, installed);
+  assert.equal(after[0].opts.env.Path, "C:\\Users\\example\\AppData\\Local\\kanbanzai\\bin;C:\\Windows");
+  assert.equal(after[0].opts.env.PATH, undefined, "no second PATH key");
+});
+
+test("Trust and sync: a failing trust shows its own stderr, and sync does not run", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "store" ? { code: 1, stderr: "store trust: kanbanzai-store-github was not found on PATH" } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  const out = await init.applyPending(flowDeps(exec, root, ui));
+  assert.equal(out.status, "applied", "the setup itself was applied");
+  assert.deepEqual(afterApply(exec).map((c) => c.args), [["store", "trust"]]);
+  assert.equal(ui.errors.length, 1);
+  assert.match(ui.errors[0], /kanbanzai-store-github was not found on PATH/);
+  assert.match(ui.errors[0], /store trust/);
+});
+
+test("Trust and sync: a failing sync shows its own stderr after trust ran", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "sync" ? { code: 1, stderr: "gh: not signed in; run gh auth login" } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  await init.applyPending(flowDeps(exec, root, ui));
+  assert.deepEqual(afterApply(exec).map((c) => c.args), [["store", "trust"], ["sync"]]);
+  assert.match(ui.errors[0], /gh: not signed in/);
+});
+
+test("Trust and sync: a command that is missing is the one actionable message", async () => {
+  const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+  const exec = fakeExec(appliedWith((cmd, args) => (args[0] === "store" ? { enoent: true } : undefined)));
+  const ui = fakeUi({ click: "Trust and sync" });
+  await init.applyPending(flowDeps(exec, root, ui, { missingText: "Install the kanbanzai command" }));
+  assert.deepEqual(ui.errors, ["Install the kanbanzai command"]);
+});
+
+test("Trust and sync: another button or a notice that throws runs nothing and does not undo the apply", async () => {
+  for (const make of [
+    (ui) => { ui.notify = async () => "Something else"; },
+    (ui) => { ui.notify = async () => { throw new Error("toast broke"); }; },
+    (ui) => { ui.notify = undefined; },
+  ]) {
+    const root = project(); plantPending(root, JSON.stringify(STORE_PLAN));
+    const exec = fakeExec(appliedWith()); const ui = fakeUi();
+    make(ui);
+    const out = await init.applyPending(flowDeps(exec, root, ui));
+    assert.equal(out.status, "applied");
+    assert.deepEqual(afterApply(exec), []);
+  }
 });

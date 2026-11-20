@@ -36,11 +36,13 @@ for **Extensions: Install from VSIX…**.
 
 Open a git project that has no board yet. The status bar shows **Kanbanzai: Init**.
 
-1. **Init** asks which agents to set up (Claude Code, OpenCode, or both) and opens the plan: the files it would
+1. **Init** asks which agents to set up (Claude Code, OpenCode, or both), which delivery preset and which store keeps
+   the cards (the project's files, GitHub issues, or another plugin), and opens the plan: the files it would
    create and the commands it would run. Nothing has been written yet. Read the plan in your own time; reloading or
    restarting the editor keeps it.
 2. **Kanbanzai: Apply** in the status bar is your approval. It installs the command for your shell and the agents,
-   makes the board, and tells you which files to commit.
+   makes the board, and tells you which files to commit. If you chose a store plugin, a notice then offers
+   **Trust and sync**, which runs `kanbanzai store trust` and `kanbanzai sync` only when you click it.
 
 **Kanbanzai: Show Setup Plan** opens the plan again and **Kanbanzai: Cancel Setup** throws it away. The other routes
 (the command line, or `/kanbanzai:setup` inside Claude Code or OpenCode for the longer interview) are in the
@@ -89,7 +91,7 @@ operating-system notification as well. The details:
 | **Kanbanzai: Show Board** | Opens the board tab (also `▦ Board` in the status bar). |
 | **Kanbanzai: Help** | Shows the board with its Help popup open: a cheat sheet of the commands and the common workflows (also the **? Help** button on the board). Read-only. |
 | **Kanbanzai: Sync board** | For a project that keeps its board on a [board branch](https://github.com/cloudbusting/kanbanzai/blob/main/docs/team-board.md): runs `kanbanzai sync` (fetch, merge and push of that branch only) and says what it did. Under `publish = "auto"` the extension also does this by itself, below. |
-| **Kanbanzai: Init** | Makes a setup plan for a project with no board, and opens it. Writes nothing else. |
+| **Kanbanzai: Init** | Asks for the agents, preset and store, makes a setup plan for a project with no board, and opens it. Writes nothing else. |
 | **Kanbanzai: Apply** | Applies the saved setup plan: your approval. |
 | **Kanbanzai: Show Setup Plan** | Opens the pending plan again. |
 | **Kanbanzai: Cancel Setup** | Deletes the pending plan. |

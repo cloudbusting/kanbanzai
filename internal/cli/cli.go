@@ -38,6 +38,7 @@ const initUsage = `  init [--dry-run] [--json] [--plan FILE] [--force] [--main-b
        [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template] [--board-branch|--board-main]
        [--preset NAME|DIR [--type KEY=PREFIX[:Label][,...]] [--step-skill STEP=SKILL[,...]]
         [--step-extend STEP=SKILL[+SKILL][,...]]]
+       [--store NAME [--store-setting KEY=VALUE[,...]] [--store-query TEXT]]
                                  set a project up (detect, plan, apply, verify; never commits)
 `
 
@@ -162,13 +163,14 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 	if command == "init" {
 		positionals, flags, set, err := parse(rest, map[string]bool{"dry-run": true, "json": true, "force": true,
 			"with-template": true, "board-branch": true, "board-main": true}, map[string]bool{"plan": true, "main-branch": true, "owner": true, "prefix": true, "context": true,
-			"plugins": true, "plugin-source": true, "preset": true, "type": true, "step-skill": true, "step-extend": true})
+			"plugins": true, "plugin-source": true, "preset": true, "type": true, "step-skill": true, "step-extend": true,
+			"store": true, "store-setting": true, "store-query": true})
 		if err != nil || len(positionals) != 0 {
 			return usageError(errOut, command, err)
 		}
 		if _, planned := flags["plan"]; planned {
 			for _, name := range []string{"main-branch", "owner", "prefix", "context", "plugins", "plugin-source", "preset", "type",
-				"step-skill", "step-extend"} {
+				"step-skill", "step-extend", "store", "store-setting", "store-query"} {
 				if _, given := flags[name]; given {
 					return usageError(errOut, command, fmt.Errorf("--plan applies a plan as it is: --%s cannot be "+
 						"combined with it", name))
@@ -194,7 +196,8 @@ func Run(args []string, in io.Reader, out, errOut io.Writer) int {
 			return nil
 		}
 		return initcmd.Run("", initcmd.Options{Preset: flags["preset"], Types: split("type"), StepSkills: split("step-skill"),
-			StepExtends: split("step-extend"), DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
+			StepExtends: split("step-extend"), Store: flags["store"], StoreSettings: split("store-setting"),
+			StoreQuery: flags["store-query"], DryRun: set["dry-run"], JSON: set["json"], Force: set["force"],
 			WithTemplate: set["with-template"], BoardBranch: set["board-branch"], BoardMain: set["board-main"], PlanFile: flags["plan"], MainBranch: flags["main-branch"],
 			Owner: flags["owner"], Prefix: flags["prefix"], Context: context,
 			Plugins: plugins, PluginSource: flags["plugin-source"], Out: out, Err: errOut})

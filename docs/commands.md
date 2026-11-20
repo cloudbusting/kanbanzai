@@ -40,6 +40,7 @@ kanbanzai init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME]
                                          [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR|@bundled]
                                          [--with-template] [--board-branch|--board-main] [--preset NAME|DIR [--type KEY=PREFIX[:Label]]
                                          [--step-skill STEP=SKILL] [--step-extend STEP=SKILL[+SKILL]]]
+                                         [--store NAME [--store-setting KEY=VALUE[,...]] [--store-query TEXT]]
                                          set a project up: detect, plan, apply, verify; never commits
 kanbanzai install [--dry-run|--refresh|--where]    copy this command, the `kanbanzai-store-github` store plugin when it sits beside it (a release archive), and both agent plugins (`plugins/current` beside it), to the per-user folder the plugins and the editor search
 kanbanzai --version                      the command's version
@@ -155,6 +156,16 @@ asks the plugin to create a ticket. Without a plugin these say there is none, an
 puts it on a branch for any other preset, and the two cannot be combined. `--dry-run` prints the choice and why. `--board-branch`
 is refused on an existing config or over files already in the work folder; `--board-main` has no effect on an existing config.
 The branch is not attached by `init`: the report says `check` waits, and `kanbanzai sync --attach` makes it.
+
+**Where `init` keeps the cards.** `--store files` (or no flag) keeps them as the project's own Markdown briefs.
+`--store github` writes a `[store]` table for the GitHub issues plugin and needs `--store-setting repo=owner/name`
+(`label=kanbanzai` is advised, so the board is exactly the labelled issues); any other bare plugin name (lower-case
+letters, digits, `-` and `_`) selects `kanbanzai-store-NAME` from your `PATH`. A store puts the board on `main`, so
+`--store` with `--board-branch` is refused. A setting key that names a credential (`token`, `password`, `secret`) is
+refused, a setting value cannot hold a comma, `--store-setting` and `--store-query` need `--store`, and `--store` is
+refused on a project that already has a config, as is `--plan` with any store flag. `init` runs no plugin, trusts none and
+makes no network request: the plan lists the next steps (`gh auth login` for GitHub, `kanbanzai store trust`,
+`kanbanzai sync`). [store-plugins.md](store-plugins.md#choose-it-at-setup) has the rest.
 
 **The board branch.** `kanbanzai sync` belongs to a project whose board lives on a branch of its own (`[board] home = "branch"`;
 [team-board.md](team-board.md)). `sync --attach` makes the worktree at the work folder (creating the branch, or checking it out of

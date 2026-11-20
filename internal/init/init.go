@@ -41,7 +41,13 @@ type Options struct {
 	Types       []string
 	StepSkills  []string
 	StepExtends []string
-	Out, Err    io.Writer
+
+	// Store is the store plugin that keeps a new project's cards ("" or "files" is the project's own files);
+	// StoreSettings are its KEY=VALUE settings and StoreQuery its query. They mean nothing without a plugin.
+	Store         string
+	StoreSettings []string
+	StoreQuery    string
+	Out, Err      io.Writer
 
 	// Test hooks.
 	clock func() time.Time
@@ -163,6 +169,12 @@ func render(out io.Writer, report *Report) {
 				home = "branch kanbanzai-board (kanbanzai sync --attach makes its worktree)"
 			}
 			fmt.Fprintf(out, "  board:       %s: %s\n", home, plan.Settings.BoardReason)
+		}
+		if store := plan.Settings.Store; store != nil {
+			fmt.Fprintf(out, "  store:       %s keeps the cards (%s)\n", store.Plugin, store.Source)
+			for _, step := range store.NextSteps {
+				fmt.Fprintf(out, "    then you: %s\n", step)
+			}
 		}
 		if len(plan.Settings.Types) > 0 {
 			fmt.Fprintf(out, "  issue types: %s (one global number sequence)\n",

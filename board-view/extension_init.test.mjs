@@ -41,7 +41,7 @@ delete process.env.XDG_DATA_HOME;
 delete process.env.LOCALAPPDATA;
 
 // `script(cmd, args, opts)` answers a command as { code, stdout, stderr, enoent }.
-function load({ folders, setting = "", pluginSource = "", extensionPath, script, trusted, pick, branch, version } = {}) {
+function load({ folders, setting = "", pluginSource = "", extensionPath, script, trusted, pick, branch, version, click } = {}) {
   const channel = { lines: [], info(t) { this.lines.push(["info", t]); }, warn(t) { this.lines.push(["warn", t]); }, error(t) { this.lines.push(["error", t]); }, dispose() {} };
   const item = { shown: false, show() { this.shown = true; }, hide() { this.shown = false; } };
   const commands = {};
@@ -65,9 +65,10 @@ function load({ folders, setting = "", pluginSource = "", extensionPath, script,
       createStatusBarItem: () => item,
       showErrorMessage: (...a) => { vscode.errors.push(a); return Promise.resolve(undefined); },
       showWarningMessage: () => Promise.resolve(undefined),
-      showInformationMessage: (...a) => { vscode.infos.push(a); return Promise.resolve(undefined); },
-      showQuickPick: (items, options) => { vscode.picks.push({ items, options }); return Promise.resolve(pick === undefined ? items.filter((i) => i.picked) : pick); },
-      showInputBox: (options) => { vscode.inputs.push(options); return Promise.resolve(branch); },
+      showInformationMessage: (...a) => { vscode.infos.push(a); return Promise.resolve(typeof click === "function" ? click(...a) : click); },
+      // `pick` and `branch` are either one answer for every question or a function of the question's items / options.
+      showQuickPick: (items, options) => { vscode.picks.push({ items, options }); return Promise.resolve(typeof pick === "function" ? pick(items, options) : pick === undefined ? items.filter((i) => i.picked) : pick); },
+      showInputBox: (options) => { vscode.inputs.push(options); return Promise.resolve(typeof branch === "function" ? branch(options) : branch); },
       showTextDocument: (doc, options) => { vscode.shown.push(doc); vscode.shownOptions.push(options); return Promise.resolve(); },
     },
     commands: { registerCommand: (name, f) => { commands[name] = f; return { dispose() {} }; }, executeCommand: () => Promise.resolve() },
@@ -119,7 +120,8 @@ async function run(opts, body) {
   // No message in any test is a modal dialog: the setup blocks nothing and asks nothing.
   for (const call of [...t.vscode.infos, ...t.vscode.errors]) {
     for (const arg of call) assert.ok(!(arg && typeof arg === "object" && arg.modal), `a modal message: ${JSON.stringify(call)}`);
-    assert.ok(call.length === 1, `a message with options or buttons: ${JSON.stringify(call)}`);
+    // The one notice with a button is the Trust and sync offer after Apply with a store plan.
+    assert.ok(call.length === 1 || (call.length === 2 && call[1] === "Trust and sync"), `a message with options or buttons: ${JSON.stringify(call)}`);
   }
 }
 const folder = (d) => [{ uri: { fsPath: d } }];
@@ -457,7 +459,7 @@ test("Init saves the plan, opens it in a normal tab and asks nothing more; nothi
       assert.deepEqual(vscode.shownOptions[0], { preview: false });
       assert.equal(vscode.infos.length, 0, "no question, no message");
       assert.deepEqual(vscode.errors, []);
-      assert.deepEqual(nonSessions(calls).map(verbOf), ["dry"], "no install, no --plan");
+      assert.deepEqual(nonSessions(calls).filter((c) => !c.args.includes("--help")).map(verbOf), ["dry"], "no install, no --plan (only the capability check, `init --help`, ran besides)");
       assert.equal(item.text, "$(check) Kanbanzai: Apply", "the item is the Apply item now");
       assert.equal(item.command, "kanbanzai.apply");
       void result;
@@ -611,7 +613,8 @@ test("Apply with no pending plan says so, runs nothing and leaves the item as In
 
 test("Show Setup Plan re-renders the pending plan in the tab; with none it is the 'no pending plan' error", async () => {
   const project = gitProject();
-  await run({ folders: folder(project), trusted: true, extensionPath: dir(), script: scripted() }, async ({ commands, vscode }) => {
+  // A command that takes the new flags: the plan tab has no "skipped a question" note, which only Init knows (it is not saved).
+  await run({ folders: folder(project), trusted: true, extensionPath: dir(), script: capable(), pick: picking() }, async ({ commands, vscode }) => {
     await commands["kanbanzai.showPlan"]();
     assert.deepEqual(vscode.errors.map((e) => e[0]), ["There is no pending setup plan. Click Kanbanzai: Init to make one."]);
     assert.equal(vscode.workspaceOpen.length, 0);
@@ -796,4 +799,190 @@ test("Init with a stale kanbanzai.command setting: the error names the setting, 
     assert.match(message, /Clear/i);
     assert.ok(channel.lines.some(([level, t]) => level === "error" && /kanbanzai\.command setting/.test(t)));
   });
+});
+
+// ---- CHANGE-101: the preset and the store questions, and Trust and sync ----
+
+const HELP_NEW = "usage: kanbanzai init [--preset NAME|DIR]\n  [--store NAME [--store-setting KEY=VALUE[,...]] [--store-query TEXT]]\n";
+const PRESETS = JSON.stringify({ presets: [
+  { name: "docs-only", summary: "Write and check pages.", best_for: "A handbook." },
+  { name: "homework", summary: "Plan, do and self-check.", best_for: "Study." },
+] });
+const CANCEL = Symbol("cancel");
+const capable = (help = HELP_NEW, extra = {}) => scripted({
+  before: (cmd, args, opts) => {
+    if (args[0] === "init" && args.includes("--help")) return { stdout: help };
+    if (args[0] === "workflow" && args[1] === "presets") return { stdout: PRESETS };
+    return extra.before ? extra.before(cmd, args, opts) : undefined;
+  },
+});
+// One quick-pick answerer: the agents keep both ticked; the preset and the store are picked by label.
+const picking = ({ preset = "Default setup", store = "Files (default)" } = {}) => (items, options) => {
+  if (options.canPickMany) return items.filter((i) => i.picked);
+  const store1 = items.some((i) => i.label === "Files (default)");
+  const want = store1 ? store : preset;
+  return want === CANCEL ? undefined : items.find((i) => i.label === want);
+};
+// One input-box answerer, told apart by what each box asks.
+const typing = ({ repo, label = "kanbanzai", name } = {}) => (options) => {
+  const asked = String(options.prompt || "");
+  const answer = /label/i.test(asked) ? label : /repository/i.test(asked) ? repo : /plugin/i.test(asked) ? name : undefined;
+  return answer === CANCEL ? undefined : answer;
+};
+const dryOf = (calls) => calls.filter((c) => c.args.includes("--dry-run") && c.args.includes("--json"));
+
+test("Init asks the agents, then the preset, then the store, each pick list with its default first and picked", async () => {
+  const project = gitProject();
+  await run({ folders: folder(project), trusted: true, extensionPath: dir(), script: capable(), pick: picking() },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      assert.equal(vscode.picks.length, 3);
+      assert.equal(vscode.picks[0].options.canPickMany, true);
+      const [, preset, store] = vscode.picks;
+      assert.deepEqual(preset.items.map((i) => [i.label, i.description, i.detail, !!i.picked]), [
+        ["Default setup", preset.items[0].description, undefined, true],
+        ["docs-only", "Write and check pages.", "A handbook.", false],
+        ["homework", "Plan, do and self-check.", "Study.", false],
+      ]);
+      assert.ok(preset.items[0].description, "the default says what it is");
+      assert.notEqual(preset.options.canPickMany, true);
+      assert.deepEqual(store.items.map((i) => [i.label, !!i.picked]), [["Files (default)", true], ["GitHub issues", false], ["Other plugin…", false]]);
+      assert.equal(vscode.inputs.length, 0, "the defaults ask nothing more");
+      assert.deepEqual(dryOf(calls).map((c) => c.args), [["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main"]]);
+      assert.equal(fs.existsSync(pendingFile(project)), true);
+    });
+});
+
+test("Init: a preset and GitHub issues ask the repository and the label in input boxes and pass them as flags", async () => {
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script: capable(),
+    pick: picking({ preset: "docs-only", store: "GitHub issues" }), branch: typing({ repo: "acme/widgets", label: "board" }) },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      assert.equal(vscode.inputs.length, 2);
+      const [repo, label] = vscode.inputs;
+      assert.match(repo.prompt, /repository/i);
+      assert.equal(repo.validateInput("acme/widgets"), undefined);
+      for (const bad of ["acme", "a b/c", "x/y/z", "", "acme/wid;gets"]) assert.ok(repo.validateInput(bad), `refused: ${bad}`);
+      assert.equal(label.value, "kanbanzai", "the label defaults to kanbanzai");
+      assert.equal(label.validateInput("kanbanzai"), undefined);
+      for (const bad of ["", "a,b", "a=b"]) assert.ok(label.validateInput(bad), `refused: ${bad}`);
+      assert.deepEqual(dryOf(calls).map((c) => c.args), [["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main",
+        "--preset", "docs-only", "--store", "github", "--store-setting", "repo=acme/widgets,label=board"]]);
+    });
+});
+
+test("Init: Other plugin asks for a bare name, validated, and passes --store NAME", async () => {
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script: capable(),
+    pick: picking({ store: "Other plugin…" }), branch: typing({ name: "jira" }) },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      assert.equal(vscode.inputs.length, 1);
+      assert.match(vscode.inputs[0].prompt, /plugin/i);
+      assert.equal(vscode.inputs[0].validateInput("my-store_2"), undefined);
+      for (const bad of ["", "-x", "Jira", "a b", "a/b", "../x"]) assert.ok(vscode.inputs[0].validateInput(bad), `refused: ${bad}`);
+      assert.deepEqual(dryOf(calls)[0].args.slice(-2), ["--store", "jira"]);
+    });
+});
+
+test("Init: cancelling the preset, the store, the repository or the label cancels the setup and writes nothing", async () => {
+  for (const [options, inputs] of [
+    [{ pick: picking({ preset: CANCEL }) }, {}],
+    [{ pick: picking({ store: CANCEL }) }, {}],
+    [{ pick: picking({ store: "GitHub issues" }) }, { repo: CANCEL }],
+    [{ pick: picking({ store: "GitHub issues" }) }, { repo: "acme/widgets", label: CANCEL }],
+    [{ pick: picking({ store: "Other plugin…" }) }, { name: CANCEL }],
+  ]) {
+    const project = gitProject(); const was = JSON.stringify(fs.readdirSync(project, { recursive: true }).sort());
+    await run({ folders: folder(project), trusted: true, extensionPath: dir(), script: capable(), ...options, branch: typing(inputs) },
+      async ({ commands, vscode, calls, item }) => {
+        await commands["kanbanzai.init"]();
+        assert.equal(dryOf(calls).length, 0);
+        assert.deepEqual(vscode.errors, []);
+        assert.equal(item.text, "$(rocket) Kanbanzai: Init");
+      });
+    assert.equal(JSON.stringify(fs.readdirSync(project, { recursive: true }).sort()), was);
+  }
+});
+
+test("Init with an older command asks neither question and says so on the first line of the plan tab", async () => {
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script: capable("usage: kanbanzai init [--plugins LIST]\n"), pick: picking() },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      assert.equal(vscode.picks.length, 1, "only the agents");
+      assert.deepEqual(dryOf(calls).map((c) => c.args), [["init", "--dry-run", "--json", "--plugins", "claude,opencode", "--plugin-source", "@bundled", "--board-main"]]);
+      const text = vscode.providers["kanbanzai-plan"].provideTextDocumentContent(vscode.workspaceOpen[0]);
+      assert.match(text.split("\n")[0], /^Note: .*older.*--preset.*--store/);
+    });
+});
+
+const STORE_REPORT = (() => {
+  const r = JSON.parse(REPORT);
+  r.plan.settings.store = { plugin: "github", settings: { repo: "acme/widgets", label: "kanbanzai" }, query: "", source: "--store", next_steps: [] };
+  return JSON.stringify(r);
+})();
+const applyScript = (extra = {}) => scripted({
+  before: (cmd, args) => {
+    if (args[0] === "init" && args.includes("--dry-run") && args.includes("--json")) return { stdout: STORE_REPORT };
+    return extra.before ? extra.before(cmd, args) : undefined;
+  },
+});
+const installedDir = () => path.join(emptyHome, ".local", "share", "kanbanzai", "bin");
+const afterInit = (calls) => calls.slice(calls.findIndex((c) => c.args[0] === "init" && c.args.includes("--plan") && !c.args.includes("--dry-run")) + 1)
+  .filter((c) => !["sessions", "config", "board", "migrate"].includes(c.args[0]) || c.args.length !== 2);
+
+test("Apply with a store plan offers Trust and sync; clicking it runs store trust then sync with the install folder first on PATH", async () => {
+  const project = gitProject();
+  await run({ folders: folder(project), trusted: true, extensionPath: dir(), script: applyScript(), click: "Trust and sync" },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      await commands["kanbanzai.apply"]();
+      await settle();
+      const offer = vscode.infos.find((i) => i[1] === "Trust and sync");
+      assert.ok(offer, JSON.stringify(vscode.infos));
+      assert.match(offer[0], /github/);
+      assert.match(offer[0], /as you/);
+      const after = afterInit(calls);
+      assert.deepEqual(after.map((c) => c.args), [["store", "trust"], ["sync"]]);
+      for (const c of after) {
+        assert.equal(c.cmd, path.join(installedDir(), "kanbanzai"));
+        assert.equal(c.opts.cwd, project);
+        assert.ok(c.opts.env.PATH.startsWith(installedDir() + path.delimiter), c.opts.env.PATH);
+      }
+      assert.deepEqual(vscode.errors, []);
+    });
+});
+
+test("Apply with a store plan runs nothing when the notice is dismissed", async () => {
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script: applyScript(), click: undefined },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      await commands["kanbanzai.apply"]();
+      await settle();
+      assert.ok(vscode.infos.some((i) => i[1] === "Trust and sync"));
+      assert.deepEqual(afterInit(calls), []);
+    });
+});
+
+test("Apply with a store plan: a failing trust shows its stderr and sync does not run", async () => {
+  const script = applyScript({ before: (cmd, args) => (args[0] === "store" ? { code: 1, stderr: "kanbanzai-store-github was not found on PATH" } : undefined) });
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script, click: "Trust and sync" },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      await commands["kanbanzai.apply"]();
+      await settle();
+      assert.deepEqual(afterInit(calls).map((c) => c.args), [["store", "trust"]]);
+      assert.equal(vscode.errors.length, 1);
+      assert.match(vscode.errors[0][0], /kanbanzai-store-github was not found on PATH/);
+    });
+});
+
+test("Apply without a store in the plan offers nothing", async () => {
+  await run({ folders: folder(gitProject()), trusted: true, extensionPath: dir(), script: scripted(), click: "Trust and sync" },
+    async ({ commands, vscode, calls }) => {
+      await commands["kanbanzai.init"]();
+      await commands["kanbanzai.apply"]();
+      await settle();
+      assert.equal(vscode.infos.some((i) => i.length > 1), false);
+      assert.deepEqual(afterInit(calls), []);
+    });
 });
