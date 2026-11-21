@@ -3,6 +3,26 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.33.0] — 2026-11-21
+
+- CHANGE-103: a host plugs its own tooling in by configuration, not by prose that overrides what a command prints.
+  Everything here is optional; a project that sets none of it sees no change.
+  - `[project] worktree_command` makes `kanbanzai workspace ID` print the host's own one-line command, with `{id}`,
+    `{branch}`, `{path}`, `{base}` (the main branch) and `{main}` (the main checkout) filled in, in place of the two
+    `git worktree add` lines. It is printed, never run. `plugins link`, the remove steps and `move ... start --where`
+    are as before. It needs `[flow] isolation = "worktree"`.
+  - `[routes.do]`, `[routes.triage]` and `[routes.cleanup]` take `extend` and `context`, as a step does.
+    `kanbanzai step do` (or `triage`, `cleanup`) prints them, and each of the three skills runs it first and follows
+    what it prints, so a host's rules for when to push, what authorizes a pull request or what runs before cleanup live
+    in the host's files. Any other route name is refused, and so is a route and a step with the same name.
+    `workflow validate` and `plan` warn about an `extend` skill that is not there.
+  - `{type}` (the type's key) and `{branch_prefix}` work in `branch`, and `{type}` in a folder of `worktree`, so
+    `branch = "{branch_prefix}{id}"` with `branch_prefix = "feat/"` on `[[types]]` gives `feat/CHANGE-103`. A card keeps
+    its branch for its life, since both come from its id. A title-based `{slug}` is not offered, because a renamed
+    title would strand the card's branch. An unknown `{placeholder}` in `branch`, `worktree` or `batch_branch` is now
+    refused when the config loads. `config --json` carries `worktree_command`, each type's `branch_prefix` and
+    `routes`; `step --json` marks a route with `is_route`. Docs: `docs/host-integration.md`.
+
 ## [0.32.1] — 2026-11-20
 
 - BUG-102: the editor's guided setup with the GitHub issues store works from the extension alone. The `.vsix` now carries
