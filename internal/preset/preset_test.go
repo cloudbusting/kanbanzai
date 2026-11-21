@@ -341,3 +341,63 @@ func mustLoad(t *testing.T, name string) *Preset {
 	}
 	return p
 }
+
+// prefixPreset is a copy of the local fixture whose branch pattern uses {branch_prefix} and whose type sets one.
+func prefixPreset(t *testing.T, prefix string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "preset")
+	src := filepath.Join("testdata", "localpreset")
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, path)
+		if info.IsDir() {
+			return os.MkdirAll(filepath.Join(dir, rel), 0o755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dir, rel), data, 0o644)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit(t, dir, "config.toml", "default_type = \"note\"\n", "default_type = \"note\"\nbranch = \"{branch_prefix}{id}\"\n")
+	edit(t, dir, "config.toml", "prefix = \"NOTE\"\n", "prefix = \"NOTE\"\nbranch_prefix = \""+prefix+"\"\n")
+	return dir
+}
+
+func TestAPresetsTypeTakesABranchPrefix(t *testing.T) {
+	p, err := Load(prefixPreset(t, "fix/"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := p.Types[0]["branch_prefix"]; got != "fix/" {
+		t.Fatalf("loaded type branch_prefix = %v", got)
+	}
+	// The config init writes carries it, and the project it makes names the branch with it.
+	text := p.ConfigText(Settings{Owner: "Sam"})
+	if !strings.Contains(text, "branch_prefix = \"fix/\"") {
+		t.Fatalf("config text does not carry branch_prefix:\n%s", text)
+	}
+	project, cleanup, err := p.resolve(Settings{Owner: "Sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if got := project.Types[0].BranchPrefix; got != "fix/" {
+		t.Fatalf("resolved type BranchPrefix = %q", got)
+	}
+}
+
+func TestAPresetRefusesABranchPrefixTheProjectConfigRefuses(t *testing.T) {
+	_, err := Load(prefixPreset(t, "../x/"))
+	if err == nil {
+		t.Fatal("a preset with an unusable branch_prefix loaded")
+	}
+	if !strings.Contains(err.Error(), "is not usable at the start of a git branch name") {
+		t.Fatalf("error %q is not the project config's message", err)
+	}
+}

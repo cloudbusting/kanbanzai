@@ -122,7 +122,7 @@ same three parts as a shipped preset, and nothing else:
 | File | What it is |
 |---|---|
 | `flow.toml` | a flow file, in exactly the text `workflow export` writes for the flow it makes (leading comments may stay) |
-| `config.toml` | `[preset]` with `name`, `delivery_style`, `version` (a positive integer), `summary`, `best_for`, `not_for`; the `[project]` keys `default_type`, `worktree`, `branch`, `batch_branch` and `template` only; `[[types]]`; `[schemas.<name>]` |
+| `config.toml` | `[preset]` with `name`, `delivery_style`, `version` (a positive integer), `summary`, `best_for`, `not_for`; the `[project]` keys `default_type`, `worktree`, `branch`, `batch_branch` and `template` only; `[[types]]` (`key`, `label`, `prefix`, `template`, `schema`, `colour`, `icon`, `description`, `branch_prefix`); `[schemas.<name>]` |
 | `templates/<file>.md` | the brief template a type names as `template = ".kanbanzai/templates/<file>.md"`; every file must be named by a type |
 
 Owner approval, a review lane, a train, a deploy-free flow, the isolation mode and where cards are merged all live in
