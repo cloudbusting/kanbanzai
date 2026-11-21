@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,6 +91,17 @@ func (c Column) CountsWithClaim() bool {
 	return ok && value == "claimed"
 }
 
+// RouteNames are the skills that run a card along its route and so take `extend` and `context` of their own: the
+// main-session skills that span steps. A route is not a step: it moves no card and is not a column's next step.
+var RouteNames = []string{"do", "triage", "cleanup"}
+
+// Route is what a project adds to one of those skills.
+type Route struct {
+	Name    string
+	Extend  []string
+	Context []string
+}
+
 // Step is one workflow step.
 type Step struct {
 	Name    string
@@ -140,6 +152,7 @@ type Project struct {
 	StoreQuery         string            // a remote store's query, store-native and passed verbatim; empty means all
 	StoreSettings      map[string]string // [store.settings], passed to the plugin as data
 	WorktreePattern    string
+	WorktreeCommand    string // the host's own command that makes a card's worktree, printed by `workspace`; empty: git's
 	BranchPattern      string
 	BatchBranchPattern string
 	OwnerEnv           string
@@ -170,6 +183,7 @@ type Project struct {
 
 	Steps     map[string]Step
 	StepOrder []string
+	Routes    map[string]Route // [routes.<name>]: what the do, triage and cleanup skills also follow and read first
 
 	IDPattern  string
 	CardRe     *regexp.Regexp
@@ -411,6 +425,10 @@ func (p *Project) build() error {
 	p.WorktreePattern = asString(project["worktree"], "../worktrees/{repo}/{id}")
 	p.BranchPattern = asString(project["branch"], "{id}")
 	p.BatchBranchPattern = asString(project["batch_branch"], "batch/{id}")
+	p.WorktreeCommand = strings.TrimSpace(asString(project["worktree_command"], ""))
+	if err := p.checkPlacements(); err != nil {
+		return err
+	}
 
 	if p.Home, err = p.path(asString(project["home"], ".kanbanzai")); err != nil {
 		return err
@@ -463,6 +481,9 @@ func (p *Project) build() error {
 		p.OwnerEnv = "KANBANZAI_OWNER"
 	}
 	p.Isolation = asString(flow["isolation"], "worktree")
+	if err := p.checkWorktreeCommand(); err != nil {
+		return err
+	}
 	p.Integration = asString(flow["integration"], "local")
 	if err := p.loadBoard(); err != nil {
 		return err
@@ -492,6 +513,9 @@ func (p *Project) build() error {
 		return err
 	}
 	if err := p.steps(); err != nil {
+		return err
+	}
+	if err := p.routes(); err != nil {
 		return err
 	}
 	pullOrder, err := stringList(flow["pull_order"])
@@ -566,13 +590,14 @@ func (p *Project) types() ([]typeid.Type, error) {
 			return nil, errf("[[types]] #%d must be a table", index+1)
 		}
 		value := typeid.Type{
-			Key:         asString(entry["key"], ""),
-			Label:       asString(entry["label"], ""),
-			Prefix:      asString(entry["prefix"], ""),
-			Schema:      asString(entry["schema"], ""),
-			Colour:      asString(entry["colour"], ""),
-			Icon:        asString(entry["icon"], ""),
-			Description: asString(entry["description"], ""),
+			Key:          asString(entry["key"], ""),
+			Label:        asString(entry["label"], ""),
+			Prefix:       asString(entry["prefix"], ""),
+			Schema:       asString(entry["schema"], ""),
+			Colour:       asString(entry["colour"], ""),
+			Icon:         asString(entry["icon"], ""),
+			Description:  asString(entry["description"], ""),
+			BranchPrefix: asString(entry["branch_prefix"], ""),
 		}
 		if template := strings.TrimSpace(asString(entry["template"], "")); template != "" {
 			path, err := p.path(template)
@@ -699,6 +724,38 @@ func (p *Project) columns() error {
 		if column.Kind == "open" {
 			p.OpenKeys = append(p.OpenKeys, column.Key)
 		}
+	}
+	return nil
+}
+
+// routes reads [routes.<name>]. A name that is not one of RouteNames is refused, so a typo is never silently ignored.
+func (p *Project) routes() error {
+	raw, err := p.section("routes")
+	if err != nil {
+		return err
+	}
+	p.Routes = map[string]Route{}
+	for name, item := range raw {
+		if !slices.Contains(RouteNames, name) {
+			return errf("[routes.%s]: a route is one of %s", name, strings.Join(RouteNames, ", "))
+		}
+		if _, isStep := p.Steps[name]; isStep {
+			return errf("[routes.%s] and [steps.%s] share a name: a project has a step or a route of that name, not "+
+				"both", name, name)
+		}
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return errf("[routes.%s] must be a table", name)
+		}
+		extend, err := stringList(entry["extend"])
+		if err != nil {
+			return errf("[routes.%s]: extend must be a list", name)
+		}
+		context, err := stringList(entry["context"])
+		if err != nil {
+			return errf("[routes.%s]: context must be a list", name)
+		}
+		p.Routes[name] = Route{Name: name, Extend: extend, Context: context}
 	}
 	return nil
 }
@@ -955,12 +1012,92 @@ func (p *Project) storeCardNumber(value string) (int, bool) {
 // BoardOnBranch reports whether the board lives on its own branch, off the main branch.
 func (p *Project) BoardOnBranch() bool { return p.BoardHome == "branch" }
 
-// Expand replaces {git_common}, {repo} and {id} in a setting.
+// WorktreeCommandPlaceholders are the values a project.worktree_command can name.
+var WorktreeCommandPlaceholders = []string{"{id}", "{branch}", "{path}", "{base}", "{main}"}
+
+// checkWorktreeCommand refuses a make command that cannot be printed as it is written: it is one line, names only
+// the values `workspace` has, and belongs to a project that makes a worktree per card.
+func (p *Project) checkWorktreeCommand() error {
+	if p.WorktreeCommand == "" {
+		return nil
+	}
+	if strings.ContainsAny(p.WorktreeCommand, "\r\n") {
+		return errf("project.worktree_command must be one line")
+	}
+	for _, found := range anyPlaceholder.FindAllString(p.WorktreeCommand, -1) {
+		if !slices.Contains(WorktreeCommandPlaceholders, found) {
+			return errf("project.worktree_command uses %s, which is not a value it can take (they are %s)", found,
+				strings.Join(WorktreeCommandPlaceholders, ", "))
+		}
+	}
+	if p.Isolation != "worktree" {
+		return errf("project.worktree_command makes a worktree, but flow.isolation is %q; remove it or use isolation "+
+			"\"worktree\"", p.Isolation)
+	}
+	return nil
+}
+
+var anyPlaceholder = regexp.MustCompile(`\{[^{}]*\}`)
+
+// checkPlacements refuses a placeholder where it cannot be worked out: {type} and {branch_prefix} come from a card's
+// type, so a batch branch (named by a batch id) has none; {branch_prefix} is for the branch only; and {type} in the
+// worktree's last part would hide the id the audit looks for, so it goes in a folder above it.
+func (p *Project) checkPlacements() error {
+	settings := []struct{ name, pattern string }{
+		{"branch", p.BranchPattern}, {"worktree", p.WorktreePattern}, {"batch_branch", p.BatchBranchPattern},
+	}
+	for _, setting := range settings {
+		for _, found := range anyPlaceholder.FindAllString(setting.pattern, -1) {
+			name := found[1 : len(found)-1]
+			switch {
+			case name == "id" || name == "repo" || name == "git_common":
+			case (name == "type" || name == "branch_prefix") && setting.name == "batch_branch":
+				return errf("project.batch_branch uses %s, but a batch is named by a batch id and has no type; use {id}", found)
+			case name == "type" && setting.name != "worktree" && setting.name != "branch":
+				return errf("project.%s uses %s, which only branch and worktree take", setting.name, found)
+			case name == "branch_prefix" && setting.name != "branch":
+				return errf("project.%s uses %s, which only the branch pattern takes (use {type} for a folder)",
+					setting.name, found)
+			case name == "type" || name == "branch_prefix":
+			default:
+				return errf("project.%s uses %s, which is not a placeholder (they are {id}, {repo}, {git_common}, "+
+					"{type} and {branch_prefix})", setting.name, found)
+			}
+		}
+	}
+	leaf := strings.ReplaceAll(p.WorktreePattern, "\\", "/")
+	if index := strings.LastIndex(leaf, "/"); index >= 0 {
+		leaf = leaf[index+1:]
+	}
+	if strings.Contains(leaf, "{type}") {
+		return errf("project.worktree has {type} in its last part (%q); put it in a folder above the card's own, "+
+			"such as ../{type}/{id}", leaf)
+	}
+	return nil
+}
+
+// Expand replaces {git_common}, {repo}, {id}, {type} and {branch_prefix} in a setting. {type} (the type's key) and
+// {branch_prefix} (its branch_prefix, empty when it has none) come from the card's id; a legacy card has no type, so
+// both are empty. With no card they stay as written, as {id} does.
 func (p *Project) Expand(text, card string) (string, error) {
 	var firstErr error
-	placeholder := regexp.MustCompile(`\{(git_common|repo|id)\}`)
+	emptied := false
+	placeholder := regexp.MustCompile(`\{(git_common|repo|id|type|branch_prefix)\}`)
 	out := placeholder.ReplaceAllStringFunc(text, func(found string) string {
 		switch found[1 : len(found)-1] {
+		case "type", "branch_prefix":
+			if card == "" {
+				return found
+			}
+			item, _ := p.TypeOf(card)
+			value := item.BranchPrefix
+			if found == "{type}" {
+				value = item.Key
+			}
+			if value == "" {
+				emptied = true
+			}
+			return value
 		case "repo":
 			return filepath.Base(p.Root)
 		case "id":
@@ -977,6 +1114,9 @@ func (p *Project) Expand(text, card string) (string, error) {
 		}
 		return found
 	})
+	if emptied {
+		out = strings.ReplaceAll(out, "//", "/")
+	}
 	return out, firstErr
 }
 
@@ -1224,6 +1364,9 @@ func (p *Project) TypeInfos() []any {
 		if info.Description != "" {
 			entry["description"] = info.Description
 		}
+		if info.BranchPrefix != "" {
+			entry["branch_prefix"] = info.BranchPrefix
+		}
 		out = append(out, entry)
 	}
 	return out
@@ -1305,7 +1448,7 @@ func (p *Project) AsDict() map[string]any {
 	project := map[string]any{
 		"prefix": p.Prefix, "digits": p.Digits, "owner": p.Owner, "main_branch": p.MainBranch,
 		"home": p.Home, "work": p.Work, "state": p.State, "claims": p.Claims, "numbers": p.Numbers,
-		"batches": p.Batches, "template": p.Template, "worktree": p.WorktreePattern,
+		"batches": p.Batches, "template": p.Template, "worktree": p.WorktreePattern, "worktree_command": p.WorktreeCommand,
 		"branch": p.BranchPattern, "batch_branch": p.BatchBranchPattern, "context": p.ContextFiles(),
 		"typed": p.Typed, "default_type": p.DefaultType, "project_key": p.ProjectKey,
 		"types": p.TypeInfos(),
@@ -1331,6 +1474,10 @@ func (p *Project) AsDict() map[string]any {
 			"skip_field": optional(step.SkipField), "skip_values": step.SkipValues,
 		}
 	}
+	routes := make(map[string]any, len(p.Routes))
+	for name, route := range p.Routes {
+		routes[name] = map[string]any{"extend": nonNil(route.Extend), "context": nonNil(route.Context)}
+	}
 	return map[string]any{
 		"config_version": p.ConfigVersion, "config_allow_unknown": p.ConfigAllowUnknown,
 		"root": p.Root, "toplevel": p.Toplevel, "git_common": optional(p.GitCommon),
@@ -1348,6 +1495,7 @@ func (p *Project) AsDict() map[string]any {
 			"version": p.Preset.Version},
 		"columns": columns,
 		"steps":   steps,
+		"routes":  routes,
 	}
 }
 
@@ -1518,4 +1666,12 @@ func absoluteOrEmpty(path string) string {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.Mode().IsRegular()
+}
+
+// nonNil is a list that marshals as [] and not null.
+func nonNil(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }

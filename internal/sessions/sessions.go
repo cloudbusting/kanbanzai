@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -122,9 +123,19 @@ func UnclaimedAsking(owners map[string]string, project *config.Project) (out map
 func projectFolders(project *config.Project) []string {
 	folders := []string{canonicalPath(project.Root)}
 	// The setting's last element holds {id}; its parent is the folder every card worktree lives in.
+	// With {type} in a folder above it, each type has its own folder, so one is taken for every configured type.
 	if strings.Contains(filepath.Base(project.WorktreePattern), "{id}") {
-		if path := project.WorktreePath("card"); path != "" {
-			folders = append(folders, canonicalPath(filepath.Dir(path)))
+		samples := []string{"card"}
+		for _, item := range project.Types {
+			samples = append(samples, project.TypeSet.Format(item, 1))
+		}
+		for _, sample := range samples {
+			if path := project.WorktreePath(sample); path != "" {
+				folder := canonicalPath(filepath.Dir(path))
+				if !slices.Contains(folders, folder) {
+					folders = append(folders, folder)
+				}
+			}
 		}
 	}
 	return folders

@@ -95,6 +95,45 @@ skill = "deploy"                   # the host's own skill replaces Kanbanzai's f
 `.opencode/…`) and are written in its own words and with its own names; Kanbanzai takes no name from the host and puts
 none in its own files.
 
+## Plugging the host's own tooling in
+
+A host with its own delivery tooling (a script that makes a worktree and leaves a task note, a skill that opens a
+pull request) names it in settings, so Kanbanzai prints the host's way and not a second one. Three settings do it. Each
+defaults to what Kanbanzai has always done, so a host that sets none sees no change.
+
+**Its own worktree command.** `[project] worktree_command` is printed by `kanbanzai workspace ID` in place of the two
+`git worktree add` lines. It is one line of text over five values, and Kanbanzai prints it and never runs it:
+
+```toml
+[project]
+worktree_command = "scripts/start {id} {branch} {path} {base} {main}"
+```
+
+`{id}` is the card, `{branch}` and `{path}` are its branch and worktree as `branch` and `worktree` give them, `{base}` is
+`main_branch` and `{main}` is the main checkout's absolute path. The host's script decides whether the branch exists, so
+there is one line, not a new-card line and an existing-branch line. The remove steps, `plugins link` and
+`move ... start --where` are as before. It needs `[flow] isolation = "worktree"`; `config` refuses it with another mode.
+
+**Its own rules for `/do`, `/triage` and `/cleanup`.** A step takes `extend` and `context`; these three skills carry a
+card across steps and are not steps, so they have their own table:
+
+```toml
+[routes.do]
+extend = ["our-delivery-rules"]    # when to push, what authorizes a pull request, how the merged gate is recorded
+context = ["docs/delivery.md"]
+
+[routes.cleanup]
+extend = ["our-cleanup-rules"]     # what runs before a workspace is removed
+```
+
+`kanbanzai step do` prints them as `step build` prints a step's (`also follow (project skills)`, `read first (this
+route)`), and each of the three skills runs it first and follows what it prints. With no `[routes]` table it prints the
+route and nothing more. Only `do`, `triage` and `cleanup` are routes; any other name is refused, and so is a route and a
+step with the same name. `workflow check` and `workflow plan` warn about an `extend` skill that is not there.
+
+**Branch names that start with the kind of change.** `branch` and `worktree` take `{type}` and `{branch_prefix}`:
+[types.md](types.md#branch-and-worktree-names-by-type).
+
 ## One example, not a requirement
 
 A typical host is a product repository with a rules file, a few code skills, a test command and a manual release.

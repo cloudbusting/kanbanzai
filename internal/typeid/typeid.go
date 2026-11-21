@@ -18,10 +18,11 @@ import (
 )
 
 var (
-	keyRE        = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-	prefixRE     = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
-	colourRE     = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
-	digitsNumber = regexp.MustCompile(`^\d+$`)
+	keyRE          = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	prefixRE       = regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
+	colourRE       = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+	branchPrefixRE = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._/-]*$`)
+	digitsNumber   = regexp.MustCompile(`^\d+$`)
 )
 
 // Type is one issue type.
@@ -34,6 +35,9 @@ type Type struct {
 	Colour      string
 	Icon        string
 	Description string
+	// BranchPrefix starts the branch of every card of this type, through {branch_prefix} in the branch pattern
+	// (`feat/`); empty means none.
+	BranchPrefix string
 }
 
 // Set is a project's validated types and the default selection.
@@ -64,6 +68,7 @@ func Validate(types []Type, defaultKey, projectKey string, digits int) (*Set, er
 		item.Colour = strings.TrimSpace(item.Colour)
 		item.Icon = strings.TrimSpace(item.Icon)
 		item.Description = strings.TrimSpace(item.Description)
+		item.BranchPrefix = strings.TrimSpace(item.BranchPrefix)
 		if !keyRE.MatchString(item.Key) {
 			return nil, fmt.Errorf("type %d: key must be a lower-case identifier starting with a letter, not %q",
 				number, item.Key)
@@ -78,6 +83,9 @@ func Validate(types []Type, defaultKey, projectKey string, digits int) (*Set, er
 		if item.Colour != "" && !colourRE.MatchString(item.Colour) {
 			return nil, fmt.Errorf("type %q: colour must be # plus six hexadecimal digits, not %q", item.Key,
 				item.Colour)
+		}
+		if err := checkBranchPrefix(item.BranchPrefix); err != nil {
+			return nil, fmt.Errorf("type %q: branch_prefix %v", item.Key, err)
 		}
 		lowerKey, upperPrefix := strings.ToLower(item.Key), strings.ToUpper(item.Prefix)
 		if other, ok := byKey[lowerKey]; ok {
@@ -118,6 +126,21 @@ func Validate(types []Type, defaultKey, projectKey string, digits int) (*Set, er
 	}
 
 	return &Set{Types: clean, Default: chosen, ProjectKey: projectKey, Digits: digits}, nil
+}
+
+// checkBranchPrefix refuses a prefix a git branch name cannot start with: it is joined in front of the card id, so
+// it holds only letters, digits and `._/-`, starts with a letter, digit or underscore, and has no `..`, `//`, `/.`
+// or `.lock` part.
+func checkBranchPrefix(prefix string) error {
+	if prefix == "" {
+		return nil
+	}
+	if !branchPrefixRE.MatchString(prefix) || strings.Contains(prefix, "..") || strings.Contains(prefix, "//") ||
+		strings.Contains(prefix, "/.") || strings.HasSuffix(prefix, ".") || strings.Contains(prefix, ".lock") {
+		return fmt.Errorf("%q is not usable at the start of a git branch name: use letters, digits and ._/- only, "+
+			"starting with a letter or digit, such as \"feat/\"", prefix)
+	}
+	return nil
 }
 
 func keys(types []Type) []string {
@@ -299,18 +322,19 @@ func (s *Set) Example() string {
 
 // TypeInfo is a type as the board and config JSON expose it.
 type TypeInfo struct {
-	Key         string `json:"key"`
-	Label       string `json:"label"`
-	Prefix      string `json:"prefix"`
-	Template    string `json:"template,omitempty"`
-	Schema      string `json:"schema,omitempty"`
-	Colour      string `json:"colour,omitempty"`
-	Icon        string `json:"icon,omitempty"`
-	Description string `json:"description,omitempty"`
+	Key          string `json:"key"`
+	Label        string `json:"label"`
+	Prefix       string `json:"prefix"`
+	Template     string `json:"template,omitempty"`
+	Schema       string `json:"schema,omitempty"`
+	Colour       string `json:"colour,omitempty"`
+	Icon         string `json:"icon,omitempty"`
+	Description  string `json:"description,omitempty"`
+	BranchPrefix string `json:"branch_prefix,omitempty"`
 }
 
 // Info is the type's JSON shape.
 func (t Type) Info() TypeInfo {
 	return TypeInfo{Key: t.Key, Label: t.Label, Prefix: t.Prefix, Template: t.Template, Schema: t.Schema, Colour: t.Colour,
-		Icon: t.Icon, Description: t.Description}
+		Icon: t.Icon, Description: t.Description, BranchPrefix: t.BranchPrefix}
 }

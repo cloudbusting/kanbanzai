@@ -163,6 +163,11 @@ func Batches(project *config.Project) []Batch {
 	if strings.Contains(leaf, "{id}") {
 		stem, _ = project.Expand(strings.SplitN(leaf, "{id}", 2)[0], "")
 	}
+	// {type} in a folder is any one folder, since the batch's map names the workspace and not the card's type.
+	const anyFolder = "\x00"
+	folderRE := func(folder string) string {
+		return strings.ReplaceAll(regexp.QuoteMeta(strings.ReplaceAll(folder, "{type}", anyFolder)), anyFolder, `[^/| ]+`)
+	}
 	var spacesRE *regexp.Regexp
 	if stem != "" {
 		spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(stem) + `[^| ]+) \|`)
@@ -177,7 +182,7 @@ func Batches(project *config.Project) []Batch {
 					expanded = expanded[strings.Index(expanded, "/")+1:]
 				}
 				if expanded != "" && expanded != ".." && expanded != "." {
-					spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + regexp.QuoteMeta(expanded) + `/[^| /]+) \|`)
+					spacesRE = regexp.MustCompile(`\| (?:worktree )?([./][^|]*?` + folderRE(expanded) + `/[^| /]+) \|`)
 				}
 			}
 		}

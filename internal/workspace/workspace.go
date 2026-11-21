@@ -173,11 +173,18 @@ func Vocabulary(p *config.Project) []string {
 }
 
 // MakeSteps are the commands that give a card its workspace: for a new card first, for one whose branch exists second.
+//
+// A project that names its own command (project.worktree_command) gets that one line, with the card's values filled in,
+// in place of both git lines: the host's script decides whether the branch exists. It is printed and never run here.
 func MakeSteps(p *config.Project, card string) []string {
 	branch := p.Branch(card, false)
 	switch Of(p) {
 	case Worktree:
 		path := p.WorktreeHint(card)
+		if p.WorktreeCommand != "" {
+			return []string{strings.NewReplacer("{id}", card, "{branch}", branch, "{path}", path, "{base}", p.MainBranch,
+				"{main}", p.Root).Replace(p.WorktreeCommand)}
+		}
 		return []string{fmt.Sprintf("git worktree add %s -b %s %s", path, branch, p.MainBranch),
 			fmt.Sprintf("git worktree add %s %s", path, branch)}
 	case Branch:
@@ -215,6 +222,10 @@ func Missing(p *config.Project, label, card string) string {
 	case External:
 		return fmt.Sprintf("%s needs the card's workspace recorded: pass --where \"external <ref>\" in this move", label)
 	}
+	if p.WorktreeCommand != "" {
+		return fmt.Sprintf("%s needs the card's worktree: make it (%s) and pass --where \"worktree %s\" in this move",
+			label, MakeSteps(p, card)[0], card)
+	}
 	return fmt.Sprintf("%s needs the card's worktree: make it (../<repo>-%s) and pass --where \"worktree %s\" in this move",
 		label, card, card)
 }
@@ -224,8 +235,12 @@ func Missing(p *config.Project, label, card string) string {
 func StartHint(p *config.Project, card string) string {
 	switch Of(p) {
 	case Worktree:
+		made := p.WorktreeHint(card)
+		if p.WorktreeCommand != "" {
+			made = MakeSteps(p, card)[0]
+		}
 		return fmt.Sprintf("now: make the worktree (%s), then run: kanbanzai move %s start --where \"worktree %s\"",
-			p.WorktreeHint(card), card, card)
+			made, card, card)
 	case Branch:
 		return fmt.Sprintf("now: make the branch (%s), then run: kanbanzai move %s start --where \"branch %s\"",
 			MakeSteps(p, card)[0], card, card)
@@ -271,10 +286,12 @@ type Info struct {
 	Record          string   `json:"record"`
 	WhereVocabulary []string `json:"where_vocabulary"`
 	Make            []string `json:"make"`
-	Then            string   `json:"then"`
-	WorkIn          string   `json:"work_in"`
-	Remove          []string `json:"remove"`
-	Parallel        bool     `json:"parallel"`
+	// MakeCustom is true when Make is the project's own worktree_command (one line) and not git's two.
+	MakeCustom bool     `json:"make_custom"`
+	Then       string   `json:"then"`
+	WorkIn     string   `json:"work_in"`
+	Remove     []string `json:"remove"`
+	Parallel   bool     `json:"parallel"`
 	// Link is the command that gives a new worktree the bundled OpenCode plugin's pointer file (BUG-79), or "" when
 	// the project does not need it.
 	Link string `json:"link"`
@@ -290,6 +307,7 @@ func Describe(p *config.Project, card string) Info {
 	if info.Remove == nil {
 		info.Remove = []string{}
 	}
+	info.MakeCustom = Of(p) == Worktree && p.WorktreeCommand != ""
 	info.Then = fmt.Sprintf("kanbanzai move %s start", card)
 	if Needs(p) {
 		info.Then += fmt.Sprintf(" --where \"%s\"", info.Record)

@@ -203,6 +203,7 @@ func TestAFlowFileHoldsOnlyTheFlow(t *testing.T) {
 		"version":       "config_version = 1\n[flow]\nwip_limit = 3\n",
 		"steps scalar":  "steps = 3\n",
 		"columns table": "[columns]\nkey = \"a\"\n",
+		"routes table":  "[routes.do]\nextend = [\"x\"]\n",
 	} {
 		if _, err := Parse([]byte(text), false); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -378,5 +379,19 @@ func TestTheShippedFlowFinishesOnlyFromDoingColumns(t *testing.T) {
 		if tr.Kind == "skip" {
 			t.Errorf("the shipped flow has no skip hop: %+v", tr)
 		}
+	}
+}
+
+// A route is not a step: applying a flow changes the flow's tables and leaves a project's [routes] as it was.
+func TestSpliceKeepsTheRoutes(t *testing.T) {
+	old := "config_version = 1\n[project]\nowner = \"x\"\n\n[routes.do]\nextend = [\"our-bridge\"]\n\n[flow]\nwip_limit = 4\n"
+	doc, _ := Parse([]byte("[flow]\nwip_limit = 2\n"), false)
+	out, err := Splice(old, doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "[routes.do]\nextend = [\"our-bridge\"]") || !strings.Contains(out, "wip_limit = 2") ||
+		strings.Contains(out, "wip_limit = 4") {
+		t.Fatalf("the routes did not survive:\n%s", out)
 	}
 }

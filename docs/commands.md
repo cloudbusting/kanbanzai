@@ -21,7 +21,7 @@ kanbanzai gate pass|fail|status [ID…]    record that a card's gate passed or f
 kanbanzai number [--type KEY] [--status|--release ID|--mark ID]
 kanbanzai number --title T [--type KEY]  with a store plugin: create the ticket, print its id, and write its brief
 kanbanzai check                          validate every brief against the settings
-kanbanzai step NAME | --for ID           what runs a step, and what extends it
+kanbanzai step NAME | --for ID           what runs a step (or a route: do, triage, cleanup), and what extends it
 kanbanzai sessions [--json]              the claimed cards with a live session, and what it is doing; for a board on a branch, `--json` adds a `board` object (branch, head, ahead, behind, uncommitted, publish; local git only)
 kanbanzai config [--json]                the versioned, resolved settings
 kanbanzai config upgrade [--apply]       preview/apply a non-destructive config upgrade
@@ -32,7 +32,7 @@ kanbanzai guide [--json]                 the cheat sheet of commands and common 
 kanbanzai doctor [--json] [--board]        local installation diagnostics (no repairs); --board adds the board-branch checks (git and agent hooks)
 kanbanzai workflow show|validate|plan|apply|export|presets
                                          show, check, plan, apply and export the flow (columns and steps)
-kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how
+kanbanzai workspace ID [--json]          where a card's change is made in this project's isolation mode, and how (prints `[project] worktree_command` when the project sets one)
 kanbanzai plugins link [DIR]             give the worktree holding DIR (default: the current folder) the bundled OpenCode plugin's pointer file
 kanbanzai resolve ID|NUMBER              the canonical card id for an id or a bare number (07 and 123 name the card with that number)
 kanbanzai context                        the standing context the hooks inject

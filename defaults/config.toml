@@ -29,12 +29,18 @@ numbers = ""                      # empty: <state>/numbers
 batches = ""                      # empty: <work>/batches
 template = ""                     # empty: the template embedded in the kanbanzai binary
 worktree = "../worktrees/{repo}/{id}"  # a card's worktree; {repo} is the main checkout's folder name (the project folder under worktrees/)
+                                  # {type} (the card type's key) may stand in a folder above the last part: "../{type}/{id}"
+# worktree_command = "scripts/start {id} {branch} {path} {base} {main}"
+                                  # the host's own command that makes a card's worktree: `workspace` prints it, filled in,
+                                  # instead of the two `git worktree add` lines. Kanbanzai never runs it. One line; only
+                                  # worktree isolation; {base} is main_branch and {main} the main checkout's path
 main_branch = "main"              # the branch the board and finished work live on
-branch = "{id}"                   # a card's branch
+branch = "{id}"                   # a card's branch; "{branch_prefix}{id}" starts it with the type's branch_prefix (feat/CHANGE-07)
 batch_branch = "batch/{id}"       # a card's branch inside a batch
 context = []                      # project files every Kanbanzai skill reads first (rules, where things stand)
 
-# Issue types. Typed ids are the default: every card id is <TYPE-PREFIX>-<number>, or
+# Issue types (a type may also set `branch_prefix = "feat/"`, which {branch_prefix} in project.branch puts in front of
+# the id of every card of that type; empty by default). Typed ids are the default: every card id is <TYPE-PREFIX>-<number>, or
 # <project_key>-<TYPE-PREFIX>-<number> when a project key is set, and every type allocates from ONE global number
 # sequence (BUG-07 is the seventh item overall, not the seventh bug). Type keys are lower-case; prefixes are
 # upper-case. project.prefix is the LEGACY prefix: a card called <prefix>-NN stays valid, is not rewritten, and moves
@@ -363,3 +369,12 @@ extend = []
 context = []
 skip_field = "Deploy"            # a card whose Deploy is None ships nothing: it skips this step
 skip_values = ["None"]
+
+# The routes. `do`, `triage` and `cleanup` are skills that carry a card across steps, so they are not steps: a project
+# adds its own rules to one with a [routes.<name>] table (when to push, what authorizes a pull request, what runs
+# before cleanup). `kanbanzai step do` prints it, and the skill reads it first. None is set by default.
+#   extend   project skills the route also follows
+#   context  project files the route reads before it starts
+# [routes.do]
+# extend = ["our-delivery-rules"]
+# context = ["docs/delivery.md"]

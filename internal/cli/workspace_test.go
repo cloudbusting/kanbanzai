@@ -117,3 +117,27 @@ func TestWorkflowShowNamesTheIsolationSetting(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkspacePrintsTheConfiguredMakeCommand(t *testing.T) {
+	root := testutil.Repo(t, "types = []\n[project]\nowner = \"Sam\"\nworktree = \"../wt/{id}\"\n"+
+		"worktree_command = \"scripts/start {id} {branch} {path} {base}\"\n")
+	testutil.Folders(t, root, "1-open", "x-paused", "10-done")
+	result := testutil.Run(t, root, nil, "workspace", "W-12")
+	if result.Code != 0 {
+		t.Fatalf("%+v", result)
+	}
+	if !strings.Contains(result.Stdout, "make (the project's worktree_command):\n  scripts/start W-12 W-12 ../wt/W-12 main\n") {
+		t.Errorf("the make command is not printed:\n%s", result.Stdout)
+	}
+	if strings.Contains(result.Stdout, "git worktree add") || strings.Contains(result.Stdout, "its branch exists") {
+		t.Errorf("a git worktree add line is printed beside the command:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, "git worktree remove ../wt/W-12") {
+		t.Errorf("the remove steps changed:\n%s", result.Stdout)
+	}
+	json := testutil.Run(t, root, nil, "workspace", "W-12", "--json")
+	if !strings.Contains(json.Stdout, `"make":["scripts/start W-12 W-12 ../wt/W-12 main"]`) ||
+		!strings.Contains(json.Stdout, `"make_custom":true`) {
+		t.Errorf("json = %s", json.Stdout)
+	}
+}

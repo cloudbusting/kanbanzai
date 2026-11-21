@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/cloudbusting/kanbanzai/internal/board"
@@ -40,6 +41,9 @@ type Description struct {
 	Owner          string    `json:"owner"`
 	Instead        *Instead  `json:"instead"`
 	Skip           *SkipRule `json:"skip"`
+	// Route is true for do, triage and cleanup: skills that carry a card across steps. A route moves no card, so
+	// its Into, IntoLabel, Checks, Instead and Skip are empty.
+	Route bool `json:"is_route"`
 }
 
 // StageMoves is the Stage words for a step: the Doing column to start in, the Done column to finish in, and whether
@@ -225,6 +229,12 @@ type SkipRule struct {
 func Describe(project *config.Project, name string) *Description {
 	step, ok := project.Steps[name]
 	if !ok {
+		if slices.Contains(config.RouteNames, name) {
+			route := project.Routes[name]
+			return &Description{Step: name, Active: true, Skill: "kanbanzai:" + name, HasSkill: true,
+				Extend: copyStrings(route.Extend), Context: copyStrings(route.Context), Checks: []string{},
+				ProjectContext: copyStrings(project.Context), Owner: project.Owner, Route: true}
+		}
 		return nil
 	}
 	var intoLabel *string
@@ -249,6 +259,19 @@ func Describe(project *config.Project, name string) *Description {
 
 // AsText is a description as the command prints it.
 func AsText(found *Description) string {
+	if found.Route {
+		lines := []string{"route: " + found.Step, "skill: " + found.Skill}
+		if len(found.Extend) > 0 {
+			lines = append(lines, "also follow (project skills): "+strings.Join(found.Extend, ", "))
+		}
+		if len(found.Context) > 0 {
+			lines = append(lines, "read first (this route): "+strings.Join(found.Context, ", "))
+		}
+		if len(found.ProjectContext) > 0 {
+			lines = append(lines, "read first (the project): "+strings.Join(found.ProjectContext, ", "))
+		}
+		return strings.Join(append(lines, "the owner to address: "+found.Owner), "\n")
+	}
 	lines := []string{"step: " + found.Step}
 	if !found.Active {
 		lines = append(lines, fmt.Sprintf("This project has no `%s` step: its column `%s` is not on the board.",
@@ -472,8 +495,8 @@ func Run(project *config.Project, opts Options) int {
 	}
 	found := Describe(project, opts.Name)
 	if found == nil {
-		fmt.Fprintf(errOut, "step: this project has no step named '%s' (it has: %s)\n", opts.Name,
-			strings.Join(project.StepOrder, ", "))
+		fmt.Fprintf(errOut, "step: this project has no step named '%s' (it has: %s; routes: %s)\n", opts.Name,
+			strings.Join(project.StepOrder, ", "), strings.Join(config.RouteNames, ", "))
 		return 1
 	}
 	if opts.JSON {

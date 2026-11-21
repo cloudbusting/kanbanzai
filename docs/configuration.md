@@ -134,7 +134,8 @@ renamed or removed has to change here too. Unknown keys are refused with the nea
 | `default_type`, `project_key` | the type `number` uses when none is named; an upper-case component of every id ([types.md](types.md)) |
 | `home`, `work`, `state`, `claims`, `numbers`, `batches` | where the board lives: the data home, the cards, the runtime state, the claims, the number ledger and the batch records. Paths are relative to the main checkout; empty `claims`, `numbers` and `batches` fall under `state` and `work` |
 | `template` | the project's card template; empty uses the embedded one |
-| `worktree`, `branch`, `batch_branch` | the patterns for a card's worktree, its branch, and its branch inside a batch (`{id}`, `{repo}`) |
+| `worktree`, `branch`, `batch_branch` | the patterns for a card's worktree, its branch, and its branch inside a batch (`{id}`, `{repo}`; `{type}` in `worktree` and `branch`; `{branch_prefix}` in `branch`: see [types.md](types.md)) |
+| `worktree_command` | optional: the host's own command that makes a card's worktree. `kanbanzai workspace ID` prints it with `{id}`, `{branch}`, `{path}`, `{base}` (`main_branch`) and `{main}` (the main checkout's path) filled in, in place of the two `git worktree add` lines; Kanbanzai never runs it. One line, and only with `[flow] isolation = "worktree"` |
 | `main_branch` | the branch the board and finished work live on |
 
 **`[claims]`**: `lease_minutes` is how long a claim lasts without a heartbeat; `owner_env` names the environment variable
@@ -162,7 +163,11 @@ that overrides the detected session label (`KANBANZAI_OWNER` is always read).
 **`[steps.<name>]`**: `into` and `during` (the Done and Doing columns), `skill`, `extend`, `context`, `checks` (see
 "Extending a step" above) and `skip_field`, `skip_values` ([delivery.md](delivery.md)).
 
-**`[[types]]`**: `key`, `label`, `prefix`, `template`, `schema`, `colour`, `icon`, `description` ([types.md](types.md)).
+**`[routes.<name>]`**: `extend` and `context`, for the routes `do`, `triage` and `cleanup` only: the skills that carry a
+card across steps and so are not steps. `kanbanzai step do` prints them as it prints a step's; the skill reads them
+first. A project cannot have a step and a route of the same name ([host-integration.md](host-integration.md)).
+
+**`[[types]]`**: `key`, `label`, `prefix`, `template`, `schema`, `colour`, `icon`, `description`, `branch_prefix` ([types.md](types.md)).
 **`[schemas.<name>]`**: `required_fields`, `optional_fields`, `required_sections`, `optional_sections`,
 `repeatable_sections`, `section_order`, `final_section`. **`[preset]`**: `name`, `delivery_style`, `version`, a record
 written by `init --preset` ([presets.md](presets.md)).

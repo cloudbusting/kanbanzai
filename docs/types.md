@@ -61,6 +61,31 @@ Rules, enforced before a command runs:
 "task"` and `prefix = ""` (no legacy alias). `kanbanzai init --prefix W` writes a single-prefix config (`types = []`)
 instead.
 
+## Branch and worktree names by type
+
+A host whose branches start with the kind of change (`feat/`, `fix/`, `chore/`) gives each type a `branch_prefix` and
+says where it goes in `[project] branch`:
+
+```toml
+[project]
+branch = "{branch_prefix}{id}"         # CHANGE-103 is built on feat/CHANGE-103
+worktree = "../worktrees/{type}/{id}"  # and in ../worktrees/change/CHANGE-103
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+branch_prefix = "feat/"
+```
+
+`{type}` is the type's key and `{branch_prefix}` its `branch_prefix` (empty when the type has none, so such a card gets
+the plain id). Both come from the card's id, which never changes, so a card keeps its branch for its whole life; a legacy
+`W-NN` card has no type and gets both empty. `{type}` is allowed in `branch` and `worktree` (in a folder above the
+card's own, not in its last part); `{branch_prefix}` only in `branch`; neither in `batch_branch`. A prefix is letters,
+digits and `._/-`, starts with a letter or digit, and holds no `..`, `//` or `:`. Anything else in braces that is not a
+placeholder is refused when the config loads. A title-based `{slug}` is not offered: a branch that followed a title
+would be lost when the title was edited.
+
 ## Templates and brief schemas
 
 A type may name its own brief template and may opt into a brief schema. Both are settings of the type and neither

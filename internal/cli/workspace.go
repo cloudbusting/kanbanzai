@@ -47,6 +47,8 @@ func workspaceText(project *config.Project, info workspace.Info) string {
 			b.WriteString(" (the host makes the workspace; record its reference)")
 		}
 		b.WriteString("\n")
+	} else if info.MakeCustom {
+		b.WriteString("make (the project's worktree_command):\n  " + info.Make[0] + "\n")
 	} else {
 		b.WriteString("make (a new card):\n  " + info.Make[0] + "\nmake (its branch exists):\n  " + info.Make[1] + "\n")
 	}

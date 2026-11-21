@@ -53,3 +53,31 @@ func TestIsolationIsInTheConfigDictionary(t *testing.T) {
 		t.Fatalf("flow = %#v", flow)
 	}
 }
+
+func TestWorktreeCommandIsChecked(t *testing.T) {
+	cases := []struct{ name, text, want string }{
+		{"an unknown placeholder", "[project]\nworktree_command = \"start {id} {slug}\"\n", "{slug}"},
+		{"a second line", "[project]\nworktree_command = \"start {id}\\nrm -rf x\"\n", "one line"},
+		{"another isolation", "[project]\nworktree_command = \"start {id}\"\n[flow]\nisolation = \"branch\"\n", "isolation"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := loadError(t, testutil.Repo(t, tc.text))
+			if err == nil {
+				t.Fatal("the config loaded without an error")
+			}
+			requireContains(t, err.Error(), "worktree_command")
+			requireContains(t, err.Error(), tc.want)
+		})
+	}
+	project := loadProject(t, testutil.Repo(t, "[project]\nworktree_command = \"  start {id} {branch} {path} {base} {main}  \"\n"))
+	if project.WorktreeCommand != "start {id} {branch} {path} {base} {main}" {
+		t.Fatalf("WorktreeCommand = %q", project.WorktreeCommand)
+	}
+	if section := project.AsDict()["project"].(map[string]any); section["worktree_command"] != project.WorktreeCommand {
+		t.Fatalf("config JSON has worktree_command = %v", section["worktree_command"])
+	}
+	if unset := loadProject(t, testutil.Repo(t, defaultConfig)); unset.WorktreeCommand != "" {
+		t.Fatalf("an unset command = %q", unset.WorktreeCommand)
+	}
+}

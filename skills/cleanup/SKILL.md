@@ -9,6 +9,10 @@ Workspaces (worktrees and card branches) are safe to remove only when their work
 tidies. It never touches code, a stash, or another session's live claim. The owner is `project.owner` in
 `kanbanzai config`.
 
+Run `kanbanzai step cleanup` first. It prints this route's `extend` and `context` from the project's
+`[routes.cleanup]` table (and nothing more when the project sets none): read every file in its `context`, and follow every
+skill in its `extend` alongside this one, at the points this skill names. They are the project's own rules for this route.
+
 ## 1. List the candidates
 
 ```bash

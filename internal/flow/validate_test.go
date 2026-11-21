@@ -288,3 +288,20 @@ func TestAValidGateAndSkipRuleAreClean(t *testing.T) {
 		t.Fatalf("findings: %+v", r.Findings)
 	}
 }
+
+func TestARouteSkillThatIsNotThereIsAWarningLikeAStepsOwn(t *testing.T) {
+	for _, tc := range []struct{ name, extend, want string }{
+		{"a project skill with no file", "our-bridge", "skill.missing"},
+		{"a shipped skill that does not exist", "kanbanzai:dance", "skill.unknown"},
+		{"another plugin's skill", "other:bridge", "skill.unchecked"},
+	} {
+		r := validate(t, "[routes.do]\nextend = [\""+tc.extend+"\"]\n", base)
+		got := ids(r)
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("%s: findings %v, want [%s]\n%+v", tc.name, got, tc.want, r.Findings)
+		}
+		if len(r.Findings) == 1 && !strings.Contains(r.Findings[0].Message, "route 'do'") {
+			t.Errorf("%s: the message does not name the route: %q", tc.name, r.Findings[0].Message)
+		}
+	}
+}

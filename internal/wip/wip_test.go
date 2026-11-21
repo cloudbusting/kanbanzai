@@ -795,3 +795,28 @@ func TestAReleaseBranchNamingTwoCardsIsNotASplit(t *testing.T) {
 		t.Fatalf("a release branch in the W-09 folder split W-07: %v", hard)
 	}
 }
+
+// A worktree pattern with {type} in a folder above the card's own still lets a batch's workspace be recognised.
+func TestABatchWorkspaceUnderATypeFolder(t *testing.T) {
+	project := testProject(t, "[project]\nowner = \"Sam\"\nworktree = \"../{type}/{id}\"\n")
+	testutil.Write(t, filepath.Join(project.Batches, "B-01.md"),
+		"# B-01: the best three\n\n- **State:** running\n- **Cards:** TASK-07\n\n"+
+			"| Card | Owns | Agent | Workspace | Stage | Last result |\n|---|---|---|---|---|---|\n"+
+			"| TASK-07 | engine | dev | worktree ../task/style | spawned | — |\n")
+	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/task/style"}, nil); got != "batch" {
+		t.Fatalf("batch = %q", got)
+	}
+	if got := CardOf(project, Worktree{Branch: "detached", Path: "/x/task/loose"}, nil); got != "" {
+		t.Fatalf("a worktree no batch names = %q, want an orphan", got)
+	}
+}
+
+// A branch that starts with the type's prefix still belongs to its card.
+func TestACardsBranchWithATypePrefixIsItsOwn(t *testing.T) {
+	project := testProject(t, "[project]\nowner = \"Sam\"\ndefault_type = \"change\"\nbranch = \"{branch_prefix}{id}\"\n"+
+		"[[types]]\nkey = \"change\"\nlabel = \"Change\"\nprefix = \"CHANGE\"\nbranch_prefix = \"feat/\"\n")
+	got := CardOf(project, Worktree{Branch: project.Branch("CHANGE-103", false), Path: "/x/CHANGE-103"}, nil)
+	if got != "CHANGE-103" {
+		t.Fatalf("card = %q", got)
+	}
+}

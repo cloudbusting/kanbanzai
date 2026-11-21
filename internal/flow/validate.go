@@ -80,6 +80,7 @@ func Validate(p *config.Project, doc *Doc, oldConfigText string) *Report {
 	checkGraph(r, columns, steps)
 	checkIntegration(r, doc.Raw)
 	checkSkills(r, p.Root, steps)
+	checkRouteSkills(r, p.Root, p.Routes)
 	if r.Errors() == 0 {
 		if _, err := Resolve(p, doc, oldConfigText); err != nil {
 			r.add(Error, "config.invalid", "%v", err)
@@ -454,27 +455,41 @@ func checkSkills(r *Report, root string, steps []stp) {
 		if !s.inFile {
 			continue
 		}
-		names := append([]string{s.skill}, s.refs...)
-		for _, name := range names {
-			if name == "" || seen[name] {
-				continue
+		checkSkillNames(r, root, "step", s.name, append([]string{s.skill}, s.refs...), seen)
+	}
+}
+
+// checkRouteSkills reads the skills a route extends the way a step's are read: the project's own [routes] table is not
+// part of a proposed flow, so these are the config's as it stands.
+func checkRouteSkills(r *Report, root string, routes map[string]config.Route) {
+	seen := map[string]bool{}
+	for _, name := range config.RouteNames {
+		checkSkillNames(r, root, "route", name, routes[name].Extend, seen)
+	}
+}
+
+// checkSkillNames reports a skill name that is not Kanbanzai's, not in the project and not another plugin's. What names
+// it is "step 'build'" or "route 'do'".
+func checkSkillNames(r *Report, root, kind, owner string, names []string, seen map[string]bool) {
+	for _, name := range names {
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		if rest, ok := strings.CutPrefix(name, "kanbanzai:"); ok {
+			if !contains(ShippedSkills, rest) {
+				r.add(Error, "skill.unknown", "%s '%s': '%s' is not a skill Kanbanzai ships (%s)", kind, owner, name,
+					strings.Join(ShippedSkills, ", "))
 			}
-			seen[name] = true
-			if rest, ok := strings.CutPrefix(name, "kanbanzai:"); ok {
-				if !contains(ShippedSkills, rest) {
-					r.add(Error, "skill.unknown", "step '%s': '%s' is not a skill Kanbanzai ships (%s)", s.name, name,
-						strings.Join(ShippedSkills, ", "))
-				}
-				continue
-			}
-			if strings.Contains(name, ":") {
-				r.add(Warning, "skill.unchecked", "step '%s': skill '%s' belongs to another plugin; it cannot be checked here", s.name, name)
-				continue
-			}
-			if !projectSkill(root, name) {
-				r.add(Warning, "skill.missing", "step '%s': no project skill '%s' (looked for .claude/skills/%s/SKILL.md and "+
-					".opencode/skills/%s/SKILL.md); a user-level skill is fine", s.name, name, name, name)
-			}
+			continue
+		}
+		if strings.Contains(name, ":") {
+			r.add(Warning, "skill.unchecked", "%s '%s': skill '%s' belongs to another plugin; it cannot be checked here", kind, owner, name)
+			continue
+		}
+		if !projectSkill(root, name) {
+			r.add(Warning, "skill.missing", "%s '%s': no project skill '%s' (looked for .claude/skills/%s/SKILL.md and "+
+				".opencode/skills/%s/SKILL.md); a user-level skill is fine", kind, owner, name, name, name)
 		}
 	}
 }

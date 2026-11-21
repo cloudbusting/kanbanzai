@@ -571,3 +571,64 @@ func TestStepForPrintsTheTableOfNeedsUnderAClosedCardGate(t *testing.T) {
 		t.Errorf("json misses needs:\n%s", out)
 	}
 }
+
+const routeConfig = `
+[project]
+owner = "Sam"
+context = ["RULES.md"]
+
+[routes.do]
+extend = ["our-bridge", "our-pr"]
+context = ["docs/delivery.md"]
+`
+
+func TestARouteShowsItsExtensionsAndContextLikeAStep(t *testing.T) {
+	project := testProject(t, routeConfig)
+	code, text, errOut := runStep(t, project, Options{Name: "do"})
+	if code != 0 {
+		t.Fatalf("step do: %d %q", code, errOut)
+	}
+	for _, want := range []string{"route: do", "skill: kanbanzai:do", "also follow (project skills): our-bridge, our-pr",
+		"read first (this route): docs/delivery.md", "read first (the project): RULES.md", "the owner to address: Sam"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("text lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "moves a card into") {
+		t.Fatalf("a route moves no card:\n%s", text)
+	}
+	_, out, _ := runStep(t, project, Options{Name: "do", JSON: true})
+	var found map[string]any
+	if err := json.Unmarshal([]byte(out), &found); err != nil {
+		t.Fatal(err)
+	}
+	if found["is_route"] != true || found["step"] != "do" || found["skill"] != "kanbanzai:do" ||
+		!reflect.DeepEqual(found["extend"], []any{"our-bridge", "our-pr"}) ||
+		!reflect.DeepEqual(found["context"], []any{"docs/delivery.md"}) {
+		t.Fatalf("json = %#v", found)
+	}
+	_, out, _ = runStep(t, project, Options{Name: "design", JSON: true})
+	var step map[string]any
+	if err := json.Unmarshal([]byte(out), &step); err != nil || step["is_route"] == true {
+		t.Fatalf("a step is marked as a route: %v %v", step["is_route"], err)
+	}
+}
+
+func TestARouteNobodyConfiguredStillPrintsAndIsNotAnError(t *testing.T) {
+	project := testProject(t, stepConfig)
+	for _, name := range []string{"do", "triage", "cleanup"} {
+		code, text, errOut := runStep(t, project, Options{Name: name})
+		if code != 0 || !strings.Contains(text, "route: "+name) || !strings.Contains(text, "skill: kanbanzai:"+name) ||
+			strings.Contains(text, "also follow") || strings.Contains(text, "this route") {
+			t.Fatalf("step %s: %d %q\n%s", name, code, errOut, text)
+		}
+	}
+}
+
+func TestTheUnknownNameMessageNamesTheRoutesToo(t *testing.T) {
+	project := testProject(t, stepConfig)
+	_, _, errOut := runStep(t, project, Options{Name: "dance"})
+	if !strings.Contains(errOut, "no step named 'dance'") || !strings.Contains(errOut, "routes: do, triage, cleanup") {
+		t.Fatalf("message = %q", errOut)
+	}
+}

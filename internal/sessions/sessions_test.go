@@ -461,3 +461,24 @@ func TestUnclaimedAskingIsEmptyNotNilAndNeverRaises(t *testing.T) {
 		t.Fatalf("no project: found = %#v", found)
 	}
 }
+
+// With {type} in a folder above the card's own, a session in any type's worktree folder is still this project's.
+func TestProjectFoldersCoverEveryTypeFolder(t *testing.T) {
+	t.Setenv("KANBANZAI_PROJECT", "")
+	root := testutil.Repo(t, "[project]\nowner = \"Sam\"\nworktree = \"../{type}/{id}\"\n")
+	project, err := config.Find(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folders := projectFolders(project)
+	for _, key := range []string{"task", "bug", "change"} {
+		want := canonicalPath(filepath.Join(filepath.Dir(project.Root), key))
+		found := false
+		for _, folder := range folders {
+			found = found || folder == want
+		}
+		if !found {
+			t.Fatalf("the %s folder %s is not among %v", key, want, folders)
+		}
+	}
+}

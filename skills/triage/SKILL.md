@@ -6,6 +6,10 @@ argument-hint: "<request, card id or number, or initial column>"
 
 # Triage
 
+Run `kanbanzai step triage` first. It prints this route's `extend` and `context` from the project's
+`[routes.triage]` table (and nothing more when the project sets none): read every file in its `context`, and follow every
+skill in its `extend` alongside this one, at the points this skill names. They are the project's own rules for this route.
+
 Triage is the board's front door. The main session handles it, never a subagent. Read `kanbanzai context` and its
 files, then `kanbanzai workflow show` and `kanbanzai config` for the initial column, folders, template, owner and
 configured route. If no board exists, stop and use `/setup`. Every request that becomes work gets a card first;

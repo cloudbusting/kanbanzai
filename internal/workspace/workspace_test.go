@@ -152,3 +152,46 @@ func TestVocabularyAndNames(t *testing.T) {
 		t.Errorf("branch vocabulary = %q", got)
 	}
 }
+
+func commandProject(t *testing.T, extra string) *config.Project {
+	t.Helper()
+	t.Setenv("KANBANZAI_PROJECT", "")
+	root := testutil.Repo(t, "types = []\n[project]\nowner = \"Sam\"\nworktree = \"../wt/{id}\"\n"+extra)
+	p, err := config.Find(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestAConfiguredMakeCommandReplacesTheGitWorktreeLines(t *testing.T) {
+	p := commandProject(t, "worktree_command = \"scripts/start {id} {branch} {path} {base} {main}\"\n")
+	want := "scripts/start W-12 W-12 ../wt/W-12 main " + p.Root
+	if got := MakeSteps(p, "W-12"); !reflect.DeepEqual(got, []string{want}) {
+		t.Fatalf("MakeSteps = %v, want %v", got, []string{want})
+	}
+	info := Describe(p, "W-12")
+	if !info.MakeCustom || !reflect.DeepEqual(info.Make, []string{want}) {
+		t.Fatalf("Describe = %+v", info)
+	}
+	if !reflect.DeepEqual(info.Remove, []string{"git worktree remove ../wt/W-12", "git branch -d W-12"}) {
+		t.Fatalf("the remove steps changed: %v", info.Remove)
+	}
+	if got := Missing(p, "Building", "W-12"); !strings.Contains(got, want) {
+		t.Fatalf("the missing-workspace message does not show the command: %q", got)
+	}
+	if got := StartHint(p, "W-12"); !strings.Contains(got, want) {
+		t.Fatalf("the start hint does not show the command: %q", got)
+	}
+}
+
+func TestWithoutAMakeCommandNothingChanges(t *testing.T) {
+	p := commandProject(t, "")
+	want := []string{"git worktree add ../wt/W-12 -b W-12 main", "git worktree add ../wt/W-12 W-12"}
+	if got := MakeSteps(p, "W-12"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("MakeSteps = %v", got)
+	}
+	if Describe(p, "W-12").MakeCustom {
+		t.Fatal("MakeCustom is set with no command")
+	}
+}

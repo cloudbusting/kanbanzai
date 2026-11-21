@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -161,5 +162,110 @@ func TestTheShippedDefaultsAreTyped(t *testing.T) {
 	}
 	if got, ok := project.CanonicalCardID("w-7"); !ok || got != "W-07" {
 		t.Fatalf("legacy id = %q, %v", got, ok)
+	}
+}
+
+const branchPrefixConfig = `
+[project]
+owner = "Sam"
+default_type = "task"
+branch = "{branch_prefix}{id}"
+worktree = "../{type}/{id}"
+
+[[types]]
+key = "task"
+label = "Task"
+prefix = "TASK"
+
+[[types]]
+key = "change"
+label = "Change"
+prefix = "CHANGE"
+branch_prefix = "feat/"
+`
+
+// A card's branch and worktree can start with its type: {type} is the type key and {branch_prefix} the type's own
+// prefix (empty when it has none), both worked out from the card id.
+func TestBranchAndWorktreePatternsTakeTheType(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, branchPrefixConfig))
+	if got := project.Branch("CHANGE-03", false); got != "feat/CHANGE-03" {
+		t.Fatalf("branch of a change = %q, want feat/CHANGE-03", got)
+	}
+	if got := project.Branch("change-03", false); got != "feat/change-03" {
+		t.Fatalf("branch of a lower-case id = %q", got)
+	}
+	if got := project.Branch("TASK-04", false); got != "TASK-04" {
+		t.Fatalf("a type with no branch_prefix gives the plain id, got %q", got)
+	}
+	if got := project.WorktreeHint("CHANGE-03"); got != "../change/CHANGE-03" {
+		t.Fatalf("worktree hint = %q, want ../change/CHANGE-03", got)
+	}
+	if got := project.WorktreeHint("W-03"); got != "../W-03" {
+		t.Fatalf("a legacy card has no type, so {type} is empty; got %q", got)
+	}
+	if got := project.Branch("batch-1", true); got != "batch/batch-1" {
+		t.Fatalf("batch branch = %q", got)
+	}
+	if got, _ := project.Expand("{branch_prefix}{id}", ""); got != "{branch_prefix}{id}" {
+		t.Fatalf("with no card the placeholders stay as written, got %q", got)
+	}
+}
+
+func TestBranchPrefixIsInTheTypeJSON(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, branchPrefixConfig))
+	section := project.AsDict()["project"].(map[string]any)
+	found := false
+	for _, entry := range section["types"].([]any) {
+		item := entry.(map[string]any)
+		if item["key"] == "change" {
+			found = item["branch_prefix"] == "feat/"
+		} else if _, has := item["branch_prefix"]; has {
+			t.Fatalf("a type with no branch_prefix shows one: %v", item)
+		}
+	}
+	if !found {
+		t.Fatalf("the change type's branch_prefix is not in the JSON: %v", section["types"])
+	}
+}
+
+func TestBranchAndWorktreePlaceholdersAreChecked(t *testing.T) {
+	typed := func(project string, prefix string) string {
+		return "[project]\nowner = \"Sam\"\ndefault_type = \"task\"\n" + project +
+			"\n[[types]]\nkey = \"task\"\nlabel = \"Task\"\nprefix = \"TASK\"\n" + prefix + "\n"
+	}
+	cases := []struct {
+		name, text, want string
+	}{
+		{"a type in the batch branch", typed(`batch_branch = "{type}/{id}"`, ""), "batch_branch"},
+		{"a branch prefix in the batch branch", typed(`batch_branch = "{branch_prefix}{id}"`, ""), "batch_branch"},
+		{"a branch prefix in the worktree", typed(`worktree = "../{branch_prefix}{id}"`, ""), "worktree"},
+		{"an unknown placeholder in the branch", typed(`branch = "{tpye}/{id}"`, ""), "{tpye}"},
+		{"an unknown placeholder in the worktree", typed(`worktree = "../{slug}/{id}"`, ""), "{slug}"},
+		{"a type in the last part of the worktree", typed(`worktree = "../{type}-{id}"`, ""), "folder"},
+		{"a branch prefix with a space", typed("", "branch_prefix = \"feat x/\""), "branch_prefix"},
+		{"a branch prefix with two dots", typed("", "branch_prefix = \"a..b/\""), "branch_prefix"},
+		{"a branch prefix with a colon", typed("", "branch_prefix = \"a:/\""), "branch_prefix"},
+		{"a branch prefix that starts with a slash", typed("", "branch_prefix = \"/feat/\""), "branch_prefix"},
+		{"a branch prefix that starts with a dash", typed("", "branch_prefix = \"-feat/\""), "branch_prefix"},
+		{"a branch prefix that is not text", typed("", "branch_prefix = 4"), "branch_prefix"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := loadError(t, testutil.Repo(t, tc.text))
+			if err == nil {
+				t.Fatal("the config loaded without an error")
+			}
+			requireContains(t, err.Error(), tc.want)
+		})
+	}
+}
+
+func TestPlaceholdersAreUnchangedForAProjectThatUsesNone(t *testing.T) {
+	project := loadProject(t, testutil.Repo(t, typedConfig))
+	if got := project.Branch("KANZ-BUG-07", false); got != "KANZ-BUG-07" {
+		t.Fatalf("branch = %q", got)
+	}
+	if got := project.WorktreeHint("KANZ-BUG-07"); got != "../worktrees/"+filepath.Base(project.Root)+"/KANZ-BUG-07" {
+		t.Fatalf("worktree hint = %q", got)
 	}
 }

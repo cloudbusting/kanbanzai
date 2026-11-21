@@ -46,6 +46,8 @@ func schemaFor(path string) string {
 		return "settings" // a plugin's own settings: any key, each a string
 	case strings.HasPrefix(path, "steps."):
 		return "step"
+	case strings.HasPrefix(path, "routes."):
+		return "route"
 	case strings.HasPrefix(path, "schemas."):
 		return "brief_schema"
 	}
@@ -116,7 +118,7 @@ func TestEveryConfigKeyTheCommandAcceptsIsDocumented(t *testing.T) {
 	var missing []string
 	for table, keys := range schemaKeys() {
 		for key, kind := range keys {
-			if kind == "table" || kind == "columns" || kind == "steps" || kind == "types" || kind == "schemas" {
+			if kind == "table" || kind == "columns" || kind == "steps" || kind == "routes" || kind == "types" || kind == "schemas" {
 				continue
 			}
 			if !strings.Contains(text, "`"+key+"`") && !regexp.MustCompile(`(?m)^\s*`+regexp.QuoteMeta(key)+`\s*=`).MatchString(text) {

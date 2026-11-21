@@ -58,6 +58,14 @@ one-line reference such as a runner id or URL, and the audit trusts that record:
 The main checkout is still the board's home, so it should hold nothing but board changes (see
 [the main checkout while others work](#the-main-checkout-while-others-work)).
 
+## A host's own worktree command
+
+In `worktree` mode `kanbanzai workspace ID` prints two `git worktree add` lines. A host whose worktrees must be made by
+its own script (a lease, a task note, a base other than `main`, a fetch first) sets `[project] worktree_command`, and
+`workspace` prints that one line instead, with `{id}`, `{branch}`, `{path}`, `{base}` and `{main}` filled in. Kanbanzai
+never runs it: the session does, as it runs the git lines. The remove steps are unchanged. See
+[host-integration.md](host-integration.md#plugging-the-hosts-own-tooling-in).
+
 ## Integration: local or remote
 
 `[flow] integration` is the other half of isolation: where a finished card's branch is merged into the main branch.

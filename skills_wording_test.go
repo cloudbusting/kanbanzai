@@ -1124,3 +1124,21 @@ func TestTheDemoGifSkillAsksFirstAndNeverReplacesOrPushesOnItsOwn(t *testing.T) 
 		}
 	}
 }
+
+// The three skills that carry a card across steps read their own route first, as a step's skill does, so a host's
+// rules for them live in [routes.<name>] and not in prose that hides the skill.
+func TestRouteSkillsReadTheirRouteFirst(t *testing.T) {
+	for _, name := range []string{"do", "triage", "cleanup"} {
+		data, err := os.ReadFile(filepath.Join("skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(string(data)), " ")
+		for _, want := range []string{"Run `kanbanzai step " + name + "` first", "read every file in its `context`",
+			"follow every skill in its `extend`"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("skills/%s lacks %q", name, want)
+			}
+		}
+	}
+}

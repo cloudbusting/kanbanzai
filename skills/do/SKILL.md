@@ -6,6 +6,10 @@ argument-hint: "[request, card id or card number]"
 
 # Do
 
+Run `kanbanzai step do` first. It prints this route's `extend` and `context` from the project's
+`[routes.do]` table (and nothing more when the project sets none): read every file in its `context`, and follow every
+skill in its `extend` alongside this one, at the points this skill names. They are the project's own rules for this route.
+
 The main session owns the conversation, board, claims, decisions, review and close. Run `kanbanzai context` and
 read its files, then `kanbanzai workflow show` for the configured columns, steps, gates, pull order and isolation.
 If there is no board, stop and use `/setup`. A new request goes to `/triage` first. For an existing card use its ID;
