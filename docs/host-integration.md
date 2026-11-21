@@ -111,7 +111,8 @@ worktree_command = "scripts/start {id} {branch} {path} {base} {main}"
 
 `{id}` is the card, `{branch}` and `{path}` are its branch and worktree as `branch` and `worktree` give them, `{base}` is
 `main_branch` and `{main}` is the main checkout's absolute path. The host's script decides whether the branch exists, so
-there is one line, not a new-card line and an existing-branch line. The remove steps, `plugins link` and
+there is one line, not a new-card line and an existing-branch line. Values go in as they are, unquoted: quote a
+placeholder in your template (`'{path}'`) when a path may hold a space. The remove steps, `plugins link` and
 `move ... start --where` are as before. It needs `[flow] isolation = "worktree"`; `config` refuses it with another mode.
 
 **Its own rules for `/do`, `/triage` and `/cleanup`.** A step takes `extend` and `context`; these three skills carry a
