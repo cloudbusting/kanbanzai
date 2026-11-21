@@ -246,7 +246,7 @@ func runWorkflow(project *config.Project, args []string, out, errOut io.Writer) 
 		case "toml":
 			data = []byte("# The flow of this project, as `kanbanzai workflow export` wrote it.\n" +
 				"# Edit it, then `kanbanzai workflow validate --file FILE` and `kanbanzai workflow plan --file FILE`.\n" +
-				"# A flow file replaces the project's [flow], [[columns]] and [steps.*] tables.\n\n" + doc.Text)
+				"# A flow file replaces the project's [flow], [[columns]] and [steps.*] tables, and its [routes.*] when it holds them.\n\n" + doc.Text)
 		case "json":
 			if data, err = doc.JSON(); err != nil {
 				fmt.Fprintf(errOut, "kanbanzai: workflow export: %v\n", err)
@@ -400,6 +400,19 @@ func showText(m *flow.Model) string {
 			line += fmt.Sprintf("  skipped when %s starts with %s", s.SkipField, strings.Join(s.SkipValues, " or "))
 		}
 		fmt.Fprintln(&b, line)
+	}
+	if len(m.Routes) > 0 { // listed only when the project has routes, so the output of one without them is unchanged
+		fmt.Fprintf(&b, "Routes (%d)\n", len(m.Routes))
+		for _, r := range m.Routes {
+			line := fmt.Sprintf("  %-10s", r.Name)
+			if len(r.Extend) > 0 {
+				line += "  extend " + strings.Join(r.Extend, ", ")
+			}
+			if len(r.Context) > 0 {
+				line += "  context " + strings.Join(r.Context, ", ")
+			}
+			fmt.Fprintln(&b, strings.TrimRight(line, " "))
+		}
 	}
 	fmt.Fprintf(&b, "Transitions (%d)\n", len(m.Transitions))
 	for _, t := range m.Transitions {

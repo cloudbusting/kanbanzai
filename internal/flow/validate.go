@@ -80,7 +80,7 @@ func Validate(p *config.Project, doc *Doc, oldConfigText string) *Report {
 	checkGraph(r, columns, steps)
 	checkIntegration(r, doc.Raw)
 	checkSkills(r, p.Root, steps)
-	checkRouteSkills(r, p.Root, p.Routes)
+	checkRouteSkills(r, p.Root, effectiveRoutes(p, doc))
 	if r.Errors() == 0 {
 		if _, err := Resolve(p, doc, oldConfigText); err != nil {
 			r.add(Error, "config.invalid", "%v", err)
@@ -459,8 +459,22 @@ func checkSkills(r *Report, root string, steps []stp) {
 	}
 }
 
-// checkRouteSkills reads the skills a route extends the way a step's are read: the project's own [routes] table is not
-// part of a proposed flow, so these are the config's as it stands.
+// effectiveRoutes are the routes the config would have with the flow file applied: the file's own when it holds a
+// routes table (they replace the project's), else the project's as they stand.
+func effectiveRoutes(p *config.Project, doc *Doc) map[string]config.Route {
+	raw, ok := doc.Raw[routesTable].(map[string]any)
+	if !ok {
+		return p.Routes
+	}
+	routes := map[string]config.Route{}
+	for name, item := range raw {
+		entry, _ := item.(map[string]any)
+		routes[name] = config.Route{Name: name, Extend: strList(entry, "extend"), Context: strList(entry, "context")}
+	}
+	return routes
+}
+
+// checkRouteSkills reads the skills a route extends the way a step's are read.
 func checkRouteSkills(r *Report, root string, routes map[string]config.Route) {
 	seen := map[string]bool{}
 	for _, name := range config.RouteNames {

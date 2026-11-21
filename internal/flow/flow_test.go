@@ -203,7 +203,7 @@ func TestAFlowFileHoldsOnlyTheFlow(t *testing.T) {
 		"version":       "config_version = 1\n[flow]\nwip_limit = 3\n",
 		"steps scalar":  "steps = 3\n",
 		"columns table": "[columns]\nkey = \"a\"\n",
-		"routes table":  "[routes.do]\nextend = [\"x\"]\n",
+		"another table": "[types]\nkey = \"x\"\n",
 	} {
 		if _, err := Parse([]byte(text), false); err == nil {
 			t.Errorf("%s: accepted", name)

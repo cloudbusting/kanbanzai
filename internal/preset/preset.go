@@ -2,10 +2,11 @@
 //
 // A preset is a folder and nothing in it is a new format:
 //
-//	flow.toml       a flow file (the [flow], [[columns]] and [steps.<name>] tables `workflow` already speaks), in the
-//	                exact form `workflow export` writes it
+//	flow.toml       a flow file (the [flow], [[columns]] and [steps.<name>] tables `workflow` already speaks, and the
+//	                host's [routes.<name>] when it has any), in the exact form `workflow export` writes it
 //	config.toml     a fragment of the project config: [preset] (name, delivery_style, version and the descriptions
-//	                summary, best_for, not_for), a few [project] keys, [[types]] and [schemas.*]
+//	                summary, best_for, not_for), a few [project] keys (worktree_command among them), [[types]] and
+//	                [schemas.*]
 //	templates/*.md  the brief templates the types name (as .kanbanzai/templates/<file>)
 //
 // Shipped presets are embedded in the command (presets/<name>); a path to a folder of the same shape is a local
@@ -34,8 +35,9 @@ const maxFileBytes = 1 << 20
 const TemplatesDir = ".kanbanzai/templates/"
 
 // projectKeys are the only [project] keys a preset may set. Everything else (the work and state folders, the main
-// branch, the owner, the claims) belongs to the project.
-var projectKeys = []string{"default_type", "worktree", "branch", "batch_branch", "template"}
+// branch, the owner, the claims) belongs to the project. worktree_command is the host's own wiring, like a step's
+// extend, so a preset that ships for a host's tooling carries it.
+var projectKeys = []string{"default_type", "worktree", "branch", "batch_branch", "template", "worktree_command"}
 
 var typeKeys = []string{"key", "label", "prefix", "template", "schema", "colour", "icon", "description", "branch_prefix"}
 var schemaKeys = []string{"required_fields", "optional_fields", "required_sections", "optional_sections",

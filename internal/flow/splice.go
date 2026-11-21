@@ -25,13 +25,17 @@ func firstSegment(name string) string {
 	return strings.TrimSpace(name)
 }
 
-// owns says whether the flow file replaces the config table of that name: the three flow tables, and [preset] when
-// the file carries a record for it.
+// owns says whether the flow file replaces the config table of that name: the three flow tables, [routes] when the
+// file holds a routes table, and [preset] when the file carries a record for it.
 func (d *Doc) owns(name string) bool {
 	for _, t := range tables {
 		if name == t {
 			return true
 		}
+	}
+	if name == routesTable {
+		_, has := d.Raw[routesTable]
+		return has
 	}
 	return name == "preset" && d.Record != ""
 }
@@ -128,6 +132,9 @@ func verifySplice(before, after string, doc *Doc) error {
 		if !reflect.DeepEqual(newRaw[key], doc.Raw[key]) {
 			return problem("the spliced config does not carry the flow file's [%s] exactly: edit the config by hand", key)
 		}
+	}
+	if doc.owns(routesTable) && !reflect.DeepEqual(newRaw[routesTable], doc.Raw[routesTable]) {
+		return problem("the spliced config does not carry the flow file's [routes] exactly: edit the config by hand")
 	}
 	if doc.Record != "" {
 		record, err := config.ParseTOML(doc.Record)

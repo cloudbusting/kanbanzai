@@ -22,9 +22,14 @@ func Compare(project *config.Project) string {
 	return p.Compare(project)
 }
 
-// Compare says whether the project's flow equals this preset's.
+// Compare says whether the project's flow equals this preset's. A project's own [routes] (a host's wiring) are part of
+// the comparison only when the preset carries routes of its own.
 func (p *Preset) Compare(project *config.Project) string {
-	if reflect.DeepEqual(flow.FromProject(project).Raw, p.Flow.Raw) {
+	mine := flow.FromProject(project).Raw
+	if _, has := p.Flow.Raw["routes"]; !has {
+		delete(mine, "routes")
+	}
+	if reflect.DeepEqual(mine, p.Flow.Raw) {
 		return "matches"
 	}
 	return "differs"
