@@ -37,7 +37,7 @@ const TemplatesDir = ".kanbanzai/templates/"
 // branch, the owner, the claims) belongs to the project.
 var projectKeys = []string{"default_type", "worktree", "branch", "batch_branch", "template"}
 
-var typeKeys = []string{"key", "label", "prefix", "template", "schema", "colour", "icon", "description"}
+var typeKeys = []string{"key", "label", "prefix", "template", "schema", "colour", "icon", "description", "branch_prefix"}
 var schemaKeys = []string{"required_fields", "optional_fields", "required_sections", "optional_sections",
 	"repeatable_sections", "section_order", "final_section"}
 var presetKeys = []string{"name", "delivery_style", "version", "summary", "best_for", "not_for", "board_home"}

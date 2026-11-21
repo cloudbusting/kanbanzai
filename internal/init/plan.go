@@ -685,7 +685,7 @@ config_version = 1
 #   types = []  opt out of typed ids and keep the single-prefix shape
 #   [flow]     wip_limit, pull_order, isolation = "worktree" / "branch" / "shared" / "external"
 #   [steps.check]  skill = "your-skill", extend = ["your-extension"], checks = ["your-test-skill"]
-#   [[types]]  key, label, prefix and the optional template, colour, icon, description; one global number sequence
+#   [[types]]  key, label, prefix and the optional template, colour, icon, description, branch_prefix; one global number sequence
 `)
 	return b.String()
 }
