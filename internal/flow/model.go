@@ -1,11 +1,14 @@
 // Package flow is the workflow command's core: the resolved flow as one model, the flow file a project proposes,
 // its validation, the plan that migrates the board to it, and the apply that carries the plan out and can undo it.
 //
-// The flow is three tables of .kanbanzai/config.toml: [flow], [[columns]] and [steps.<name>]. Everything else in
+// The flow is three tables of .kanbanzai/config.toml: [flow], [[columns]] and [steps.<name>], and, when a flow file
+// carries them, the project's [routes.<name>] (what the do, triage and cleanup skills also follow). Everything else in
 // the config is not the command's to read or write.
 package flow
 
 import (
+	"sort"
+
 	"github.com/cloudbusting/kanbanzai/internal/board"
 	"github.com/cloudbusting/kanbanzai/internal/config"
 	"github.com/cloudbusting/kanbanzai/internal/move"
@@ -50,6 +53,13 @@ type StepInfo struct {
 
 	SkipField  string   `json:"skip_field"`
 	SkipValues []string `json:"skip_values"`
+}
+
+// RouteInfo is one route: what the do, triage or cleanup skill also follows and reads first.
+type RouteInfo struct {
+	Name    string   `json:"name"`
+	Extend  []string `json:"extend"`
+	Context []string `json:"context"`
 }
 
 // Transition is a move a card may make without --force: From and To are column keys, Kind says why it is legal
@@ -130,6 +140,7 @@ type Model struct {
 	Board         Board        `json:"board"`
 	PullOrder     []string     `json:"pull_order"`
 	Preset        Preset       `json:"preset"`
+	Routes        []RouteInfo  `json:"routes"`
 }
 
 func list(values []string) []string {
@@ -156,6 +167,7 @@ func Build(p *config.Project) *Model {
 			Extend: list(s.Extend), Context: list(s.Context), Checks: list(s.Checks), Active: s.Active,
 			SkipField: s.SkipField, SkipValues: list(s.SkipValues)})
 	}
+	m.Routes = routeInfos(p.Routes)
 	m.Transitions = Transitions(p)
 	m.Gates = []Gate{}
 	m.WIP = WIP{Limit: p.WIPLimit, StaleDays: p.StaleDays, MoveGraceMinutes: p.MoveGraceMinutes, Started: []string{},
@@ -196,6 +208,20 @@ func Build(p *config.Project) *Model {
 		}
 	}
 	return m
+}
+
+// routeInfos lists a project's routes in name order, `[]` rather than null when it has none.
+func routeInfos(routes map[string]config.Route) []RouteInfo {
+	infos := []RouteInfo{}
+	names := make([]string, 0, len(routes))
+	for name := range routes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		infos = append(infos, RouteInfo{Name: name, Extend: list(routes[name].Extend), Context: list(routes[name].Context)})
+	}
+	return infos
 }
 
 // Transitions is every move a card can make without --force, as the move command allows it: the union of

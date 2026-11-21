@@ -121,8 +121,8 @@ same three parts as a shipped preset, and nothing else:
 
 | File | What it is |
 |---|---|
-| `flow.toml` | a flow file, in exactly the text `workflow export` writes for the flow it makes (leading comments may stay) |
-| `config.toml` | `[preset]` with `name`, `delivery_style`, `version` (a positive integer), `summary`, `best_for`, `not_for`; the `[project]` keys `default_type`, `worktree`, `branch`, `batch_branch` and `template` only; `[[types]]` (`key`, `label`, `prefix`, `template`, `schema`, `colour`, `icon`, `description`, `branch_prefix`); `[schemas.<name>]` |
+| `flow.toml` | a flow file, in exactly the text `workflow export` writes for the flow it makes (leading comments may stay), with the host's `[routes.<name>]` when it has any |
+| `config.toml` | `[preset]` with `name`, `delivery_style`, `version` (a positive integer), `summary`, `best_for`, `not_for`; the `[project]` keys `default_type`, `worktree`, `branch`, `batch_branch`, `template` and `worktree_command` only; `[[types]]` (`key`, `label`, `prefix`, `template`, `schema`, `colour`, `icon`, `description`, `branch_prefix`); `[schemas.<name>]` |
 | `templates/<file>.md` | the brief template a type names as `template = ".kanbanzai/templates/<file>.md"`; every file must be named by a type |
 
 Owner approval, a review lane, a train, a deploy-free flow, the isolation mode and where cards are merged all live in
@@ -130,6 +130,16 @@ Owner approval, a review lane, a train, a deploy-free flow, the isolation mode a
 and keep that text. Loading checks the flow (`workflow validate`'s rules), the config fragment, that every template
 exists and fits its schema, and that the flow file is canonical; the message names what is wrong. `internal/preset/testdata/localpreset`
 is a small example.
+
+**A host's own wiring.** A preset a host ships for its own tooling can carry the two settings of
+[host-integration.md](host-integration.md#plugging-the-hosts-own-tooling-in), so an adopting repository does not edit
+its config after `init`: `worktree_command` under the `config.toml` `[project]`, and `[routes.do]`, `[routes.triage]`
+and `[routes.cleanup]` (`extend`, `context`) in `flow.toml`, in the order and form `workflow export` writes them. They
+are checked by the project config's own rules (a placeholder it cannot take, a route that is not one of the three, an
+unknown key, `worktree_command` on a shared checkout), and the message is the config's. `init --preset` writes both into
+the new config. `workflow plan --preset` applies the routes with the flow, and a preset that carries routes **replaces**
+the project's own, which the plan lists; it never applies `[project]` keys, `worktree_command` included, as it does not
+apply the others. `workflow show` compares a project's routes with the preset's only when the preset has routes.
 
 ## How presets are proved
 

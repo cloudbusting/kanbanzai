@@ -401,3 +401,154 @@ func TestAPresetRefusesABranchPrefixTheProjectConfigRefuses(t *testing.T) {
 		t.Fatalf("error %q is not the project config's message", err)
 	}
 }
+
+// hostPreset is a copy of the local fixture on worktree isolation (a worktree command needs one), with the host
+// settings of GH #104 added: a worktree_command under [project], and routes when routes is not empty.
+func hostPreset(t *testing.T, command, routes string) string {
+	t.Helper()
+	dir := prefixPreset(t, "")
+	edit(t, dir, "config.toml", "branch = \"{branch_prefix}{id}\"\n", "")
+	edit(t, dir, "config.toml", "branch_prefix = \"\"\n", "")
+	edit(t, dir, "flow.toml", "isolation = \"shared\"", "isolation = \"worktree\"")
+	if command != "" {
+		edit(t, dir, "config.toml", "default_type = \"note\"\n", "default_type = \"note\"\nworktree_command = "+command+"\n")
+	}
+	if routes != "" {
+		path := filepath.Join(dir, "flow.toml")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, []byte("\n"+routes)...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func TestAPresetCarriesAWorktreeCommand(t *testing.T) {
+	p, err := Load(hostPreset(t, `"scripts/start {id} {branch} {path} {base} {main}"`, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := p.ConfigText(Settings{Owner: "Sam"})
+	if !strings.Contains(text, `worktree_command = "scripts/start {id} {branch} {path} {base} {main}"`) {
+		t.Fatalf("the config init writes does not carry worktree_command:\n%s", text)
+	}
+	project, cleanup, err := p.resolve(Settings{Owner: "Sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if project.WorktreeCommand != "scripts/start {id} {branch} {path} {base} {main}" {
+		t.Fatalf("resolved worktree_command = %q", project.WorktreeCommand)
+	}
+}
+
+func TestAPresetRefusesAWorktreeCommandTheProjectConfigRefuses(t *testing.T) {
+	for _, tc := range []struct{ name, value, want string }{
+		{"a placeholder it cannot take", `"make {nope}"`, "which is not a value it can take"},
+		{"two lines", `"a\nb"`, "must be one line"},
+		{"not a string", `["a"]`, "must be a string"},
+	} {
+		_, err := Load(hostPreset(t, tc.value, ""))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: error %v, want one saying %q", tc.name, err, tc.want)
+		}
+	}
+	// the fixture as it ships works in a shared checkout, which makes no worktree to run a command for
+	dir := hostPreset(t, `"make {id}"`, "")
+	edit(t, dir, "flow.toml", "isolation = \"worktree\"", "isolation = \"shared\"")
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "makes a worktree, but flow.isolation is") {
+		t.Errorf("a worktree command on a shared checkout: %v", err)
+	}
+	// the rest of [project] is still the project's own
+	dir = hostPreset(t, `"make {id}"`, "")
+	edit(t, dir, "config.toml", "default_type = \"note\"\n", "default_type = \"note\"\nowner = \"x\"\n")
+	if _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "worktree_command") {
+		t.Errorf("owner in a preset's [project]: %v (the refusal must list worktree_command among the keys a preset may set)", err)
+	}
+}
+
+const presetRoutes = "[routes.do]\nextend = [\"host-bridge\"]\ncontext = [\"docs/host.md\"]\n\n[routes.triage]\nextend = [\"host-triage\"]\ncontext = []\n"
+
+func TestAPresetFlowCarriesRoutes(t *testing.T) {
+	p, err := Load(hostPreset(t, "", presetRoutes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := p.ConfigText(Settings{Owner: "Sam"})
+	if !strings.Contains(text, "[routes.do]\nextend = [\"host-bridge\"]\ncontext = [\"docs/host.md\"]") {
+		t.Fatalf("the config init writes does not carry the routes:\n%s", text)
+	}
+	project, cleanup, err := p.resolve(Settings{Owner: "Sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	if got := project.Routes["do"].Extend; !reflect.DeepEqual(got, []string{"host-bridge"}) {
+		t.Fatalf("resolved do route extend = %v", got)
+	}
+	if got := project.Routes["do"].Context; !reflect.DeepEqual(got, []string{"docs/host.md"}) {
+		t.Fatalf("resolved do route context = %v", got)
+	}
+	// composing a step onto it keeps the routes in the flow file the plan applies
+	if err := p.Compose(Compose{StepSkills: []string{"write=kanbanzai:build"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(p.Flow.Text, "[routes.triage]") || !strings.Contains(p.FlowDoc().Text, "[routes.do]") {
+		t.Fatalf("composing dropped the routes:\n%s", p.Flow.Text)
+	}
+}
+
+func TestAPresetRefusesARouteTheProjectConfigRefuses(t *testing.T) {
+	for _, tc := range []struct{ name, routes, want string }{
+		{"a name that is not a route", "[routes.review]\nextend = [\"x\"]\n", "a route is one of do, triage, cleanup"},
+		{"a key that is not extend or context", "[routes.do]\nbogus = [\"x\"]\n", "bogus"},
+		{"a route that is not a table", "[routes]\ndo = 3\n", "must be a table"},
+	} {
+		_, err := Load(hostPreset(t, "", tc.routes))
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: error %v, want one saying %q", tc.name, err, tc.want)
+		}
+	}
+	// the flow file must still be what `workflow export` writes: routes in another order or form are not
+	_, err := Load(hostPreset(t, "", "[routes.triage]\nextend = []\ncontext = []\n\n[routes.do]\nextend = []\ncontext = []\n"))
+	if err == nil || !strings.Contains(err.Error(), "not what `workflow export` writes") {
+		t.Errorf("routes out of export order: %v", err)
+	}
+}
+
+// A project's own routes are not the preset's flow: only a preset that carries routes compares them.
+func TestCompareLooksAtRoutesOnlyWhenThePresetHasThem(t *testing.T) {
+	soft := mustLoad(t, "software")
+	hand := strings.TrimSpace(soft.ConfigText(Settings{Owner: "Sam"})) + "\n\n[routes.do]\nextend = [\"our-bridge\"]\n"
+	t.Setenv("KANBANZAI_PROJECT", "")
+	project, err := config.Find(testutil.Repo(t, hand))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := soft.Compare(project); got != "matches" {
+		t.Fatalf("a project with its own routes against a preset with none: %q", got)
+	}
+
+	dir := hostPreset(t, "", presetRoutes)
+	host, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh := strings.TrimSpace(host.ConfigText(Settings{Owner: "Sam"})) + "\n"
+	for name, tc := range map[string]struct{ text, want string }{
+		"as the preset made it": {fresh, "matches"},
+		"a route edited":        {strings.Replace(fresh, "host-bridge", "other", 1), "differs"},
+		"a route dropped":       {strings.Replace(fresh, "[routes.triage]\nextend = [\"host-triage\"]\ncontext = []\n", "", 1), "differs"},
+	} {
+		project, err := config.Find(testutil.Repo(t, tc.text))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := host.Compare(project); got != tc.want {
+			t.Errorf("%s: %q, want %q", name, got, tc.want)
+		}
+	}
+}

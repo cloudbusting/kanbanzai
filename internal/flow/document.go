@@ -19,10 +19,14 @@ const maxFlowBytes = 1 << 20
 // DocVersion is the schema_version of a JSON flow file and of `workflow export --format json`.
 const DocVersion = 1
 
-// Tables are the only top-level tables of a flow file.
+// Tables are the top-level tables every flow file may hold and a flow file replaces in the config.
 var tables = []string{"flow", "columns", "steps"}
 
-// Doc is a flow file: the three flow tables, as the config parser reads them, and the TOML text that carries them.
+// routesTable is the one optional table: [routes.<name>]. A flow file replaces the config's routes only when it holds
+// the table (see Doc.owns), so a file that says nothing about routes leaves a project's own alone.
+const routesTable = "routes"
+
+// Doc is a flow file: the three flow tables and the optional routes, as the config parser reads them, and the TOML text that carries them.
 // A TOML file keeps its own text (comments and all); a JSON file is written out as TOML.
 type Doc struct {
 	Raw    map[string]any
@@ -164,7 +168,7 @@ func convert(value any) (any, error) {
 	return nil, problem("flow file: unsupported value %v", value)
 }
 
-// checkShape allows only the three flow tables at the top, with the right kind of value in each.
+// checkShape allows only the flow tables and the routes at the top, with the right kind of value in each.
 func checkShape(raw map[string]any) error {
 	for _, key := range sortedKeys(raw) {
 		switch key {
@@ -192,9 +196,22 @@ func checkShape(raw map[string]any) error {
 					return problem("flow file: [steps.%s] must be a table", name)
 				}
 			}
+		case routesTable:
+			routes, ok := raw[key].(map[string]any)
+			if !ok {
+				return problem("flow file: routes must be [routes.<name>] tables")
+			}
+			for _, name := range sortedKeys(routes) {
+				if _, ok := routes[name].(map[string]any); !ok {
+					return problem("flow file: [routes.%s] must be a table", name)
+				}
+			}
+			if len(routes) == 0 {
+				delete(raw, key) // no routes named: the file says nothing about them (it cannot remove them all)
+			}
 		default:
-			return problem("flow file: '%s' is not part of the flow: a flow file holds only [flow], [[columns]] and "+
-				"[steps.<name>] (the rest of the config is not this command's to change)", key)
+			return problem("flow file: '%s' is not part of the flow: a flow file holds only [flow], [[columns]], "+
+				"[steps.<name>] and [routes.<name>] (the rest of the config is not this command's to change)", key)
 		}
 	}
 	return nil
@@ -261,6 +278,13 @@ func FromProject(p *config.Project) *Doc {
 		steps[name] = entry
 	}
 	raw := map[string]any{"flow": flow, "columns": columns, "steps": steps}
+	if len(p.Routes) > 0 { // written only when there are routes, so the export of a project without them is unchanged
+		routes := map[string]any{}
+		for name, r := range p.Routes {
+			routes[name] = map[string]any{"extend": strs(r.Extend), "context": strs(r.Context)}
+		}
+		raw[routesTable] = routes
+	}
 	return &Doc{Raw: raw, Text: ToTOML(raw), Format: "toml"}
 }
 
@@ -311,10 +335,11 @@ var (
 	flowKeys   = []string{"wip_limit", "stale_days", "move_grace_minutes", "pull_order", "isolation", "integration"}
 	columnKeys = []string{"key", "label", "words", "folder", "kind", "started", "next", "settled_next", "title",
 		"settled_title", "worktree", "waits_for_owner", "lane", "doing", "gate", "gate_name", "gate_after", "gate_until"}
-	stepKeys = []string{"into", "during", "skill", "extend", "context", "checks", "skip_field", "skip_values"}
+	stepKeys  = []string{"into", "during", "skill", "extend", "context", "checks", "skip_field", "skip_values"}
+	routeKeys = []string{"extend", "context"}
 )
 
-// ToTOML writes the three tables in a fixed order, with their keys in a fixed order, so equal flows give equal text.
+// ToTOML writes the tables in a fixed order, with their keys in a fixed order, so equal flows give equal text.
 func ToTOML(raw map[string]any) string {
 	var b strings.Builder
 	if flow, ok := raw["flow"].(map[string]any); ok {
@@ -333,6 +358,13 @@ func ToTOML(raw map[string]any) string {
 		for _, name := range sortedKeys(steps) {
 			b.WriteString("[steps." + tomlKey(name) + "]\n")
 			writeKeys(&b, steps[name].(map[string]any), stepKeys)
+			b.WriteString("\n")
+		}
+	}
+	if routes, ok := raw[routesTable].(map[string]any); ok {
+		for _, name := range sortedKeys(routes) {
+			b.WriteString("[routes." + tomlKey(name) + "]\n")
+			writeKeys(&b, routes[name].(map[string]any), routeKeys)
 			b.WriteString("\n")
 		}
 	}

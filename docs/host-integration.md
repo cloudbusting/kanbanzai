@@ -127,6 +127,8 @@ context = ["docs/delivery.md"]
 extend = ["our-cleanup-rules"]     # what runs before a workspace is removed
 ```
 
+A preset the host ships can carry both this table and `worktree_command` ([presets.md](presets.md#writing-a-local-preset)
+says how a preset file holds them), so `init --preset` writes them and an adopting repository sets nothing by hand.
 `kanbanzai step do` prints them as `step build` prints a step's (`also follow (project skills)`, `read first (this
 route)`), and each of the three skills runs it first and follows what it prints. With no `[routes]` table it prints the
 route and nothing more. Only `do`, `triage` and `cleanup` are routes; any other name is refused, and so is a route and a

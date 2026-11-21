@@ -118,6 +118,41 @@ func ConfigPath(p *config.Project) string {
 	return config.BootstrapPath(p.Root)
 }
 
+// routeChanges says, one line per route, what the plan does to the project's [routes]: a flow file that holds routes
+// replaces them, so a route the file drops is lost and the person reading the plan must see it.
+func routeChanges(before, after *config.Project) []string {
+	names := map[string]bool{}
+	for name := range before.Routes {
+		names[name] = true
+	}
+	for name := range after.Routes {
+		names[name] = true
+	}
+	sorted := make([]string, 0, len(names))
+	for name := range names {
+		sorted = append(sorted, name)
+	}
+	sort.Strings(sorted)
+	describe := func(r config.Route) string {
+		return fmt.Sprintf("extend [%s], context [%s]", strings.Join(r.Extend, ", "), strings.Join(r.Context, ", "))
+	}
+	var lines []string
+	for _, name := range sorted {
+		old, had := before.Routes[name]
+		now, has := after.Routes[name]
+		switch {
+		case had && has && describe(old) == describe(now):
+		case !had:
+			lines = append(lines, fmt.Sprintf("route %s: added -> %s", name, describe(now)))
+		case !has:
+			lines = append(lines, fmt.Sprintf("route %s: %s -> removed", name, describe(old)))
+		default:
+			lines = append(lines, fmt.Sprintf("route %s: %s -> %s", name, describe(old), describe(now)))
+		}
+	}
+	return lines
+}
+
 // BuildPlan makes the plan to move the board to a proposed flow. mapping says where the cards of a stage word the
 // new flow does not know go: old word or column key -> new column key. now dates the migration.
 func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.Time) (*Plan, error) {
@@ -144,6 +179,7 @@ func BuildPlan(p *config.Project, doc *Doc, mapping map[string]string, now time.
 	for _, f := range report.Findings {
 		plan.Warnings = append(plan.Warnings, f.Message)
 	}
+	plan.Warnings = append(plan.Warnings, routeChanges(p, next)...)
 	path := ConfigPath(p)
 	plan.Config = ConfigChange{Path: slash(p.Root, path), Existed: p.ConfigFile != "", AfterSHA256: Digest(resolved.ConfigText),
 		Content: resolved.ConfigText}

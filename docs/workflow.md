@@ -1,7 +1,7 @@
 # Changing the workflow
 
 The columns, the steps and the pull order are three tables of `.kanbanzai/config.toml`: `[flow]`, `[[columns]]` and
-`[steps.<name>]`. `kanbanzai workflow` edits them for you, tells you what it would do to every card first, and can undo
+`[steps.<name>]`; a host's own `[routes.<name>]` can travel with them (see below). `kanbanzai workflow` edits them for you, tells you what it would do to every card first, and can undo
 it. It reads and writes files and git state on your machine only.
 
 ## With an agent
@@ -20,9 +20,9 @@ and are kept outside the repository.
 
 ## The flow file
 
-A **flow file** is TOML (or JSON) that holds exactly those three tables. It **replaces** the project's own: whatever it
-leaves out falls back to the shipped defaults (see `defaults/config.toml`), and the rest of your config
-(`[project]`, `[claims]`, your comments there) is untouched. Start from what you have:
+A **flow file** is TOML (or JSON) that holds those three tables, and may also hold `[routes.<name>]`. It **replaces** the
+project's own: whatever it leaves out falls back to the shipped defaults (see `defaults/config.toml`), and the rest of
+your config (`[project]`, `[claims]`, your comments there) is untouched. Start from what you have:
 
 ```bash
 kanbanzai workflow show                     # read it
@@ -103,6 +103,22 @@ kanbanzai workflow apply --plan plan.json
 The plan replaces the three flow tables and writes the `[preset]` record; the project's own types, schemas, templates
 and paths stay as they are, and a card in a stage the preset has no column for is a blocker until `--map` says where it
 goes. `workflow apply` takes only a plan, never a preset, so a person always reviews what happens to every card.
+
+### Routes in a flow file
+
+`[routes.do]`, `[routes.triage]` and `[routes.cleanup]` (each with `extend` and `context`, as
+[host-integration.md](host-integration.md#plugging-the-hosts-own-tooling-in) describes) are a host's wiring, like a
+step's `extend`, so a flow file may carry them and a preset that ships for a host's tooling does:
+
+- `workflow export` writes them after the steps when the project has any, and writes nothing about routes when it has
+  none, so an existing export is unchanged. `workflow show` lists them (`routes` in `--json`).
+- A flow file **with** a `[routes]` table replaces the project's routes, as its `[steps.*]` replace the project's steps:
+  a route the file does not name is removed. The plan lists every route it adds, changes or removes (a `warning:` line
+  each), so you read what is lost before `apply`. A flow file **without** one leaves the project's routes alone, so an
+  older export or a hand-written file never deletes a host's routes. To remove every route, edit the config.
+- A route name other than the three, a key other than `extend` and `context`, or a route and a step of the same name is
+  refused with the message the project config gives; `workflow validate` also warns about an `extend` skill that is
+  not there.
 
 ## Gates and skip rules
 

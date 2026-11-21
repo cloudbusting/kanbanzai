@@ -133,7 +133,9 @@ if recovery needs it, and say where it is.
 
 For a targeted change, start from the complete current flow: `kanbanzai workflow export --out <scratch>/current.toml`.
 Copy it and edit only that copy, keeping every setting the request does not touch — these tables replace the project's
-own, so a partial file would silently fall back to the shipped defaults. For a chosen preset, use the command's own
+own, so a partial file would silently fall back to the shipped defaults. The export also holds the project's
+`[routes.*]` when it has any; keep them, because a file that holds a routes table replaces the project's (a file with
+none leaves them alone). For a chosen preset, use the command's own
 source (`--preset NAME`, with `--step-skill` or `--step-extend` only where the owner chose one) and validate and plan
 the same source with the same flags. Never fetch a preset, a skill or a plugin from the network: this skill makes no
 network request.
