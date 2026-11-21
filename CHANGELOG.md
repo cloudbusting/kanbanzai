@@ -3,6 +3,24 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.34.0] — 2026-11-21
+
+- BUG-105: a local preset's `[[types]]` takes `branch_prefix`. A preset that sets it on a type was refused as an unknown
+  key, so a host's preset could not name its branches by kind of change (`feat/CHANGE-103`) as a project's own config
+  can; `workflow validate --preset` and `init --preset` now accept it and write it into the project.
+- CHANGE-106: a local preset carries the host settings of 0.33.0 too, so an adopting repository does not edit its
+  config by hand after `init`. Everything here is optional; a preset without it behaves as before.
+  - A preset's `config.toml` `[project]` may set `worktree_command`, checked by the project config's own rules (a
+    placeholder it cannot take, one line, `[flow] isolation = "worktree"`). `init --preset` writes it.
+  - A flow file, and so a preset's `flow.toml`, may hold `[routes.do]`, `[routes.triage]` and `[routes.cleanup]` with
+    `extend` and `context`, refused as the project config refuses a hand-written route. `workflow export` writes them
+    after the steps when the project has any (an export of a project without routes is unchanged), `workflow show`
+    lists them (`routes` in `--json`), and `init --preset` writes them.
+  - A flow file with a `[routes]` table replaces the project's routes, as its `[steps.*]` replace its steps, and
+    `workflow plan` says each route it adds, changes or removes before `apply`; a file without one leaves the project's
+    routes alone. `plan` and `apply` never write `[project]` keys, `worktree_command` included. Docs:
+    `docs/presets.md`, `docs/workflow.md`, `docs/host-integration.md`.
+
 ## [0.33.0] — 2026-11-21
 
 - CHANGE-103: a host plugs its own tooling in by configuration, not by prose that overrides what a command prints.
