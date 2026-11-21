@@ -26,6 +26,15 @@ func TestAFlowFileMayHoldRoutesAndNothingElseNew(t *testing.T) {
 	if _, ok := doc.Raw["routes"].(map[string]any)["do"].(map[string]any); !ok {
 		t.Fatalf("routes not read: %+v", doc.Raw)
 	}
+	for _, d := range []struct {
+		text string
+		json bool
+	}{{"[routes]\n[flow]\nwip_limit = 2\n", false}, {`{"routes":{}}`, true}} {
+		empty, err := Parse([]byte(d.text), d.json)
+		if err != nil || empty.owns("routes") {
+			t.Errorf("an empty routes table must say nothing about routes: %v owns=%v", err, err == nil && empty.owns("routes"))
+		}
+	}
 	for name, text := range map[string]string{
 		"routes scalar":   "routes = 3\n",
 		"route scalar":    "[routes]\ndo = 3\n",

@@ -206,6 +206,9 @@ func checkShape(raw map[string]any) error {
 					return problem("flow file: [routes.%s] must be a table", name)
 				}
 			}
+			if len(routes) == 0 {
+				delete(raw, key) // no routes named: the file says nothing about them (it cannot remove them all)
+			}
 		default:
 			return problem("flow file: '%s' is not part of the flow: a flow file holds only [flow], [[columns]], "+
 				"[steps.<name>] and [routes.<name>] (the rest of the config is not this command's to change)", key)
