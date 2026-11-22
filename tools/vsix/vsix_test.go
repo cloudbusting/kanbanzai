@@ -108,6 +108,16 @@ func TestVSIXCommandInstallsBundledPluginsWithoutCheckout(t *testing.T) {
 			t.Errorf("VSIX install lacks %s: %v", name, err)
 		}
 	}
+	project := testutil.Repo(t, "")
+	init := exec.Command(extracted, "init", "--plugins", "opencode", "--board-main")
+	init.Dir, init.Env = project, env
+	if out, err := init.CombinedOutput(); err != nil {
+		t.Fatalf("default OpenCode init from VSIX: %v\n%s", err, out)
+	}
+	settings, err := os.ReadFile(filepath.Join(project, ".opencode", "opencode.json"))
+	if err != nil || !bytes.Contains(settings, []byte("{file:../.kanbanzai/state/kanbanzai-opencode-path}")) {
+		t.Fatalf("OpenCode settings do not reference the installed bundle: %v\n%s", err, settings)
+	}
 }
 
 // BUG-102: the editor runs the bundled command, so `install` from it must put the store plugin where the command finds

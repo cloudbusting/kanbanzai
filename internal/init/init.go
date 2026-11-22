@@ -9,6 +9,8 @@ package initcmd
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -112,6 +114,17 @@ func Run(start string, opts Options) int {
 			return fail(2, err)
 		}
 		return emit(out, errOut, report, opts)
+	}
+	for _, name := range plan.BundledPlugins {
+		source, err := bundledPluginSource()
+		if err != nil {
+			return fail(2, err)
+		}
+		files := map[string]string{"opencode": "opencode/server.js", "claude": ".claude-plugin/plugin.json"}
+		info, err := os.Stat(filepath.Join(source, filepath.FromSlash(files[name])))
+		if err != nil || !info.Mode().IsRegular() {
+			return fail(2, fmt.Errorf("bundled %s plugin is not installed; run kanbanzai install and retry, or use --plugin-source with a checkout", name))
+		}
 	}
 	result, err := Apply(plan, opts.after)
 	report.Result = result

@@ -60,18 +60,102 @@ func pluginCheckout(t *testing.T) string {
 	return dir
 }
 
-func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
+func installedBundle(t *testing.T) {
+	t.Helper()
+	source, err := bundledPluginSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Write(t, filepath.Join(source, ".claude-plugin", "plugin.json"), "{}")
+	testutil.Write(t, filepath.Join(source, "opencode", "server.js"), "export default {}\n")
+}
+
+func TestSelectedPluginsDefaultToBundled(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
+	for _, agents := range [][]string{{"opencode"}, {"claude"}, {"claude", "opencode"}} {
+		t.Run(strings.Join(agents, ","), func(t *testing.T) {
+			root := repo(t, "main")
+			before := tree(t, root)
+			implicit := dryPlan(t, root, Options{Plugins: agents})
+			explicit := dryPlan(t, root, Options{Plugins: agents, PluginSource: "@bundled"})
+			if !reflect.DeepEqual(implicit, explicit) {
+				t.Fatalf("default plan differs from bundled plan:\nimplicit: %+v\nexplicit: %+v", implicit, explicit)
+			}
+			if !reflect.DeepEqual(before, tree(t, root)) {
+				t.Fatal("dry run changed the project")
+			}
+		})
+	}
+}
+
+func TestDefaultBundleMustBeInstalledBeforeApply(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
 	root := repo(t, "main")
 	before := tree(t, root)
-	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}})
+	plan := dryPlan(t, root, Options{Plugins: []string{"opencode"}})
+	data, _ := json.Marshal(&Report{SchemaVersion: 1, Mode: "dry-run", Plan: plan})
+	file := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(file, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errOut := initRun(root, Options{Plugins: []string{"opencode"}})
+	if code != 2 || !strings.Contains(errOut, "kanbanzai install") {
+		t.Fatalf("missing bundle: code=%d error=%q", code, errOut)
+	}
+	if !reflect.DeepEqual(before, tree(t, root)) {
+		t.Fatal("missing bundle changed the project")
+	}
+	if code, _, errOut := initRun(root, Options{PlanFile: file}); code != 2 || !strings.Contains(errOut, "kanbanzai install") {
+		t.Fatalf("saved plan with missing bundle: code=%d error=%q", code, errOut)
+	}
+	if !reflect.DeepEqual(before, tree(t, root)) {
+		t.Fatal("missing bundle saved plan changed the project")
+	}
+}
+
+func TestDefaultOpenCodeInitIsIdempotent(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
+	t.Setenv("USERPROFILE", home)
+	installedBundle(t)
+	root := repo(t, "main")
+	opts := Options{Plugins: []string{"opencode"}}
+	if code, out, errOut := initRun(root, opts); code != 0 {
+		t.Fatalf("init = %d\n%s%s", code, out, errOut)
+	}
+	commitAll(t, root)
+	before := tree(t, root)
+	if code, out, errOut := initRun(root, opts); code != 0 {
+		t.Fatalf("second init = %d\n%s%s", code, out, errOut)
+	}
+	if !reflect.DeepEqual(before, tree(t, root)) {
+		t.Fatal("a second init changed the project")
+	}
+}
+
+func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
+	root := repo(t, "main")
+	checkout := pluginCheckout(t)
+	before := tree(t, root)
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}, PluginSource: checkout})
 	if !reflect.DeepEqual(before, tree(t, root)) {
 		t.Fatal("the dry run changed the tree")
 	}
-	action := actionAt(plan, ".claude/settings.json")
+	action := actionAt(plan, claudeLocalSettingsRel)
 	if action == nil || action.Op != OpMerge || action.What != WhatPlugin || action.ExpectSHA256 != "" {
-		t.Fatalf("the plan has no merge for .claude/settings.json: %+v", action)
+		t.Fatalf("the plan has no merge for %s: %+v", claudeLocalSettingsRel, action)
 	}
-	for _, want := range []string{`"extraKnownMarketplaces"`, `"cloudbusting/kanbanzai"`, `"github"`, `"kanbanzai@kanbanzai"`} {
+	for _, want := range []string{`"extraKnownMarketplaces"`, checkout, `"directory"`, `"kanbanzai@kanbanzai"`} {
 		if !strings.Contains(action.Content, want) {
 			t.Errorf("the fragment lacks %s:\n%s", want, action.Content)
 		}
@@ -79,16 +163,16 @@ func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
 	if actionAt(plan, ".opencode/opencode.json") != nil {
 		t.Error("claude only was asked for, but the plan touches OpenCode")
 	}
-	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}}); code != 0 {
+	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}, PluginSource: checkout}); code != 0 {
 		t.Fatalf("init = %d\n%s%s", code, out, errOut)
 	}
-	settings := readJSON(t, filepath.Join(root, ".claude", "settings.json"))
+	settings := readJSON(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)))
 	enabled, _ := settings["enabledPlugins"].(map[string]any)
 	if enabled["kanbanzai@kanbanzai"] != true {
 		t.Fatalf("settings = %v", settings)
 	}
 	source := settings["extraKnownMarketplaces"].(map[string]any)["kanbanzai"].(map[string]any)["source"].(map[string]any)
-	if source["source"] != "github" || source["repo"] != "cloudbusting/kanbanzai" {
+	if source["source"] != "directory" {
 		t.Fatalf("source = %v", source)
 	}
 }
@@ -100,6 +184,7 @@ func TestBundledPluginsArePlannedWithoutCheckout(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
 	t.Setenv("USERPROFILE", home)
 	root := repo(t, "main")
+	installedBundle(t)
 	plan := dryPlan(t, root, Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"})
 	serialized, _ := json.Marshal(plan)
 	var record map[string]any
@@ -179,6 +264,7 @@ func TestBundledPlanRefusesTrackedMachineLocalPaths(t *testing.T) {
 			t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
 			t.Setenv("USERPROFILE", home)
 			root := repo(t, "main")
+			installedBundle(t)
 			opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"}
 			if code, _, errOut := initRun(root, opts); code != 0 {
 				t.Fatalf("initial init %d: %s", code, errOut)
@@ -220,6 +306,7 @@ func TestBundledPlanRefusesLocalPathTrackedAfterPreview(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
 	t.Setenv("LOCALAPPDATA", filepath.Join(home, "data"))
 	t.Setenv("USERPROFILE", home)
+	installedBundle(t)
 	root := repo(t, "main")
 	opts := Options{Plugins: []string{"claude", "opencode"}, PluginSource: "@bundled"}
 	if code, _, errOut := initRun(root, opts); code != 0 {
@@ -242,21 +329,22 @@ func TestBundledPlanRefusesLocalPathTrackedAfterPreview(t *testing.T) {
 
 func TestPluginsMergeIntoExistingSettingsAndKeepEverythingElse(t *testing.T) {
 	root := repo(t, "main")
+	source := pluginCheckout(t)
 	mine := `{"permissions":{"allow":["Bash(ls)"]},"enabledPlugins":{"other@market":true},"model":"x","n":12345678901234567890}`
-	testutil.Write(t, filepath.Join(root, ".claude", "settings.json"), mine)
+	testutil.Write(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)), mine)
 	commitAll(t, root)
-	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}})
-	action := actionAt(plan, ".claude/settings.json")
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}, PluginSource: source})
+	action := actionAt(plan, claudeLocalSettingsRel)
 	if action == nil || action.Op != OpMerge || action.ExpectSHA256 != digest(mine) {
 		t.Fatalf("merge = %+v", action)
 	}
 	if strings.Contains(action.Content, "permissions") || strings.Contains(action.Content, "other@market") {
 		t.Errorf("the fragment must carry only what is missing:\n%s", action.Content)
 	}
-	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}}); code != 0 {
+	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}, PluginSource: source}); code != 0 {
 		t.Fatalf("init = %d\n%s%s", code, out, errOut)
 	}
-	settings := readJSON(t, filepath.Join(root, ".claude", "settings.json"))
+	settings := readJSON(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)))
 	if settings["model"] != "x" || settings["permissions"] == nil {
 		t.Fatalf("another setting was lost: %v", settings)
 	}
@@ -264,7 +352,7 @@ func TestPluginsMergeIntoExistingSettingsAndKeepEverythingElse(t *testing.T) {
 	if enabled["other@market"] != true || enabled["kanbanzai@kanbanzai"] != true {
 		t.Fatalf("enabledPlugins = %v", enabled)
 	}
-	text, _ := os.ReadFile(filepath.Join(root, ".claude", "settings.json"))
+	text, _ := os.ReadFile(filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)))
 	if !strings.Contains(string(text), "12345678901234567890") {
 		t.Errorf("a large number was rewritten:\n%s", text)
 	}
@@ -328,14 +416,14 @@ func TestPluginSourceUsesALocalDirectoryAndTheLocalSettingsFile(t *testing.T) {
 	}
 }
 
-func TestOpenCodeNeedsASourceUntilItIsPublished(t *testing.T) {
+func TestOpenCodeDefaultsToBundledSource(t *testing.T) {
 	root := repo(t, "main")
 	plan := dryPlan(t, root, Options{Plugins: []string{"opencode"}})
-	if actionAt(plan, ".opencode/opencode.json") != nil {
-		t.Fatal("OpenCode was planned with no source")
+	if actionAt(plan, ".opencode/opencode.json") == nil || !reflect.DeepEqual(plan.BundledPlugins, []string{"opencode"}) {
+		t.Fatal("OpenCode was not planned with bundled source")
 	}
-	if !strings.Contains(strings.Join(plan.Warnings, "\n"), "--plugin-source") {
-		t.Errorf("no warning asking for --plugin-source:\n%v", plan.Warnings)
+	if strings.Contains(strings.Join(plan.Warnings, "\n"), "not published") {
+		t.Errorf("obsolete warning: %v", plan.Warnings)
 	}
 }
 
@@ -356,21 +444,22 @@ func TestOpenCodePluginsAreAUnion(t *testing.T) {
 
 func TestASettingsFileThatIsNotPlainJSONIsLeftAloneWithTheFragmentToAdd(t *testing.T) {
 	root := repo(t, "main")
+	source := pluginCheckout(t)
 	mine := "{\n  // my settings\n  \"model\": \"x\",\n}\n"
-	testutil.Write(t, filepath.Join(root, ".claude", "settings.json"), mine)
+	testutil.Write(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)), mine)
 	commitAll(t, root)
-	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}})
-	if actionAt(plan, ".claude/settings.json") != nil {
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}, PluginSource: source})
+	if actionAt(plan, claudeLocalSettingsRel) != nil {
 		t.Fatal("a file with comments must not get a merge")
 	}
 	warned := strings.Join(plan.Warnings, "\n")
-	if !strings.Contains(warned, ".claude/settings.json") || !strings.Contains(warned, "kanbanzai@kanbanzai") {
+	if !strings.Contains(warned, claudeLocalSettingsRel) || !strings.Contains(warned, "kanbanzai@kanbanzai") {
 		t.Errorf("the warning must name the file and give the fragment to add by hand:\n%s", warned)
 	}
-	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}}); code != 0 {
+	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}, PluginSource: source}); code != 0 {
 		t.Fatalf("init = %d\n%s%s", code, out, errOut)
 	}
-	if tree(t, root)[".claude/settings.json"] != mine {
+	if tree(t, root)[claudeLocalSettingsRel] != mine {
 		t.Fatal("the file was rewritten")
 	}
 	if _, ok := tree(t, root)[ConfigRel]; !ok {
@@ -387,7 +476,7 @@ func TestADisabledPluginIsNeverReEnabled(t *testing.T) {
 	if action := actionAt(plan, ".claude/settings.json"); action != nil && action.Op != OpKeep {
 		t.Fatalf("a disabled plugin was planned to change: %+v", action)
 	}
-	if !strings.Contains(strings.Join(plan.Warnings, "\n"), "disabled") {
+	if !strings.Contains(strings.Join(plan.Warnings, "\n"), "disables") {
 		t.Errorf("no warning that the plugin is disabled:\n%v", plan.Warnings)
 	}
 	if code, _, _ := initRun(root, Options{Plugins: []string{"claude"}}); code != 0 || tree(t, root)[".claude/settings.json"] != mine {
@@ -397,16 +486,17 @@ func TestADisabledPluginIsNeverReEnabled(t *testing.T) {
 
 func TestPluginsWorkOnAnExistingBoardWithoutTouchingTheConfig(t *testing.T) {
 	root := repo(t, "main")
+	source := pluginCheckout(t)
 	mine := "config_version = 1\n[project]\nowner = \"Me\"\n"
 	testutil.Write(t, filepath.Join(root, ".kanbanzai", "config.toml"), mine)
 	commitAll(t, root)
-	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}}); code != 0 {
+	if code, out, errOut := initRun(root, Options{Plugins: []string{"claude"}, PluginSource: source}); code != 0 {
 		t.Fatalf("init = %d\n%s%s", code, out, errOut)
 	}
 	if tree(t, root)[ConfigRel] != mine {
 		t.Fatal("the config was changed")
 	}
-	if _, ok := tree(t, root)[".claude/settings.json"]; !ok {
+	if _, ok := tree(t, root)[claudeLocalSettingsRel]; !ok {
 		t.Fatal("the plugin settings were not written")
 	}
 }
@@ -486,15 +576,16 @@ func TestAPlanFileMayOnlyMergeIntoTheKnownSettingsFiles(t *testing.T) {
 
 func TestAMergeIsStaleWhenTheFileChangedAfterThePlan(t *testing.T) {
 	root := repo(t, "main")
-	testutil.Write(t, filepath.Join(root, ".claude", "settings.json"), `{"a":1}`)
+	source := pluginCheckout(t)
+	testutil.Write(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)), `{"a":1}`)
 	commitAll(t, root)
-	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}})
+	plan := dryPlan(t, root, Options{Plugins: []string{"claude"}, PluginSource: source})
 	data, _ := json.Marshal(&Report{SchemaVersion: 1, Mode: "dry-run", Plan: plan})
 	file := filepath.Join(t.TempDir(), "plan.json")
 	if err := os.WriteFile(file, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	testutil.Write(t, filepath.Join(root, ".claude", "settings.json"), `{"a":2}`)
+	testutil.Write(t, filepath.Join(root, filepath.FromSlash(claudeLocalSettingsRel)), `{"a":2}`)
 	before := tree(t, root)
 	if code, _, errOut := initRun(root, Options{PlanFile: file}); code != 2 || !strings.Contains(errOut, "run init --dry-run again") {
 		t.Fatalf("a stale merge = %d %q, want 2", code, errOut)

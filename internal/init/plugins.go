@@ -180,11 +180,6 @@ func pluginActions(root string, agents []string, source string, bundled bool) ([
 				return nil, nil, err
 			}
 		case "opencode":
-			if source == "" {
-				warnings = append(warnings, "the OpenCode plugin is not published as a package yet: pass --plugin-source "+
-					"<a Kanbanzai checkout> to add it to "+openCodeSettingsRel)
-				continue
-			}
 			pluginPath := filepath.Join(source, "opencode")
 			if bundled {
 				if err := rejectTrackedLocalPath(root, pluginReferenceRel); err != nil {

@@ -36,6 +36,7 @@ import (
 // flags the installed command has.
 const initUsage = `  init [--dry-run] [--json] [--plan FILE] [--force] [--main-branch NAME] [--owner NAME] [--prefix KEY]
        [--context FILE[,FILE]] [--plugins claude,opencode] [--plugin-source DIR] [--with-template] [--board-branch|--board-main]
+       --plugins uses the installed bundle by default (run kanbanzai install first); --plugin-source overrides it
        [--preset NAME|DIR [--type KEY=PREFIX[:Label][,...]] [--step-skill STEP=SKILL[,...]]
         [--step-extend STEP=SKILL[+SKILL][,...]]]
        [--store NAME [--store-setting KEY=VALUE[,...]] [--store-query TEXT]]

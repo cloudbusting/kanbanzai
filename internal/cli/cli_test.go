@@ -353,12 +353,22 @@ func installFolder() (string, error) {
 
 func TestInitTakesPluginsAndNotWithAPlan(t *testing.T) {
 	project := newProject(t, "")
+	home := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", home)
+	t.Setenv("LOCALAPPDATA", home)
+	bundle := filepath.Join(home, "kanbanzai", "plugins", "current", ".claude-plugin", "plugin.json")
+	if err := os.MkdirAll(filepath.Dir(bundle), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bundle, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if code, out, _ := runCLI(t, "--help"); code != 0 || !strings.Contains(out, "--plugins claude,opencode") ||
 		!strings.Contains(out, "--plugin-source DIR") {
 		t.Fatalf("the usage does not list --plugins and --plugin-source:\n%s", out)
 	}
 	code, out, errOut := runCLI(t, "init", "--dry-run", "--json", "--plugins", "claude")
-	if code != 0 || !strings.Contains(out, ".claude/settings.json") || !strings.Contains(out, `"merge"`) {
+	if code != 0 || !strings.Contains(out, ".claude/settings.local.json") || !strings.Contains(out, `"merge"`) {
 		t.Fatalf("dry run = %d %q %q", code, out, errOut)
 	}
 	if _, err := os.Stat(filepath.Join(project.Root, ".claude")); !os.IsNotExist(err) {
@@ -380,7 +390,7 @@ func TestInitTakesPluginsAndNotWithAPlan(t *testing.T) {
 	if code, _, errOut := runCLI(t, "init", "--plan", plan); code != 0 {
 		t.Fatalf("init --plan = %d %q", code, errOut)
 	}
-	if _, err := os.Stat(filepath.Join(project.Root, ".claude", "settings.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(project.Root, ".claude", "settings.local.json")); err != nil {
 		t.Fatalf("the plan did not write the plugin settings: %v", err)
 	}
 }

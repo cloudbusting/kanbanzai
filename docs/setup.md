@@ -57,10 +57,11 @@ do not commit it as it is).
 2. **Look at the plan.** In the project:
 
    ```bash
-   kanbanzai init --dry-run --plugins claude,opencode --plugin-source @bundled
+    kanbanzai init --dry-run --plugins claude,opencode
    ```
 
-   It writes nothing. Use `--plugin-source <a Kanbanzai checkout>` instead to test a checkout.
+    It writes nothing. Omitting `--plugin-source` uses the installed bundle, just like explicit
+    `--plugin-source @bundled`. Use an absolute checkout path with `--plugin-source` to test a checkout.
 
    To keep the cards in GitHub issues instead of the project's files, add
    `--store github --store-setting repo=owner/name,label=kanbanzai`. Any other plugin is `--store NAME`
@@ -69,7 +70,7 @@ do not commit it as it is).
    (GitHub), `kanbanzai store trust` (once per clone) and `kanbanzai sync`. Never put a credential in a setting; `init`
    refuses keys such as `token`, `password` and `secret`. A project that already has a config is not changed by
    `--store`: see [store-plugins.md](store-plugins.md#choose-it-at-setup).
-3. **Apply it.** `kanbanzai init --plugins claude,opencode --plugin-source @bundled`, or save the plan with `--dry-run --json`
+3. **Apply it.** `kanbanzai init --plugins claude,opencode`, or save the plan with `--dry-run --json`
    and apply exactly that file with `kanbanzai init --plan FILE`. Init checks the board, the audit and the
    installation, lists the files to commit and never commits. To register Claude Code's local plugin, also run
    `claude plugin marketplace add "<per-user plugins/current path>" --scope local` and

@@ -409,6 +409,9 @@ func Build(d *Detected, existing *config.Project, opts Options) (*Plan, error) {
 		return nil, refuse("a type template does not fit its schema:\n  %s", strings.Join(problems, "\n  "))
 	}
 
+	if len(opts.Plugins) > 0 && opts.PluginSource == "" {
+		opts.PluginSource = "@bundled"
+	}
 	agents, source, err := checkPlugins(opts)
 	if err != nil {
 		return nil, err

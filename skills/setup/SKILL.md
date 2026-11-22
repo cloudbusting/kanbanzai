@@ -106,11 +106,12 @@ no standing answer and no evidence settles. Batch the open ones into one call. W
    `README.md`), all pre-recommended; the skills read the chosen ones first. (`--context FILE[,FILE]`)
 5. **Agents for team setup:** if `init --help` lists `--plugins`, ask for Claude Code, OpenCode, both, or neither;
    pass the selected names as `--plugins claude,opencode` (or a single name), and omit the flag for neither. Existing
-   settings are merged as the plan says, not silently overwritten. If OpenCode is selected, explain that it currently
-   needs a local Kanbanzai checkout; ask for an absolute path only when `--plugin-source` is supported. Pass a
-   confirmed path as `--plugin-source`; otherwise show the command's warning and do not claim OpenCode was enabled.
-   A local source puts machine-specific paths in `.opencode/opencode.json`; warn not to commit those as portable
-   settings. A local Claude source uses `.claude/settings.local.json`. Do not guess a path. If the flags are absent,
+    settings are merged as the plan says, not silently overwritten. Both agents use the bundle installed by
+    `kanbanzai install` by default. If it is absent, explain how to install it before applying the plan.
+    Only ask for an absolute checkout path if the owner wants to override the bundle; pass that confirmed path
+    as `--plugin-source`. The bundled OpenCode settings use an ignored local reference; an explicit checkout
+    source writes a machine path in `.opencode/opencode.json`, which is not portable. A local Claude source
+    uses `.claude/settings.local.json`. Do not guess a path. If the flags are absent,
    say so and do not collect an answer the command cannot apply.
 6. **Delivery preset:** if `init --help` lists `--preset`, run `kanbanzai workflow presets --json` and ask which
    delivery style fits the work, using each preset's `summary` and `best_for`: the options are the shipped presets,

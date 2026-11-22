@@ -60,7 +60,7 @@ kanbanzai init --plugins claude             # apply it: .kanbanzai/, and the plu
 ```
 
 It shows the plan, applies exactly that, checks the result and lists the files to commit. It never commits. For
-both agents use `--plugins claude,opencode --plugin-source @bundled`: the plugins travel with the command, so no checkout or package is needed (`kanbanzai install` puts them in your per-user folder first).
+both agents use `--plugins claude,opencode`: omitting `--plugin-source` selects the bundled plugins, which `kanbanzai install` puts in your per-user folder first. An absolute `--plugin-source` checkout path overrides the bundle.
 (In the editor, the **Kanbanzai: Init** status-bar item does the same with the whole plan in a tab you read before
 you click **Apply**: [docs/setup.md](docs/setup.md). With the plugin enabled, `/kanbanzai:setup` does it as a
 conversation.)

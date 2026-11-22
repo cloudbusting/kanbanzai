@@ -101,7 +101,7 @@ operating-system notification as well. The details:
 |---|---|---|
 | `kanbanzai.command` | empty | The `kanbanzai` command to run, as an absolute path. Empty uses the bundled command, else the per-user copy, else `kanbanzai` on `PATH`. It is machine-wide: a leftover path to an old build wins over the bundled command. |
 | `kanbanzai.notifications` | `all` | Operating-system notifications while the window is not focused: `all` (asking, blocked, waiting on you, interrupted), `asking` (only a session asking you) or `off`. |
-| `kanbanzai.pluginSource` | empty | A path to a Kanbanzai checkout for **Init** to use instead of the bundled plugins, for testing before a release. Leave it empty. |
+| `kanbanzai.pluginSource` | empty | A path to a Kanbanzai checkout for **Init** to use instead of the installed bundled plugins, for testing before a release. Leave it empty; command-line init uses the bundle by default too. |
 
 ## What it executes, reads and writes
 
