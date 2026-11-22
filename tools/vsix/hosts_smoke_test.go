@@ -203,8 +203,8 @@ func pluginVersion(t *testing.T, bundle string) string {
 }
 
 // openCodeNames asks a running OpenCode server what it loaded for a project directory. A server that has just
-// started answers with nothing while it loads the project, so an empty answer is asked again for a while.
-func openCodeNames(t *testing.T, project string, env []string, opencode, endpoint string) []string {
+// started can return built-in entries while it loads the project's plugin.
+func openCodeNames(t *testing.T, project string, env []string, opencode, endpoint string, wanted ...string) []string {
 	t.Helper()
 	query := url.QueryEscape("location[directory]") + "=" + url.QueryEscape(project)
 	deadline := time.Now().Add(45 * time.Second)
@@ -222,7 +222,11 @@ func openCodeNames(t *testing.T, project string, env []string, opencode, endpoin
 		for _, item := range body.Data {
 			names = append(names, item.Name)
 		}
-		if len(names) > 0 || time.Now().After(deadline) {
+		ready := len(names) > 0
+		for _, name := range wanted {
+			ready = ready && has(names, name)
+		}
+		if ready || time.Now().After(deadline) {
 			return names
 		}
 		time.Sleep(time.Second)
@@ -308,10 +312,10 @@ func TestHostsLoadTheBundledPluginsFromTheVSIX(t *testing.T) {
 	listener.Close()
 	mustRun(t, project, env, opencode, "service", "set", "port", strconv.Itoa(port))
 	t.Cleanup(func() { run(t, project, env, opencode, "service", "stop") })
-	if names := openCodeNames(t, project, env, opencode, "skill"); !has(names, "build") || !has(names, "do") {
+	if names := openCodeNames(t, project, env, opencode, "skill", "build", "do"); !has(names, "build") || !has(names, "do") {
 		t.Fatalf("OpenCode loaded no Kanbanzai skills from the bundle: %v", names)
 	}
-	if names := openCodeNames(t, project, env, opencode, "command"); !has(names, "kanbanzai:build") {
+	if names := openCodeNames(t, project, env, opencode, "command", "kanbanzai:build"); !has(names, "kanbanzai:build") {
 		t.Fatalf("OpenCode registered no Kanbanzai commands from the bundle: %v", names)
 	}
 
@@ -342,7 +346,7 @@ func TestHostsLoadTheBundledPluginsFromTheVSIX(t *testing.T) {
 		t.Fatalf("after update Claude Code lists %+v, want %s", entry, next)
 	}
 	mustRun(t, project, env, opencode, "service", "restart")
-	if names := openCodeNames(t, project, env, opencode, "command"); !has(names, "kanbanzai:build") {
+	if names := openCodeNames(t, project, env, opencode, "command", "kanbanzai:build"); !has(names, "kanbanzai:build") {
 		t.Fatalf("OpenCode lost the Kanbanzai commands after the refresh: %v", names)
 	}
 }
