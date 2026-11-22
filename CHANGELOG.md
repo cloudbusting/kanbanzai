@@ -3,6 +3,15 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.35.0] — 2026-11-23
+
+- BUG-107: `kanbanzai init --plugins opencode` now uses the installed bundled plugin by default instead of
+  warning that a checkout is required. The same bundled default applies to Claude Code, while an explicit
+  `--plugin-source` still selects a checkout. If the bundle is missing, init asks you to run `kanbanzai install`
+  without writing incomplete settings.
+- BUG-108: the live-host smoke waits for the Kanbanzai skills and commands rather than treating an early built-in
+  OpenCode skill as a completed plugin load.
+
 ## [0.34.0] — 2026-11-21
 
 - BUG-105: a local preset's `[[types]]` takes `branch_prefix`. A preset that sets it on a type was refused as an unknown

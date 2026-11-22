@@ -144,6 +144,8 @@ promise about versions that were not tested; raising a pin is a change to this t
 `kanbanzai --version` reports the tagged module version for a Go install, or `dev` for an unversioned development
 build. An explicitly stamped release-build version takes precedence over module metadata.
 
+In Claude Code, install the published plugin with `/plugin install kanbanzai --marketplace cloudbusting/kanbanzai`.
+
 ## Contributing
 
 To build Kanbanzai from a checkout, run its tests or package it, see [docs/contributing.md](docs/contributing.md).
