@@ -155,7 +155,7 @@ func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
 	if action == nil || action.Op != OpMerge || action.What != WhatPlugin || action.ExpectSHA256 != "" {
 		t.Fatalf("the plan has no merge for %s: %+v", claudeLocalSettingsRel, action)
 	}
-	for _, want := range []string{`"extraKnownMarketplaces"`, checkout, `"directory"`, `"kanbanzai@kanbanzai"`} {
+	for _, want := range []string{`"extraKnownMarketplaces"`, `"directory"`, `"kanbanzai@kanbanzai"`} {
 		if !strings.Contains(action.Content, want) {
 			t.Errorf("the fragment lacks %s:\n%s", want, action.Content)
 		}
@@ -172,7 +172,7 @@ func TestPluginsAddTheClaudeSettingsToAFreshProject(t *testing.T) {
 		t.Fatalf("settings = %v", settings)
 	}
 	source := settings["extraKnownMarketplaces"].(map[string]any)["kanbanzai"].(map[string]any)["source"].(map[string]any)
-	if source["source"] != "directory" {
+	if source["source"] != "directory" || source["path"] != checkout {
 		t.Fatalf("source = %v", source)
 	}
 }
