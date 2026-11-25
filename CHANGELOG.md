@@ -3,6 +3,12 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.35.1] — 2026-11-25
+
+- BUG-109: Store plugin trust recognizes symlink aliases to the same executable without repeatedly asking for trust;
+  the resolved path and executable hash still have to match.
+- BUG-110: The package selector can resume interrupted package QA while preserving its eligibility and claim checks.
+
 ## [0.35.0] — 2026-11-23
 
 - BUG-107: `kanbanzai init --plugins opencode` now uses the installed bundled plugin by default instead of
