@@ -134,6 +134,16 @@ func TestAnUntrustedPluginStopsTheBoardUntilTrusted(t *testing.T) {
 	if result := testutil.Run(t, root, env, "store", "status"); result.Code != 0 || !strings.Contains(result.Stdout, "trusted: yes") {
 		t.Fatalf("store status: %d %s %s", result.Code, result.Stdout, result.Stderr)
 	}
+	aliasDir := t.TempDir()
+	if err := os.Symlink(filepath.Join(dir, name), filepath.Join(aliasDir, name)); err == nil {
+		aliasEnv := map[string]string{"KANBANZAI_PROJECT": "", "PATH": aliasDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+			"XDG_DATA_HOME": user, "LOCALAPPDATA": user}
+		if result := testutil.Run(t, root, aliasEnv, "store", "status"); result.Code != 0 || !strings.Contains(result.Stdout, "trusted: yes") {
+			t.Fatalf("store status through symlink: %d %s %s", result.Code, result.Stdout, result.Stderr)
+		}
+	} else {
+		t.Logf("symlink status check unavailable: %v", err)
+	}
 	if _, err := os.Stat(filepath.Join(user, "kanbanzai", "store-trust.json")); err != nil {
 		t.Fatalf("trust is not in the per-user folder: %v", err)
 	}
