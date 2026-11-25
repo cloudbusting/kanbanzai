@@ -27,7 +27,7 @@ go run ./tools/packageset
 It is read-only and prints JSON: `head`, `branch`, `clean`, `tree` (the core's `kanbanzai tree --json` verdict and
 paths), `include` (card ids) and `exclude` (each with `id`,
 `reason` and `in_head`). It includes a card only when the board and `kanbanzai step --for <ID> --json` say the card
-is Checked, its next step is `deploy-qa`, it is not held or blocked, it is unclaimed or holds the caller's live claim,
+is Checked or resuming In QA, its next step is `deploy-qa`, it is not held or blocked, it is unclaimed or holds the caller's live claim,
 its Deploy is not None, and its branch
 is merged into `HEAD`. It exits non-zero, including nothing, when the board cannot be read or the checkout is not on
 the main branch: stop and report that.
@@ -50,6 +50,8 @@ For each id in `include`, one at a time:
    run the start move that `kanbanzai workspace <ID>` prints in its `then:` line (`kanbanzai move <ID> start`, with
    `--where "<the card's workspace record>"` when the column needs a workspace). A refusal, such as the
    work-in-progress cap or a missing workspace, leaves the card out: release its claim and never force the move.
+   Otherwise, resume an already In QA card without moving it again, only if its route remains `resume` for `deploy-qa`;
+   leave out any other route and release its claim.
 
 The included set is the cards that now hold this session's claim and sit in the step's Doing column. If none are
 left, report "nothing to package" and stop. Every tool call renews a claim. If a later `move` is refused, report it and leave

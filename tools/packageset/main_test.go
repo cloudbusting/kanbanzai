@@ -18,6 +18,19 @@ const blockedTree = `{"verdict":"blocked","branch":"main","head":"abc","board":[
 
 const checkedStep = `{"card":"%s","column":"checked","route":{"action":"step","step":"deploy-qa","target":"in-qa","blocked":false,"reason":""},"skipped_steps":[]}`
 const noneStep = `{"card":"%s","column":"checked","route":{"action":"close","step":"","target":"done","blocked":false,"reason":""},"skipped_steps":["deploy-qa","ship"]}`
+const resumeStep = `{"card":"%s","column":"in-qa","route":{"action":"resume","step":"deploy-qa","target":"in-qa","blocked":false,"reason":""},"skipped_steps":[]}`
+
+func TestSelectIncludesInterruptedQA(t *testing.T) {
+	dir := repo(t, []string{"BUG-1"}, "BUG-2")
+	f := fake{dir: dir, canned: map[string]string{
+		"kanbanzai board --json":            `{"columns":[{"key":"in-qa","cards":[{"id":"BUG-1","stage":"in-qa","where":"worktree BUG-1","owner":null,"held":null}]}]}`,
+		"kanbanzai step --for BUG-1 --json": step("BUG-1", resumeStep),
+	}}
+	got, err := Select(f, "checked", "main")
+	if err != nil || !reflect.DeepEqual(got.Include, []string{"BUG-1"}) {
+		t.Fatalf("selection = %+v, err %v", got, err)
+	}
+}
 
 // fake answers the kanbanzai command from canned output and runs git for real in dir.
 type fake struct {

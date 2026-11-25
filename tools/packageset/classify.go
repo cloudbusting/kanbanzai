@@ -45,7 +45,7 @@ func Classify(c Candidate) Decision {
 	switch {
 	case c.Err != "":
 		return out("could not read the card: " + c.Err)
-	case c.Stage != "checked" || c.Column != "checked":
+	case !((c.Stage == "checked" && c.Column == "checked") || (c.Stage == "in-qa" && c.Column == "in-qa")):
 		return out("not in Checked")
 	case c.Owner != "":
 		return out("claimed by " + c.Owner)
@@ -62,8 +62,8 @@ func Classify(c Candidate) Decision {
 	switch {
 	case c.Route.Step != "deploy-qa":
 		return out("route is not deploy-qa (" + c.Route.Step + ")")
-	case c.Route.Action != "step":
-		return out("route action " + c.Route.Action + " is not a fresh deploy-qa step")
+	case (c.Stage == "checked" && c.Route.Action != "step") || (c.Stage == "in-qa" && c.Route.Action != "resume"):
+		return out("route action " + c.Route.Action + " does not match the deploy-qa stage")
 	case c.Merge == MergeNo:
 		return out("its branch is not merged into the main branch")
 	case c.Merge != MergeYes:

@@ -27,6 +27,7 @@ func TestPackageSkillStatesTheMultiCardRules(t *testing.T) {
 		"Exit 3 (another session holds it) or exit 4 (an expired claim) leaves the card out",
 		"Never use `--takeover` here",
 		"the claim may already have moved the card",
+		"resume an already In QA card without moving it again",
 		"the start move that `kanbanzai workspace <ID>` prints in its `then:` line",
 		"or a missing workspace, leaves the card out",
 		"never force the move",

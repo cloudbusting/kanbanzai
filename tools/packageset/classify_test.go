@@ -70,3 +70,28 @@ func TestClassifyManyEligible(t *testing.T) {
 		}
 	}
 }
+
+func TestClassifyInterruptedQA(t *testing.T) {
+	base := ready("BUG-1")
+	base.Stage, base.Column, base.Route.Action = "in-qa", "in-qa", "resume"
+	for _, tc := range []struct {
+		name   string
+		change func(*Candidate)
+		want   bool
+	}{
+		{"free", func(*Candidate) {}, true},
+		{"held", func(c *Candidate) { c.Held = "blocked" }, false},
+		{"foreign claim", func(c *Candidate) { c.Owner = "other" }, false},
+		{"wrong route", func(c *Candidate) { c.Route.Action = "step" }, false},
+		{"unmerged", func(c *Candidate) { c.Merge = MergeNo }, false},
+		{"unreadable", func(c *Candidate) { c.Err = "status" }, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := base
+			tc.change(&c)
+			if got := Classify(c); got.Include != tc.want {
+				t.Fatalf("include = %v (%s), want %v", got.Include, got.Reason, tc.want)
+			}
+		})
+	}
+}

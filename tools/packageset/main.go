@@ -159,11 +159,14 @@ func Select(r Runner, column, main string) (Report, error) {
 		owner = strings.TrimSpace(ownerLines[0])
 	}
 	for _, col := range board.Columns {
-		if col.Key != column {
+		if col.Key != column && !(column == "checked" && col.Key == "in-qa") {
 			continue
 		}
 		for _, card := range col.Cards {
 			c := Candidate{ID: card.ID, Stage: card.Stage}
+			if card.Stage != col.Key {
+				c.Err = "board stage does not match its column"
+			}
 			if card.Owner != nil {
 				c.Owner = *card.Owner
 			}
