@@ -28,7 +28,6 @@ leaves the doing to the agents and the rules you already have.
   and a team whose `main` is protected needs, runs `git push` of that one branch, and only when you say so
   (`publish = "auto"`). A [store plugin](docs/store-plugins.md) you select and trust keeps the cards in JIRA, GitHub
   issues or another tracker, and reaches it with the tools it drives; the command itself still makes no request.
-  Trust follows symlink aliases to the same plugin path; changed programs or different resolved paths need trust again.
 
 ## Supported
 

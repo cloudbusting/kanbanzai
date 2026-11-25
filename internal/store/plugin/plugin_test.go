@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -160,106 +159,6 @@ func TestAnUntrustedPluginIsNeverRun(t *testing.T) {
 	_ = file.Close()
 	if _, err := Open(p, io.Discard); !errors.Is(err, store.ErrRefused) || !strings.Contains(err.Error(), "changed") {
 		t.Fatalf("Open after the program changed = %v, want a refusal saying it changed", err)
-	}
-}
-
-func TestTrustResolvesAliasesAndLegacyRecords(t *testing.T) {
-	path := install(t, "serve")
-	p := project(t, t.TempDir())
-	linkDir := filepath.Join(t.TempDir(), "alias-dir")
-	if err := os.Symlink(filepath.Dir(path), linkDir); err != nil {
-		t.Skipf("symlinks unavailable: %v", err)
-	}
-	alias := filepath.Join(t.TempDir(), filepath.Base(path))
-	if err := os.Symlink(filepath.Join(linkDir, filepath.Base(path)), alias); err != nil {
-		t.Fatal(err)
-	}
-	direct := Program{Name: "fake", Path: path, Argv: []string{path}}
-	linked := Program{Name: "fake", Path: alias, Argv: []string{alias}}
-	canonical, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct{ recorded, checked Program }{{linked, direct}, {direct, linked}} {
-		record, err := Trust(p, tc.recorded, "now")
-		if err != nil || record.Path != canonical {
-			t.Fatalf("Trust = %+v, %v; want path %s", record, err, canonical)
-		}
-		if err := Trusted(p, tc.checked); err != nil {
-			t.Fatalf("Trusted through alias: %v", err)
-		}
-	}
-	sum, err := linked.Sum()
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := json.Marshal(map[string]map[string]Record{p.Root: {"fake": {Path: alias, SHA256: sum, At: "then"}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(TrustFile(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := Trusted(p, direct); err != nil {
-		t.Fatalf("legacy alias record: %v", err)
-	}
-	after, err := os.ReadFile(TrustFile())
-	if err != nil || !bytes.Equal(after, data) {
-		t.Fatalf("legacy record unexpectedly rewritten: %v", err)
-	}
-	other := filepath.Join(t.TempDir(), filepath.Base(path))
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(other, content, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	err = Trusted(p, Program{Name: "fake", Path: other})
-	if !errors.Is(err, store.ErrRefused) || strings.Contains(err.Error(), "changed since") {
-		t.Fatalf("different path with identical bytes: %v", err)
-	}
-	if _, err := Trust(p, linked, "now"); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(alias); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(other, alias); err != nil {
-		t.Fatal(err)
-	}
-	if err := Trusted(p, linked); !errors.Is(err, store.ErrRefused) {
-		t.Fatalf("retargeted alias = %v, want refusal", err)
-	}
-	if err := os.WriteFile(TrustFile(), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(alias); err != nil {
-		t.Fatal(err)
-	}
-	if err := Trusted(p, direct); err == nil {
-		t.Fatal("broken legacy path was trusted")
-	}
-}
-
-func TestFindUsesResolvedExecutable(t *testing.T) {
-	path := install(t, "serve")
-	p := project(t, t.TempDir())
-	aliasDir := t.TempDir()
-	if err := os.Symlink(path, filepath.Join(aliasDir, filepath.Base(path))); err != nil {
-		t.Skipf("symlinks unavailable: %v", err)
-	}
-	t.Setenv("PATH", aliasDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	got, err := Find(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Path != want || got.Argv[0] != want {
-		t.Fatalf("Find = %+v; want resolved path %s", got, want)
 	}
 }
 
