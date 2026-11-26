@@ -61,6 +61,9 @@ func Find(project *config.Project) (Program, error) {
 	if path, err = filepath.Abs(path); err != nil {
 		return Program{}, err
 	}
+	if path, err = filepath.EvalSymlinks(path); err != nil {
+		return Program{}, store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q: cannot resolve program path: %v", name, err))
+	}
 	return Program{Name: name, Path: path, Argv: []string{path}}, nil
 }
 
@@ -113,15 +116,27 @@ func Trusted(project *config.Project, program Program) error {
 		return nil
 	}
 	record, ok := readTrust()[project.Root][program.Name]
+	if !ok {
+		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q (%s) is not trusted in this clone: read what it "+
+			"does, then run `kanbanzai store trust`", program.Name, program.Path))
+	}
+	recordedPath, err := filepath.EvalSymlinks(record.Path)
+	if err != nil {
+		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q: cannot resolve trusted path (%s): run `kanbanzai store trust` again if you trust the program", program.Name, record.Path))
+	}
+	currentPath, err := filepath.EvalSymlinks(program.Path)
+	if err != nil {
+		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q: cannot resolve program path (%s)", program.Name, program.Path))
+	}
+	if recordedPath != currentPath {
+		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q path differs from the trusted path (%s): run `kanbanzai store trust` again if you trust the program", program.Name, program.Path))
+	}
+	program.Path = currentPath
 	sum, err := program.Sum()
 	if err != nil {
 		return err
 	}
-	switch {
-	case !ok:
-		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q (%s) is not trusted in this clone: read what it "+
-			"does, then run `kanbanzai store trust`", program.Name, program.Path))
-	case record.SHA256 != sum || record.Path != program.Path:
+	if record.SHA256 != sum {
 		return store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q changed since it was trusted (%s): run "+
 			"`kanbanzai store trust` again if you trust the new one", program.Name, program.Path))
 	}
@@ -130,6 +145,11 @@ func Trusted(project *config.Project, program Program) error {
 
 // Trust records this clone's owner's trust in the program as it is now.
 func Trust(project *config.Project, program Program, at string) (Record, error) {
+	path, err := filepath.EvalSymlinks(program.Path)
+	if err != nil {
+		return Record{}, store.Refuse(store.CodeRefused, fmt.Sprintf("store plugin %q: cannot resolve program path (%s)", program.Name, program.Path))
+	}
+	program.Path = path
 	sum, err := program.Sum()
 	if err != nil {
 		return Record{}, err
