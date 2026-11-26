@@ -16,12 +16,15 @@ in files sees no change.
 - **A plugin runs only when you select it and trust it.**
   - `[store] plugin = "x"` runs `kanbanzai-store-x` from your `PATH`. The name is never a path, an argument list or
     a shell command, so a config committed to a repository cannot make your machine run something else.
-  - The plugin runs only after you run `kanbanzai store trust` in this clone. That records the plugin's name and the
-    SHA-256 of the program it found in `store-trust.json` in your per-user Kanbanzai folder
+  - The plugin runs only after you run `kanbanzai store trust` in this clone. That records the plugin's name, resolved
+    program path and SHA-256 in `store-trust.json` in your per-user Kanbanzai folder
     (`~/.local/share/kanbanzai/`, or `%LOCALAPPDATA%\kanbanzai\` on Windows), keyed by this clone's path. Because it
     is outside every repository, a repository can't bring trust in with it.
-  - A program that changes, after an upgrade or a different `PATH`, needs trust again. Until then, no command runs
-    it, and every command that needs it says so.
+  - Symlink aliases to the same path work without trusting again. Existing records with an alias are resolved when
+    checked, without rewriting them; their alias must still resolve. Because an old record stores only the alias,
+    its original target cannot be recovered if the alias was retargeted before the check. New records store the target.
+    A changed program or a different resolved path needs trust again, even when the bytes are identical. A path that
+    cannot be resolved is refused. Until trust is restored, no command runs the plugin.
 - **It runs as you.** It is started with an argument array (never a shell), in the project's root, with your
   environment. Kanbanzai adds no secret to that environment.
 - **The tickets stay out of git.** The working copy is under `.kanbanzai/state/store/work/`, which git ignores. A
