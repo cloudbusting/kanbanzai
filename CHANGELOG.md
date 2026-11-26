@@ -3,6 +3,12 @@
 All notable changes to Kanbanzai are recorded here. A heading's version is the release tag; the Claude Code plugin
 and the editor extension carry the same version.
 
+## [0.35.2] — 2026-11-26
+
+- BUG-111: Store plugin trust again recognizes a symlink alias to the same executable. The 0.35.1 release was tagged
+  after the BUG-109 fix had been reverted, so it still reported a symlinked plugin as changed and asked for trust
+  repeatedly. The resolved path and the executable hash still have to match.
+
 ## [0.35.1] — 2026-11-25
 
 - BUG-109: Store plugin trust recognizes symlink aliases to the same executable without repeatedly asking for trust;
